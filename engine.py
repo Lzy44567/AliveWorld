@@ -3,7 +3,7 @@ import json
 import random
 import logging
 from openai import OpenAI
-from prompts import get_reaction_prompt, get_settlement_prompt, get_style_expansion_prompt
+from prompts import get_reaction_prompt, get_settlement_prompt, get_style_expansion_prompt, get_world_architect_prompt
 
 class AIEngine:
     def __init__(self, config):
@@ -21,7 +21,21 @@ class AIEngine:
         except Exception as e:
             return f"生成失败: {e}"
 
-    # 【Bug修复】：明确接收 world_info
+    def generate_worldbook(self, inspiration):
+        sys_prompt = get_world_architect_prompt()
+        logging.info(f"========== 架构师正在生成世界: {inspiration} ==========")
+        try:
+            res = self.client.chat.completions.create(
+                model=self.model, 
+                messages=[{"role": "system", "content": sys_prompt}, {"role": "user", "content": f"世界灵感：{inspiration}"}],
+                temperature=0.8,
+                response_format={"type": "json_object"}
+            )
+            return json.loads(res.choices[0].message.content)
+        except Exception as e:
+            logging.error(f"世界书生成失败: {e}")
+            return None
+
     def get_world_reactions(self, context, player_action, dynamic_state, character_info, world_info):
         sys_prompt = get_reaction_prompt(character_info, world_info)
         prompt = f"【情景】：\n{context}\n【状态】：{json.dumps(dynamic_state, ensure_ascii=False)}\n【玩家行动】：{player_action}"

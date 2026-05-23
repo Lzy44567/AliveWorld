@@ -4,3 +4,7 @@ __pycache__/
 config.yml
 logs/
 saves/
+worldbooks/*
+!worldbooks/example_*.yml
+characters/*
+!characters/example_*.yml

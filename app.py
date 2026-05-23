@@ -4,7 +4,7 @@ import yaml, json, os, glob
 from datetime import datetime
 import pandas as pd
 from engine import AIEngine
-import utils # 导入我们刚才写的所有工具
+import utils 
 
 st.set_page_config(page_title="AliveWorld AI引擎", page_icon="🐉", layout="wide")
 
@@ -57,7 +57,8 @@ if 'game_started' not in st.session_state or not st.session_state.game_started:
                 st.session_state.session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
                 st.session_state.session_save_name = f"{sel_char_name}_{st.session_state.session_id}"
                 st.session_state.game_over, st.session_state.game_started = False, True
-                utils.auto_save_game(); st.rerun()
+                utils.auto_save_game()
+                st.rerun()
 
     with tab_saves:
         saves = {}
@@ -79,7 +80,8 @@ if 'game_started' not in st.session_state or not st.session_state.game_started:
                 st.session_state.game_over, st.session_state.game_started = False, True
                 st.rerun()
             if c2.button("🗑️ 删除存档", type="secondary", use_container_width=True):
-                os.remove(sel_save['_filepath']); st.rerun()
+                os.remove(sel_save['_filepath'])
+                st.rerun()
 
     with tab_char:
         mode = st.radio("模式", ["✨ 创建", "✏️ 编辑"], key="c_mode", horizontal=True)
@@ -100,25 +102,76 @@ if 'game_started' not in st.session_state or not st.session_state.game_started:
                 st.rerun()
 
     with tab_world:
+        if 'ai_world_draft' not in st.session_state:
+            st.session_state.ai_world_draft = None
+
+        with st.expander("🧠 AI 世界架构师 (输入灵感，一键生成整个世界)"):
+            world_idea = st.text_input("输入灵感（例：赛博修仙、高魔废土、克苏鲁大航海...）")
+            if st.button("✨ 创造世界"):
+                with st.spinner("神明正在构筑法则...这需要大约半分钟..."):
+                    draft = ai_engine.generate_worldbook(world_idea)
+                    if draft:
+                        st.session_state.ai_world_draft = draft
+                        st.success("世界创造成功！已自动填入下方表格，确认无误后请点击最下方保存。")
+                    else:
+                        st.error("生成失败，请重试。")
+
         wmode = st.radio("模式", ["✨ 创建新世界", "✏️ 编辑世界"], key="w_mode", horizontal=True)
         wedit_target = world_dict[st.selectbox("选择世界", list(world_dict.keys()), key="w_sel")] if wmode == "✏️ 编辑世界" and world_dict else None
-        w_name = st.text_input("世界名称", value=wedit_target['name'] if wedit_target else "")
-        w_global = st.text_area("常驻世界法则", value=wedit_target.get('global_setting', '') if wedit_target else "", height=100)
-        w_open = st.text_area("世界开场白", value=wedit_target.get('starting_scene', '') if wedit_target else "", height=100)
         
-        default_entries = wedit_target.get('entries', [{"name": "范例", "keys": "关键字1,关键字2", "content": "设定..."}]) if wedit_target else [{"name": "", "keys": "", "content": ""}]
-        df = pd.DataFrame(default_entries)
+        draft = st.session_state.ai_world_draft
+        def_name = draft['name'] if draft else (wedit_target['name'] if wedit_target else "")
+        def_global = draft['global_setting'] if draft else (wedit_target.get('global_setting', '') if wedit_target else "")
+        def_open = draft['starting_scene'] if draft else (wedit_target.get('starting_scene', '') if wedit_target else "")
+        def_entries = draft['entries'] if draft else (wedit_target.get('entries', [{"name": "范例", "keys": "关键字1", "content": "设定..."}]) if wedit_target else [{"name": "", "keys": "", "content": ""}])
+
+        w_name = st.text_input("世界名称", value=def_name)
+        w_global = st.text_area("常驻世界法则", value=def_global, height=100)
+        w_open = st.text_area("世界开场白", value=def_open, height=100)
+        
+        df = pd.DataFrame(def_entries)
+        st.markdown("##### 触发词条管理 (Data Editor)")
         edited_df = st.data_editor(df, num_rows="dynamic", use_container_width=True, hide_index=True)
         
         if st.button("💾 保存世界书", type="primary") and w_name.strip():
             world_data = {"name": w_name.strip(), "global_setting": w_global, "starting_scene": w_open, "entries": edited_df.dropna(how="all").to_dict('records')}
             safe_fn = "".join(x for x in w_name if x.isalnum() or x in " _-")
             if wedit_target and wedit_target['name'] != w_name: os.remove(wedit_target['_filepath'])
-            with open(os.path.join(utils.WORLD_DIR, f"{safe_fn}.yml"), 'w', encoding='utf-8') as f: yaml.dump(world_data, f, allow_unicode=True)
+            with open(os.path.join(utils.WORLD_DIR, f"{safe_fn}.yml"), 'w', encoding='utf-8') as f: 
+                yaml.dump(world_data, f, allow_unicode=True)
+            st.session_state.ai_world_draft = None # 清除草稿
             st.rerun()
+            
+    with tab_style:
+        if 'ai_style_draft' not in st.session_state:
+            st.session_state.ai_style_draft = ""
+
+        with st.expander("🧙‍♂️ AI 文风大师 (输入几句话，AI帮你写出严谨的系统指令)"):
+            short_prompt = st.text_input("你想要的文风（例：黑暗血腥、多视角描写、轻松网文）")
+            if st.button("✨ 让 AI 构思文风"):
+                with st.spinner("大师正在润色你的规则..."):
+                    st.session_state.ai_style_draft = ai_engine.expand_style(short_prompt)
+
+        smode = st.radio("模式", ["✨ 创建文风", "✏️ 编辑文风"], key="s_mode", horizontal=True)
+        sedit_target = style_dict[st.selectbox("选择文风", list(style_dict.keys()), key="s_sel")] if smode == "✏️ 编辑文风" and style_dict else None
+        
+        with st.form("style_form"):
+            s_name = st.text_input("文风名称", value=sedit_target['name'] if sedit_target else "")
+            
+            # 如果 AI 刚生成了草稿，则填入草稿；否则读取选中的卡片内容
+            default_content = st.session_state.ai_style_draft if st.session_state.ai_style_draft else (sedit_target['content'] if sedit_target else "")
+            s_content = st.text_area("文风约束 (Prompt指令)", value=default_content, height=150)
+            
+            if st.form_submit_button("💾 保存文风", type="primary") and s_name.strip():
+                safe_fn = "".join(x for x in s_name if x.isalnum() or x in " _-")
+                if sedit_target and sedit_target['name'] != s_name: os.remove(sedit_target['_filepath'])
+                with open(os.path.join(utils.STYLE_DIR, f"{safe_fn}.yml"), 'w', encoding='utf-8') as f: 
+                    yaml.dump({"name": s_name.strip(), "content": s_content}, f, allow_unicode=True)
+                st.session_state.ai_style_draft = "" # 清空草稿
+                st.rerun()
     st.stop()
 
-# ================= 5. 游戏主界面 =================
+# ================= 游戏主界面 =================
 with st.sidebar:
     st.title("🛡️ 状态栏")
     word_limit = st.slider("详细度 (字数)", 100, 2000, 500, 100)
@@ -173,6 +226,9 @@ else:
     if action:
         utils.take_snapshot()
         st.session_state.chat_messages.append({"role": "user", "content": action})
+        
+        utils.auto_save_game() 
+        
         with st.chat_message("user", avatar="🤔"): st.write(action)
             
         ctx = "\n".join(st.session_state.context_history[-3:])
@@ -201,4 +257,6 @@ else:
                     st.session_state.chat_messages.append({"role": "ai", "content": result.get('story_text', '...')})
                     st.session_state.context_history.append(f"玩家：{action}\n结果：{result.get('story_text', '...')}")
                     utils.apply_state_updates(result)
-                    utils.auto_save_game(); st.rerun()
+                    
+                    utils.auto_save_game() 
+                    st.rerun()
