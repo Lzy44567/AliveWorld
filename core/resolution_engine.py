@@ -8,16 +8,16 @@ from core.ai_engine import robust_json_parse, intelligent_salvage
 log = get_logger()
 
 class BaseResolutionStrategy:
-    """推演策略基类，未来你可以实现 N*n 贝叶斯推演策略继承此类"""
     def resolve(self, session, player_action): raise NotImplementedError
 
 class DualTrackResolver(BaseResolutionStrategy):
-    """当前正在使用的：双轨掷骰推演"""
     def resolve(self, session, player_action):
         pts = load_system_prompts()
         ctx = session.get_context_text()
         dyn_state = session.get_dynamic_state_for_ai()
-        active_world = session.build_active_world_info(player_action)
+        
+        # 接收触发的词条
+        active_world, triggered = session.build_active_world_info(player_action) 
         
         # 1. 第一轨：生成变数
         react_p = pts.get('reaction_prompt', '').replace('{world_info}', active_world).replace('{character_info}', session.char_info)
@@ -45,8 +45,10 @@ class DualTrackResolver(BaseResolutionStrategy):
             try: settlement = robust_json_parse(raw_settle)
             except Exception as e: settlement = intelligent_salvage(raw_settle, str(e))
 
+        # 【修复】在这里加上了正确的逗号
         return {
             "reactions": reactions,
             "chosen_reaction": chosen,
-            "settlement": settlement
+            "settlement": settlement,
+            "triggered_entries": triggered
         }

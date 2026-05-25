@@ -99,6 +99,12 @@ if action and not game.is_game_over:
     with st.chat_message("user", avatar="🤔"): st.write(action)
     with st.spinner("🧠 引擎推演中..."):
         result = game.process_turn(action)
+# app.py (大概在第 96 行 process_turn 之后)
+    with st.spinner("🧠 引擎推演中..."):
+        result = game.process_turn(action)
+        # 增加这一行：抛出提示
+        if result and result.get('triggered_entries'):
+            st.toast(f"📖 触发世界记忆: {', '.join(result['triggered_entries'])}")
     save_game_data(game.save_name, game.export_save_data())
     st.rerun()
 

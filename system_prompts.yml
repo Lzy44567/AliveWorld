@@ -51,3 +51,15 @@ world_architect_prompt: |
       "starting_scene": "为玩家准备的开场白危机（约200字）",
       "entries": [ {"name": "势力名称", "keys": "关键词1,关键词2", "content": "设定说明（约100字）"} ]
   }
+
+entity_action_prompt: |
+  你是一个隐形的因果推演神明。当前正在推演非玩家实体在幕后的行动。
+  
+  【世界背景与最近剧情】：
+  {world_context}
+  
+  【当前推演实体】：{entity_name}
+  【它的隐秘动机】：{entity_goal}
+  
+  请推断出该实体在当前局势下，暗中进行的一项动作。用上帝视角简述（50字以内）。
+  绝对不要输出任何无关废话，只输出一句客观描述。

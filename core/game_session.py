@@ -15,6 +15,10 @@ class GameSession:
         self.world_info_base = ""
         self.world_entries = []
         self.word_limit = 500
+        self.snapshots = []
+        # 【修改】将 ai_engine 注入暗流引擎
+        self.undercurrent = UndercurrentEngine(ai_engine)
+        self.resolver = DualTrackResolver()
         
         self.state = {
             "player": {"hp": 100, "max_hp": 100, "mana": 100, "max_mana": 100},
@@ -25,7 +29,7 @@ class GameSession:
         self.history = {"chat_messages": [], "context_history": []}
         self.snapshots = [] # 独立管理存档点
         
-        self.undercurrent = UndercurrentEngine()
+        self.undercurrent = UndercurrentEngine(self.ai_engine)
         self.resolver = DualTrackResolver()
 
     def start_new_game(self, char_data, style_content, world_data, opening):
@@ -39,8 +43,8 @@ class GameSession:
         self.history["context_history"] = [opening]
 
     def process_turn(self, user_action: str):
-        self.history["chat_messages"].append({"role": "user", "content": user_action})
         self._take_snapshot()
+        self.history["chat_messages"].append({"role": "user", "content": user_action})
         
         result = self.resolver.resolve(self, user_action)
         if not result or not result.get('settlement'): return {"error": True}
@@ -50,8 +54,15 @@ class GameSession:
         self.history["chat_messages"].append({"role": "system", "content": f"命运变数: {result['chosen_reaction']['description']}"})
         self.history["chat_messages"].append({"role": "ai", "content": settlement.get('story_text', '')})
         
-        # 移除了这里的 world_events 处理，未来交由实体引擎接管
-        self.undercurrent.tick() 
+        # 【修改】给暗流引擎提供主线视角，并获取本次触发的暗流事件
+        recent_context = self.get_context_text()
+        undercurrent_events = self.undercurrent.tick(recent_context)
+        
+        if undercurrent_events:
+            for ev in undercurrent_events:
+                # 将实体行动通过 System 形式偷偷推给前端显示（你也可以折叠起来）
+                self.history["chat_messages"].append({"role": "system", "content": f"🌌 潜流涌动: {ev}"})
+        
         self._apply_state_updates(settlement)
         self.history["context_history"].append(f"玩家：{user_action}\n结果：{settlement.get('story_text', '')}")
         
@@ -59,14 +70,18 @@ class GameSession:
 
     def get_context_text(self): return "\n".join(self.history["context_history"][-3:])
     def get_dynamic_state_for_ai(self): return {"stats": self.state['player'], "bars": self.state['bars'], "properties": self.state['properties'], "buffs": self.state['buffs'], "npcs": self.state['npcs']}
+# core/game_session.py
     def build_active_world_info(self, action):
         active = self.world_info_base + "\n"
         search = self.get_context_text() + "\n" + action
+        triggered_entries = [] # 记录触发了哪些词条
         for ent in self.world_entries:
             keys = [k.strip() for k in ent.get('keys', '').split(',') if k.strip()]
-            if any(k in search for k in keys): active += f"【设定 - {ent.get('name')}】：{ent.get('content', '')}\n"
+            if any(k in search for k in keys): 
+                active += f"【设定 - {ent.get('name')}】：{ent.get('content', '')}\n"
+                triggered_entries.append(ent.get('name'))
         active += "\n【隐藏的暗流因果】：\n" + self.undercurrent.get_ledger_context()
-        return active
+        return active, triggered_entries # 返回两个值
 
     def _apply_state_updates(self, result):
         ps, deltas = self.state['player'], self.state['last_deltas']
