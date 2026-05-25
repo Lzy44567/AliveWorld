@@ -1,214 +1,121 @@
 # app.py
 import streamlit as st
 import yaml, os
-import traceback
 from datetime import datetime
-from engine import AIEngine
-import utils
-import ui_tavern
-from sys_logger import init_logger, get_logger, read_logs_parsed
+from utils.sys_logger import init_logger, get_logger, read_logs_parsed
+from utils.file_io import load_settings, save_game_data, BASE_DIR
+from core.ai_engine import AIEngine
+from ui_tavern import render_tavern
 
-st.set_page_config(page_title="AliveWorld AI引擎", page_icon="🐉", layout="wide")
+st.set_page_config(page_title="AliveWorld", page_icon="🐉", layout="wide")
 
-# ================= 核心单例初始化 =================
 @st.cache_resource
 def init_system():
-    # 1. 每次代码保存/重启时，生成一个独一无二的日志文件
-    current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
-    log_filename = os.path.join(utils.LOG_DIR, f"run_{current_time}.log")
-    init_logger(log_filename)
+    log_name = os.path.join(BASE_DIR, 'logs', f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log")
+    init_logger(log_name)
+    with open(os.path.join(BASE_DIR, 'config.yml'), 'r', encoding='utf-8') as f: 
+        return AIEngine(yaml.safe_load(f))
+
+ai_engine = init_system()
+settings = load_settings()
+log = get_logger()
+
+# 路由控制与全屏日志
+if st.session_state.get('view_full_logs', False):
+    st.markdown("""<style>.log-container { font-family: 'Consolas', monospace; font-size: 13px; background-color: #f7f9fb; padding: 20px; border-radius: 8px; height: 75vh; overflow-y: auto; }</style>""", unsafe_allow_html=True)
+    c1, c2 = st.columns([1, 10])
+    if c1.button("⬅️ 返回游戏"):
+        st.session_state.view_full_logs = False
+        st.rerun()
+    c2.title("📊 系统日志")
+    logs = read_logs_parsed()[::-1]
+    html_lines = [f"<div style='margin-bottom:6px;border-bottom:1px solid #eee;'>[{l['time']}] {l['icon']} <b>[{l['module']}]</b> {l['message']}</div>" for l in logs]
+    st.markdown(f"<div class='log-container'>{''.join(html_lines)}</div>", unsafe_allow_html=True)
+    st.stop()
+
+if 'game' not in st.session_state:
+    render_tavern(ai_engine, settings)
+    st.stop()
+
+game = st.session_state.game
+
+# ================= 侧边栏 =================
+with st.sidebar:
+    st.title(f"🛡️ 冒险: {game.save_name}")
+    ps, deltas = game.state['player'], game.state['last_deltas']
     
-    # 2. 初始化 AI 引擎
-    with open(os.path.join(utils.BASE_DIR, 'config.yml'), 'r', encoding='utf-8') as f: 
-        engine = AIEngine(yaml.safe_load(f))
-    return engine
-
-try:
-    ai_engine = init_system()
-    log = get_logger()
-    global_settings = utils.load_settings()
-
-    # ================= 专业全屏日志 =================
-    if st.session_state.get('view_full_logs', False):
-        st.markdown("""
-        <style>
-        .log-container { font-family: 'Consolas', monospace; color: #333; font-size: 13px; background-color: #f7f9fb; padding: 20px; border-radius: 8px; height: 75vh; overflow-y: auto; border: 1px solid #e1e4e8; box-shadow: inset 0 1px 3px rgba(0,0,0,.04); }
-        .log-line { margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid #eee; }
-        .log-time { color: #888; margin-right: 8px; }
-        .log-module { color: #0366d6; font-weight: bold; margin-right: 8px; }
-        .log-msg { color: #24292e; word-wrap: break-word; }
-        </style>
-        """, unsafe_allow_html=True)
-        
-        c1, c2 = st.columns([1, 10])
-        if c1.button("⬅️ 返回游戏", use_container_width=True):
-            st.session_state.view_full_logs = False
-            st.rerun()
-        c2.title("📊 系统日志历史 (最新在最上)")
-        
-        logs = read_logs_parsed()[::-1] 
-        html_lines = []
-        for l in logs:
-            html_lines.append(f"<div class='log-line'><span class='log-time'>[{l['time']}]</span> <span>{l['icon']}</span> <span class='log-module'>[{l['module']}]</span> <span class='log-msg'>{l['message']}</span></div>")
-        
-        st.markdown(f"<div class='log-container'>{''.join(html_lines)}</div>", unsafe_allow_html=True)
-        st.stop()
-
-    if 'game_started' not in st.session_state or not st.session_state.game_started:
-        ui_tavern.render_tavern(ai_engine, global_settings)
-        st.stop()
-
-    # ================= 游戏主界面 =================
-    with st.sidebar:
-        st.title("🛡️ 游戏状态")
-        ps, deltas, bars, buffs = st.session_state.player_state, st.session_state.last_deltas, st.session_state.dynamic_bars, st.session_state.active_buffs
-        
-        st.metric("❤️ 生命", f"{ps['hp']} / {ps['max_hp']}", deltas['hp'])
-        st.progress(max(0.0, min(ps['hp']/max(1,ps['max_hp']), 1.0)))
-        st.metric("💧 灵力", f"{ps['mana']} / {ps['max_mana']}", deltas['mana'])
-        st.progress(max(0.0, min(ps['mana']/max(1,ps['max_mana']), 1.0)))
-        
-        if bars:
-            st.markdown("---")
-            for bn, bd in bars.items():
-                st.metric(f"💠 {bn}", f"{bd.get('current',0)} / {bd.get('max',1)}")
-                st.progress(max(0.0, min(bd.get('current',0)/max(1,bd.get('max',1)), 1.0)))
-
-        st.divider()
-        st.markdown("### 📋 玩家状态")
-        for k, v in st.session_state.player_properties.items(): st.info(f"**{k}:**\n{v}")
-
-        if getattr(st.session_state, 'npc_states', None):
-            st.divider()
-            st.markdown("### 👾 场景 NPC 雷达")
-            for k, v in st.session_state.npc_states.items(): st.error(f"**{k}**: {v}")
-                
-        if buffs:
-            st.divider()
-            st.markdown("### ⏳ 持续效果")
-            for bn, bd in buffs.items():
-                dur = '永久' if bd.get('duration', -1) == -1 else bd.get('duration', 0)
-                st.warning(f"**{bn}** ({dur})\nHP: {bd.get('hp_per_turn', 0)} | MP: {bd.get('mana_per_turn', 0)}")
-        
-        st.divider()
-        with st.expander("⚙️ 引擎控制与存档", expanded=False):
-            word_limit = st.slider("详细度 (字数)", 100, 2000, 500, 100)
-            new_save_name = st.text_input("当前存档名", value=st.session_state.session_save_name)
-            if new_save_name != st.session_state.session_save_name:
-                st.session_state.session_save_name = new_save_name; utils.auto_save_game()
-            if st.button("💾 手动保存", use_container_width=True): utils.auto_save_game(); st.toast("保存成功！")
-            if st.button("📊 查看系统核心日志", type="primary", use_container_width=True):
-                st.session_state.view_full_logs = True; st.rerun()
-
-    st.title("📖 AliveWorld")
-
-    action = st.chat_input("轮到你了...")
-    if getattr(st.session_state, 'trigger_retry', False):
-        action = st.session_state.get('last_user_action', '继续推演')
-        st.session_state.trigger_retry = False 
-        st.toast("🔄 正在重新推演上一回合...", icon="🚀")
-
-    is_processing_ai = False 
-
-    if action and not st.session_state.game_over:
-        st.session_state.last_user_action = action 
-        utils.take_snapshot()
-        st.session_state.chat_messages.append({"role": "user", "content": action})
-        utils.auto_save_game()
-        is_processing_ai = True 
-
-    for msg in st.session_state.chat_messages:
-        if msg["role"] == "user":
-            with st.chat_message("user", avatar="🤔"): st.write(msg["content"])
-        elif msg["role"] == "reactions":
-            with st.chat_message("assistant", avatar="⚙️"):
-                with st.expander("👁️ 命运观测器", expanded=False):
-                    for r in msg["content"]: st.markdown(f"**路线 {r['id']} ({r['weight']}%):** {r['description']}")
-        elif msg["role"] == "system":
-            with st.chat_message("assistant", avatar="🎲"): st.caption(f"*{msg['content']}*")
-        elif msg["role"] == "ai":
-            with st.chat_message("assistant", avatar="🐉"): st.write(msg["content"])
-
-    if st.session_state.game_over: st.error("☠️ 你已死亡。")
-
-    if is_processing_ai:
-        ctx = "\n".join(st.session_state.context_history[-3:])
-        f_state = {"stats": st.session_state.player_state, "bars": st.session_state.dynamic_bars, "properties": st.session_state.player_properties, "buffs": st.session_state.active_buffs, "npcs": getattr(st.session_state, 'npc_states', {})}
-        
-        with st.chat_message("assistant", avatar="⚙️"):
-            with st.spinner("🔍 检索世界记忆中..."):
-                active_world_info, triggered = utils.build_active_world_info(ctx, action)
-                if triggered: st.toast(f"📖 触发世界记忆: {', '.join(triggered)}")
-
-            with st.spinner("🧠 推演因果律中..."):
-                log.info(f"发送推演请求: {action[:15]}...", extra={'module_name': '底层引擎'})
-                reactions, raw_react_json = ai_engine.get_world_reactions(ctx, action, f_state, st.session_state.char_info, active_world_info)
-                log.info(f"RAW 推演返回: {raw_react_json}", extra={'module_name': 'AI原声'})
-                
-            if reactions:
-                st.session_state.chat_messages.append({"role": "reactions", "content": reactions})
-                with st.expander("👁️ 命运观测器", expanded=False):
-                    for r in reactions: st.markdown(f"**路线 {r['id']} ({r['weight']}%):** {r['description']}")
-                
-                chosen = ai_engine.roll_dice(reactions)
-                st.session_state.chat_messages.append({"role": "system", "content": f"命运变数: {chosen['description']}"})
-                st.caption(f"*🎯 {chosen['description']}*")
-                
-                with st.spinner("✍️ 具现化世界线中..."):
-                    result, raw_settle_json = ai_engine.generate_story_and_state(ctx, action, chosen, f_state, word_limit, st.session_state.char_info, st.session_state.style_info, active_world_info)
-                    log.info(f"RAW 结算返回: {raw_settle_json}", extra={'module_name': 'AI原声'})
-                    
-                if result:
-                    st.session_state.chat_messages.append({"role": "ai", "content": result.get('story_text', '生成异常，请检查Log')})
-                    
-                    # 【核心：世界演化渲染】
-                    events = result.get('world_events', [])
-                    event_memory_text = ""
-                    if events and isinstance(events, list):
-                        for ev in events:
-                            st.session_state.chat_messages.append({"role": "system", "content": f"🌍 世界/NPC暗流演化: {ev}"})
-                            event_memory_text += f"【世界演化记录】：{ev}\n"
-                            
-                    st.session_state.context_history.append(f"玩家：{action}\n结果：{result.get('story_text', '')}\n{event_memory_text}")
-                    utils.apply_state_updates(result)
-                    utils.auto_save_game() 
-                    st.rerun() 
-                else:
-                    st.error("❌ 严重异常：结算结果为空，已记录至日志。")
-                    is_processing_ai = False 
-            else:
-                st.error("❌ 推演阶段异常，无法生成变数，已记录至日志。")
-                is_processing_ai = False 
-
-    if not is_processing_ai and not st.session_state.game_over:
+    st.metric("❤️ 生命", f"{ps['hp']} / {ps['max_hp']}", deltas['hp'])
+    st.progress(max(0.0, min(ps['hp']/max(1,ps['max_hp']), 1.0)))
+    st.metric("💧 灵力", f"{ps['mana']} / {ps['max_mana']}", deltas['mana'])
+    st.progress(max(0.0, min(ps['mana']/max(1,ps['max_mana']), 1.0)))
+    
+    if game.state['bars']:
         st.markdown("---")
-        col1, col2, col3 = st.columns([1, 1, 3])
-        with col1:
-            if st.button("⏪ 撤回上回合", use_container_width=True):
-                if len(st.session_state.state_snapshots) > 0:
-                    last_snap = st.session_state.state_snapshots.pop()
-                    for k, v in last_snap.items(): st.session_state[k] = v
-                    utils.auto_save_game(); st.rerun()
-                else: st.toast("已经是第一回合！", icon="⚠️")
-        with col2:
-            if st.button("🔄 一键重试本回合", type="secondary", use_container_width=True):
-                if len(st.session_state.state_snapshots) > 0:
-                    fallback_action = "继续推演"
-                    for msg in reversed(st.session_state.chat_messages):
-                        if msg['role'] == 'user':
-                            fallback_action = msg['content']; break
-                    last_snap = st.session_state.state_snapshots.pop()
-                    for k, v in last_snap.items(): st.session_state[k] = v
-                    st.session_state.trigger_retry = True 
-                    st.session_state.last_user_action = fallback_action
-                    utils.auto_save_game(); st.rerun()
-                else: st.toast("无记录可重试！", icon="⚠️")
-        with col3:
-            if st.button("🚪 返回大厅"): st.session_state.clear(); st.rerun()
+        for bn, bd in game.state['bars'].items():
+            st.metric(f"💠 {bn}", f"{bd['current']}/{bd['max']}")
+            st.progress(max(0.0, min(bd['current']/max(1,bd['max']), 1.0)))
+    
+    st.divider()
+    for k, v in game.state['properties'].items(): st.info(f"**{k}:** {v}")
+    if game.state['npcs']:
+        st.divider()
+        st.markdown("### 👾 NPC 雷达")
+        for k, v in game.state['npcs'].items(): st.error(f"**{k}**: {v}")
+    
+    with st.expander("⚙️ 设置", expanded=False):
+        game.word_limit = st.slider("详细度(字数)", 100, 2000, game.word_limit, 100)
+        if st.button("💾 手动保存"):
+            save_game_data(game.save_name, game.export_save_data())
+            st.toast("保存成功！")
+        if st.button("📊 查看系统核心日志"):
+            st.session_state.view_full_logs = True
+            st.rerun()
 
-except Exception as global_e:
-    error_trace = traceback.format_exc()
-    if 'log' in locals(): log.error(f"严重崩溃!\n{error_trace}", extra={'module_name': 'GlobalCatcher'})
-    st.error("⚠️ 引擎遭遇严重逻辑错误！已被护盾拦截。")
-    if st.button("🛠️ 进入抢修模式 (查看崩溃日志)"):
-        st.session_state.view_full_logs = True; st.rerun()
+# ================= 主渲染循环 =================
+st.title("📖 AliveWorld")
+
+for msg in game.history['chat_messages']:
+    role_icon = {"user": "🤔", "ai": "🐉", "system": "🎲", "reactions": "👁️"}.get(msg["role"], "📝")
+    with st.chat_message(msg["role"] if msg["role"] in ["user", "ai"] else "assistant", avatar=role_icon):
+        if msg["role"] == "reactions":
+            with st.expander("命运观测器"):
+                for r in msg["content"]: st.write(f"路线 {r['id']} ({r['weight']}%): {r['description']}")
+        else:
+            st.write(msg["content"])
+
+if game.is_game_over: st.error("☠️ 你已死亡。")
+
+# 处理一键重试逻辑
+action = st.chat_input("轮到你了...")
+is_processing = False
+
+if getattr(st.session_state, 'trigger_retry', False):
+    action = st.session_state.last_action
+    st.session_state.trigger_retry = False
+
+if action and not game.is_game_over:
+    st.session_state.last_action = action
+    is_processing = True
+    with st.chat_message("user", avatar="🤔"): st.write(action)
+    with st.spinner("🧠 引擎推演中..."):
+        result = game.process_turn(action)
+    save_game_data(game.save_name, game.export_save_data())
+    st.rerun()
+
+if not is_processing and not game.is_game_over:
+    st.markdown("---")
+    c1, c2, c3 = st.columns([1, 1, 3])
+    with c1:
+        if st.button("⏪ 撤回上回合", use_container_width=True):
+            if game.rollback(): save_game_data(game.save_name, game.export_save_data()); st.rerun()
+            else: st.toast("已经是第一回合！", icon="⚠️")
+    with c2:
+        if st.button("🔄 重试本回合", type="secondary", use_container_width=True):
+            if game.rollback(): 
+                st.session_state.trigger_retry = True
+                st.rerun()
+            else: st.toast("无记录可重试！", icon="⚠️")
+    with c3:
+        if st.button("🚪 返回大厅"):
+            del st.session_state.game
+            st.rerun()
