@@ -102,19 +102,27 @@ if 'game_started' not in st.session_state or not st.session_state.game_started:
                 st.rerun()
 
     with tab_world:
-        if 'ai_world_draft' not in st.session_state:
-            st.session_state.ai_world_draft = None
+        if 'ai_world_draft' not in st.session_state: st.session_state.ai_world_draft = None
+        if 'ai_entry_draft' not in st.session_state: st.session_state.ai_entry_draft = ""
 
-        with st.expander("🧠 AI 世界架构师 (输入灵感，一键生成整个世界)"):
-            world_idea = st.text_input("输入灵感（例：赛博修仙、高魔废土、克苏鲁大航海...）")
+        with st.expander("🧠 AI 世界架构师 (一键生成全套世界观)", expanded=False):
+            world_idea = st.text_input("输入灵感（例：赛博修仙、高魔废土...）")
             if st.button("✨ 创造世界"):
-                with st.spinner("神明正在构筑法则...这需要大约半分钟..."):
+                with st.spinner("神明正在构筑法则...这需要几十秒钟..."):
                     draft = ai_engine.generate_worldbook(world_idea)
                     if draft:
                         st.session_state.ai_world_draft = draft
-                        st.success("世界创造成功！已自动填入下方表格，确认无误后请点击最下方保存。")
-                    else:
-                        st.error("生成失败，请重试。")
+                        st.success("世界创造成功！已自动填入下方表格，确认无误后请点击最下方【保存世界书】。")
+                    else: st.error("生成失败，请重试。")
+
+        with st.expander("📝 AI 词条铸造机 (专门扩写单独设定)", expanded=False):
+            entry_idea = st.text_area("输入设定灵感（例：一种能吸取灵力的蛊虫）")
+            if st.button("✨ 扩写词条"):
+                with st.spinner("丰富设定细节中..."):
+                    st.session_state.ai_entry_draft = ai_engine.expand_world_entry(entry_idea)
+            if st.session_state.ai_entry_draft:
+                st.info(st.session_state.ai_entry_draft)
+                st.caption("👆 你可以复制上方的内容，粘贴到下方的【词条表格】中。")
 
         wmode = st.radio("模式", ["✨ 创建新世界", "✏️ 编辑世界"], key="w_mode", horizontal=True)
         wedit_target = world_dict[st.selectbox("选择世界", list(world_dict.keys()), key="w_sel")] if wmode == "✏️ 编辑世界" and world_dict else None
@@ -133,42 +141,45 @@ if 'game_started' not in st.session_state or not st.session_state.game_started:
         st.markdown("##### 触发词条管理 (Data Editor)")
         edited_df = st.data_editor(df, num_rows="dynamic", use_container_width=True, hide_index=True)
         
-        if st.button("💾 保存世界书", type="primary") and w_name.strip():
-            world_data = {"name": w_name.strip(), "global_setting": w_global, "starting_scene": w_open, "entries": edited_df.dropna(how="all").to_dict('records')}
-            safe_fn = "".join(x for x in w_name if x.isalnum() or x in " _-")
-            if wedit_target and wedit_target['name'] != w_name: os.remove(wedit_target['_filepath'])
-            with open(os.path.join(utils.WORLD_DIR, f"{safe_fn}.yml"), 'w', encoding='utf-8') as f: 
-                yaml.dump(world_data, f, allow_unicode=True)
-            st.session_state.ai_world_draft = None # 清除草稿
-            st.rerun()
+        if st.button("💾 保存世界书", type="primary"):
+            if not w_name.strip(): st.error("必须填写世界名称！")
+            else:
+                entries = edited_df.dropna(how="all").to_dict('records')
+                world_data = {"name": w_name.strip(), "global_setting": w_global, "starting_scene": w_open, "entries": entries}
+                safe_fn = "".join(x for x in w_name if x.isalnum() or x in " _-")
+                if wedit_target and wedit_target['name'] != w_name: os.remove(wedit_target['_filepath'])
+                with open(os.path.join(utils.WORLD_DIR, f"{safe_fn}.yml"), 'w', encoding='utf-8') as f: 
+                    yaml.dump(world_data, f, allow_unicode=True)
+                st.session_state.ai_world_draft = None # 保存后清空草稿
+                st.success("世界书封装成功！")
+                st.rerun()
             
     with tab_style:
-        if 'ai_style_draft' not in st.session_state:
-            st.session_state.ai_style_draft = ""
+        if 'ai_style_draft' not in st.session_state: st.session_state.ai_style_draft = ""
 
-        with st.expander("🧙‍♂️ AI 文风大师 (输入几句话，AI帮你写出严谨的系统指令)"):
-            short_prompt = st.text_input("你想要的文风（例：黑暗血腥、多视角描写、轻松网文）")
-            if st.button("✨ 让 AI 构思文风"):
-                with st.spinner("大师正在润色你的规则..."):
-                    st.session_state.ai_style_draft = ai_engine.expand_style(short_prompt)
-
+        with st.expander("🧙‍♂️ AI 文风大师", expanded=False):
+            ai_hint = st.text_input("你想塑造什么样的文风？")
+            if st.button("✨ 生成提示词"):
+                with st.spinner("生成中..."): st.session_state.ai_style_draft = ai_engine.expand_style(ai_hint)
+                
         smode = st.radio("模式", ["✨ 创建文风", "✏️ 编辑文风"], key="s_mode", horizontal=True)
         sedit_target = style_dict[st.selectbox("选择文风", list(style_dict.keys()), key="s_sel")] if smode == "✏️ 编辑文风" and style_dict else None
         
         with st.form("style_form"):
             s_name = st.text_input("文风名称", value=sedit_target['name'] if sedit_target else "")
-            
-            # 如果 AI 刚生成了草稿，则填入草稿；否则读取选中的卡片内容
             default_content = st.session_state.ai_style_draft if st.session_state.ai_style_draft else (sedit_target['content'] if sedit_target else "")
-            s_content = st.text_area("文风约束 (Prompt指令)", value=default_content, height=150)
+            s_content = st.text_area("提示词要求", value=default_content, height=150)
             
-            if st.form_submit_button("💾 保存文风", type="primary") and s_name.strip():
+            c1, c2 = st.columns(2)
+            if c1.form_submit_button("💾 保存", type="primary") and s_name.strip():
                 safe_fn = "".join(x for x in s_name if x.isalnum() or x in " _-")
                 if sedit_target and sedit_target['name'] != s_name: os.remove(sedit_target['_filepath'])
-                with open(os.path.join(utils.STYLE_DIR, f"{safe_fn}.yml"), 'w', encoding='utf-8') as f: 
-                    yaml.dump({"name": s_name.strip(), "content": s_content}, f, allow_unicode=True)
+                with open(os.path.join(utils.STYLE_DIR, f"{safe_fn}.yml"), 'w', encoding='utf-8') as f: yaml.dump({"name": s_name.strip(), "content": s_content}, f, allow_unicode=True)
                 st.session_state.ai_style_draft = "" # 清空草稿
                 st.rerun()
+            if c2.form_submit_button("⭐ 设为默认") and s_name.strip():
+                global_settings['default_style'] = s_name.strip(); utils.save_settings(global_settings); st.success("已设为默认！")
+
     st.stop()
 
 # ================= 游戏主界面 =================
@@ -187,6 +198,7 @@ with st.sidebar:
             last_snap = st.session_state.state_snapshots.pop()
             for k, v in last_snap.items(): st.session_state[k] = v
             utils.auto_save_game(); st.rerun()
+        else: st.toast("已经是第一回合了！", icon="⚠️")
 
     st.divider()
     ps, deltas, bars, buffs = st.session_state.player_state, st.session_state.last_deltas, st.session_state.dynamic_bars, st.session_state.active_buffs

@@ -3,7 +3,7 @@ import json
 import random
 import logging
 from openai import OpenAI
-from prompts import get_reaction_prompt, get_settlement_prompt, get_style_expansion_prompt, get_world_architect_prompt
+from prompts import get_reaction_prompt, get_settlement_prompt, get_style_expansion_prompt, get_world_architect_prompt, get_entry_expansion_prompt
 
 class AIEngine:
     def __init__(self, config):
@@ -19,7 +19,7 @@ class AIEngine:
             )
             return res.choices[0].message.content
         except Exception as e:
-            return f"生成失败: {e}"
+            return f"文风生成失败: {e}"
 
     def generate_worldbook(self, inspiration):
         sys_prompt = get_world_architect_prompt()
@@ -35,6 +35,18 @@ class AIEngine:
         except Exception as e:
             logging.error(f"世界书生成失败: {e}")
             return None
+
+    def expand_world_entry(self, entry_idea):
+        sys_prompt = get_entry_expansion_prompt()
+        try:
+            res = self.client.chat.completions.create(
+                model=self.model, 
+                messages=[{"role": "system", "content": sys_prompt}, {"role": "user", "content": f"词条灵感：{entry_idea}"}],
+                temperature=0.8
+            )
+            return res.choices[0].message.content
+        except Exception as e:
+            return f"词条扩写失败: {e}"
 
     def get_world_reactions(self, context, player_action, dynamic_state, character_info, world_info):
         sys_prompt = get_reaction_prompt(character_info, world_info)
