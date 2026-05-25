@@ -21,7 +21,6 @@ try:
 
     global_settings = utils.load_settings()
 
-    # ================= 专业全屏日志 =================
     if st.session_state.get('view_full_logs', False):
         st.markdown("""
         <style>
@@ -51,7 +50,6 @@ try:
         ui_tavern.render_tavern(ai_engine, global_settings)
         st.stop()
 
-    # ================= 游戏主界面 =================
     with st.sidebar:
         st.title("🛡️ 游戏状态")
         ps, deltas, bars, buffs = st.session_state.player_state, st.session_state.last_deltas, st.session_state.dynamic_bars, st.session_state.active_buffs
@@ -79,7 +77,13 @@ try:
         if buffs:
             st.divider()
             st.markdown("### ⏳ 持续效果")
-            for bn, bd in buffs.items(): st.warning(f"**{bn}** ({'永久' if bd['duration']==-1 else bd['duration']})\nHP:{bd['hp_per_turn']} | MP:{bd['mana_per_turn']}")
+            for bn, bd in buffs.items():
+                # 【修复】宽容取值防崩溃
+                dur = '永久' if bd.get('duration', -1) == -1 else bd.get('duration', 0)
+                hp_c = bd.get('hp_per_turn', 0)
+                mp_c = bd.get('mana_per_turn', 0)
+                eff = bd.get('effect', '无')
+                st.warning(f"**{bn}** ({dur})\nHP: {hp_c} | MP: {mp_c}\n效果: {eff}")
         
         st.divider()
         with st.expander("⚙️ 引擎控制与存档", expanded=False):
@@ -96,10 +100,7 @@ try:
     st.title("📖 AliveWorld")
 
     action = st.chat_input("轮到你了...")
-    
-    # 【核心修复 1】：安全获取重推指令
     if getattr(st.session_state, 'trigger_retry', False):
-        # 即使读档导致没有 last_user_action，也能默认给个“继续推演”防崩溃
         action = st.session_state.get('last_user_action', '继续推演')
         st.session_state.trigger_retry = False 
         st.toast("🔄 正在重新推演上一回合...", icon="🚀")
@@ -137,9 +138,7 @@ try:
                 if triggered: st.toast(f"📖 触发世界记忆: {', '.join(triggered)}")
 
             with st.spinner("🧠 推演因果律中..."):
-                log.info(f"发送推演请求: {action[:15]}...", extra={'module_name': '底层引擎'})
                 reactions, raw_react_json = ai_engine.get_world_reactions(ctx, action, f_state, st.session_state.char_info, active_world_info)
-                log.info(f"RAW 推演返回: {raw_react_json}", extra={'module_name': 'AI原声'})
                 
             if reactions:
                 st.session_state.chat_messages.append({"role": "reactions", "content": reactions})
@@ -152,7 +151,6 @@ try:
                 
                 with st.spinner("✍️ 具现化世界线中..."):
                     result, raw_settle_json = ai_engine.generate_story_and_state(ctx, action, chosen, f_state, word_limit, st.session_state.char_info, st.session_state.style_info, active_world_info)
-                    log.info(f"RAW 结算返回: {raw_settle_json}", extra={'module_name': 'AI原声'})
                     
                 if result:
                     st.session_state.chat_messages.append({"role": "ai", "content": result.get('story_text', '生成异常，请检查Log')})
@@ -180,18 +178,15 @@ try:
         with col2:
             if st.button("🔄 一键重试本回合", type="secondary", use_container_width=True):
                 if len(st.session_state.state_snapshots) > 0:
-                    # 【核心修复 2】：防空指针的智能溯源逻辑
                     fallback_action = "继续推演"
                     for msg in reversed(st.session_state.chat_messages):
                         if msg['role'] == 'user':
                             fallback_action = msg['content']
                             break
-                            
                     last_snap = st.session_state.state_snapshots.pop()
                     for k, v in last_snap.items(): st.session_state[k] = v
-                    
                     st.session_state.trigger_retry = True 
-                    st.session_state.last_user_action = fallback_action # 强制注入动作
+                    st.session_state.last_user_action = fallback_action
                     utils.auto_save_game()
                     st.rerun()
                 else: st.toast("无记录可重试！", icon="⚠️")
