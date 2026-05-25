@@ -1,18 +1,76 @@
 # ui_tavern.py
 import streamlit as st
-import os, yaml, json
+import os, yaml, json, glob
 import pandas as pd
 from datetime import datetime
 import utils
+from sys_logger import get_logger
 
-def render_saves_tab(saves):
+log = get_logger()
+
+def render_tavern(ai_engine, global_settings):
+    """主大厅渲染入口"""
+    st.title("🏰 AliveWorld - 多元宇宙大厅")
+    tab_lobby, tab_saves, tab_char, tab_world, tab_style = st.tabs(["🚀 开启新故事", "📂 记忆档案馆", "🗂️ 角色工坊", "🌍 世界书工坊", "🎭 文风工坊"])
+    
+    char_dict = utils.load_yaml_files(utils.CHAR_DIR)
+    style_dict = utils.load_yaml_files(utils.STYLE_DIR)
+    world_dict = utils.load_yaml_files(utils.WORLD_DIR)
+    
+    with tab_lobby:
+        if not char_dict: st.warning("请先去【角色工坊】创建一张角色卡。")
+        else:
+            save_name_input = st.text_input("📝 为本次冒险命名 (必填)", value="")
+            c1, c2, c3 = st.columns(3)
+            sel_char_name = c1.selectbox("📝 选择化身", list(char_dict.keys()))
+            style_options = ["默认 (无)"] + list(style_dict.keys())
+            sel_style_name = c2.selectbox("🎭 选择文风", style_options, index=style_options.index(global_settings['default_style']) if global_settings['default_style'] in style_options else 0)
+            sel_world_name = c3.selectbox("🌍 载入世界书", ["无界域 (暂不加载)"] + list(world_dict.keys()))
+            
+            sel_char = char_dict[sel_char_name]
+            style_content = style_dict[sel_style_name]['content'] if sel_style_name != "默认 (无)" else "遵循常规逻辑推演。"
+            world_data = world_dict[sel_world_name] if sel_world_name != "无界域 (暂不加载)" else {}
+            world_base = world_data.get('global_setting', '无特定世界观。')
+            final_opening = (world_data.get('starting_scene', '') + "\n\n" + sel_char.get('starting_scene', '')) if world_data.get('starting_scene', '') else sel_char.get('starting_scene', '')
+            
+            with st.container(border=True):
+                st.markdown(f"**📖 角色设定:** {sel_char.get('description', '无')}")
+                st.markdown(f"**🎬 最终开场白:** {final_opening[:100]}...")
+
+            if st.button("🚀 链接新世界", type="primary", use_container_width=True, disabled=not save_name_input.strip()):
+                log.info(f"玩家载入新世界: {save_name_input}", extra={'module_name': '多元宇宙大厅'})
+                st.session_state.char_info, st.session_state.style_info = sel_char.get('description', ''), style_content
+                st.session_state.world_info_base, st.session_state.world_entries = world_base, world_data.get('entries', []) 
+                hp, mana = sel_char.get('initial_hp', 100), sel_char.get('initial_mana', 100)
+                st.session_state.player_state = {"hp": hp, "max_hp": hp, "mana": mana, "max_mana": mana}
+                st.session_state.dynamic_bars, st.session_state.active_buffs, st.session_state.player_properties = {}, {}, {"身体": "完好", "衣服": "完好"}
+                st.session_state.npc_states = {} 
+                st.session_state.last_deltas = {"hp": 0, "max_hp": 0, "mana": 0, "max_mana": 0}
+                st.session_state.chat_messages, st.session_state.context_history, st.session_state.state_snapshots = [{"role": "ai", "content": final_opening, "type": "story"}], [final_opening], []
+                st.session_state.session_id, st.session_state.session_save_name = datetime.now().strftime("%Y%m%d_%H%M%S"), save_name_input.strip()
+                st.session_state.game_over, st.session_state.game_started = False, True
+                utils.auto_save_game()
+                st.rerun()
+
+    with tab_saves: render_saves_tab(utils.SAVE_DIR)
+    with tab_char: render_char_tab(char_dict)
+    with tab_world: render_world_tab(world_dict, ai_engine)
+    with tab_style: render_style_tab(style_dict, ai_engine, global_settings)
+
+def render_saves_tab(save_dir):
+    saves = {}
+    for f in glob.glob(os.path.join(save_dir, "*.json")):
+        try:
+            with open(f, 'r', encoding='utf-8') as file:
+                data = json.load(file); data['_filepath'] = f; saves[data['save_name']] = data
+        except: pass
     if not saves: st.info("当前没有任何存档。")
     else:
         sel_save_name = st.selectbox("📂 选择存档", list(saves.keys()))
         sel_save = saves[sel_save_name]
         c1, c2 = st.columns(2)
         if c1.button("📂 载入故事线", type="primary", use_container_width=True):
-            st.session_state.log_file = utils.setup_logger()
+            log.info(f"玩家载入存档: {sel_save_name}", extra={'module_name': '档案馆'})
             for k in ['char_info', 'style_info', 'world_info_base', 'world_entries', 'player_state', 'dynamic_bars', 'active_buffs', 'player_properties', 'npc_states', 'last_deltas', 'chat_messages', 'context_history', 'state_snapshots']:
                 st.session_state[k] = sel_save.get(k, "" if k == 'world_info_base' else ([] if k in ['world_entries', 'state_snapshots'] else {}))
             st.session_state.session_id, st.session_state.session_save_name = datetime.now().strftime("%Y%m%d_%H%M%S"), sel_save_name
@@ -82,7 +140,7 @@ def render_world_tab(world_dict, ai_engine):
         with open(os.path.join(utils.WORLD_DIR, f"{safe_fn}.yml"), 'w', encoding='utf-8') as f: yaml.dump(world_data, f, allow_unicode=True)
         st.session_state.ai_world_draft = None 
         st.rerun()
-        
+
 def render_style_tab(style_dict, ai_engine, global_settings):
     if 'ai_style_draft' not in st.session_state: st.session_state.ai_style_draft = ""
     with st.expander("🧙‍♂️ AI 文风大师", expanded=False):
