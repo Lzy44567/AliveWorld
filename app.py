@@ -21,7 +21,7 @@ try:
 
     global_settings = utils.load_settings()
 
-    # ================= 专业全屏日志 (修复问题6：最新在最上) =================
+    # ================= 专业全屏日志 =================
     if st.session_state.get('view_full_logs', False):
         st.markdown("""
         <style>
@@ -39,7 +39,6 @@ try:
             st.rerun()
         c2.title("📊 系统日志历史 (最新在最上)")
         
-        # [::-1] 切片操作实现数组反转！
         logs = read_logs_parsed()[::-1] 
         html_lines = []
         for l in logs:
@@ -96,18 +95,23 @@ try:
 
     st.title("📖 AliveWorld")
 
-    # 【新增】：重试机制路由
     action = st.chat_input("轮到你了...")
+    
+    # 【核心修复 1】：安全获取重推指令
     if getattr(st.session_state, 'trigger_retry', False):
-        action = st.session_state.last_user_action
-        st.session_state.trigger_retry = False # 消费掉标记
+        # 即使读档导致没有 last_user_action，也能默认给个“继续推演”防崩溃
+        action = st.session_state.get('last_user_action', '继续推演')
+        st.session_state.trigger_retry = False 
         st.toast("🔄 正在重新推演上一回合...", icon="🚀")
 
+    is_processing_ai = False 
+
     if action and not st.session_state.game_over:
-        st.session_state.last_user_action = action # 记录本次输入的动作以备重试
+        st.session_state.last_user_action = action 
         utils.take_snapshot()
         st.session_state.chat_messages.append({"role": "user", "content": action})
         utils.auto_save_game()
+        is_processing_ai = True 
 
     for msg in st.session_state.chat_messages:
         if msg["role"] == "user":
@@ -123,7 +127,7 @@ try:
 
     if st.session_state.game_over: st.error("☠️ 你已死亡。")
 
-    if action and not st.session_state.game_over:
+    if is_processing_ai:
         ctx = "\n".join(st.session_state.context_history[-3:])
         f_state = {"stats": st.session_state.player_state, "bars": st.session_state.dynamic_bars, "properties": st.session_state.player_properties, "buffs": st.session_state.active_buffs, "npcs": getattr(st.session_state, 'npc_states', {})}
         
@@ -158,10 +162,13 @@ try:
                     st.rerun() 
                 else:
                     st.error("❌ 严重异常：结算结果为空，已记录至日志。")
+                    is_processing_ai = False 
+            else:
+                st.error("❌ 推演阶段异常，无法生成变数，已记录至日志。")
+                is_processing_ai = False 
 
-    if not action and not st.session_state.game_over:
+    if not is_processing_ai and not st.session_state.game_over:
         st.markdown("---")
-        # 修复问题 3：加入一键重推按钮
         col1, col2, col3 = st.columns([1, 1, 3])
         with col1:
             if st.button("⏪ 撤回上回合", use_container_width=True):
@@ -173,10 +180,18 @@ try:
         with col2:
             if st.button("🔄 一键重试本回合", type="secondary", use_container_width=True):
                 if len(st.session_state.state_snapshots) > 0:
-                    # 弹出存档回滚到用户输入前的状态，并挂载重推标记
+                    # 【核心修复 2】：防空指针的智能溯源逻辑
+                    fallback_action = "继续推演"
+                    for msg in reversed(st.session_state.chat_messages):
+                        if msg['role'] == 'user':
+                            fallback_action = msg['content']
+                            break
+                            
                     last_snap = st.session_state.state_snapshots.pop()
                     for k, v in last_snap.items(): st.session_state[k] = v
+                    
                     st.session_state.trigger_retry = True 
+                    st.session_state.last_user_action = fallback_action # 强制注入动作
                     utils.auto_save_game()
                     st.rerun()
                 else: st.toast("无记录可重试！", icon="⚠️")

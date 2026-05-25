@@ -18,15 +18,16 @@ def get_settlement_prompt(word_limit, character_info, style_info, world_info):
     剧情字数尽量逼近 {word_limit} 字。
     
     【⚠️ 极其严格的状态栏修改规则 (务必遵守！)】：
-    1. status_updates (玩家文本状态)：只能是一维键值对，绝对禁止嵌套字典！ (例如只能是 "衣服": "破损")。
-    2. npc_states (场景NPC状态)：如果当前场景有NPC或敌人，在这里记录他们的状态。格式：{{"魅魔": "HP 50/100, 发情中"}}。
-    3. status_deletions (删除状态)：如果你想给状态改名，或者某NPC死亡/离开，**必须将旧名字或NPC名字放入此数组中彻底删除！**
-    4. dynamic_bars (玩家进度条)：只有具备上下限的玩家数值才放这里（如武器耐久、快感、理智）。
-       格式必须包含 current：{{"理智条": {{"change": -10, "current": 90, "max": 100}}}}。如果是新增状态，current代表你赋予它的初始值！
+    1. status_updates (玩家文本状态)：只能是一维键值对，绝对禁止嵌套字典！ 
+    2. npc_states (场景NPC状态)：格式如 {{"魅魔": "HP 50/100, 发情中"}}。
+    3. status_deletions (删除状态)：如果某状态消失或NPC死亡，**必须将名字放入此数组中彻底删除！**
+    4. dynamic_bars (玩家进度条)：包含 current 和 max，新增时 current 即为初始值。如 {{"理智条": {{"change": -10, "current": 90, "max": 100}}}}。
+    
+    【🔴 最高禁令】：绝对、绝对不允许在JSON大括号外面输出任何闲聊、解释或小说前言！严格只输出下面这个合法的 JSON 对象！
     
     【强制JSON格式】：
     {{
-      "story_text": "剧情描写...",
+      "story_text": "在这里写小说剧情描写...",
       "numeric_changes": {{ "hp": 0, "max_hp": 0, "mana": 0, "max_mana": 0 }},
       "new_buffs": {{}}, "remove_buffs": [], "dynamic_bars": {{}}, 
       "status_updates": {{ "身体": "正常" }}, 

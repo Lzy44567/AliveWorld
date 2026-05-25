@@ -8,6 +8,33 @@ from sys_logger import get_logger
 
 log = get_logger()
 
+def intelligent_salvage(raw_str, error_msg):
+    """【智能打捞引擎】：在 AI 幻觉导致 JSON 彻底损毁或截断时，强行挖出小说正文"""
+    log.warning(f"启动智能打捞引擎... 原因: {error_msg}")
+    story = raw_str.strip()
+    
+    # 场景1：AI 在 ```json 块前面写了一大堆废话/小说
+    if '```json' in story:
+        pre_text = story.split('```json')[0].strip()
+        if len(pre_text) > 30: # 只要前面的字数够长，就认定那是小说正文
+            story = pre_text
+    # 场景2：AI 在大括号 { 前面写了小说
+    elif '{' in story:
+        pre_text = story.split('{')[0].strip()
+        if len(pre_text) > 30:
+            story = pre_text
+    
+    # 场景3：如果都没命中，那 AI 可能连 JSON 的边都没沾，就把原始文本全部当做故事
+    if not story:
+        story = "*(系统提示：大模型返回了无法解析的乱码，因果律发生波动)*"
+        
+    return {
+        "story_text": story + "\n\n*(🔧 引擎提示：检测到模型格式崩溃/字数截断，已自动打捞剧情正文，本次状态变动跳过。)*",
+        "numeric_changes": {"hp": 0, "max_hp": 0, "mana": 0, "max_mana": 0},
+        "new_buffs": {}, "remove_buffs": [], "dynamic_bars": {},
+        "status_updates": {}, "npc_states": {}, "status_deletions": []
+    }
+
 def robust_json_parse(raw_str):
     if not raw_str or not str(raw_str).strip():
         raise ValueError("输入内容为空 (Empty String)。")
@@ -15,7 +42,6 @@ def robust_json_parse(raw_str):
     try:
         return json.loads(raw_str)
     except Exception as e:
-        log.warning(f"原生解析失败，尝试正则表达式挖掘... 原因: {e}")
         match = re.search(r'```(?:json)?(.*?)```', raw_str, re.DOTALL)
         if match:
             try: return json.loads(match.group(1).strip())
@@ -25,8 +51,8 @@ def robust_json_parse(raw_str):
             try: return json.loads(match.group(0).strip())
             except: pass
         
-        log.error("JSON 挖掘彻底失败！请检查AI输出的文本！")
-        raise ValueError("无法从大模型输出中解析出合法的 JSON 字典。")
+        # 不要在这里直接 log.error 吓人，因为我们外层有打捞引擎接管
+        raise ValueError(f"JSON解析失败: {e}")
 
 class AIEngine:
     def __init__(self, config):
@@ -61,7 +87,6 @@ class AIEngine:
             raw_str = res.choices[0].message.content or ""
             return robust_json_parse(raw_str).get('reactions', []), raw_str
         except Exception as e: 
-            # 【终极防线 1：遭遇 API 异常或截断时的完美兜底】
             log.error(f"推演提取彻底拦截: {e}")
             return [{"id": 1, "description": f"系统提示：一股强大的外来法则之力（API安全审查或模型崩溃）阻挡了命运的推演。原因：{e}", "weight": 100}], ""
 
@@ -80,14 +105,22 @@ class AIEngine:
                 response_format={"type": "json_object"}
             )
             raw_str = res.choices[0].message.content or ""
-            return robust_json_parse(raw_str), raw_str
-        except Exception as e: 
-            # 【终极防线 2：安全接管主界面输出】
-            log.error(f"结算提取彻底拦截: {e}")
+            
+            # 【核心修复】：尝试正常解析 JSON
+            try:
+                parsed = robust_json_parse(raw_str)
+                return parsed, raw_str
+            except Exception as parse_error:
+                # 触发智能打捞！抢救小说文本
+                salvaged_json = intelligent_salvage(raw_str, parse_error)
+                return salvaged_json, raw_str
+                
+        except Exception as api_e: 
+            log.error(f"API网络层拦截: {api_e}")
             fallback_json = {
-                "story_text": f"*(系统警报：这段剧情触犯了世界的底层法则（通常为大模型 API 屏蔽了敏感内容），因果律被强制切断。)*\n\n这股强大的力量让时间停滞了一瞬，请尝试改变你的行动，或点击下方的【一键重推】按钮。",
+                "story_text": f"*(系统警报：这段剧情触犯了世界底层法则或网络断开，因果律被强制切断。)*\n\n这股强大的力量让时间停滞了一瞬，请尝试【一键重试】。",
                 "numeric_changes": {"hp": 0, "max_hp": 0, "mana": 0, "max_mana": 0},
                 "new_buffs": {}, "remove_buffs": [], "dynamic_bars": {},
                 "status_updates": {}, "npc_states": {}, "status_deletions": []
             }
-            return fallback_json, f"(拦截兜底触发) {e}"
+            return fallback_json, f"(拦截兜底触发) {api_e}"
