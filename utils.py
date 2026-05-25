@@ -1,7 +1,10 @@
 # utils.py
-import os, json, yaml, glob, logging, copy
+import os, json, yaml, glob, copy
 from datetime import datetime
 import streamlit as st
+from sys_logger import get_logger
+
+log = get_logger()
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOG_DIR, CHAR_DIR, STYLE_DIR, SAVE_DIR, WORLD_DIR = [os.path.join(BASE_DIR, d) for d in ['logs', 'characters', 'styles', 'saves', 'worldbooks']]
@@ -16,17 +19,6 @@ def load_settings():
 def save_settings(data):
     with open(SETTINGS_FILE, 'w', encoding='utf-8') as f: json.dump(data, f, ensure_ascii=False)
 
-def setup_logger():
-    current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
-    log_filename = os.path.join(LOG_DIR, f"gui_run_{current_time}.log")
-    logger = logging.getLogger()
-    if logger.hasHandlers(): logger.handlers.clear()
-    handler = logging.FileHandler(log_filename, encoding='utf-8')
-    handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
-    logger.addHandler(handler)
-    logger.setLevel(logging.INFO)
-    return log_filename
-
 def auto_save_game():
     if not st.session_state.get('session_id'): return
     save_data = {
@@ -34,6 +26,7 @@ def auto_save_game():
         "char_info": st.session_state.char_info, "style_info": st.session_state.style_info, "world_info_base": st.session_state.world_info_base,
         "world_entries": st.session_state.world_entries, "player_state": st.session_state.player_state, "dynamic_bars": st.session_state.dynamic_bars,
         "active_buffs": st.session_state.active_buffs, "player_properties": st.session_state.player_properties,
+        "npc_states": getattr(st.session_state, 'npc_states', {}),
         "last_deltas": st.session_state.last_deltas, "chat_messages": st.session_state.chat_messages,
         "context_history": st.session_state.context_history, "state_snapshots": st.session_state.state_snapshots
     }
@@ -44,6 +37,7 @@ def take_snapshot():
     snap = {
         "player_state": copy.deepcopy(st.session_state.player_state), "dynamic_bars": copy.deepcopy(st.session_state.dynamic_bars),
         "active_buffs": copy.deepcopy(st.session_state.active_buffs), "player_properties": copy.deepcopy(st.session_state.player_properties),
+        "npc_states": copy.deepcopy(getattr(st.session_state, 'npc_states', {})),
         "last_deltas": copy.deepcopy(st.session_state.last_deltas), "chat_messages": copy.deepcopy(st.session_state.chat_messages),
         "context_history": copy.deepcopy(st.session_state.context_history)
     }
@@ -65,7 +59,10 @@ def build_active_world_info(current_context, player_action):
     search_text = current_context + "\n" + player_action
     triggered_entries = []
     for entry in st.session_state.world_entries:
-        keywords = [kw.strip() for kw in entry.get('keys', '').split(',') if kw.strip()]
+        keys_str = entry.get('keys', '')
+        if not keys_str: continue
+        keywords = [kw.strip() for kw in keys_str.split(',') if kw.strip()]
+        if not keywords: continue
         if any(kw in search_text for kw in keywords):
             active_lore += f"【设定 - {entry.get('name', '补充')}】：{entry.get('content', '')}\n"
             triggered_entries.append(entry.get('name'))
@@ -73,11 +70,12 @@ def build_active_world_info(current_context, player_action):
 
 def apply_state_updates(result):
     ps, deltas = st.session_state.player_state, st.session_state.last_deltas
+    
     nums = result.get('numeric_changes', {}) if isinstance(result.get('numeric_changes'), dict) else {}
+    for k in ['hp', 'max_hp', 'mana', 'max_mana']: deltas[k] = nums.get(k, 0)
+    
     new_buffs = result.get('new_buffs', {}) if isinstance(result.get('new_buffs'), dict) else {}
     remove_buffs = result.get('remove_buffs', []) if isinstance(result.get('remove_buffs'), list) else ([result.get('remove_buffs')] if isinstance(result.get('remove_buffs'), str) else [])
-    
-    for k in ['hp', 'max_hp', 'mana', 'max_mana']: deltas[k] = nums.get(k, 0)
     for bn, bd in new_buffs.items(): 
         if isinstance(bd, dict): st.session_state.active_buffs[bn] = bd
     for bn in remove_buffs: st.session_state.active_buffs.pop(bn, None)
@@ -98,11 +96,24 @@ def apply_state_updates(result):
         if not isinstance(bd, dict): continue
         if bn not in st.session_state.dynamic_bars: st.session_state.dynamic_bars[bn] = {"current": 0, "max": bd.get('max', 1)}
         st.session_state.dynamic_bars[bn]["current"] = min(st.session_state.dynamic_bars[bn]["current"] + bd.get('change', 0), st.session_state.dynamic_bars[bn]["max"])
-        if st.session_state.dynamic_bars[bn]["current"] <= 0 and ("护甲" in bn or "盾" in bn): del st.session_state.dynamic_bars[bn]
+        if st.session_state.dynamic_bars[bn]["current"] <= 0: del st.session_state.dynamic_bars[bn]
             
+    npc_up = result.get('npc_states', {}) if isinstance(result.get('npc_states'), dict) else {}
+    for k, v in npc_up.items():
+        if isinstance(v, dict) or isinstance(v, list): v = str(v).replace("{", "").replace("}", "").replace("'", "")
+        st.session_state.npc_states[k] = v
+
     props_up = result.get('status_updates', {}) if isinstance(result.get('status_updates'), dict) else {}
     props_del = result.get('status_deletions', []) if isinstance(result.get('status_deletions'), list) else ([result.get('status_deletions')] if isinstance(result.get('status_deletions'), str) else [])
-    for k, v in props_up.items(): st.session_state.player_properties[k] = v
-    for k in props_del: st.session_state.player_properties.pop(k, None)
+    
+    for k in props_del:
+        st.session_state.player_properties.pop(k, None)
+        st.session_state.dynamic_bars.pop(k, None)
+        st.session_state.active_buffs.pop(k, None)
+        st.session_state.npc_states.pop(k, None) 
+        
+    for k, v in props_up.items():
+        if isinstance(v, dict) or isinstance(v, list): v = str(v).replace("{", "").replace("}", "").replace("'", "")
+        st.session_state.player_properties[k] = v
             
     if ps['hp'] <= 0: st.session_state.game_over = True
