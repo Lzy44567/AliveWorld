@@ -2,25 +2,33 @@
 import streamlit as st
 import yaml, os
 import traceback
+from datetime import datetime
 from engine import AIEngine
 import utils
 import ui_tavern
-from sys_logger import get_logger, read_logs_parsed
+from sys_logger import init_logger, get_logger, read_logs_parsed
 
 st.set_page_config(page_title="AliveWorld AI引擎", page_icon="🐉", layout="wide")
-log = get_logger()
+
+# ================= 核心单例初始化 =================
+@st.cache_resource
+def init_system():
+    # 1. 每次代码保存/重启时，生成一个独一无二的日志文件
+    current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+    log_filename = os.path.join(utils.LOG_DIR, f"run_{current_time}.log")
+    init_logger(log_filename)
+    
+    # 2. 初始化 AI 引擎
+    with open(os.path.join(utils.BASE_DIR, 'config.yml'), 'r', encoding='utf-8') as f: 
+        engine = AIEngine(yaml.safe_load(f))
+    return engine
 
 try:
-    @st.cache_resource
-    def init_core():
-        with open(os.path.join(utils.BASE_DIR, 'config.yml'), 'r', encoding='utf-8') as f: 
-            return AIEngine(yaml.safe_load(f))
-    
-    try: ai_engine = init_core()
-    except Exception as e: st.error(f"配置加载失败: {e}"); st.stop()
-
+    ai_engine = init_system()
+    log = get_logger()
     global_settings = utils.load_settings()
 
+    # ================= 专业全屏日志 =================
     if st.session_state.get('view_full_logs', False):
         st.markdown("""
         <style>
@@ -50,6 +58,7 @@ try:
         ui_tavern.render_tavern(ai_engine, global_settings)
         st.stop()
 
+    # ================= 游戏主界面 =================
     with st.sidebar:
         st.title("🛡️ 游戏状态")
         ps, deltas, bars, buffs = st.session_state.player_state, st.session_state.last_deltas, st.session_state.dynamic_bars, st.session_state.active_buffs
@@ -78,12 +87,8 @@ try:
             st.divider()
             st.markdown("### ⏳ 持续效果")
             for bn, bd in buffs.items():
-                # 【修复】宽容取值防崩溃
                 dur = '永久' if bd.get('duration', -1) == -1 else bd.get('duration', 0)
-                hp_c = bd.get('hp_per_turn', 0)
-                mp_c = bd.get('mana_per_turn', 0)
-                eff = bd.get('effect', '无')
-                st.warning(f"**{bn}** ({dur})\nHP: {hp_c} | MP: {mp_c}\n效果: {eff}")
+                st.warning(f"**{bn}** ({dur})\nHP: {bd.get('hp_per_turn', 0)} | MP: {bd.get('mana_per_turn', 0)}")
         
         st.divider()
         with st.expander("⚙️ 引擎控制与存档", expanded=False):
@@ -92,10 +97,8 @@ try:
             if new_save_name != st.session_state.session_save_name:
                 st.session_state.session_save_name = new_save_name; utils.auto_save_game()
             if st.button("💾 手动保存", use_container_width=True): utils.auto_save_game(); st.toast("保存成功！")
-            
             if st.button("📊 查看系统核心日志", type="primary", use_container_width=True):
-                st.session_state.view_full_logs = True
-                st.rerun()
+                st.session_state.view_full_logs = True; st.rerun()
 
     st.title("📖 AliveWorld")
 
@@ -138,7 +141,9 @@ try:
                 if triggered: st.toast(f"📖 触发世界记忆: {', '.join(triggered)}")
 
             with st.spinner("🧠 推演因果律中..."):
+                log.info(f"发送推演请求: {action[:15]}...", extra={'module_name': '底层引擎'})
                 reactions, raw_react_json = ai_engine.get_world_reactions(ctx, action, f_state, st.session_state.char_info, active_world_info)
+                log.info(f"RAW 推演返回: {raw_react_json}", extra={'module_name': 'AI原声'})
                 
             if reactions:
                 st.session_state.chat_messages.append({"role": "reactions", "content": reactions})
@@ -151,10 +156,20 @@ try:
                 
                 with st.spinner("✍️ 具现化世界线中..."):
                     result, raw_settle_json = ai_engine.generate_story_and_state(ctx, action, chosen, f_state, word_limit, st.session_state.char_info, st.session_state.style_info, active_world_info)
+                    log.info(f"RAW 结算返回: {raw_settle_json}", extra={'module_name': 'AI原声'})
                     
                 if result:
                     st.session_state.chat_messages.append({"role": "ai", "content": result.get('story_text', '生成异常，请检查Log')})
-                    st.session_state.context_history.append(f"玩家：{action}\n结果：{result.get('story_text', '')}")
+                    
+                    # 【核心：世界演化渲染】
+                    events = result.get('world_events', [])
+                    event_memory_text = ""
+                    if events and isinstance(events, list):
+                        for ev in events:
+                            st.session_state.chat_messages.append({"role": "system", "content": f"🌍 世界/NPC暗流演化: {ev}"})
+                            event_memory_text += f"【世界演化记录】：{ev}\n"
+                            
+                    st.session_state.context_history.append(f"玩家：{action}\n结果：{result.get('story_text', '')}\n{event_memory_text}")
                     utils.apply_state_updates(result)
                     utils.auto_save_game() 
                     st.rerun() 
@@ -181,22 +196,19 @@ try:
                     fallback_action = "继续推演"
                     for msg in reversed(st.session_state.chat_messages):
                         if msg['role'] == 'user':
-                            fallback_action = msg['content']
-                            break
+                            fallback_action = msg['content']; break
                     last_snap = st.session_state.state_snapshots.pop()
                     for k, v in last_snap.items(): st.session_state[k] = v
                     st.session_state.trigger_retry = True 
                     st.session_state.last_user_action = fallback_action
-                    utils.auto_save_game()
-                    st.rerun()
+                    utils.auto_save_game(); st.rerun()
                 else: st.toast("无记录可重试！", icon="⚠️")
         with col3:
             if st.button("🚪 返回大厅"): st.session_state.clear(); st.rerun()
 
 except Exception as global_e:
     error_trace = traceback.format_exc()
-    log.error(f"严重崩溃!\n{error_trace}", extra={'module_name': 'GlobalCatcher'})
+    if 'log' in locals(): log.error(f"严重崩溃!\n{error_trace}", extra={'module_name': 'GlobalCatcher'})
     st.error("⚠️ 引擎遭遇严重逻辑错误！已被护盾拦截。")
     if st.button("🛠️ 进入抢修模式 (查看崩溃日志)"):
-        st.session_state.view_full_logs = True
-        st.rerun()
+        st.session_state.view_full_logs = True; st.rerun()

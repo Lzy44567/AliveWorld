@@ -29,14 +29,12 @@ def intelligent_salvage(raw_str, error_msg):
     log.warning(f"启动智能打捞引擎... 原因: {error_msg}")
     story = raw_str.strip()
     
-    # 方案A：AI 像话痨一样把小说写在了 JSON 前面
     if '{' in story:
         pre_text = story.split('{')[0].strip()
         if len(pre_text) > 50: 
             pre_text = re.sub(r'[a-zA-Z_]+\s*$', '', pre_text).strip() 
             story = pre_text
         else:
-            # 方案B：AI 的 JSON 被截断了，强行做外科手术抠出文本
             extracted = extract_story_from_broken_json(story)
             if extracted: story = extracted
             
@@ -47,6 +45,7 @@ def intelligent_salvage(raw_str, error_msg):
     
     return {
         "story_text": story + "\n\n*(🔧 引擎防溃盾：检测到 AI 格式崩溃或字数截断，已强制打捞剧情正文，跳过本次数值更新。)*",
+        "world_events": [], # 确保打捞时也有这个字段，防报错
         "numeric_changes": {"hp": 0, "max_hp": 0, "mana": 0, "max_mana": 0},
         "new_buffs": {}, "remove_buffs": [], "dynamic_bars": {},
         "status_updates": {}, "npc_states": {}, "status_deletions": []

@@ -9,9 +9,9 @@ from sys_logger import get_logger
 log = get_logger()
 
 def render_tavern(ai_engine, global_settings):
-    """主大厅渲染入口"""
     st.title("🏰 AliveWorld - 多元宇宙大厅")
-    tab_lobby, tab_saves, tab_char, tab_world, tab_style = st.tabs(["🚀 开启新故事", "📂 记忆档案馆", "🗂️ 角色工坊", "🌍 世界书工坊", "🎭 文风工坊"])
+    # 【新增】：第六个 Tab 引擎控制台
+    tab_lobby, tab_saves, tab_char, tab_world, tab_style, tab_prompts = st.tabs(["🚀 开启新故事", "📂 记忆档案馆", "🗂️ 角色工坊", "🌍 世界书工坊", "🎭 文风工坊", "⚙️ 引擎控制台"])
     
     char_dict = utils.load_yaml_files(utils.CHAR_DIR)
     style_dict = utils.load_yaml_files(utils.STYLE_DIR)
@@ -56,6 +56,27 @@ def render_tavern(ai_engine, global_settings):
     with tab_char: render_char_tab(char_dict)
     with tab_world: render_world_tab(world_dict, ai_engine)
     with tab_style: render_style_tab(style_dict, ai_engine, global_settings)
+    
+    # 【新增代码块】：渲染引擎控制台
+    with tab_prompts:
+        st.info("⚠️ 这里是引擎的底层法则核心（Prompt）。任何修改都会立刻全局生效，深刻影响世界演化逻辑。")
+        prompt_path = os.path.join(utils.BASE_DIR, 'system_prompts.yml')
+        try:
+            with open(prompt_path, 'r', encoding='utf-8') as f: current_prompts = yaml.safe_load(f)
+        except Exception: current_prompts = {}
+        
+        with st.form("sys_prompt_form"):
+            react_p = st.text_area("🧠 变数推演核心 (Reaction Prompt)", value=current_prompts.get('reaction_prompt', ''), height=200)
+            settle_p = st.text_area("✍️ 剧情结算与演化核心 (Settlement Prompt)", value=current_prompts.get('settlement_prompt', ''), height=300)
+            arch_p = st.text_area("🌍 世界架构师核心 (Architect Prompt)", value=current_prompts.get('world_architect_prompt', ''), height=150)
+            
+            if st.form_submit_button("💾 覆写底层法则", type="primary"):
+                current_prompts['reaction_prompt'] = react_p
+                current_prompts['settlement_prompt'] = settle_p
+                current_prompts['world_architect_prompt'] = arch_p
+                with open(prompt_path, 'w', encoding='utf-8') as f: yaml.dump(current_prompts, f, allow_unicode=True)
+                st.success("法则修改成功！将在下一次推演中生效。")
+                st.rerun()
 
 def render_saves_tab(save_dir):
     saves = {}
