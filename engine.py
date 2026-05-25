@@ -9,10 +9,8 @@ from sys_logger import get_logger
 log = get_logger()
 
 def robust_json_parse(raw_str):
-    """【超级铁壁】：无论AI怎么乱加文本，强行把 JSON 挖出来"""
     if not raw_str or not str(raw_str).strip():
         raise ValueError("输入内容为空 (Empty String)。")
-        
     raw_str = str(raw_str).strip()
     try:
         return json.loads(raw_str)
@@ -61,18 +59,11 @@ class AIEngine:
                 response_format={"type": "json_object"}
             )
             raw_str = res.choices[0].message.content or ""
-            finish_reason = res.choices[0].finish_reason
-            
-            # 【终极防线】：处理推演期被审核的情况
-            if not raw_str.strip():
-                log.warning(f"推演期被拦截，finish_reason: {finish_reason}")
-                return [{"id": 1, "description": "系统提示：一阵神秘的法则之力（API安全审查）抹除了这个时空的发展可能性，什么事都没有发生。", "weight": 100}], ""
-                
-            parsed = robust_json_parse(raw_str)
-            return parsed.get('reactions', []), raw_str
+            return robust_json_parse(raw_str).get('reactions', []), raw_str
         except Exception as e: 
-            log.error(f"推演提取失败: {e}")
-            return None, raw_str if 'raw_str' in locals() else str(e)
+            # 【终极防线 1：遭遇 API 异常或截断时的完美兜底】
+            log.error(f"推演提取彻底拦截: {e}")
+            return [{"id": 1, "description": f"系统提示：一股强大的外来法则之力（API安全审查或模型崩溃）阻挡了命运的推演。原因：{e}", "weight": 100}], ""
 
     def roll_dice(self, reactions):
         if not reactions: return None
@@ -88,22 +79,15 @@ class AIEngine:
                 max_tokens=max(2500, int(word_limit * 3)),
                 response_format={"type": "json_object"}
             )
-            
             raw_str = res.choices[0].message.content or ""
-            finish_reason = res.choices[0].finish_reason
-            
-            # 【终极防线】：处理结算期被审核的情况
-            if not raw_str.strip():
-                log.warning(f"结算期被拦截，finish_reason: {finish_reason}")
-                fallback_json = {
-                    "story_text": "*(系统提示：因为该段剧情触发了大语言模型的 NSFW/暴力 审查拦截，因果律被强制切断。)*\n这股强大的外来法则之力让你们双方都愣住了，战斗出现了短暂的停滞...",
-                    "numeric_changes": {"hp": 0, "max_hp": 0, "mana": 0, "max_mana": 0},
-                    "new_buffs": {}, "remove_buffs": [], "dynamic_bars": {},
-                    "status_updates": {}, "npc_states": {}, "status_deletions": []
-                }
-                return fallback_json, "(内容被API拦截，触发空字符返回)"
-                
             return robust_json_parse(raw_str), raw_str
         except Exception as e: 
-            log.error(f"结算提取失败: {e}")
-            return None, raw_str if 'raw_str' in locals() else str(e)
+            # 【终极防线 2：安全接管主界面输出】
+            log.error(f"结算提取彻底拦截: {e}")
+            fallback_json = {
+                "story_text": f"*(系统警报：这段剧情触犯了世界的底层法则（通常为大模型 API 屏蔽了敏感内容），因果律被强制切断。)*\n\n这股强大的力量让时间停滞了一瞬，请尝试改变你的行动，或点击下方的【一键重推】按钮。",
+                "numeric_changes": {"hp": 0, "max_hp": 0, "mana": 0, "max_mana": 0},
+                "new_buffs": {}, "remove_buffs": [], "dynamic_bars": {},
+                "status_updates": {}, "npc_states": {}, "status_deletions": []
+            }
+            return fallback_json, f"(拦截兜底触发) {e}"

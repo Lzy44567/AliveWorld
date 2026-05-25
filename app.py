@@ -10,26 +10,22 @@ from sys_logger import get_logger, read_logs_parsed
 st.set_page_config(page_title="AliveWorld AI引擎", page_icon="🐉", layout="wide")
 log = get_logger()
 
-# ================= 1. 全局异常拦截网 (Ironclad Defense) =================
-# 任何 Streamlit/Python 的未捕获错误都会在这里被吞并并写入我们自己的日志
 try:
     @st.cache_resource
     def init_core():
         with open(os.path.join(utils.BASE_DIR, 'config.yml'), 'r', encoding='utf-8') as f: 
             return AIEngine(yaml.safe_load(f))
     
-    try: 
-        ai_engine = init_core()
-    except Exception as e: 
-        st.error(f"配置加载失败: {e}"); st.stop()
+    try: ai_engine = init_core()
+    except Exception as e: st.error(f"配置加载失败: {e}"); st.stop()
 
     global_settings = utils.load_settings()
 
-    # ================= 2. 专业全屏日志界面 (Log Viewer) =================
+    # ================= 专业全屏日志 (修复问题6：最新在最上) =================
     if st.session_state.get('view_full_logs', False):
         st.markdown("""
         <style>
-        .log-container { font-family: 'Consolas', 'Courier New', monospace; color: #333; font-size: 13px; background-color: #f7f9fb; padding: 20px; border-radius: 8px; height: 75vh; overflow-y: auto; border: 1px solid #e1e4e8; box-shadow: inset 0 1px 3px rgba(0,0,0,.04); }
+        .log-container { font-family: 'Consolas', monospace; color: #333; font-size: 13px; background-color: #f7f9fb; padding: 20px; border-radius: 8px; height: 75vh; overflow-y: auto; border: 1px solid #e1e4e8; box-shadow: inset 0 1px 3px rgba(0,0,0,.04); }
         .log-line { margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid #eee; }
         .log-time { color: #888; margin-right: 8px; }
         .log-module { color: #0366d6; font-weight: bold; margin-right: 8px; }
@@ -41,22 +37,22 @@ try:
         if c1.button("⬅️ 返回游戏", use_container_width=True):
             st.session_state.view_full_logs = False
             st.rerun()
-        c2.title("📊 系统日志历史")
+        c2.title("📊 系统日志历史 (最新在最上)")
         
-        logs = read_logs_parsed()
+        # [::-1] 切片操作实现数组反转！
+        logs = read_logs_parsed()[::-1] 
         html_lines = []
         for l in logs:
             html_lines.append(f"<div class='log-line'><span class='log-time'>[{l['time']}]</span> <span>{l['icon']}</span> <span class='log-module'>[{l['module']}]</span> <span class='log-msg'>{l['message']}</span></div>")
         
         st.markdown(f"<div class='log-container'>{''.join(html_lines)}</div>", unsafe_allow_html=True)
-        st.stop() # 渲染完日志直接停止，不加载游戏界面
+        st.stop()
 
-    # ================= 3. 游戏路由 (Router) =================
     if 'game_started' not in st.session_state or not st.session_state.game_started:
         ui_tavern.render_tavern(ai_engine, global_settings)
         st.stop()
 
-    # ================= 4. 游戏主界面 (Game UI) =================
+    # ================= 游戏主界面 =================
     with st.sidebar:
         st.title("🛡️ 游戏状态")
         ps, deltas, bars, buffs = st.session_state.player_state, st.session_state.last_deltas, st.session_state.dynamic_bars, st.session_state.active_buffs
@@ -94,15 +90,21 @@ try:
                 st.session_state.session_save_name = new_save_name; utils.auto_save_game()
             if st.button("💾 手动保存", use_container_width=True): utils.auto_save_game(); st.toast("保存成功！")
             
-            # 进入专业日志界面的入口按钮
             if st.button("📊 查看系统核心日志", type="primary", use_container_width=True):
                 st.session_state.view_full_logs = True
                 st.rerun()
 
     st.title("📖 AliveWorld")
 
+    # 【新增】：重试机制路由
     action = st.chat_input("轮到你了...")
+    if getattr(st.session_state, 'trigger_retry', False):
+        action = st.session_state.last_user_action
+        st.session_state.trigger_retry = False # 消费掉标记
+        st.toast("🔄 正在重新推演上一回合...", icon="🚀")
+
     if action and not st.session_state.game_over:
+        st.session_state.last_user_action = action # 记录本次输入的动作以备重试
         utils.take_snapshot()
         st.session_state.chat_messages.append({"role": "user", "content": action})
         utils.auto_save_game()
@@ -131,7 +133,7 @@ try:
                 if triggered: st.toast(f"📖 触发世界记忆: {', '.join(triggered)}")
 
             with st.spinner("🧠 推演因果律中..."):
-                log.info(f"发送推演请求: {action[:10]}...", extra={'module_name': '底层引擎'})
+                log.info(f"发送推演请求: {action[:15]}...", extra={'module_name': '底层引擎'})
                 reactions, raw_react_json = ai_engine.get_world_reactions(ctx, action, f_state, st.session_state.char_info, active_world_info)
                 log.info(f"RAW 推演返回: {raw_react_json}", extra={'module_name': 'AI原声'})
                 
@@ -155,11 +157,11 @@ try:
                     utils.auto_save_game() 
                     st.rerun() 
                 else:
-                    log.error("结算提取完全失败，Result为空", extra={'module_name': '系统警报'})
-                    st.error("❌ 结算失败。请打开侧边栏【查看系统核心日志】定位原因。")
+                    st.error("❌ 严重异常：结算结果为空，已记录至日志。")
 
     if not action and not st.session_state.game_over:
         st.markdown("---")
+        # 修复问题 3：加入一键重推按钮
         col1, col2, col3 = st.columns([1, 1, 3])
         with col1:
             if st.button("⏪ 撤回上回合", use_container_width=True):
@@ -169,14 +171,22 @@ try:
                     utils.auto_save_game(); st.rerun()
                 else: st.toast("已经是第一回合！", icon="⚠️")
         with col2:
-            if st.button("🚪 返回大厅", use_container_width=True): st.session_state.clear(); st.rerun()
+            if st.button("🔄 一键重试本回合", type="secondary", use_container_width=True):
+                if len(st.session_state.state_snapshots) > 0:
+                    # 弹出存档回滚到用户输入前的状态，并挂载重推标记
+                    last_snap = st.session_state.state_snapshots.pop()
+                    for k, v in last_snap.items(): st.session_state[k] = v
+                    st.session_state.trigger_retry = True 
+                    utils.auto_save_game()
+                    st.rerun()
+                else: st.toast("无记录可重试！", icon="⚠️")
+        with col3:
+            if st.button("🚪 返回大厅"): st.session_state.clear(); st.rerun()
 
 except Exception as global_e:
-    # 终极护盾：将哪怕会导致 Streamlit 白屏的深层错误直接抓取到我们的 UI 日志里
     error_trace = traceback.format_exc()
     log.error(f"严重崩溃!\n{error_trace}", extra={'module_name': 'GlobalCatcher'})
     st.error("⚠️ 引擎遭遇严重逻辑错误！已被护盾拦截。")
-    st.markdown("请点击下方按钮进入开发者日志查看红色报错的具体行数：")
     if st.button("🛠️ 进入抢修模式 (查看崩溃日志)"):
         st.session_state.view_full_logs = True
         st.rerun()

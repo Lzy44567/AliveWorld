@@ -94,8 +94,15 @@ def apply_state_updates(result):
     bars_update = result.get('dynamic_bars', {}) if isinstance(result.get('dynamic_bars'), dict) else {}
     for bn, bd in bars_update.items():
         if not isinstance(bd, dict): continue
-        if bn not in st.session_state.dynamic_bars: st.session_state.dynamic_bars[bn] = {"current": 0, "max": bd.get('max', 1)}
-        st.session_state.dynamic_bars[bn]["current"] = min(st.session_state.dynamic_bars[bn]["current"] + bd.get('change', 0), st.session_state.dynamic_bars[bn]["max"])
+        if bn not in st.session_state.dynamic_bars: 
+            # 修复：AI新增状态条时，精确读取 current，如果没有则给 0，防止刚建出来就被删！
+            init_val = bd.get('current', 0)
+            st.session_state.dynamic_bars[bn] = {"current": init_val, "max": bd.get('max', 100)}
+        else:
+            # 修复：已有状态条只加 change
+            st.session_state.dynamic_bars[bn]["current"] = min(st.session_state.dynamic_bars[bn]["current"] + bd.get('change', 0), st.session_state.dynamic_bars[bn]["max"])
+        
+        # 删除归零的条
         if st.session_state.dynamic_bars[bn]["current"] <= 0: del st.session_state.dynamic_bars[bn]
             
     npc_up = result.get('npc_states', {}) if isinstance(result.get('npc_states'), dict) else {}
