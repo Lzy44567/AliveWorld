@@ -20,22 +20,26 @@ ai_engine = init_system()
 settings = load_settings()
 log = get_logger()
 
-# 路由控制与全屏日志
+# ================= 系统级终端日志 =================
 if st.session_state.get('view_full_logs', False):
-    st.markdown("""<style>.log-container { font-family: 'Consolas', monospace; font-size: 13px; background-color: #f7f9fb; padding: 20px; border-radius: 8px; height: 75vh; overflow-y: auto; }</style>""", unsafe_allow_html=True)
+    st.markdown("""<style>
+    .log-container { font-family: 'Consolas', monospace; font-size: 13px; background-color: #1e1e1e; color: #d4d4d4; padding: 20px; border-radius: 8px; height: 75vh; overflow-y: auto; }
+    .log-line { margin-bottom:6px; border-bottom:1px solid #333; padding-bottom: 4px; }
+    </style>""", unsafe_allow_html=True)
     c1, c2 = st.columns([1, 10])
     if c1.button("⬅️ 返回游戏"):
         st.session_state.view_full_logs = False
         st.rerun()
-    c2.title("📊 系统日志")
+    c2.title("📊 系统终端日志 (黑客模式)")
     logs = read_logs_parsed()[::-1]
-    html_lines = [f"<div style='margin-bottom:6px;border-bottom:1px solid #eee;'>[{l['time']}] {l['icon']} <b>[{l['module']}]</b> {l['message']}</div>" for l in logs]
+    html_lines = [f"<div class='log-line'>[{l['time']}] {l['icon']} <b style='color:#569cd6;'>[{l['module']}]</b> {l['message']}</div>" for l in logs]
     st.markdown(f"<div class='log-container'>{''.join(html_lines)}</div>", unsafe_allow_html=True)
     st.stop()
 
+# ================= 路由控制 =================
 if 'game' not in st.session_state:
     render_tavern(ai_engine, settings)
-    st.stop()
+    st.stop()  # 如果还没建立游戏对象，就在大厅停下，不准执行后面的代码！
 
 game = st.session_state.game
 
@@ -70,6 +74,9 @@ with st.sidebar:
         if st.button("📊 查看系统核心日志"):
             st.session_state.view_full_logs = True
             st.rerun()
+        if st.button("🚪 返回大厅"):
+            del st.session_state.game
+            st.rerun()
 
 # ================= 主渲染循环 =================
 st.title("📖 AliveWorld")
@@ -85,10 +92,10 @@ for msg in game.history['chat_messages']:
 
 if game.is_game_over: st.error("☠️ 你已死亡。")
 
-# 处理一键重试逻辑
 action = st.chat_input("轮到你了...")
 is_processing = False
 
+# 触发重试逻辑
 if getattr(st.session_state, 'trigger_retry', False):
     action = st.session_state.last_action
     st.session_state.trigger_retry = False
@@ -99,10 +106,7 @@ if action and not game.is_game_over:
     with st.chat_message("user", avatar="🤔"): st.write(action)
     with st.spinner("🧠 引擎推演中..."):
         result = game.process_turn(action)
-# app.py (大概在第 96 行 process_turn 之后)
-    with st.spinner("🧠 引擎推演中..."):
-        result = game.process_turn(action)
-        # 增加这一行：抛出提示
+        # 弹出触发的词条设定
         if result and result.get('triggered_entries'):
             st.toast(f"📖 触发世界记忆: {', '.join(result['triggered_entries'])}")
     save_game_data(game.save_name, game.export_save_data())
@@ -110,10 +114,12 @@ if action and not game.is_game_over:
 
 if not is_processing and not game.is_game_over:
     st.markdown("---")
-    c1, c2, c3 = st.columns([1, 1, 3])
+    c1, c2 = st.columns([1, 1])
     with c1:
         if st.button("⏪ 撤回上回合", use_container_width=True):
-            if game.rollback(): save_game_data(game.save_name, game.export_save_data()); st.rerun()
+            if game.rollback(): 
+                save_game_data(game.save_name, game.export_save_data())
+                st.rerun()
             else: st.toast("已经是第一回合！", icon="⚠️")
     with c2:
         if st.button("🔄 重试本回合", type="secondary", use_container_width=True):
@@ -121,7 +127,3 @@ if not is_processing and not game.is_game_over:
                 st.session_state.trigger_retry = True
                 st.rerun()
             else: st.toast("无记录可重试！", icon="⚠️")
-    with c3:
-        if st.button("🚪 返回大厅"):
-            del st.session_state.game
-            st.rerun()
