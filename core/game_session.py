@@ -15,10 +15,6 @@ class GameSession:
         self.world_info_base = ""
         self.world_entries = []
         self.word_limit = 500
-        self.snapshots = []
-        # 【修改】将 ai_engine 注入暗流引擎
-        self.undercurrent = UndercurrentEngine(ai_engine)
-        self.resolver = DualTrackResolver()
         
         self.state = {
             "player": {"hp": 100, "max_hp": 100, "mana": 100, "max_mana": 100},
@@ -27,7 +23,7 @@ class GameSession:
             "bars": {}, "buffs": {}, "npcs": {}
         }
         self.history = {"chat_messages": [], "context_history": []}
-        self.snapshots = [] # 独立管理存档点
+        self.snapshots = [] 
         
         self.undercurrent = UndercurrentEngine(self.ai_engine)
         self.resolver = DualTrackResolver()
@@ -52,36 +48,36 @@ class GameSession:
         settlement = result['settlement']
         self.history["chat_messages"].append({"role": "reactions", "content": result['reactions']})
         self.history["chat_messages"].append({"role": "system", "content": f"命运变数: {result['chosen_reaction']['description']}"})
-        self.history["chat_messages"].append({"role": "ai", "content": settlement.get('story_text', '')})
         
-        # 【修改】给暗流引擎提供主线视角，并获取本次触发的暗流事件
+        # 【修复】强制处理换行符，防止 AI 传输 \\n
+        story_text = settlement.get('story_text', '').replace('\\n', '\n')
+        self.history["chat_messages"].append({"role": "ai", "content": story_text})
+        
         recent_context = self.get_context_text()
         undercurrent_events = self.undercurrent.tick(recent_context)
         
         if undercurrent_events:
             for ev in undercurrent_events:
-                # 将实体行动通过 System 形式偷偷推给前端显示（你也可以折叠起来）
                 self.history["chat_messages"].append({"role": "system", "content": f"🌌 潜流涌动: {ev}"})
         
         self._apply_state_updates(settlement)
-        self.history["context_history"].append(f"玩家：{user_action}\n结果：{settlement.get('story_text', '')}")
+        self.history["context_history"].append(f"玩家：{user_action}\n结果：{story_text}")
         
         return result
 
     def get_context_text(self): return "\n".join(self.history["context_history"][-3:])
     def get_dynamic_state_for_ai(self): return {"stats": self.state['player'], "bars": self.state['bars'], "properties": self.state['properties'], "buffs": self.state['buffs'], "npcs": self.state['npcs']}
-# core/game_session.py
     def build_active_world_info(self, action):
         active = self.world_info_base + "\n"
         search = self.get_context_text() + "\n" + action
-        triggered_entries = [] # 记录触发了哪些词条
+        triggered_entries = []
         for ent in self.world_entries:
             keys = [k.strip() for k in ent.get('keys', '').split(',') if k.strip()]
             if any(k in search for k in keys): 
                 active += f"【设定 - {ent.get('name')}】：{ent.get('content', '')}\n"
                 triggered_entries.append(ent.get('name'))
         active += "\n【隐藏的暗流因果】：\n" + self.undercurrent.get_ledger_context()
-        return active, triggered_entries # 返回两个值
+        return active, triggered_entries
 
     def _apply_state_updates(self, result):
         ps, deltas = self.state['player'], self.state['last_deltas']
@@ -110,15 +106,21 @@ class GameSession:
             if bn not in self.state['bars']: self.state['bars'][bn] = {"current": bd.get('current', 0), "max": bd.get('max', 100)}
             else: self.state['bars'][bn]["current"] = max(0, min(self.state['bars'][bn]["current"] + bd.get('change', 0), self.state['bars'][bn]["max"]))
                 
-        for k, v in result.get('npc_states', {}).items(): self.state['npcs'][k] = str(v)
-        for k, v in result.get('status_updates', {}).items(): self.state['properties'][k] = str(v)
+        # 【修复 Q3】将 NPC 和 属性 的嵌套字典强制转化为字符串！
+        for k, v in result.get('npc_states', {}).items():
+            if isinstance(v, dict): v = ", ".join([f"{dk}:{dv}" for dk, dv in v.items()])
+            self.state['npcs'][k] = str(v)
+            
+        for k, v in result.get('status_updates', {}).items(): 
+            if isinstance(v, dict): v = ", ".join([f"{dk}:{dv}" for dk, dv in v.items()])
+            self.state['properties'][k] = str(v)
+            
         dels = result.get('status_deletions', [])
         if not isinstance(dels, list): dels = []
         for k in dels:
             for group in ['properties', 'bars', 'buffs', 'npcs']: self.state[group].pop(k, None)
 
     def _take_snapshot(self):
-        # 修复撤回不删除对话的问题：进行深度拷贝
         snap = {"state": copy.deepcopy(self.state), "chat_messages": copy.deepcopy(self.history["chat_messages"]), "context_history": copy.deepcopy(self.history["context_history"])}
         self.snapshots.append(snap)
         if len(self.snapshots) > 20: self.snapshots.pop(0)

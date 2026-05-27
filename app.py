@@ -1,11 +1,13 @@
 # app.py
 import streamlit as st
-import yaml, os
+import yaml, os, pandas as pd
 from datetime import datetime
 from utils.sys_logger import init_logger, get_logger, read_logs_parsed
 from utils.file_io import load_settings, save_game_data, BASE_DIR
 from core.ai_engine import AIEngine
 from ui_tavern import render_tavern
+from core.undercurrent import Entity
+import streamlit.components.v1 as components
 
 st.set_page_config(page_title="AliveWorld", page_icon="🐉", layout="wide")
 
@@ -22,24 +24,32 @@ log = get_logger()
 
 # ================= 系统级终端日志 =================
 if st.session_state.get('view_full_logs', False):
-    st.markdown("""<style>
-    .log-container { font-family: 'Consolas', monospace; font-size: 13px; background-color: #1e1e1e; color: #d4d4d4; padding: 20px; border-radius: 8px; height: 75vh; overflow-y: auto; }
-    .log-line { margin-bottom:6px; border-bottom:1px solid #333; padding-bottom: 4px; }
-    </style>""", unsafe_allow_html=True)
     c1, c2 = st.columns([1, 10])
     if c1.button("⬅️ 返回游戏"):
         st.session_state.view_full_logs = False
         st.rerun()
     c2.title("📊 系统终端日志 (黑客模式)")
-    logs = read_logs_parsed()[::-1]
-    html_lines = [f"<div class='log-line'>[{l['time']}] {l['icon']} <b style='color:#569cd6;'>[{l['module']}]</b> {l['message']}</div>" for l in logs]
-    st.markdown(f"<div class='log-container'>{''.join(html_lines)}</div>", unsafe_allow_html=True)
+    
+    # 恢复正常的顺序（从旧到新），最底部是最新的
+    logs = read_logs_parsed()
+    html_lines = [f"<div style='margin-bottom:6px; border-bottom:1px solid #333; padding-bottom: 4px; font-family: Consolas, monospace; font-size: 13px; color: #d4d4d4;'>[{l['time']}] {l['icon']} <b style='color:#569cd6;'>[{l['module']}]</b> {l['message']}</div>" for l in logs]
+    
+    # 使用包含 JS 的完整 HTML 容器
+    full_html = f"""
+    <div id="log-container" style="background-color: #1e1e1e; padding: 20px; border-radius: 8px; height: 75vh; overflow-y: auto;">
+        {''.join(html_lines)}
+    </div>
+    <script>
+        var logBox = document.getElementById("log-container");
+        logBox.scrollTop = logBox.scrollHeight;
+    </script>
+    """
+    components.html(full_html, height=600, scrolling=False)
     st.stop()
 
-# ================= 路由控制 =================
 if 'game' not in st.session_state:
     render_tavern(ai_engine, settings)
-    st.stop()  # 如果还没建立游戏对象，就在大厅停下，不准执行后面的代码！
+    st.stop()
 
 game = st.session_state.game
 
@@ -65,7 +75,24 @@ with st.sidebar:
         st.divider()
         st.markdown("### 👾 NPC 雷达")
         for k, v in game.state['npcs'].items(): st.error(f"**{k}**: {v}")
+        
+    st.divider()
+    st.markdown("### 🌌 世界实体观测窗")
+    st.caption("你可以在此手动捏造势力或仇人。")
     
+    ent_data = [{"名称": e.name, "动机": e.goal} for e in game.undercurrent.entities]
+    if not ent_data: ent_data = [{"名称": "", "动机": ""}]
+    
+    df_ents = pd.DataFrame(ent_data)
+    edited_df = st.data_editor(df_ents, num_rows="dynamic", use_container_width=True, hide_index=True)
+    
+    new_entities = []
+    for _, row in edited_df.dropna(how="all").iterrows():
+        if str(row.get("名称")).strip():
+            new_entities.append(Entity(str(row["名称"]), str(row.get("动机", ""))))
+    game.undercurrent.entities = new_entities
+    
+    st.divider()
     with st.expander("⚙️ 设置", expanded=False):
         game.word_limit = st.slider("详细度(字数)", 100, 2000, game.word_limit, 100)
         if st.button("💾 手动保存"):
@@ -95,7 +122,6 @@ if game.is_game_over: st.error("☠️ 你已死亡。")
 action = st.chat_input("轮到你了...")
 is_processing = False
 
-# 触发重试逻辑
 if getattr(st.session_state, 'trigger_retry', False):
     action = st.session_state.last_action
     st.session_state.trigger_retry = False
@@ -106,7 +132,6 @@ if action and not game.is_game_over:
     with st.chat_message("user", avatar="🤔"): st.write(action)
     with st.spinner("🧠 引擎推演中..."):
         result = game.process_turn(action)
-        # 弹出触发的词条设定
         if result and result.get('triggered_entries'):
             st.toast(f"📖 触发世界记忆: {', '.join(result['triggered_entries'])}")
     save_game_data(game.save_name, game.export_save_data())
