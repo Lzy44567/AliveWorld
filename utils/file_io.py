@@ -2,14 +2,20 @@
 import os, json, yaml, glob
 from datetime import datetime
 
+# 找到项目根目录
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-CHAR_DIR = os.path.join(BASE_DIR, 'characters')
-STYLE_DIR = os.path.join(BASE_DIR, 'styles')
-SAVE_DIR = os.path.join(BASE_DIR, 'saves')
-WORLD_DIR = os.path.join(BASE_DIR, 'worldbooks')
-SETTINGS_FILE = os.path.join(BASE_DIR, 'settings.json')
 
-for d in [CHAR_DIR, STYLE_DIR, SAVE_DIR, WORLD_DIR]: os.makedirs(d, exist_ok=True)
+# 统一指向你新建的 data 文件夹
+DATA_DIR = os.path.join(BASE_DIR, 'data')
+CHAR_DIR = os.path.join(DATA_DIR, 'characters')
+STYLE_DIR = os.path.join(DATA_DIR, 'styles')
+SAVE_DIR = os.path.join(DATA_DIR, 'saves')
+WORLD_DIR = os.path.join(DATA_DIR, 'worldbooks')
+SETTINGS_FILE = os.path.join(DATA_DIR, 'settings.json')
+
+# 确保文件夹存在
+for d in [CHAR_DIR, STYLE_DIR, SAVE_DIR, WORLD_DIR]: 
+    os.makedirs(d, exist_ok=True)
 
 def load_settings():
     try:

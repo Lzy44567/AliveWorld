@@ -1,0 +1,26 @@
+AliveWorld_V2_Backend/
+├── main.py                    # FastAPI 实例入口、CORS配置、异常全局拦截网
+├── api/                       # HTTP 接口路由 (替代原 app.py 的按钮响应逻辑)
+│   ├── v1/
+│   │   ├── game_routes.py     # /api/v1/game/... (推演、撤回、状态)
+│   │   ├── lobby_routes.py    # 大厅路由 (获取本地的存档、角色、世界书列表)
+│   │   └── ws_routes.py       # WebSocket 实时通信 (打字机、系统终端日志实时回显)
+├── core/                      # 核心业务逻辑 (原样迁移，稍作解耦)
+│   ├── ai_engine.py           # 原样保留 (OpenAI调用, Salvage 防溃盾)
+│   ├── game_session.py        # 【重构点】从纯内存存储，改为支持从 SQLite 序列化/反序列化
+│   ├── resolution_engine.py   # 原样保留 (双轨推演)
+│   ├── undercurrent.py        # 原样保留 (暗流实体统御)
+│   └── prompts.py             # 原样保留 (法则加载器)
+├── schemas/                   # Pydantic 数据模型 (契约约束)
+│   ├── requests.py            # 前端发来的 Payload 校验 (如 ActionRequest)
+│   └── responses.py           # 发给前端的 Payload 结构
+├── services/                  # 接口与核心逻辑的粘合剂
+│   ├── session_manager.py     # 管理 GameSession 的创建、缓存与 SQLite 落地
+│   └── config_manager.py      # 管理热插拔读取 YAML/JSON
+├── db/                        # 数据持久层 (V2.0 规划)
+│   └── database.py            # SQLite 连接配置 (替代简单的 file_io.py)
+├── utils/                     # 工具箱
+│   ├── sys_logger.py          # 原样保留 (系统监控黑客终端的数据源)
+│   └── file_io.py             # 逐步改造为 SQLite 操作，过渡期保留
+├── config.yml                 # 全局配置 (API Keys, 等)
+└── system_prompts.yml         # 剥离的系统提示词
