@@ -1,3 +1,6 @@
+<!-- components/modals/AllModals.vue -->
+<!-- 100% 完整物理读写底稿 (请直接覆盖原文件) -->
+
 <script setup>
 import { uiStore } from '../../store/uiStore';
 import { assetStore } from '../../store/assetStore';
@@ -8,12 +11,16 @@ import TerminalModal from './TerminalModal.vue';
 import AssetEditorModal from './AssetEditorModal.vue';
 
 const startNewGame = async () => {
-  if (!assetStore.newSaveName.trim()) { alert("⚠️ 命运必须有一个名字 (存档名为空)！"); return; }
+  if (!assetStore.newSaveName.trim()) { 
+    alert("⚠️ 命运必须有一个名字 (存档名为空)！"); 
+    return; 
+  }
   gameStore.isProcessing = true;
   try {
     const payload = { 
       style_name: assetStore.selectedStyle, 
       worldbook_name: assetStore.selectedWorldbook, 
+      character_name: assetStore.selectedPlayerPersona, // 🚀 问题 3：将挑选的主角色卡回传给后端
       save_name: assetStore.newSaveName 
     };
     const data = await gameApi.startGame(payload);
@@ -25,6 +32,9 @@ const startNewGame = async () => {
     
     uiStore.modals.newGame = false;
     await assetStore.fetchAssets();
+    
+    // 🚀 问题 4：新局加载时回刷局内专属资产
+    await assetStore.fetchLocalAssets(data.session_id);
   } catch (err) {
     alert("创世失败，请检查 Python 后端是否启动！");
   } finally {
@@ -71,10 +81,33 @@ const startNewGame = async () => {
         <button @click="uiStore.modals.newGame=false" class="text-slate-400 hover:text-white text-2xl">✕</button>
       </div>
       <div class="p-6 space-y-4">
-        <div><label class="text-xs font-bold text-slate-400 block mb-1">📝 时间线命名</label><input v-model="assetStore.newSaveName" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none" placeholder="例如：废土远征纪" /></div>
-        <div class="grid grid-cols-2 gap-4">
-           <div><label class="text-xs font-bold text-slate-400 block mb-1">🌍 世界书</label><select v-model="assetStore.selectedWorldbook" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none"><option>无界域 (暂不加载)</option><option v-for="w in assetStore.availableWorldbooks" :key="w" :value="w">{{ w }}</option></select></div>
-           <div><label class="text-xs font-bold text-slate-400 block mb-1">🎭 文风卡</label><select v-model="assetStore.selectedStyle" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none"><option>默认 (无)</option><option v-for="s in assetStore.availableStyles" :key="s" :value="s">{{ s }}</option></select></div>
+        <div>
+          <label class="text-xs font-bold text-slate-400 block mb-1">📝 时间线命名</label>
+          <input v-model="assetStore.newSaveName" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none" placeholder="例如：废土远征纪" />
+        </div>
+        <div class="grid grid-cols-3 gap-4">
+           <div>
+             <label class="text-xs font-bold text-slate-400 block mb-1">🌍 世界书</label>
+             <select v-model="assetStore.selectedWorldbook" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none">
+               <option>无界域 (暂不加载)</option>
+               <option v-for="w in assetStore.availableWorldbooks" :key="w" :value="w">{{ w }}</option>
+             </select>
+           </div>
+           <div>
+             <label class="text-xs font-bold text-slate-400 block mb-1">🎭 文风卡</label>
+             <select v-model="assetStore.selectedStyle" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none">
+               <option>默认 (无)</option>
+               <option v-for="s in assetStore.availableStyles" :key="s" :value="s">{{ s }}</option>
+             </select>
+           </div>
+           <!-- 🚀 问题 3：主角选择栏 -->
+           <div>
+             <label class="text-xs font-bold text-slate-400 block mb-1">👤 扮演主角</label>
+             <select v-model="assetStore.selectedPlayerPersona" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none">
+               <option>空白模板 (无名者)</option>
+               <option v-for="c in assetStore.characters.global" :key="c.name" :value="c.name">{{ c.name }}</option>
+             </select>
+           </div>
         </div>
         <button @click="startNewGame" :disabled="gameStore.isProcessing" class="w-full py-4 mt-2 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-bold shadow-lg disabled:opacity-50 transition">降临新世界</button>
       </div>

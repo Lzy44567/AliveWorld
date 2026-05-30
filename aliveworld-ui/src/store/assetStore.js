@@ -1,4 +1,5 @@
-// src/store/assetStore.js 完整替代参考
+// src/store/assetStore.js
+// 100% 完整物理读写底稿 (请直接覆盖原文件)
 
 import { reactive } from 'vue';
 import { assetApi } from '../api/assetApi';
@@ -7,18 +8,18 @@ export const assetStore = reactive({
   newSaveName: "",
   selectedStyle: "默认 (无)", 
   selectedWorldbook: "无界域 (暂不加载)",
-  selectedPlayerPersona: "空白模板 (无名者)",
+  selectedPlayerPersona: "空白模板 (无名者)", // 🚀 问题 3
 
   availableWorldbooks: [],
   availableStyles: [],
   availableSaves: [], 
   
   saves: [],
-  // 基础空容器
+  // 提前准备好空容器
   characters: { local: [], global: [] },
   worlds: { local: [], global: [] },
   styles: { local: [], global: [] },
-  entities: { local: [], global: [] }, // 预留实体库
+  entities: { local: [], global: [] },
   
   insertCharData: { name: "", entrance: "" },
 
@@ -29,7 +30,7 @@ export const assetStore = reactive({
       this.availableStyles = data.styles || [];
       this.availableSaves = data.saves || [];
       
-      // 1. 映射保存数据
+      // 1. 映射存档列表
       this.saves = this.availableSaves.map(name => ({
         id: name, name: name, type: "Local", desc: "历史记忆节点..."
       }));
@@ -39,7 +40,7 @@ export const assetStore = reactive({
       this.styles.global = this.availableStyles.map(name => ({ name, tags: ["文风卡"], desc: "AI 叙事风格与限制。" }));
       this.characters.global = (data.characters || []).map(name => ({ name, tags: ["角色卡"], desc: "人物外观与背景设定。" }));
       
-      // 🚀 修复问题 3：将拉取到的全局实体填充进全局实体库
+      // 🚀 填充全局实体库
       this.entities.global = (data.entities || []).map(name => ({ name, tags: ["实体卡"], desc: "幕后实体的暗流动机与危机因果。" }));
       
     } catch (e) {
@@ -47,7 +48,7 @@ export const assetStore = reactive({
     }
   },
 
-  // 🚀 修复问题 4：当开启/载入游戏或者回合推进时，动态向后端查询并重刷“局内专属”资产
+  // 🚀 问题 4：动态向后端查询并重刷“局内专属”资产
   async fetchLocalAssets(sessionId) {
     if (!sessionId) {
       this.worlds.local = [];
