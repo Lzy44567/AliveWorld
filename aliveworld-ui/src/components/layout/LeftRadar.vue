@@ -2,6 +2,24 @@
 import { uiStore } from '../../store/uiStore';
 import { gameStore } from '../../store/gameStore';
 import { configStore } from '../../store/configStore';
+
+// 【修复核心】将后端传来的代码格式字符串，解析成漂亮的血条和标签
+const parseNpcStatus = (statusStr) => {
+  const parts = String(statusStr).split(',').map(s => s.trim());
+  const tags = [];
+  let hp = null, max_hp = null;
+  
+  parts.forEach(p => {
+    if (p.startsWith('hp:')) hp = parseInt(p.replace('hp:', ''));
+    else if (p.startsWith('max_hp:')) max_hp = parseInt(p.replace('max_hp:', ''));
+    else if (p.startsWith('description:')) tags.push(p.replace('description:', ''));
+    else tags.push(p);
+  });
+  
+  // 如果没有 max_hp 但有 hp，默认为 hp 的值（防止进度条报错）
+  if (hp !== null && max_hp === null) max_hp = hp; 
+  return { tags, hp, max_hp };
+};
 </script>
 
 <template>
@@ -19,14 +37,14 @@ import { configStore } from '../../store/configStore';
                <span>HP</span><span class="font-mono text-emerald-400">{{ gameStore.playerState.hp }}/{{ gameStore.playerState.maxHp }}</span>
              </div>
              <div class="w-full bg-slate-950 rounded-full h-1.5 mb-3">
-               <div class="bg-gradient-to-r from-red-600 to-red-400 h-1.5 rounded-full transition-all" :style="{ width: (gameStore.playerState.hp / gameStore.playerState.maxHp * 100) + '%' }"></div>
+               <div class="bg-gradient-to-r from-red-600 to-red-400 h-1.5 rounded-full transition-all duration-500" :style="{ width: (gameStore.playerState.hp / gameStore.playerState.maxHp * 100) + '%' }"></div>
              </div>
              
              <!-- 动态条 -->
              <div v-for="(bar, name) in gameStore.dynamicBars" :key="name" class="mb-2">
                <div class="flex justify-between text-[10px] mb-1 text-slate-400"><span>{{ name }}</span><span class="font-mono">{{ bar.current }}/{{ bar.max }}</span></div>
                <div class="w-full bg-slate-950 rounded-full h-1">
-                 <div class="bg-indigo-500 h-1 rounded-full" :style="{ width: Math.max(0, Math.min(100, (bar.current / bar.max * 100))) + '%' }"></div>
+                 <div class="bg-indigo-500 h-1 rounded-full transition-all duration-500" :style="{ width: Math.max(0, Math.min(100, (bar.current / bar.max * 100))) + '%' }"></div>
                </div>
              </div>
           </div>
@@ -55,26 +73,34 @@ import { configStore } from '../../store/configStore';
         <div v-if="Object.keys(gameStore.properties).length > 0 || Object.keys(gameStore.npcs).length > 0">
           <h3 class="text-xs text-slate-500 mb-2 font-bold uppercase">📡 场景与实体感知</h3>
           <div class="space-y-2">
+            <!-- 场景文字状态 -->
             <div v-for="(val, key) in gameStore.properties" :key="key" v-show="configStore.localSettings.showTime || !key.includes('时间')" class="bg-slate-800/80 px-2 py-1.5 rounded text-[11px] flex justify-between shadow-sm border border-slate-700/50">
               <span class="text-slate-400">{{ key }}</span><span class="text-emerald-300 font-bold">{{ val }}</span>
             </div>
-            <div v-for="(statusStr, name) in gameStore.npcs" :key="name" class="bg-slate-800/60 p-2 rounded border border-rose-900/50 shadow-sm relative">
-              <div class="absolute left-0 top-0 bottom-0 w-1 bg-rose-500"></div><span class="text-rose-300 font-bold text-xs ml-2">{{ name }}</span>
-              <div class="flex flex-wrap gap-1 mt-1 ml-2">
-                <span v-for="(tag, idx) in String(statusStr).split(',')" :key="idx" class="px-1.5 py-0.5 bg-rose-950 border border-rose-700/50 rounded text-[9px] text-rose-200">{{ tag.trim() }}</span>
+            
+            <!-- NPC 解析渲染 -->
+            <div v-for="(statusStr, name) in gameStore.npcs" :key="name" class="bg-slate-800/60 p-2.5 rounded border border-rose-900/50 shadow-sm relative overflow-hidden">
+              <div class="absolute left-0 top-0 bottom-0 w-1 bg-rose-500"></div>
+              <div class="ml-2">
+                <div class="flex justify-between items-center mb-1.5">
+                  <span class="text-rose-300 font-bold text-sm">{{ name }}</span>
+                  <!-- 如果解析出了血量，就渲染血量数值 -->
+                  <span v-if="parseNpcStatus(statusStr).hp !== null" class="text-[10px] font-mono text-rose-400">
+                    {{ parseNpcStatus(statusStr).hp }}/{{ parseNpcStatus(statusStr).max_hp }}
+                  </span>
+                </div>
+                <!-- 如果解析出了血量，就渲染真实血条 -->
+                <div v-if="parseNpcStatus(statusStr).hp !== null" class="w-full bg-slate-950 rounded-full h-1 mb-2">
+                  <div class="bg-rose-600 h-1 rounded-full transition-all" :style="{ width: (parseNpcStatus(statusStr).hp / parseNpcStatus(statusStr).max_hp * 100) + '%' }"></div>
+                </div>
+                <!-- 渲染其他文本标签 -->
+                <div class="flex flex-wrap gap-1">
+                  <span v-for="(tag, idx) in parseNpcStatus(statusStr).tags" :key="idx" class="px-1.5 py-0.5 bg-rose-950/80 border border-rose-700/30 rounded text-[10px] text-rose-200">
+                    {{ tag }}
+                  </span>
+                </div>
               </div>
             </div>
-          </div>
-        </div>
-
-        <!-- 场景地图 -->
-        <div v-if="configStore.localSettings.showMap" class="border-t border-slate-700 pt-4 pb-6">
-          <h3 class="text-xs text-slate-500 mb-2 font-bold uppercase flex justify-between items-center">
-            <span>🗺️ 区域地图</span><button class="text-indigo-400 hover:text-white text-[10px]">全屏</button>
-          </h3>
-          <div class="h-28 bg-slate-900 rounded-lg border border-slate-700 overflow-hidden relative group mb-3 shadow-lg">
-            <img :src="gameStore.currentScene.img" class="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition duration-500">
-            <div class="absolute bottom-0 w-full bg-gradient-to-t from-black via-black/80 to-transparent p-2 text-xs font-bold text-white">{{ gameStore.currentScene.name }}</div>
           </div>
         </div>
       </template>

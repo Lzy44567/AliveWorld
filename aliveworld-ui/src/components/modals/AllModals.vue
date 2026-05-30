@@ -4,6 +4,7 @@ import { assetStore } from '../../store/assetStore';
 import { configStore } from '../../store/configStore';
 import { gameStore } from '../../store/gameStore'; // 新增
 import { gameApi } from '../../api/gameApi';     // 新增
+import TerminalModal from './TerminalModal.vue'; // [新增引入]
 
 // [新增] 发起创世 API 请求
 const startNewGame = async () => {
@@ -94,6 +95,43 @@ const startNewGame = async () => {
         <div class="flex justify-end gap-3 mt-4">
           <button @click="uiStore.modals.insertChar=false" class="px-4 py-2 bg-slate-800 text-slate-300 rounded font-bold hover:bg-slate-700">取消</button>
           <button class="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded font-bold shadow-lg">发送指令</button>
+        </div>
+      </div>
+    </div>
+  </div>
+<!-- 💻 终端日志弹窗 (Terminal) -->
+  <div v-if="uiStore.modals.terminal" class="fixed inset-0 bg-black/80 z-[70] flex items-center justify-center backdrop-blur-sm p-4">
+    <div class="bg-[#0c0c0c] border border-slate-600 rounded-xl w-full max-w-4xl shadow-2xl flex flex-col slide-up overflow-hidden h-[70vh]">
+      <div class="p-3 border-b border-slate-700 flex justify-between bg-slate-900">
+        <h2 class="font-bold text-slate-300 text-sm flex items-center gap-2"><span class="text-rose-500">💻</span> 系统统御终端 (Live Log)</h2>
+        <button @click="uiStore.modals.terminal=false" class="text-slate-500 hover:text-white">✕</button>
+      </div>
+      <div class="flex-1 p-4 font-mono text-xs overflow-y-auto custom-scrollbar relative">
+        <div class="absolute top-4 right-4 text-slate-600 font-bold">LIVE STREAM</div>
+        <div class="text-emerald-500 mb-2">AliveWorld OS v2.1.0 [Terminal Active]</div>
+        <!-- [新增挂载真实日志终端] -->
+        <TerminalModal v-if="uiStore.modals.terminal" />
+        <div class="text-slate-400 mt-4 animate-pulse">_</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 🖼️ 画廊弹窗 (Gallery) -->
+  <div v-if="uiStore.modals.gallery" class="fixed inset-0 bg-black/80 z-[70] flex items-center justify-center backdrop-blur-sm p-4">
+    <div class="bg-aw_panel border border-slate-600 rounded-xl w-full max-w-5xl shadow-2xl flex flex-col slide-up overflow-hidden h-[80vh]">
+      <div class="p-4 border-b border-slate-700 flex justify-between bg-slate-900/80">
+        <h2 class="font-bold text-amber-400 text-lg flex items-center gap-2">🖼️ 回忆画廊</h2>
+        <button @click="uiStore.modals.gallery=false" class="text-slate-400 hover:text-white text-xl">✕</button>
+      </div>
+      <div class="flex-1 p-6 overflow-y-auto bg-slate-900/30">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <!-- 假图占位 -->
+          <div class="aspect-square bg-slate-800 rounded-lg border border-slate-700 overflow-hidden group cursor-pointer relative">
+            <img src="https://images.unsplash.com/photo-1542204625-236b284e366d?q=80&w=400&auto=format&fit=crop" class="w-full h-full object-cover opacity-70 group-hover:opacity-100 group-hover:scale-110 transition duration-500">
+            <div class="absolute inset-0 border-2 border-amber-500/0 group-hover:border-amber-500/50 rounded-lg transition"></div>
+          </div>
+          <div class="aspect-square bg-slate-900 rounded-lg border border-dashed border-slate-700 flex items-center justify-center text-slate-600 text-3xl">🔒</div>
+          <div class="aspect-square bg-slate-900 rounded-lg border border-dashed border-slate-700 flex items-center justify-center text-slate-600 text-3xl">🔒</div>
         </div>
       </div>
     </div>
