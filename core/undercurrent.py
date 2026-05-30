@@ -1,4 +1,6 @@
 # core/undercurrent.py
+# 100% 完整底稿 (请直接覆盖原文件)
+
 from utils.sys_logger import get_logger
 from core.prompts import load_system_prompts
 from core.ai_engine import robust_json_parse
@@ -20,10 +22,8 @@ class UndercurrentEngine:
         self.ai_engine = ai_engine
         self.tick_count = 0
         self.shadow_ledger = []
-        self.entities = [
-            Entity(name="世界意志 (命运暗流)", goal="在不为人知的角落推进世界的混乱，引发意想不到的蝴蝶效应"),
-            Entity(name="潜伏的危机", goal="根据玩家目前的处境，暗中在不远处制造阻碍或机遇")
-        ]
+        # 🚀 修复问题 1：彻底清空硬编码幽灵实体！现在完全由本地文件决定！
+        self.entities = []
 
     def load_state(self, data):
         self.tick_count = data.get('tick_count', 0)
@@ -59,7 +59,6 @@ class UndercurrentEngine:
         try:
             res = robust_json_parse(raw_ans)
             
-            # 1. 解析发生的动作
             events = res.get("undercurrent_events", [])
             for ev in events:
                 ent_name = ev.get("entity", "未知实体")
@@ -69,7 +68,6 @@ class UndercurrentEngine:
                     self.shadow_ledger.append(f"[Tick {self.tick_count}] {ent_name}行动：{act}")
                     log.info(f"暗流发生: 【{ent_name}】 {act}")
             
-            # 2. 解析新实体的诞生
             new_ents = res.get("new_entities", [])
             for ne in new_ents:
                 n_name = ne.get("name", "")
@@ -80,7 +78,6 @@ class UndercurrentEngine:
                     self.shadow_ledger.append(f"[Tick {self.tick_count}] 实体诞生：{n_name} ({n_goal})")
                     log.info(f"新实体诞生: {n_name} - {n_goal}")
                     
-            # 3. 解析实体动机的改变
             up_ents = res.get("update_entities", [])
             for ue in up_ents:
                 u_name = ue.get("name", "")
@@ -91,7 +88,6 @@ class UndercurrentEngine:
                         e.goal = u_goal
                         break
             
-            # 4. 【新增】解析实体的湮灭与删除
             del_ents = res.get("delete_entities", [])
             for de_name in del_ents:
                 original_len = len(self.entities)

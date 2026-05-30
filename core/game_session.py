@@ -1,12 +1,12 @@
 # core/game_session.py
-# 100% 完整物理读写底稿 (请直接覆盖原文件)
+# 100% 完整底稿 (请直接覆盖原文件)
 
 import os
 import copy
 import yaml
 import glob
 from datetime import datetime
-from core.undercurrent import UndercurrentEngine
+from core.undercurrent import UndercurrentEngine, Entity
 from core.resolution_engine import DualTrackResolver
 
 class GameSession:
@@ -23,7 +23,7 @@ class GameSession:
         self.world_entries = []
         
         self.word_limit = 500
-        self.description = ""  # 故事简述 / Plot Compass
+        self.description = ""
         
         self.state = {
             "player": {"hp": 100, "max_hp": 100, "mana": 100, "max_mana": 100},
@@ -43,9 +43,6 @@ class GameSession:
         self.history["context_history"] = [opening]
 
     def refresh_context_from_local(self):
-        """
-        🚀 核心：每次推演前，扫描并合并沙盒目录下所有激活的设定卡片！
-        """
         if not self.save_dir_path or not os.path.exists(self.save_dir_path):
             return
 
@@ -70,7 +67,7 @@ class GameSession:
                     self.world_entries.extend(data.get('entries', []))
         self.world_info_base = "\n".join(worlds_base)
 
-        # 3. 🚀 组装角色 (区分玩家化身与出场 NPC)
+        # 3. 组装角色
         player_chars = []
         npc_chars = []
         for f in glob.glob(os.path.join(self.save_dir_path, 'characters', '*.yml')):
@@ -88,15 +85,56 @@ class GameSession:
         if npc_chars:
             self.world_info_base += "\n\n【当前登场的重要NPC与势力】：\n" + "\n".join(npc_chars)
         
-        # 4. 🚀 注入 Plot Compass 故事主导向
         if self.description:
             self.world_info_base = f"【🔥宇宙主导向 (最高法则)】：{self.description}\n\n" + self.world_info_base
+
+        # 4. 🚀 问题1核心修复：将沙盒物理文件加载入暗流引擎内存
+        self.undercurrent.entities = []
+        for f in glob.glob(os.path.join(self.save_dir_path, 'entities', '*.yml')):
+            with open(f, 'r', encoding='utf-8') as file:
+                data = yaml.safe_load(file)
+                if data and data.get('is_active', True):
+                    self.undercurrent.entities.append(Entity(name=data.get('name', '未知'), goal=data.get('motive', data.get('description', ''))))
+
+    def _sync_entities_to_local(self):
+        """
+        🚀 问题1核心修复：推演结束后，将大模型创造/毁灭的势力写回物理沙盒！
+        """
+        if not self.save_dir_path: return
+        local_ent_dir = os.path.join(self.save_dir_path, 'entities')
+        os.makedirs(local_ent_dir, exist_ok=True)
+        active_names = [e.name for e in self.undercurrent.entities]
+
+        # 如果实体被 AI 判定消亡，则粉碎对应的物理卡片
+        for f in glob.glob(os.path.join(local_ent_dir, '*.yml')):
+            name = os.path.basename(f).replace('.yml', '')
+            if name not in active_names:
+                try: os.remove(f)
+                except: pass
+
+        # 更新或创立新的实体卡片
+        for e in self.undercurrent.entities:
+            fpath = os.path.join(local_ent_dir, f"{e.name}.yml")
+            data = {}
+            if os.path.exists(fpath):
+                try:
+                    with open(fpath, 'r', encoding='utf-8') as file:
+                        data = yaml.safe_load(file) or {}
+                except: pass
+            
+            data['name'] = e.name
+            data['motive'] = e.goal
+            data['is_active'] = True
+            data['tags'] = data.get('tags', ["暗流势力", "AI衍化"])
+            data['description'] = data.get('description', e.goal)
+            
+            with open(fpath, 'w', encoding='utf-8') as file:
+                yaml.safe_dump(data, file, allow_unicode=True, sort_keys=False)
 
     def process_turn(self, user_action: str):
         self._take_snapshot()
         self.history["chat_messages"].append({"role": "user", "content": user_action})
         
-        # 每次动作前刷新最新沙盒环境
         self.refresh_context_from_local()
         
         result = self.resolver.resolve(self, user_action)
@@ -112,6 +150,9 @@ class GameSession:
         recent_context = self.get_context_text()
         undercurrent_events = self.undercurrent.tick(recent_context)
         
+        # 🚀 同步物理文件
+        self._sync_entities_to_local()
+        
         if undercurrent_events:
             for ev in undercurrent_events:
                 self.history["chat_messages"].append({"role": "system", "content": f"🌌 潜流涌动: {ev}"})
@@ -121,8 +162,7 @@ class GameSession:
         
         return result
 
-    def get_context_text(self): 
-        return "\n".join(self.history["context_history"][-3:])
+    def get_context_text(self): return "\n".join(self.history["context_history"][-3:])
         
     def get_dynamic_state_for_ai(self): 
         return {
