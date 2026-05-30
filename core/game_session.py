@@ -1,14 +1,17 @@
 # core/game_session.py
+# 100% 完整物理读写底稿 (请直接覆盖原文件)
+
 import copy
 from datetime import datetime
 from core.undercurrent import UndercurrentEngine
 from core.resolution_engine import DualTrackResolver
 
 class GameSession:
-    def __init__(self, ai_engine, save_name=""):
+    def __init__(self, ai_engine, save_name="", save_dir_path=""):
         self.ai_engine = ai_engine
         self.session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.save_name = save_name
+        self.save_dir_path = save_dir_path  # 🚀 保存本存档局部专属根目录
         self.is_game_over = False
         self.char_info = ""
         self.style_info = ""
@@ -18,6 +21,7 @@ class GameSession:
         
         self.state = {
             "player": {"hp": 100, "max_hp": 100, "mana": 100, "max_mana": 100},
+            "player_name": "冒险者",  # 🚀 新增：保存当前玩家所扮演角色名 (支持自定义角色选择)
             "last_deltas": {"hp": 0, "max_hp": 0, "mana": 0, "max_mana": 0},
             "properties": {"身体": "完好"},
             "bars": {}, "buffs": {}, "npcs": {}
@@ -33,6 +37,8 @@ class GameSession:
         self.style_info = style_content
         self.world_info_base = world_data.get('global_setting', '无')
         self.world_entries = world_data.get('entries', [])
+        
+        self.state['player_name'] = char_data.get('name', '冒险者')  # 🚀 同步角色名到全局状态中
         hp, mp = char_data.get('initial_hp', 100), char_data.get('initial_mana', 100)
         self.state['player'] = {"hp": hp, "max_hp": hp, "mana": mp, "max_mana": mp}
         self.history["chat_messages"] = [{"role": "ai", "content": opening}]
@@ -49,7 +55,7 @@ class GameSession:
         self.history["chat_messages"].append({"role": "reactions", "content": result['reactions']})
         self.history["chat_messages"].append({"role": "system", "content": f"命运变数: {result['chosen_reaction']['description']}"})
         
-        # 【修复】强制处理换行符，防止 AI 传输 \\n
+        # 强制处理换行符，防止 AI 传输 \\n
         story_text = settlement.get('story_text', '').replace('\\n', '\n')
         self.history["chat_messages"].append({"role": "ai", "content": story_text})
         
@@ -65,8 +71,18 @@ class GameSession:
         
         return result
 
-    def get_context_text(self): return "\n".join(self.history["context_history"][-3:])
-    def get_dynamic_state_for_ai(self): return {"stats": self.state['player'], "bars": self.state['bars'], "properties": self.state['properties'], "buffs": self.state['buffs'], "npcs": self.state['npcs']}
+    def get_context_text(self): 
+        return "\n".join(self.history["context_history"][-3:])
+        
+    def get_dynamic_state_for_ai(self): 
+        return {
+            "stats": self.state['player'], 
+            "bars": self.state['bars'], 
+            "properties": self.state['properties'], 
+            "buffs": self.state['buffs'], 
+            "npcs": self.state['npcs']
+        }
+        
     def build_active_world_info(self, action):
         active = self.world_info_base + "\n"
         search = self.get_context_text() + "\n" + action
@@ -106,7 +122,7 @@ class GameSession:
             if bn not in self.state['bars']: self.state['bars'][bn] = {"current": bd.get('current', 0), "max": bd.get('max', 100)}
             else: self.state['bars'][bn]["current"] = max(0, min(self.state['bars'][bn]["current"] + bd.get('change', 0), self.state['bars'][bn]["max"]))
                 
-        # 【修复 Q3】将 NPC 和 属性 的嵌套字典强制转化为字符串！
+        # 将 NPC 和 属性 的嵌套字典强制转化为字符串！
         for k, v in result.get('npc_states', {}).items():
             if isinstance(v, dict): v = ", ".join([f"{dk}:{dv}" for dk, dv in v.items()])
             self.state['npcs'][k] = str(v)
@@ -121,7 +137,11 @@ class GameSession:
             for group in ['properties', 'bars', 'buffs', 'npcs']: self.state[group].pop(k, None)
 
     def _take_snapshot(self):
-        snap = {"state": copy.deepcopy(self.state), "chat_messages": copy.deepcopy(self.history["chat_messages"]), "context_history": copy.deepcopy(self.history["context_history"])}
+        snap = {
+            "state": copy.deepcopy(self.state), 
+            "chat_messages": copy.deepcopy(self.history["chat_messages"]), 
+            "context_history": copy.deepcopy(self.history["context_history"])
+        }
         self.snapshots.append(snap)
         if len(self.snapshots) > 20: self.snapshots.pop(0)
 
@@ -136,7 +156,9 @@ class GameSession:
 
     def export_save_data(self):
         return {
-            "save_name": self.save_name, "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "save_name": self.save_name, 
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "save_dir_path": self.save_dir_path,  # 🚀 记录局部沙盒的文件夹根目录
             "char_info": self.char_info, "style_info": self.style_info,
             "world_info_base": self.world_info_base, "world_entries": self.world_entries,
             "state": self.state, "history": self.history, "word_limit": self.word_limit,
@@ -145,6 +167,7 @@ class GameSession:
 
     def load_save_data(self, data):
         self.save_name = data.get('save_name', '')
+        self.save_dir_path = data.get('save_dir_path', '')  # 🚀 重新对齐并提取存储目录
         self.char_info, self.style_info = data.get('char_info', ''), data.get('style_info', '')
         self.world_info_base, self.world_entries = data.get('world_info_base', ''), data.get('world_entries', [])
         self.state, self.history = data.get('state', self.state), data.get('history', self.history)
