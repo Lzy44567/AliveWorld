@@ -36,7 +36,8 @@ def get_yaml_names(directory):
             with open(f, 'r', encoding='utf-8') as file:
                 data = yaml.safe_load(file)
                 if data and 'name' in data: names.append(data['name'])
-        except: pass
+        except Exception:
+            pass
     return names
 
 @router.get("/assets")
@@ -74,7 +75,8 @@ async def get_asset_detail(asset_type: str, asset_name: str):
                 if data and data.get('name') == asset_name:
                     file.seek(0)
                     return {"content": file.read(), "parsed": data}
-        except: pass
+        except Exception:
+            pass
     raise HTTPException(status_code=404, detail="找不到该资产文件")
 
 @router.delete("/assets/{asset_type}/{asset_name}")
@@ -96,7 +98,8 @@ async def delete_asset(asset_type: str, asset_name: str):
                 if data and data.get('name') == asset_name:
                     os.remove(f)
                     return {"status": "success"}
-        except: pass
+        except Exception:
+            pass
     raise HTTPException(status_code=404, detail="无法删除")
 
 @router.get("/logs")

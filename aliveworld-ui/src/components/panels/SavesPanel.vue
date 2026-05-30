@@ -1,3 +1,6 @@
+<!-- src/components/panels/SavesPanel.vue -->
+<!-- 100% 完整底稿 (请直接覆盖原文件) -->
+
 <script setup>
 import { ref, computed } from 'vue';
 import { uiStore } from '../../store/uiStore';
@@ -7,10 +10,8 @@ import { gameApi } from '../../api/gameApi';
 import { assetApi } from '../../api/assetApi';
 
 const searchSaveKeyword = ref("");
-// 记录当前正在确认删除的存档 ID
 const confirmDeleteId = ref(null);
 
-// 让顶部的搜索框真正发挥作用
 const filteredSaves = computed(() => {
   if (!searchSaveKeyword.value) return assetStore.saves;
   return assetStore.saves.filter(s => 
@@ -24,12 +25,17 @@ const loadSave = async (saveName) => {
   try {
     const data = await gameApi.loadGame(saveName);
     gameStore.sessionId = data.session_id;
-    gameStore.currentSaveName = saveName; // [修复 1 新增] 记录读取的名字
+    gameStore.currentSaveName = saveName;
     gameStore.chatLog = data.chat_messages || [];
     gameStore.syncState(data.state);
     
+    // 恢复基础设定显示（尽管 V2 已经弱化了全局强绑定，但用于兜底显示）
     assetStore.selectedStyle = data.style_name || "默认 (无)";
     assetStore.selectedWorldbook = data.worldbook_name || "无界域 (暂不加载)";
+    
+    // 🚀 核心修复：切换存档后，立即要求资产仓库去拉取该存档真实的沙盒文件夹数据！
+    await assetStore.fetchLocalAssets(data.session_id);
+    
   } catch (err) {
     alert("读取时间线失败！");
   } finally {
@@ -43,9 +49,10 @@ const executeDelete = async (saveName) => {
     await assetApi.deleteSave(saveName);
     confirmDeleteId.value = null;
     
-    // [修复 1 核心] 如果粉碎的正是当前正在推演的世界，直接物理清屏！
+    // 如果粉碎的正是当前正在推演的世界，直接物理清屏！
     if (gameStore.currentSaveName === saveName) {
       gameStore.reset();
+      assetStore.fetchLocalAssets(null); // 清空局内专属
     }
     
     await assetStore.fetchAssets();
@@ -95,9 +102,7 @@ const executeDelete = async (saveName) => {
           
           <!-- 展开后的防误触确认区 -->
           <div v-else class="flex gap-1">
-            <!-- 危险的确认粉碎按钮被挤到了左边 -->
             <button @click="executeDelete(save.name)" class="px-3 bg-rose-700 hover:bg-rose-600 text-white rounded transition text-[10px] font-bold shadow-lg border border-rose-500">确认粉碎</button>
-            <!-- 安全的取消按钮精确占据了原来垃圾桶的位置 -->
             <button @click="confirmDeleteId = null" class="w-10 bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white rounded transition text-xs flex items-center justify-center border border-slate-600">取消</button>
           </div>
         </div>

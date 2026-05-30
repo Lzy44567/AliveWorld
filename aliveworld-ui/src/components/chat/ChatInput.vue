@@ -1,9 +1,11 @@
+<!-- src/components/chat/ChatInput.vue -->
+<!-- 100% 完整底稿 (请直接覆盖原文件) -->
+
 <script setup>
 import { ref } from 'vue';
 import { gameStore } from '../../store/gameStore';
 import { configStore } from '../../store/configStore';
 import { gameApi } from '../../api/gameApi';
-import { assetStore } from '../../store/assetStore';
 
 const userInput = ref("");
 const lastAction = ref("");
@@ -21,8 +23,7 @@ const submitAction = async (text = null) => {
   try {
     const res = await gameApi.processAction(gameStore.sessionId, {
       action: finalAction,
-      override_style: assetStore.selectedStyle,
-      override_worldbook: assetStore.selectedWorldbook
+      plot_compass: configStore.localSettings.plotCompass // 🚀 携带剧情导向
     });
     
     const newMsgs = res.chat_messages.filter(m => m.role !== 'user');
@@ -36,7 +37,6 @@ const submitAction = async (text = null) => {
   }
 };
 
-// 【修复核心】找回撤回逻辑
 const undoTurn = async () => {
   if (!gameStore.sessionId || gameStore.isProcessing) return;
   gameStore.isProcessing = true;
@@ -52,15 +52,13 @@ const undoTurn = async () => {
   }
 };
 
-// 【修复核心】找回重试逻辑
 const retryTurn = async () => {
   if (!gameStore.sessionId || gameStore.isProcessing || !lastAction.value) return;
   gameStore.isProcessing = true;
   try {
     const res = await gameApi.retryTurn(gameStore.sessionId, {
       action: lastAction.value,
-      override_style: assetStore.selectedStyle,
-      override_worldbook: assetStore.selectedWorldbook
+      plot_compass: configStore.localSettings.plotCompass // 🚀 携带剧情导向
     });
     gameStore.chatLog = res.full_chat;
     gameStore.syncState(res.state);
@@ -91,7 +89,6 @@ const scrollToBottom = () => {
       </div>
 
       <div class="relative flex gap-3 drop-shadow-2xl">
-        <!-- 【修复核心】删除了 :disabled="gameStore.isProcessing"，只保留 !gameStore.sessionId -->
         <input v-model="userInput" @keyup.enter="submitAction()" :disabled="!gameStore.sessionId" class="flex-1 bg-slate-900 border border-slate-600 rounded-xl px-5 py-4 outline-none focus:border-indigo-500 text-slate-100 placeholder-slate-500 shadow-inner text-base" placeholder="描述你的行动..." />
         
         <div class="flex flex-col gap-1 justify-center">
@@ -99,7 +96,6 @@ const scrollToBottom = () => {
            <button @click="retryTurn" :disabled="gameStore.isProcessing" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded text-[10px] border border-slate-700 transition disabled:opacity-50" title="重试">🔄</button>
         </div>
         
-        <!-- 发送按钮依然被锁定 -->
         <button @click="submitAction()" :disabled="gameStore.isProcessing || !gameStore.sessionId" class="px-8 py-4 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-bold disabled:opacity-50 transition shadow-lg text-lg">发送</button>
       </div>
     </div>

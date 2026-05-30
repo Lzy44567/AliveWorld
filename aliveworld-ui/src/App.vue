@@ -15,8 +15,9 @@ onMounted(() => {
 </script>
 <!-- 模板部分完全不用动 -->
 
+<!-- src/App.vue (template 部分) -->
 <template>
-  <div class="h-screen w-screen flex flex-col bg-aw_bg text-slate-200 overflow-hidden font-sans selection:bg-indigo-500/30">
+  <div class="h-screen w-screen flex flex-col bg-aw_bg text-slate-200 overflow-hidden font-sans selection:bg-indigo-500/30 relative">
     
     <TopNav />
 
@@ -28,6 +29,17 @@ onMounted(() => {
 
     <AllModals />
     
+    <!-- 🚀 极其优雅的 Toast 飘字组件 -->
+    <div 
+      class="fixed top-16 left-1/2 -translate-x-1/2 px-6 py-3 rounded-full shadow-2xl font-bold text-sm transition-all duration-300 z-[100] flex items-center gap-2"
+      :class="[
+        uiStore.toast.show ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-10 pointer-events-none',
+        uiStore.toast.type === 'error' ? 'bg-rose-600 text-white' : 'bg-emerald-500 text-slate-950'
+      ]"
+    >
+      <span>{{ uiStore.toast.type === 'error' ? '⚠️' : '✨' }}</span>
+      {{ uiStore.toast.message }}
+    </div>
   </div>
 </template>
 

@@ -1,4 +1,6 @@
 // src/api/gameApi.js
+// 100% 完整底稿 (请直接覆盖原文件)
+
 const BASE_URL = "http://127.0.0.1:8000/api/v1/game";
 
 export const gameApi = {
@@ -46,6 +48,42 @@ export const gameApi = {
       body: JSON.stringify(payload)
     });
     if (!res.ok) throw new Error("重试失败");
+    return await res.json();
+  },
+
+  // 获取局内专属切片
+  async getLocalAssets(sessionId) {
+    const res = await fetch(`${BASE_URL}/${sessionId}/local_assets`);
+    if (!res.ok) throw new Error("获取局内资产失败");
+    return await res.json();
+  },
+
+  // 将全局资产拉入局内沙盒
+  async pullAsset(sessionId, payload) {
+    const res = await fetch(`${BASE_URL}/${sessionId}/pull_asset`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) throw new Error("资源拉取失败");
+    return await res.json();
+  },
+
+  // 🚀 保存并覆盖修改的局内资源
+  async updateLocalAsset(sessionId, assetType, assetName, parsedData) {
+    const res = await fetch(`${BASE_URL}/${sessionId}/assets/${assetType}/${encodeURIComponent(assetName)}`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ parsed_data: parsedData })
+    });
+    if (!res.ok) throw new Error("局内资源保存失败");
+    return await res.json();
+  },
+
+  // 安全删除局内资源
+  async deleteLocalAsset(sessionId, assetType, assetName) {
+    const res = await fetch(`${BASE_URL}/${sessionId}/assets/${assetType}/${encodeURIComponent(assetName)}`, {
+      method: "DELETE"
+    });
+    if (!res.ok) throw new Error("局内资源移除失败");
     return await res.json();
   }
 };

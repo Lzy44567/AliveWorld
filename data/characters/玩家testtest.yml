@@ -4,3 +4,4 @@ initial_mana: 200
 name: 玩家testtest
 starting_scene: 你来到了一个陌生的地方...
 type: PC
+tags: []

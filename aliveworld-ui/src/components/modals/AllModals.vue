@@ -1,7 +1,8 @@
-<!-- components/modals/AllModals.vue -->
+<!-- src/components/modals/AllModals.vue -->
 <!-- 100% 完整物理读写底稿 (请直接覆盖原文件) -->
 
 <script setup>
+import { ref } from 'vue';
 import { uiStore } from '../../store/uiStore';
 import { assetStore } from '../../store/assetStore';
 import { configStore } from '../../store/configStore';
@@ -9,6 +10,9 @@ import { gameStore } from '../../store/gameStore';
 import { gameApi } from '../../api/gameApi';
 import TerminalModal from './TerminalModal.vue';
 import AssetEditorModal from './AssetEditorModal.vue';
+
+// 极简创世描述
+const newSaveDesc = ref("");
 
 const startNewGame = async () => {
   if (!assetStore.newSaveName.trim()) { 
@@ -18,10 +22,8 @@ const startNewGame = async () => {
   gameStore.isProcessing = true;
   try {
     const payload = { 
-      style_name: assetStore.selectedStyle, 
-      worldbook_name: assetStore.selectedWorldbook, 
-      character_name: assetStore.selectedPlayerPersona, // 🚀 问题 3：将挑选的主角色卡回传给后端
-      save_name: assetStore.newSaveName 
+      save_name: assetStore.newSaveName,
+      description: newSaveDesc.value
     };
     const data = await gameApi.startGame(payload);
     
@@ -32,9 +34,10 @@ const startNewGame = async () => {
     
     uiStore.modals.newGame = false;
     await assetStore.fetchAssets();
-    
-    // 🚀 问题 4：新局加载时回刷局内专属资产
     await assetStore.fetchLocalAssets(data.session_id);
+    
+    // 清空上次填写的简述
+    newSaveDesc.value = "";
   } catch (err) {
     alert("创世失败，请检查 Python 后端是否启动！");
   } finally {
@@ -73,43 +76,25 @@ const startNewGame = async () => {
     </div>
   </div>
 
-  <!-- ✨ 创世弹窗 -->
+  <!-- ✨ 创世弹窗 (极简重构版) -->
   <div v-if="uiStore.modals.newGame" class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center backdrop-blur-sm p-4">
-    <div class="bg-aw_panel border border-emerald-900/50 rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden flex flex-col slide-up">
+    <div class="bg-aw_panel border border-emerald-900/50 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col slide-up">
       <div class="p-5 border-b border-slate-700 flex justify-between bg-slate-900/80">
         <h2 class="font-bold text-emerald-400 text-xl">✨ 创世协议</h2>
         <button @click="uiStore.modals.newGame=false" class="text-slate-400 hover:text-white text-2xl">✕</button>
       </div>
-      <div class="p-6 space-y-4">
+      <div class="p-6 space-y-5">
         <div>
           <label class="text-xs font-bold text-slate-400 block mb-1">📝 时间线命名</label>
-          <input v-model="assetStore.newSaveName" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none" placeholder="例如：废土远征纪" />
+          <input v-model="assetStore.newSaveName" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-emerald-500" placeholder="例如：废土远征纪" />
         </div>
-        <div class="grid grid-cols-3 gap-4">
-           <div>
-             <label class="text-xs font-bold text-slate-400 block mb-1">🌍 世界书</label>
-             <select v-model="assetStore.selectedWorldbook" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none">
-               <option>无界域 (暂不加载)</option>
-               <option v-for="w in assetStore.availableWorldbooks" :key="w" :value="w">{{ w }}</option>
-             </select>
-           </div>
-           <div>
-             <label class="text-xs font-bold text-slate-400 block mb-1">🎭 文风卡</label>
-             <select v-model="assetStore.selectedStyle" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none">
-               <option>默认 (无)</option>
-               <option v-for="s in assetStore.availableStyles" :key="s" :value="s">{{ s }}</option>
-             </select>
-           </div>
-           <!-- 🚀 问题 3：主角选择栏 -->
-           <div>
-             <label class="text-xs font-bold text-slate-400 block mb-1">👤 扮演主角</label>
-             <select v-model="assetStore.selectedPlayerPersona" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none">
-               <option>空白模板 (无名者)</option>
-               <option v-for="c in assetStore.characters.global" :key="c.name" :value="c.name">{{ c.name }}</option>
-             </select>
-           </div>
+        <div>
+          <label class="text-xs font-bold text-slate-400 block mb-1">🌌 宇宙主导向简述 (选填)</label>
+          <textarea v-model="newSaveDesc" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-emerald-500 h-24 resize-none shadow-inner" placeholder="一句话描述这个世界的基础逻辑，例如：这是一个赛博朋克与修仙混合的世界，玩家是一名底层的黑客..."></textarea>
+          <p class="text-[10px] text-slate-500 mt-1">进入游戏后，您可以随时从右侧万象资产面板将世界书、文风或角色载入本局沙盒。</p>
         </div>
-        <button @click="startNewGame" :disabled="gameStore.isProcessing" class="w-full py-4 mt-2 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-bold shadow-lg disabled:opacity-50 transition">降临新世界</button>
+        
+        <button @click="startNewGame" :disabled="gameStore.isProcessing" class="w-full py-4 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-bold shadow-lg disabled:opacity-50 transition text-lg mt-2">降临新世界</button>
       </div>
     </div>
   </div>
@@ -151,5 +136,4 @@ const startNewGame = async () => {
   <!-- 挂载真实的日志终端与编辑器 -->
   <TerminalModal v-if="uiStore.modals.terminal" />
   <AssetEditorModal v-if="uiStore.modals.assetEditor" />
-
 </template>
