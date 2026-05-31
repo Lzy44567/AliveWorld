@@ -45,10 +45,9 @@ const undoTurn = async () => {
     gameStore.chatLog = res.chat_messages;
     gameStore.syncState(res.state);
   } catch (err) {
-    alert("无法撤回更早的记忆");
+    // 🚀 修复问题7：静默处理，什么也不弹
   } finally {
     gameStore.isProcessing = false;
-    scrollToBottom();
   }
 };
 

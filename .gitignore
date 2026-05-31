@@ -1,10 +1,23 @@
+# Python 缓存与虚拟环境
 __pycache__/
 *.pyc
+.venv/
+venv/
 .env
+
+# Node & Vue
+node_modules/
+dist/
+.npm/
+
+# AliveWorld 本地存档与敏感配置
+data/saves/
 config.yml
-logs/
-saves/
-worldbooks/*
-!worldbooks/example_*.yml
-characters/*
-!characters/example_*.yml
+settings.json
+ChangeLog.md
+
+# 临时文件与 OS 文件
+#*
+*~
+.DS_Store
+Thumbs.db

@@ -1,19 +1,40 @@
+<!-- src/components/chat/MessageBubble.vue -->
 <script setup>
 import { gameStore } from '../../store/gameStore';
 import { configStore } from '../../store/configStore';
+import { uiStore } from '../../store/uiStore';
+import { gameApi } from '../../api/gameApi';
 
 defineProps({
-  msg: {
-    type: Object,
-    required: true
-  }
+  msg: { type: Object, required: true }
 });
+
+// 🚀 核心：触发重掷，只重新结算未来，不重新生成动作
+const doReroll = async () => {
+  if (!gameStore.sessionId || gameStore.isProcessing) return;
+  gameStore.isProcessing = true;
+  try {
+    const res = await gameApi.rerollTurn(gameStore.sessionId);
+    gameStore.chatLog = res.chat_messages;
+    gameStore.syncState(res.state);
+    
+    // 自动滚动到底部
+    setTimeout(() => {
+      const c = document.getElementById('chat-container');
+      if (c) c.scrollTop = c.scrollHeight;
+    }, 100);
+  } catch (e) {
+    uiStore.showToast("命运已成定局，此处无法重掷", "error");
+  } finally {
+    gameStore.isProcessing = false;
+  }
+};
 </script>
 
 <template>
   <div class="flex flex-col" :class="msg.role === 'user' ? 'items-end' : 'items-start'">
     
-    <!-- 🎲 命运观测器 (N*n 折叠面板) -->
+    <!-- 🎲 命运观测器 (绑定 showFutures) -->
     <div v-if="msg.role === 'reactions' && configStore.settings.showFutures" class="w-full max-w-[85%] bg-amber-950/60 border border-amber-700/50 rounded-xl overflow-hidden backdrop-blur-md shadow-lg mb-2">
       <details class="group">
         <summary class="cursor-pointer px-4 py-2.5 text-xs text-amber-400 font-bold flex justify-between items-center hover:bg-amber-900/50 transition select-none">
@@ -29,10 +50,16 @@ defineProps({
       </details>
     </div>
 
-    <!-- 🎯 掷骰裁定结果 -->
+    <!-- 🎯 命运掷骰裁定结果 (绑定 showDice 开关) -->
     <div v-else-if="msg.role === 'system' && configStore.settings.showDice" class="text-xs text-rose-400 mb-2 px-4 py-2 bg-rose-950/80 border border-rose-700/50 rounded-lg backdrop-blur-md italic shadow-md max-w-[85%] flex justify-between items-center group">
       <span>{{ msg.content }}</span>
-      <button v-if="configStore.settings.allowReroll" class="hidden group-hover:block px-3 py-1 bg-rose-800 hover:bg-rose-600 text-white rounded text-[10px] font-bold transition ml-4 shadow">🔄 重掷</button>
+      <!-- 🚀 完美绑定了 doReroll 方法 -->
+      <button v-if="configStore.settings.allowReroll" @click="doReroll" class="hidden group-hover:block px-3 py-1 bg-rose-800 hover:bg-rose-600 text-white rounded text-[10px] font-bold transition ml-4 shadow shrink-0">🔄 重掷</button>
+    </div>
+
+    <!-- 🌌 暗流实体推演结果 (绑定 showEntityDebug 开关) -->
+    <div v-else-if="msg.role === 'undercurrent' && configStore.settings.showEntityDebug" class="text-xs text-purple-400 mb-2 px-4 py-2 bg-purple-950/60 border border-purple-800/50 rounded-lg backdrop-blur-md italic shadow-md max-w-[85%] shadow-purple-900/20">
+      <span class="flex items-center gap-2"><span>👾</span> {{ msg.content }}</span>
     </div>
 
     <!-- 💬 玩家与 AI 对话正文 -->

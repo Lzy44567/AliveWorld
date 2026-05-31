@@ -1,10 +1,10 @@
 # core/game_session.py
-# 100% 完整底稿 (请直接覆盖原文件)
-
 import os
 import copy
 import yaml
 import glob
+import re
+import json
 from datetime import datetime
 from core.undercurrent import UndercurrentEngine, Entity
 from core.resolution_engine import DualTrackResolver
@@ -43,31 +43,25 @@ class GameSession:
         self.history["context_history"] = [opening]
 
     def refresh_context_from_local(self):
-        if not self.save_dir_path or not os.path.exists(self.save_dir_path):
-            return
+        if not self.save_dir_path or not os.path.exists(self.save_dir_path): return
 
-        # 1. 组装文风
         styles = []
         for f in glob.glob(os.path.join(self.save_dir_path, 'styles', '*.yml')):
             with open(f, 'r', encoding='utf-8') as file:
                 data = yaml.safe_load(file)
-                if data and data.get('is_active', True):
-                    styles.append(data.get('content', ''))
+                if data and data.get('is_active', True): styles.append(data.get('content', ''))
         self.style_info = "\n---\n".join(styles)
 
-        # 2. 组装世界书
         worlds_base = []
         self.world_entries = []
         for f in glob.glob(os.path.join(self.save_dir_path, 'worldbooks', '*.yml')):
             with open(f, 'r', encoding='utf-8') as file:
                 data = yaml.safe_load(file)
                 if data and data.get('is_active', True):
-                    if data.get('global_setting'):
-                        worlds_base.append(f"[{data.get('name', '界域法则')}]：{data.get('global_setting')}")
+                    if data.get('global_setting'): worlds_base.append(f"[{data.get('name', '界域法则')}]：{data.get('global_setting')}")
                     self.world_entries.extend(data.get('entries', []))
         self.world_info_base = "\n".join(worlds_base)
 
-        # 3. 组装角色
         player_chars = []
         npc_chars = []
         for f in glob.glob(os.path.join(self.save_dir_path, 'characters', '*.yml')):
@@ -75,20 +69,13 @@ class GameSession:
                 data = yaml.safe_load(file)
                 if data and data.get('is_active', True):
                     desc = f"[{data.get('name', '未知实体')}]：{data.get('description', '')}"
-                    if data.get('is_player', False):
-                        player_chars.append(desc)
-                    else:
-                        npc_chars.append(desc)
+                    if data.get('is_player', False): player_chars.append(desc)
+                    else: npc_chars.append(desc)
         
         self.char_info = "\n---\n".join(player_chars) if player_chars else "无名冒险者"
-        
-        if npc_chars:
-            self.world_info_base += "\n\n【当前登场的重要NPC与势力】：\n" + "\n".join(npc_chars)
-        
-        if self.description:
-            self.world_info_base = f"【🔥宇宙主导向 (最高法则)】：{self.description}\n\n" + self.world_info_base
+        if npc_chars: self.world_info_base += "\n\n【当前登场的重要NPC与势力】：\n" + "\n".join(npc_chars)
+        if self.description: self.world_info_base = f"【🔥宇宙主导向 (最高法则)】：{self.description}\n\n" + self.world_info_base
 
-        # 4. 🚀 问题1核心修复：将沙盒物理文件加载入暗流引擎内存
         self.undercurrent.entities = []
         for f in glob.glob(os.path.join(self.save_dir_path, 'entities', '*.yml')):
             with open(f, 'r', encoding='utf-8') as file:
@@ -97,32 +84,29 @@ class GameSession:
                     self.undercurrent.entities.append(Entity(name=data.get('name', '未知'), goal=data.get('motive', data.get('description', ''))))
 
     def _sync_entities_to_local(self):
-        """
-        🚀 问题1核心修复：推演结束后，将大模型创造/毁灭的势力写回物理沙盒！
-        """
         if not self.save_dir_path: return
         local_ent_dir = os.path.join(self.save_dir_path, 'entities')
         os.makedirs(local_ent_dir, exist_ok=True)
         active_names = [e.name for e in self.undercurrent.entities]
 
-        # 如果实体被 AI 判定消亡，则粉碎对应的物理卡片
         for f in glob.glob(os.path.join(local_ent_dir, '*.yml')):
             name = os.path.basename(f).replace('.yml', '')
-            if name not in active_names:
+            if not any(name == re.sub(r'[^\w\s-]', '', an).strip() for an in active_names):
                 try: os.remove(f)
                 except: pass
 
-        # 更新或创立新的实体卡片
         for e in self.undercurrent.entities:
-            fpath = os.path.join(local_ent_dir, f"{e.name}.yml")
+            safe_filename = re.sub(r'[^\w\s-]', '', e.name).strip()
+            if not safe_filename: safe_filename = "未命名变数"
+            
+            fpath = os.path.join(local_ent_dir, f"{safe_filename}.yml")
             data = {}
             if os.path.exists(fpath):
                 try:
-                    with open(fpath, 'r', encoding='utf-8') as file:
-                        data = yaml.safe_load(file) or {}
+                    with open(fpath, 'r', encoding='utf-8') as file: data = yaml.safe_load(file) or {}
                 except: pass
             
-            data['name'] = e.name
+            data['name'] = e.name 
             data['motive'] = e.goal
             data['is_active'] = True
             data['tags'] = data.get('tags', ["暗流势力", "AI衍化"])
@@ -134,7 +118,6 @@ class GameSession:
     def process_turn(self, user_action: str):
         self._take_snapshot()
         self.history["chat_messages"].append({"role": "user", "content": user_action})
-        
         self.refresh_context_from_local()
         
         result = self.resolver.resolve(self, user_action)
@@ -150,25 +133,78 @@ class GameSession:
         recent_context = self.get_context_text()
         undercurrent_events = self.undercurrent.tick(recent_context)
         
-        # 🚀 同步物理文件
         self._sync_entities_to_local()
         
         if undercurrent_events:
             for ev in undercurrent_events:
-                self.history["chat_messages"].append({"role": "system", "content": f"🌌 潜流涌动: {ev}"})
+                self.history["chat_messages"].append({"role": "undercurrent", "content": f"🌌 潜流涌动: {ev}"})
         
         self._apply_state_updates(settlement)
         self.history["context_history"].append(f"玩家：{user_action}\n结果：{story_text}")
         
         return result
 
+    # 🚀 新增：专门处理重掷未来的核心逻辑
+    def reroll_turn(self):
+        if not self.snapshots: return {"error": True}
+        
+        action = ""
+        reactions = []
+        for msg in reversed(self.history["chat_messages"]):
+            if msg.get("role") == "user": action = msg.get("content")
+            if msg.get("role") == "reactions": reactions = msg.get("content")
+            if action and reactions: break
+            
+        if not action or not reactions: return {"error": True}
+        
+        self.rollback() # 回退到动作发生前
+        self._take_snapshot()
+        self.history["chat_messages"].append({"role": "user", "content": action})
+        
+        import random
+        chosen = random.choices(reactions, weights=[p.get('weight', 50) for p in reactions], k=1)[0]
+        
+        self.history["chat_messages"].append({"role": "reactions", "content": reactions})
+        self.history["chat_messages"].append({"role": "system", "content": f"命运变数: {chosen['description']}"})
+        
+        # 仅重新执行结算
+        self.refresh_context_from_local()
+        active_world, _ = self.build_active_world_info(action)
+        
+        from core.prompts import load_system_prompts
+        pts = load_system_prompts()
+        settle_p = pts.get('settlement_prompt', '').replace('{world_info}', active_world).replace('{character_info}', self.char_info).replace('{style_info}', self.style_info)
+        
+        dyn_state = self.get_dynamic_state_for_ai()
+        ctx = self.get_context_text()
+        usr_p2 = f"【情景】：\n{ctx}\n【状态】：{json.dumps(dyn_state, ensure_ascii=False)}\n【行动】：{action}\n【裁定变数】：{chosen['description']}"
+        
+        from core.ai_engine import robust_json_parse, intelligent_salvage
+        raw_settle, err2 = self.ai_engine.chat_json(settle_p, usr_p2, temp=0.8, max_tokens=3000)
+        
+        if err2 or not raw_settle: settlement = intelligent_salvage("", "网络或审查拦截")
+        else:
+            try: settlement = robust_json_parse(raw_settle)
+            except Exception as e: settlement = intelligent_salvage(raw_settle, str(e))
+            
+        story_text = settlement.get('story_text', '').replace('\\n', '\n')
+        self.history["chat_messages"].append({"role": "ai", "content": story_text})
+        
+        undercurrent_events = self.undercurrent.tick(self.get_context_text())
+        self._sync_entities_to_local()
+        if undercurrent_events:
+            for ev in undercurrent_events:
+                self.history["chat_messages"].append({"role": "undercurrent", "content": f"🌌 潜流涌动: {ev}"})
+                
+        self._apply_state_updates(settlement)
+        self.history["context_history"].append(f"玩家：{action}\n结果：{story_text}")
+        
+        return {"chat_messages": self.history["chat_messages"], "state": self.state}
+
     def get_context_text(self): return "\n".join(self.history["context_history"][-3:])
         
     def get_dynamic_state_for_ai(self): 
-        return {
-            "stats": self.state['player'], "bars": self.state['bars'], 
-            "properties": self.state['properties'], "buffs": self.state['buffs'], "npcs": self.state['npcs']
-        }
+        return { "stats": self.state['player'], "bars": self.state['bars'], "properties": self.state['properties'], "buffs": self.state['buffs'], "npcs": self.state['npcs'] }
         
     def build_active_world_info(self, action):
         active = self.world_info_base + "\n"
@@ -204,10 +240,15 @@ class GameSession:
         ps['mana'] = max(0, min(ps['mana'] + deltas['mana'], max(1, ps['max_mana'])))
         if ps['hp'] <= 0: self.is_game_over = True
         
+        # 🚀 修复问题5：彻底修复了进度条的当前值无法更新的问题
         for bn, bd in result.get('dynamic_bars', {}).items():
             if not isinstance(bd, dict): continue
-            if bn not in self.state['bars']: self.state['bars'][bn] = {"current": bd.get('current', 0), "max": bd.get('max', 100)}
-            else: self.state['bars'][bn]["current"] = max(0, min(self.state['bars'][bn]["current"] + bd.get('change', 0), self.state['bars'][bn]["max"]))
+            if bn not in self.state['bars']: 
+                self.state['bars'][bn] = {"current": bd.get('current', 0), "max": bd.get('max', 100)}
+            else:
+                if 'current' in bd: self.state['bars'][bn]["current"] = bd['current']
+                if 'max' in bd: self.state['bars'][bn]["max"] = bd['max']
+                if 'change' in bd: self.state['bars'][bn]["current"] = max(0, min(self.state['bars'][bn]["current"] + bd['change'], self.state['bars'][bn]["max"]))
                 
         for k, v in result.get('npc_states', {}).items():
             if isinstance(v, dict): v = ", ".join([f"{dk}:{dv}" for dk, dv in v.items()])
@@ -223,11 +264,7 @@ class GameSession:
             for group in ['properties', 'bars', 'buffs', 'npcs']: self.state[group].pop(k, None)
 
     def _take_snapshot(self):
-        snap = {
-            "state": copy.deepcopy(self.state), 
-            "chat_messages": copy.deepcopy(self.history["chat_messages"]), 
-            "context_history": copy.deepcopy(self.history["context_history"])
-        }
+        snap = { "state": copy.deepcopy(self.state), "chat_messages": copy.deepcopy(self.history["chat_messages"]), "context_history": copy.deepcopy(self.history["context_history"]) }
         self.snapshots.append(snap)
         if len(self.snapshots) > 20: self.snapshots.pop(0)
 
@@ -242,10 +279,8 @@ class GameSession:
 
     def export_save_data(self):
         return {
-            "save_name": self.save_name, 
-            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "save_dir_path": self.save_dir_path,
-            "description": self.description,
+            "save_name": self.save_name, "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "save_dir_path": self.save_dir_path, "description": self.description,
             "state": self.state, "history": self.history, "word_limit": self.word_limit,
             "undercurrent": self.undercurrent.export_state(), "snapshots": self.snapshots
         }
