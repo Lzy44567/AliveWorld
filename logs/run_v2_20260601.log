@@ -2053,3 +2053,63 @@
   "status_deletions": []
 }
 [05:56:38.266] ℹ️ [undercurrent] === 暗流时间流转: Tick 1 ===
+[06:03:12.330] ℹ️ [resolution_engine] 发送推演请求: 系统：请在状态栏增加背包属性并...
+[06:03:16.840] ℹ️ [resolution_engine] RAW 变数生成返回: {"reactions": [{"id": 1, "description": "你的背包被打开了，一把长剑静静地躺在里面。", "weight": 50}, {"id": 2, "description": "一只橙色的狼出现在你面前，它看起来满血且充满敌意。", "weight": 50}]}
+[06:03:16.841] ℹ️ [resolution_engine] 物理掷骰选中: 你的背包被打开了，一把长剑静静地躺在里面。
+[06:03:19.071] ℹ️ [resolution_engine] RAW 剧情结算返回: {
+  "story_text": "你的背包被打开了，一把长剑静静地躺在里面。与此同时，一只毛色橙黄的恶狼从阴影中浮现，呲牙咧嘴地盯着你。",
+  "new_buffs": {},
+  "remove_buffs": [],
+  "dynamic_bars": {},
+  "status_updates": {
+    "背包": "长剑",
+    "当前时间": "纪元1年1月1日 上午"
+  },
+  "npc_states": {
+    "狼": "theme:orange, hp:100, max_hp:100"
+  },
+  "status_deletions": []
+}
+[06:03:19.071] ℹ️ [undercurrent] === 暗流时间流转: Tick 1 ===
+[06:03:44.258] ℹ️ [resolution_engine] 发送推演请求: 我的血量100/100，法力5...
+[06:03:47.308] ℹ️ [resolution_engine] RAW 变数生成返回: {
+  "reactions": [
+    {
+      "id": 1,
+      "description": "火球击中狼，造成35点伤害。狼愤怒地嚎叫，向玩家扑来。",
+      "weight": 70
+    },
+    {
+      "id": 2,
+      "description": "火球在狼身边爆炸，但狼敏捷地躲开了部分伤害，仅受15点伤害。它警惕地后退两步，寻找反击机会。",
+      "weight": 30
+    }
+  ]
+}
+[06:03:47.308] ℹ️ [resolution_engine] 物理掷骰选中: 火球击中狼，造成35点伤害。狼愤怒地嚎叫，向玩家扑来。
+[06:03:52.064] ℹ️ [resolution_engine] RAW 剧情结算返回: {
+  "story_text": "你凝聚魔力，一颗炽热的火球呼啸而出，正中恶狼。火焰炸裂，狼被灼伤，发出痛苦的嚎叫。它毛发倒竖，眼中凶光更盛，猛地朝你扑来！",
+  "new_buffs": {},
+  "remove_buffs": [],
+  "dynamic_bars": {
+    "生命值": {"current": 100, "max": 100, "color": "red"},
+    "法力": {"current": 50, "max": 50, "color": "blue"}
+  },
+  "status_updates": {
+    "身体": "完好",
+    "背包": "长剑",
+    "当前时间": "纪元1年1月1日 上午"
+  },
+  "npc_states": {
+    "狼": {
+      "theme": "orange",
+      "hp": 65,
+      "max_hp": 100,
+      "状态": "受伤",
+      "意图": "攻击"
+    }
+  },
+  "status_deletions": []
+}
+[06:03:52.064] ℹ️ [undercurrent] === 暗流时间流转: Tick 2 ===
+[06:04:17.550] ℹ️ [undercurrent] === 暗流时间流转: Tick 2 ===
