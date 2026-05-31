@@ -7,6 +7,5 @@
 4.游玩模式中，状态条和文字状态可以灵活多变并且正确计算，让游戏更有体验。
 
 5.其他我没提到的功能大概率就没有实装
+<img width="1900" height="919" alt="image" src="https://github.com/user-attachments/assets/bfb4baf5-fc43-43d0-8d80-cfa9713eb519" />
 
-6.状态栏好像有些bug，忘记修了
-<img width="1916" height="918" alt="image" src="https://github.com/user-attachments/assets/f7a3beb5-ef06-4c3a-a6ec-3714e3a1ebb2" />
