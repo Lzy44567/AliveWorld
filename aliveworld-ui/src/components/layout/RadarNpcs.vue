@@ -24,15 +24,27 @@ const parseNpcStatus = (statusStr) => {
   const cnMap = { "红色": "red", "粉色": "pink", "橙色": "orange", "黄色": "amber", "绿色": "emerald", "青色": "cyan", "蓝色": "indigo", "紫色": "purple", "灰色": "slate" };
 
   parts.forEach(p => {
-    if (p.startsWith('hp:')) hp = parseInt(p.replace('hp:', ''));
-    else if (p.startsWith('max_hp:')) max_hp = parseInt(p.replace('max_hp:', ''));
-    else if (p.startsWith('theme:')) {
-       let c = p.replace('theme:', '').trim().toLowerCase();
+    let lowerP = p.toLowerCase();
+    
+    // 🚀 超强兼容：无论是 hp、生命值、生命，通通抓取为血条！
+    if (lowerP.startsWith('hp:') || lowerP.startsWith('生命值:') || lowerP.startsWith('生命:')) {
+      hp = parseInt(p.split(':')[1]);
+    }
+    else if (lowerP.startsWith('max_hp:') || lowerP.startsWith('max:') || lowerP.startsWith('最大生命:')) {
+      max_hp = parseInt(p.split(':')[1]);
+    }
+    else if (lowerP.startsWith('theme:') || lowerP.startsWith('主题:')) {
+       let c = lowerP.split(':')[1].trim();
        if (cnMap[c]) c = cnMap[c];
        if (colorMap[c]) { colorTheme = colorMap[c].theme; barColor = colorMap[c].bar; }
     }
-    else if (p.startsWith('description:')) tags.push(p.replace('description:', ''));
-    else tags.push(p);
+    else if (lowerP.startsWith('description:') || lowerP.startsWith('描述:')) {
+       tags.push(p.replace(/^(description:|描述:)/i, '').trim());
+    }
+    else {
+       // 其他所有正常的 tag 直接塞进去显示为黑框
+       tags.push(p);
+    }
   });
   
   if (hp !== null && max_hp === null) max_hp = hp; 

@@ -14,11 +14,13 @@ DEFAULT_PROMPTS = {
 {style_info}
 
 【极其严格的状态与系统规则】：
-1. 核心数值放在 `dynamic_bars`。你必须为其指定颜色，格式: {"生命值": {"current": 90, "max": 100, "color": "red"}}。color可选: red, emerald, amber, indigo, slate。
-2. ⚠️ 持续性Buff（如中毒/自愈）放入 `new_buffs`，格式必须包含【进度条名称_per_turn】的指令以实现自动扣血加血：{"深渊剧毒": {"生命值_per_turn": -5, "duration": 3, "description": "持续掉血"}}。
-3. 若要【重命名】或【删除】进度条/NPC/状态，必须将旧名字放入 `status_deletions` 数组！例如要改名，必须先在 status_deletions 里删旧名，再在 dynamic_bars 里建新名。
-4. 文字属性放在 `status_updates`，必须包含 `当前时间` 键。
-5. 登场的NPC放在 `npc_states`。可以为其指定主题色：`theme:颜色`。
+1. 【玩家专属刻度】：玩家的生命值、法力、经验值等**玩家专属**的进度条放在 `dynamic_bars`。格式: {"生命值": {"current": 90, "max": 100, "color": "red"}}。**绝对不准把 NPC/敌人的血条放进这里！！**
+2. 【NPC与敌人】：所有登场NPC/敌人必须放在 `npc_states`。若他们有血量，必须严格使用 `hp:数值, max_hp:数值`。强烈建议分配颜色(theme:red/emerald/amber/indigo/slate/orange)。
+   ✅ 正确范例: {"土匪": "theme:red, hp:50, max_hp:50, 状态:狂暴, 意图:攻击"}
+3. 【文本与背包】：玩家的非数字状态（如 身体状况）、【背包/物品栏】必须放在 `status_updates`，并包含 `当前时间` 键。
+   ✅ 正确范例: {"背包": "短剑, 草药*2", "身体": "左臂轻伤", "当前时间": "纪元1年1月1日 下午"}
+4. ⚠️ 持续性Buff（如中毒/自愈）放入 `new_buffs`，必须包含【对应进度条名称_per_turn】以实现自动加减：{"流血": {"生命值_per_turn": -5, "duration": 3, "description": "持续掉血"}}。
+5. 【删除/清空】：若要彻底清空某进度条、丢弃所有物品、或让死亡的NPC退场，必须将其名字放入 `status_deletions` 数组！
 
 【强制JSON格式】：
 {
@@ -37,7 +39,7 @@ DEFAULT_PROMPTS = {
 
 【⚠️ 实体判定最高法则】：
 1. 实体是指：具有独立动机、在暗中干预世界走向的组织、大BOSS、或者法则意志（如裂隙凝视者、盗贼公会）。
-2. 只要剧情中新出现了一个有名有姓的重要强敌或幕后黑手，【必须立刻】放入 `new_entities` 建立档案！千万不要犹豫！不要等他们行动了才建立！
+2. 只要剧情中新出现了一个有名有姓的重要强敌或幕后黑手，【必须立刻】放入 `new_entities` 建立档案！千万不要犹豫！
 3. 普通路人、小怪绝对不能作为实体创建。
 
 【强制JSON格式】：
