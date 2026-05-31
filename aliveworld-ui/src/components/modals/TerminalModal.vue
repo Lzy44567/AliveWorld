@@ -47,7 +47,7 @@ onUnmounted(() => {
       </div>
       
       <div class="flex-1 p-4 font-mono text-xs overflow-y-auto custom-scrollbar relative" id="terminal-log-container">
-        <div class="text-emerald-500 mb-4 border-b border-slate-800 pb-2">AliveWorld OS v2.1.0 [Connection Established]</div>
+        <div class="text-emerald-500 mb-4 border-b border-slate-800 pb-2">AliveWorld OS v1.0.0 [Connection Established]</div>
         
         <div v-for="(log, idx) in logs" :key="idx" class="mb-1.5 leading-relaxed flex gap-2">
           <span class="text-slate-500 shrink-0">[{{ log.time }}]</span>

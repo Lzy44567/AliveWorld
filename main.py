@@ -10,7 +10,7 @@ import os, datetime
 os.makedirs("logs", exist_ok=True)
 init_logger(f"logs/run_v2_{datetime.datetime.now().strftime('%Y%m%d')}.log")
 
-app = FastAPI(title="AliveWorld V2 Engine", version="2.0.0")
+app = FastAPI(title="AliveWorld Engine", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,

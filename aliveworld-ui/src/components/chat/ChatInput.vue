@@ -1,11 +1,10 @@
 <!-- src/components/chat/ChatInput.vue -->
-<!-- 100% 完整底稿 (请直接覆盖原文件) -->
-
 <script setup>
 import { ref } from 'vue';
 import { gameStore } from '../../store/gameStore';
 import { configStore } from '../../store/configStore';
 import { gameApi } from '../../api/gameApi';
+import { assetStore } from '../../store/assetStore';
 
 const userInput = ref("");
 const lastAction = ref("");
@@ -23,7 +22,7 @@ const submitAction = async (text = null) => {
   try {
     const res = await gameApi.processAction(gameStore.sessionId, {
       action: finalAction,
-      plot_compass: configStore.localSettings.plotCompass // 🚀 携带剧情导向
+      plot_compass: configStore.localSettings.plotCompass
     });
     
     const newMsgs = res.chat_messages.filter(m => m.role !== 'user');
@@ -33,6 +32,7 @@ const submitAction = async (text = null) => {
     gameStore.chatLog.push({ role: "system", content: "⚠️ 虚空风暴：推演失败，已被拦截。" });
   } finally {
     gameStore.isProcessing = false;
+    assetStore.fetchLocalAssets(gameStore.sessionId);
     scrollToBottom();
   }
 };
@@ -45,9 +45,11 @@ const undoTurn = async () => {
     gameStore.chatLog = res.chat_messages;
     gameStore.syncState(res.state);
   } catch (err) {
-    // 🚀 修复问题7：静默处理，什么也不弹
+    // 撤回失败静默处理
   } finally {
     gameStore.isProcessing = false;
+    assetStore.fetchLocalAssets(gameStore.sessionId);
+    scrollToBottom();
   }
 };
 
@@ -57,7 +59,7 @@ const retryTurn = async () => {
   try {
     const res = await gameApi.retryTurn(gameStore.sessionId, {
       action: lastAction.value,
-      plot_compass: configStore.localSettings.plotCompass // 🚀 携带剧情导向
+      plot_compass: configStore.localSettings.plotCompass
     });
     gameStore.chatLog = res.full_chat;
     gameStore.syncState(res.state);
@@ -65,6 +67,7 @@ const retryTurn = async () => {
     alert("重试失败");
   } finally {
     gameStore.isProcessing = false;
+    assetStore.fetchLocalAssets(gameStore.sessionId);
     scrollToBottom();
   }
 };
@@ -72,7 +75,9 @@ const retryTurn = async () => {
 const scrollToBottom = () => {
   setTimeout(() => {
     const c = document.getElementById('chat-container');
-    if (c) c.scrollTop = c.scrollHeight;
+    if (c) {
+      c.scrollTop = c.scrollHeight;
+    }
   }, 100);
 };
 </script>
