@@ -15,6 +15,7 @@ data/saves/
 config.yml
 settings.json
 ChangeLog.md
+logs/
 
 # 临时文件与 OS 文件
 #*

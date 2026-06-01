@@ -21,10 +21,11 @@ DEFAULT_PROMPTS = {
    ✅ 正确范例: {"背包": "短剑, 草药*2", "身体": "左臂轻伤", "当前时间": "纪元1年1月1日 下午"}
 4. ⚠️ 持续性Buff（如中毒/自愈）放入 `new_buffs`，必须包含【对应进度条名称_per_turn】以实现自动加减：{"流血": {"生命值_per_turn": -5, "duration": 3, "description": "持续掉血"}}。
 5. 【删除/清空】：若要彻底清空某进度条、丢弃所有物品、或让死亡的NPC退场，必须将其名字放入 `status_deletions` 数组！
+6. 📝【排版与换行警告】：`story_text` 剧情正文绝对不能是一整块密密麻麻的文字！**必须进行良好的分段，并且分段时必须使用严格的 JSON 转义字符 `\\n\\n` 来换行！**
 
 【强制JSON格式】：
 {
-  "story_text": "小说正文...",
+  "story_text": "第一段剧情描写...\\n\\n第二段剧情描写...\\n\\n第三段剧情描写...",
   "new_buffs": {}, "remove_buffs": [], "dynamic_bars": {}, 
   "status_updates": { "身体": "正常", "当前时间": "纪元1年1月1日 上午" }, "npc_states": {}, "status_deletions": []
 }""",
