@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional, Dict, Any
 from utils.file_io import DATA_DIR, CHAR_DIR, STYLE_DIR, WORLD_DIR, ENTITY_DIR, SAVE_DIR, get_all_saves
-from utils.asset_catalog import list_asset_names, personal_asset_dir, resolve_asset_path, resolve_template_path
+from utils.asset_catalog import list_asset_names, list_asset_summaries, personal_asset_dir, resolve_asset_path, resolve_template_path
 from utils.sys_logger import read_logs_parsed
 from core.prompts import PROMPT_FILE, load_system_prompts
 
@@ -30,11 +30,13 @@ class SavePromptsPayload(BaseModel):
 
 @router.get("/assets")
 async def get_lobby_assets():
+    asset_meta = {asset_type: list_asset_summaries(asset_type) for asset_type in DIR_MAP}
     return {
-        "worldbooks": list_asset_names("worldbooks"),
-        "styles": list_asset_names("styles"),
-        "characters": list_asset_names("characters"),
-        "entities": list_asset_names("entities"),
+        "worldbooks": [item["name"] for item in asset_meta["worldbooks"]],
+        "styles": [item["name"] for item in asset_meta["styles"]],
+        "characters": [item["name"] for item in asset_meta["characters"]],
+        "entities": [item["name"] for item in asset_meta["entities"]],
+        "asset_meta": asset_meta,
         "saves": list(get_all_saves().keys())
     }
 

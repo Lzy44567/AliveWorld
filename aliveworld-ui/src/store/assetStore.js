@@ -23,6 +23,16 @@ export const assetStore = reactive({
   
   insertCharData: { name: "", entrance: "" },
 
+  makeGlobalAssets(names, metadata, defaultTag, defaultDescription) {
+    const metaByName = new Map((metadata || []).map(item => [item.name, item]));
+    return names.map(name => {
+      const meta = metaByName.get(name) || {};
+      const tags = Array.isArray(meta.tags) && meta.tags.length ? [...meta.tags] : [defaultTag];
+      if (meta.is_template && !tags.includes('模板')) tags.unshift('模板');
+      return { name, tags, desc: meta.description || defaultDescription, is_template: Boolean(meta.is_template) };
+    });
+  },
+
   async fetchAssets() {
     try {
       const data = await assetApi.getAssets();
@@ -36,12 +46,11 @@ export const assetStore = reactive({
       }));
 
       // 2. 映射全局资产
-      this.worlds.global = this.availableWorldbooks.map(name => ({ name, tags: ["世界书"], desc: "常驻世界法则与词条设定。" }));
-      this.styles.global = this.availableStyles.map(name => ({ name, tags: ["文风卡"], desc: "AI 叙事风格与限制。" }));
-      this.characters.global = (data.characters || []).map(name => ({ name, tags: ["角色卡"], desc: "人物外观与背景设定。" }));
-      
-      // 🚀 填充全局实体库
-      this.entities.global = (data.entities || []).map(name => ({ name, tags: ["实体卡"], desc: "幕后实体的暗流动机与危机因果。" }));
+      const metadata = data.asset_meta || {};
+      this.worlds.global = this.makeGlobalAssets(this.availableWorldbooks, metadata.worldbooks, "世界书", "常驻世界法则与词条设定。");
+      this.styles.global = this.makeGlobalAssets(this.availableStyles, metadata.styles, "文风卡", "AI 叙事风格与限制。");
+      this.characters.global = this.makeGlobalAssets(data.characters || [], metadata.characters, "角色卡", "人物外观与背景设定。");
+      this.entities.global = this.makeGlobalAssets(data.entities || [], metadata.entities, "实体卡", "幕后实体的暗流动机与危机因果。");
       
     } catch (e) {
       console.error("无法连接到万象资产服务器", e);

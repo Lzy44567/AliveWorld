@@ -22,20 +22,22 @@ def personal_asset_dir(asset_type: str) -> Optional[Path]:
     return PERSONAL_DIRS.get(asset_type)
 
 
-def _asset_name(path: Path) -> Optional[str]:
+def _load_asset(path: Path) -> Optional[Dict]:
     try:
         data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     except (OSError, yaml.YAMLError):
         return None
-    return data.get("name") if isinstance(data, dict) else None
+    return data if isinstance(data, dict) else None
+
+
+def _asset_name(path: Path) -> Optional[str]:
+    data = _load_asset(path)
+    return data.get("name") if data else None
 
 
 def _is_template(path: Path) -> bool:
-    try:
-        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    except (OSError, yaml.YAMLError):
-        return False
-    tags = data.get("tags", []) if isinstance(data, dict) else []
+    data = _load_asset(path) or {}
+    tags = data.get("tags", [])
     return path.name.endswith(".template.yml") or data.get("is_template") is True or "模板" in tags
 
 
@@ -51,15 +53,32 @@ def _find_by_name(directory: Optional[Path], asset_name: str, templates_only: bo
 
 
 def list_asset_names(asset_type: str) -> List[str]:
-    names = set()
+    return [summary["name"] for summary in list_asset_summaries(asset_type)]
+
+
+def list_asset_summaries(asset_type: str) -> List[Dict]:
     directory = personal_asset_dir(asset_type)
     if not directory or not directory.exists():
         return []
-    for path in directory.glob("*.yml"):
-        name = _asset_name(path)
-        if name:
-            names.add(name)
-    return sorted(names)
+    summaries = {}
+    for path in sorted(directory.glob("*.yml"), key=_is_template):
+        data = _load_asset(path)
+        name = data.get("name") if data else None
+        if not name:
+            continue
+        tags = data.get("tags", []) if isinstance(data.get("tags", []), list) else []
+        is_template = _is_template(path)
+        if name not in summaries:
+            summaries[name] = {
+                "name": name,
+                "tags": tags,
+                "description": data.get("description", data.get("motive", data.get("content", ""))),
+                "is_template": is_template,
+            }
+        elif is_template:
+            summaries[name]["is_template"] = True
+            summaries[name]["tags"] = list(dict.fromkeys([*summaries[name]["tags"], *tags]))
+    return [summaries[name] for name in sorted(summaries)]
 
 
 def resolve_asset_path(asset_type: str, asset_name: str) -> Optional[Path]:
