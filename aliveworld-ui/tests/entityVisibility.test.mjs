@@ -3,6 +3,7 @@ import {
   formatUndercurrentDebug,
   projectLocalEntity
 } from '../src/utils/entityVisibility.js';
+import { buildEntityPayload, createEntityEditorForm } from '../src/utils/entityForm.js';
 
 const entity = {
   name: '皇城',
@@ -22,4 +23,12 @@ assert.equal(formatUndercurrentDebug(event, 'names', [entity]), '🌌 暗流变�
 assert.equal(formatUndercurrentDebug(event, 'motives', [entity]), '🌌 暗流变化：[皇城]（动机：追捕玩家）');
 assert.equal(formatUndercurrentDebug(event, 'full', [entity]), event);
 
-console.log('entity visibility behavior: OK');
+const editorForm = createEntityEditorForm({ ...entity, plans: ['搜查客栈'], triggers: [{ condition: '进城', result: '盘查' }] });
+const entityPayload = buildEntityPayload({ ...editorForm, importance: '0.6', relationshipsJson: '{"玩家":"敌对"}' });
+assert.deepEqual(entityPayload.plans, ['搜查客栈']);
+assert.deepEqual(entityPayload.triggers, [{ condition: '进城', result: '盘查' }]);
+assert.deepEqual(entityPayload.relationships, { 玩家: '敌对' });
+assert.equal(entityPayload.importance, 0.6);
+assert.throws(() => buildEntityPayload({ ...editorForm, triggersJson: '{}' }), /触发器/);
+
+console.log('entity UI behavior: OK');

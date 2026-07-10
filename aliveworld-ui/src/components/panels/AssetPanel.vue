@@ -10,6 +10,7 @@ import { assetApi } from '../../api/assetApi';
 import { gameApi } from '../../api/gameApi';
 import { gameStore } from '../../store/gameStore';
 import { ENTITY_VISIBILITIES, normalizeEntityVisibility, projectLocalEntity } from '../../utils/entityVisibility';
+import { createEntityEditorForm } from '../../utils/entityForm';
 
 const searchKeyword = ref("");
 const confirmDeleteId = ref(null);
@@ -38,9 +39,13 @@ const getApiType = () => {
 };
 
 const openNewAsset = () => {
+  const type = getApiType();
   uiStore.editorData = { 
-    type: getApiType(), name: '', isNew: true,
-    form: { name: '', tags: '', desc: '', global_setting: '', starting_scene: '', entries: [], is_active: true, is_player: false }
+    type, name: '', isNew: true,
+    form: {
+      name: '', tags: '', desc: '', global_setting: '', starting_scene: '', entries: [], is_active: true, is_player: false,
+      ...(type === 'entities' ? createEntityEditorForm() : {})
+    }
   };
   uiStore.modals.assetEditor = true;
 };
@@ -67,7 +72,8 @@ const openEditAsset = async (name) => {
         starting_scene: p.starting_scene || '',
         entries: p.entries || [],
         is_active: p.is_active !== false,
-        is_player: p.is_player || false // 🚀 问题 3
+        is_player: p.is_player || false, // 🚀 问题 3
+        ...(getApiType() === 'entities' ? createEntityEditorForm(p) : {})
       }
     };
     uiStore.modals.assetEditor = true;
