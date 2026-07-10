@@ -14,6 +14,25 @@ def _as_list(value: Any) -> List[Any]:
     return [value]
 
 
+def _detail_clues(details: Dict[str, Any]) -> List[str]:
+    clues = []
+    for label, field in (("计划", "new_plans"), ("机制", "new_mechanisms")):
+        for value in _as_list(details.get(field))[:2]:
+            clues.append(f"{label}：{value}")
+
+    for trigger in _as_list(details.get("new_triggers"))[:2]:
+        if isinstance(trigger, dict):
+            condition = trigger.get("condition", "未说明条件")
+            result = trigger.get("result", "未说明后果")
+            clues.append(f"触发：{condition}→{result}")
+        else:
+            clues.append(f"触发：{trigger}")
+
+    for name, relation in list((details.get("relationship_updates") or {}).items())[:2]:
+        clues.append(f"关系：{name}={relation}")
+    return clues
+
+
 @dataclass
 class ShadowLedgerEntry:
     tick: int = 0
@@ -50,7 +69,8 @@ class ShadowLedgerEntry:
 
     def to_context_line(self) -> str:
         prefix = f"[Tick {self.tick}] {self.entity}：{self.summary}" if self.entity else self.summary
-        clue_text = "；".join(str(clue) for clue in self.clues[:3])
+        all_clues = [str(clue) for clue in self.clues] + _detail_clues(self.details)
+        clue_text = "；".join(all_clues[:4])
         return f"{prefix}；线索：{clue_text}" if clue_text else prefix
 
 

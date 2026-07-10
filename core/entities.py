@@ -140,7 +140,21 @@ class Entity:
     def prompt_summary(self) -> str:
         recent = "；".join(_as_text(item) for item in self.recent_actions[-2:]) or "无"
         plan = "；".join(_as_text(item) for item in self.plans[-2:]) or "无"
-        return f"- 【{self.name}】动机：{self.motive}；状态：{self.status or '未知'}；近期行动：{recent}；计划：{plan}"
+        mechanisms = "；".join(_as_text(item) for item in self.mechanisms[-2:]) or "无"
+        trigger_parts = []
+        for trigger in self.triggers[-2:]:
+            if isinstance(trigger, dict):
+                condition = _as_text(trigger.get("condition"), "未说明条件")
+                result = _as_text(trigger.get("result"), "未说明后果")
+                trigger_parts.append(f"{condition}→{result}")
+            else:
+                trigger_parts.append(_as_text(trigger))
+        triggers = "；".join(trigger_parts) or "无"
+        relationships = "；".join(f"{name}:{value}" for name, value in list(self.relationships.items())[:3]) or "无"
+        return (
+            f"- 【{self.name}】动机：{self.motive}；状态：{self.status or '未知'}；近期行动：{recent}；"
+            f"计划：{plan}；机制：{mechanisms}；触发器：{triggers}；关系：{relationships}"
+        )
 
 
 def active_entities(entities: Iterable[Entity]) -> List[Entity]:

@@ -68,7 +68,13 @@ class EntityDomainTests(unittest.TestCase):
         ai_engine = FakeAIEngine(response)
         engine = UndercurrentEngine(ai_engine)
         engine.entities = [
-            Entity(name="皇城", motive="追捕玩家"),
+            Entity(
+                name="皇城",
+                motive="追捕玩家",
+                mechanisms=["既有盘查机制"],
+                triggers=[{"condition": "玩家进城", "result": "守卫盘查"}],
+                relationships={"玩家": "敌对"},
+            ),
             Entity(name="封存势力", motive="不应出现", is_active=False),
         ]
 
@@ -77,12 +83,16 @@ class EntityDomainTests(unittest.TestCase):
 
         self.assertIn("皇城", ai_engine.system_prompt)
         self.assertNotIn("封存势力", ai_engine.system_prompt)
+        self.assertIn("既有盘查机制", ai_engine.system_prompt)
+        self.assertIn("玩家进城→守卫盘查", ai_engine.system_prompt)
         self.assertEqual(engine.entities[0].recent_actions, ["派遣密探"])
         self.assertEqual(engine.entities[0].status, "追查中")
         self.assertEqual(engine.entities[0].plans, ["搜查客栈"])
-        self.assertEqual(engine.entities[0].mechanisms, ["守卫盘查"])
+        self.assertEqual(engine.entities[0].mechanisms, ["既有盘查机制", "守卫盘查"])
         self.assertEqual(engine.entities[0].relationships, {"玩家": "敌对"})
         self.assertIn("皇城：派遣密探", engine.get_ledger_context())
+        self.assertIn("计划：搜查客栈", engine.get_ledger_context())
+        self.assertIn("机制：守卫盘查", engine.get_ledger_context())
         self.assertNotIn("封存势力：不应执行", engine.get_ledger_context())
         self.assertEqual(engine.export_state()["shadow_ledger"][-1]["details"]["new_plans"], ["搜查客栈"])
 
