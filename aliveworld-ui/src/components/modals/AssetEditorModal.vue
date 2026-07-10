@@ -18,6 +18,10 @@ const addWorldEntry = () => {
 };
 
 const removeWorldEntry = (idx) => { form.value.entries.splice(idx, 1); };
+const addEntityTrigger = () => { form.value.triggers.push({ condition: '', result: '' }); };
+const removeEntityTrigger = (idx) => { form.value.triggers.splice(idx, 1); };
+const addEntityRelationship = () => { form.value.relationships.push({ target: '', relation: '' }); };
+const removeEntityRelationship = (idx) => { form.value.relationships.splice(idx, 1); };
 
 const saveContent = async () => {
   try {
@@ -105,8 +109,8 @@ const saveContent = async () => {
             <div><label class="text-xs text-slate-400 font-bold mb-1.5 block">机制（每行一项）</label><textarea v-model="form.mechanismsText" class="w-full h-28 bg-[#0d0d12] border border-slate-700 text-slate-300 p-3 rounded-lg text-xs"></textarea></div>
           </div>
           <div class="grid grid-cols-2 gap-4">
-            <div><label class="text-xs text-slate-400 font-bold mb-1.5 block">触发器（JSON 数组）</label><textarea v-model="form.triggersJson" class="w-full h-40 font-mono bg-[#0d0d12] border border-slate-700 text-slate-300 p-3 rounded-lg text-xs"></textarea><p class="mt-1 text-[10px] text-slate-500">示例：[{"condition":"玩家进城","result":"守卫盘查"}]</p></div>
-            <div><label class="text-xs text-slate-400 font-bold mb-1.5 block">关系（JSON 对象）</label><textarea v-model="form.relationshipsJson" class="w-full h-40 font-mono bg-[#0d0d12] border border-slate-700 text-slate-300 p-3 rounded-lg text-xs"></textarea><p class="mt-1 text-[10px] text-slate-500">示例：{"玩家":"间接影响"}</p></div>
+            <div class="border border-slate-700 rounded-lg p-3 space-y-3"><div class="flex items-center justify-between"><label class="text-xs text-slate-400 font-bold">触发器</label><button @click="addEntityTrigger" class="px-2 py-1 rounded bg-indigo-900/50 text-indigo-300 text-[10px]">+ 添加</button></div><div v-if="!form.triggers.length" class="text-xs text-slate-500">暂无触发器</div><div v-for="(trigger, idx) in form.triggers" :key="idx" class="grid grid-cols-[1fr_1fr_auto] gap-2"><input v-model="trigger.condition" placeholder="触发条件" class="min-w-0 bg-[#0d0d12] border border-slate-700 text-slate-300 px-2 py-1.5 rounded text-xs"><input v-model="trigger.result" placeholder="触发后果" class="min-w-0 bg-[#0d0d12] border border-slate-700 text-slate-300 px-2 py-1.5 rounded text-xs"><button @click="removeEntityTrigger(idx)" class="text-rose-400 px-1">✕</button></div></div>
+            <div class="border border-slate-700 rounded-lg p-3 space-y-3"><div class="flex items-center justify-between"><label class="text-xs text-slate-400 font-bold">关系</label><button @click="addEntityRelationship" class="px-2 py-1 rounded bg-indigo-900/50 text-indigo-300 text-[10px]">+ 添加</button></div><div v-if="!form.relationships.length" class="text-xs text-slate-500">暂无关系</div><div v-for="(relationship, idx) in form.relationships" :key="idx" class="grid grid-cols-[1fr_1fr_auto] gap-2"><input v-model="relationship.target" placeholder="对象名称" class="min-w-0 bg-[#0d0d12] border border-slate-700 text-slate-300 px-2 py-1.5 rounded text-xs"><input v-model="relationship.relation" placeholder="关系描述" class="min-w-0 bg-[#0d0d12] border border-slate-700 text-slate-300 px-2 py-1.5 rounded text-xs"><button @click="removeEntityRelationship(idx)" class="text-rose-400 px-1">✕</button></div></div>
           </div>
           <div class="max-w-xs"><label class="text-xs text-slate-400 font-bold mb-1.5 block">重要性（0 到 1）</label><input v-model="form.importance" type="number" min="0" max="1" step="0.1" class="w-full bg-[#0d0d12] border border-slate-700 text-slate-200 px-4 py-2.5 rounded-lg text-sm" /></div>
         </template>

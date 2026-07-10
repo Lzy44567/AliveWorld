@@ -28,11 +28,11 @@ assert.equal(formatUndercurrentDebug(event, bubbles, [entity]), '🌌 暗流变�
 assert.equal(formatUndercurrentDebug(event, { ...bubbles, showEntityMotives: true }, [entity]), '🌌 暗流变化：[皇城]（动机：追捕玩家）');
 
 const editorForm = createEntityEditorForm({ ...entity, plans: ['搜查客栈'], triggers: [{ condition: '进城', result: '盘查' }] });
-const entityPayload = buildEntityPayload({ ...editorForm, importance: '0.6', relationshipsJson: '{"玩家":"敌对"}' });
+const entityPayload = buildEntityPayload({ ...editorForm, importance: '0.6', relationships: [{ target: '玩家', relation: '敌对' }] });
 assert.deepEqual(entityPayload.plans, ['搜查客栈']);
 assert.deepEqual(entityPayload.triggers, [{ condition: '进城', result: '盘查' }]);
 assert.deepEqual(entityPayload.relationships, { 玩家: '敌对' });
 assert.equal(entityPayload.importance, 0.6);
-assert.throws(() => buildEntityPayload({ ...editorForm, triggersJson: '{}' }), /触发器/);
+assert.deepEqual(buildEntityPayload({ ...editorForm, triggers: [{ condition: '雨天', result: '' }] }).triggers, [{ condition: '雨天', result: '' }]);
 
 console.log('entity UI behavior: OK');

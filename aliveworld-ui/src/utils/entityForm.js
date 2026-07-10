@@ -3,23 +3,22 @@ function toTextLines(value) {
   return value ? String(value) : '';
 }
 
-function toPrettyJson(value, fallback) {
-  return JSON.stringify(value ?? fallback, null, 2);
-}
-
 function parseLines(value) {
   return String(value || '').split('\n').map(line => line.trim()).filter(Boolean);
 }
 
-function parseJson(value, expectedType, label) {
-  try {
-    const parsed = JSON.parse(value || (expectedType === 'array' ? '[]' : '{}'));
-    if (expectedType === 'array' && !Array.isArray(parsed)) throw new Error();
-    if (expectedType === 'object' && (!parsed || Array.isArray(parsed) || typeof parsed !== 'object')) throw new Error();
-    return parsed;
-  } catch {
-    throw new Error(`${label}必须是有效的 ${expectedType === 'array' ? 'JSON 数组' : 'JSON 对象'}`);
-  }
+function toTriggerRows(value) {
+  return (Array.isArray(value) ? value : []).map(trigger => ({
+    condition: typeof trigger === 'object' ? String(trigger.condition || '') : String(trigger || ''),
+    result: typeof trigger === 'object' ? String(trigger.result || '') : ''
+  }));
+}
+
+function toRelationshipRows(value) {
+  return Object.entries(value && typeof value === 'object' && !Array.isArray(value) ? value : {}).map(([target, relation]) => ({
+    target,
+    relation: String(relation || '')
+  }));
 }
 
 export function createEntityEditorForm(asset = {}) {
@@ -30,8 +29,8 @@ export function createEntityEditorForm(asset = {}) {
     recentActionsText: toTextLines(asset.recent_actions),
     plansText: toTextLines(asset.plans),
     mechanismsText: toTextLines(asset.mechanisms),
-    triggersJson: toPrettyJson(asset.triggers, []),
-    relationshipsJson: toPrettyJson(asset.relationships, {}),
+    triggers: toTriggerRows(asset.triggers),
+    relationships: toRelationshipRows(asset.relationships),
     importance: asset.importance ?? 0.5
   };
 }
@@ -49,8 +48,13 @@ export function buildEntityPayload(form) {
     recent_actions: parseLines(form.recentActionsText),
     plans: parseLines(form.plansText),
     mechanisms: parseLines(form.mechanismsText),
-    triggers: parseJson(form.triggersJson, 'array', '触发器'),
-    relationships: parseJson(form.relationshipsJson, 'object', '关系'),
+    triggers: (form.triggers || []).filter(row => row.condition || row.result).map(row => ({
+      condition: String(row.condition || ''),
+      result: String(row.result || '')
+    })),
+    relationships: Object.fromEntries((form.relationships || [])
+      .filter(row => row.target && row.relation)
+      .map(row => [String(row.target), String(row.relation)])),
     importance
   };
 }
