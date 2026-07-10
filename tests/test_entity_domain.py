@@ -52,6 +52,17 @@ class EntityDomainTests(unittest.TestCase):
         self.assertIn("皇城：派遣密探", ledger.context())
         self.assertLessEqual(len(ledger.context(character_limit=10)), 10)
 
+    def test_world_simulation_template_is_a_structured_active_entity(self):
+        template_path = Path(__file__).resolve().parents[1] / "data" / "entities" / "世界推演.yml"
+        template = yaml.safe_load(template_path.read_text(encoding="utf-8"))
+        entity = Entity.from_dict(template)
+
+        self.assertEqual(entity.name, "世界推演")
+        self.assertTrue(entity.is_active)
+        self.assertEqual(entity.importance, 0.6)
+        self.assertIn("世界推演", entity.tags)
+        self.assertTrue(entity.mechanisms)
+
     def test_overseer_excludes_inactive_entity_and_records_active_action(self):
         response = '{"undercurrent_events":[{"entity":"皇城","action":"派遣密探","status":"戒备","new_plans":["搜查客栈"],"new_mechanisms":["守卫盘查"],"new_triggers":[{"condition":"玩家进城","result":"盘查"}],"relationship_updates":{"玩家":"敌对"},"clues":["密探出没"]},{"entity":"封存势力","action":"不应执行"}],"new_entities":[],"update_entities":[{"name":"皇城","status":"追查中"}],"delete_entities":[]}'
         ai_engine = FakeAIEngine(response)
