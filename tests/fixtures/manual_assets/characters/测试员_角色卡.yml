@@ -1,5 +1,5 @@
 name: 测试员_角色卡
-description: 这是一张验收角色卡。当玩家输入“角色卡测试”时，故事正文必须出现精确文字“角色卡就绪”。
+description: 这是一张验收角色卡。当玩家输入“AW_CHAR_TRIGGER_20260710”时，故事正文必须出现精确文字“AW_CHAR_READY_20260710”。
 is_player: true
 is_active: true
 tags:

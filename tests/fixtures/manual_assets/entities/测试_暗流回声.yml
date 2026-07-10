@@ -1,14 +1,14 @@
 name: 测试_暗流回声
 description: 用于验证实体载入、封存、Overseer 行动和可见性。
-motive: 当近期剧情出现“实体测试”时，留下“实体就绪”的幕后线索；其他情形可以保持沉默。
+motive: 当近期剧情出现“AW_ENTITY_TRIGGER_20260710”时，留下“AW_ENTITY_READY_20260710”的幕后线索；其他情形可以保持沉默。
 status: 等待测试触发。
 recent_actions: []
 plans: []
 mechanisms:
-  - 仅当玩家行动含“实体测试”时才优先产生低强度幕后变化。
+  - 仅当玩家行动含“AW_ENTITY_TRIGGER_20260710”时才优先产生低强度幕后变化。
 triggers:
-  - condition: 玩家输入实体测试
-    result: 在影子账本记录实体就绪线索
+  - condition: 玩家输入 AW_ENTITY_TRIGGER_20260710
+    result: 在影子账本记录 AW_ENTITY_READY_20260710 线索
 relationships: {}
 importance: 0.9
 is_active: true

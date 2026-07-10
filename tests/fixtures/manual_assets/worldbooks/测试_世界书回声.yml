@@ -1,9 +1,9 @@
 name: 测试_世界书回声
-global_setting: 当玩家输入“世界书测试”时，正文必须出现精确文字“世界书就绪”。这是测试世界书常驻规则，不应改变其他故事设定。
+global_setting: 当玩家输入“AW_WB_TRIGGER_20260710”时，正文必须出现精确文字“AW_WB_READY_20260710”。这是测试世界书常驻规则，不应改变其他故事设定。
 entries:
   - name: 世界书触发条目
-    keys: 世界书测试
-    content: 当近期剧情或玩家行动含“世界书测试”时，正文必须出现精确文字“世界书就绪”。
+    keys: AW_WB_TRIGGER_20260710
+    content: 当近期剧情或玩家行动含“AW_WB_TRIGGER_20260710”时，正文必须出现精确文字“AW_WB_READY_20260710”。
 is_active: true
 tags:
   - 测试夹具

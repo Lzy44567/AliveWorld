@@ -1,5 +1,7 @@
 # AliveWorld 测试流程
 
+面向玩家的逐步操作请优先阅读 [MANUAL_TEST_GUIDE.md](MANUAL_TEST_GUIDE.md)。本文件保留自动测试与夹具的技术说明。
+
 ## 目录职责
 
 | 目录/文件 | 用途 | 是否推送 |
