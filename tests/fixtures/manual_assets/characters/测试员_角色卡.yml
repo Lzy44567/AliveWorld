@@ -1,0 +1,7 @@
+name: 测试员_角色卡
+description: 这是一张验收角色卡。当玩家输入“角色卡测试”时，故事正文必须出现精确文字“角色卡就绪”。
+is_player: true
+is_active: true
+tags:
+  - 测试夹具
+  - 角色卡
