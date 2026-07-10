@@ -1,35 +1,27 @@
-export const ENTITY_VISIBILITIES = Object.freeze({
-  hidden: 'hidden',
-  names: 'names',
-  motives: 'motives',
-  full: 'full'
-});
-
-export function normalizeEntityVisibility(value) {
-  return Object.values(ENTITY_VISIBILITIES).includes(value) ? value : ENTITY_VISIBILITIES.hidden;
+export function normalizeEntityDisclosure(settings = {}) {
+  const showMotives = Boolean(settings.showEntityMotives);
+  const allowEditing = Boolean(settings.allowEntityEditing);
+  return {
+    showNames: Boolean(settings.showEntityNames) || showMotives || allowEditing,
+    showMotives,
+    allowEditing,
+    showBubbles: Boolean(settings.showEntityBubbles)
+  };
 }
 
-export function projectLocalEntity(entity, visibility) {
-  const mode = normalizeEntityVisibility(visibility);
-  if (mode === ENTITY_VISIBILITIES.hidden) return null;
+export function projectLocalEntity(entity, disclosure) {
+  const permissions = normalizeEntityDisclosure(disclosure);
+  if (!permissions.showNames) return null;
 
   const shared = {
     name: entity.name,
     is_active: entity.is_active,
     tags: ['本局实体']
   };
-  if (mode === ENTITY_VISIBILITIES.names) {
+  if (!permissions.showMotives) {
     return { ...shared, desc: '暗流详情已隐藏' };
   }
-  if (mode === ENTITY_VISIBILITIES.motives) {
-    return { ...shared, desc: `动机：${entity.motive || entity.description || '未公开'}` };
-  }
-
-  return {
-    ...entity,
-    tags: Array.isArray(entity.tags) ? entity.tags : [],
-    desc: entity.description || entity.motive || ''
-  };
+  return { ...shared, desc: `动机：${entity.motive || entity.description || '未公开'}` };
 }
 
 function getEntityName(content) {
@@ -37,16 +29,15 @@ function getEntityName(content) {
   return match?.[1] || match?.[2] || '未知实体';
 }
 
-export function formatUndercurrentDebug(content, visibility, localEntities = []) {
-  const mode = normalizeEntityVisibility(visibility);
-  if (mode === ENTITY_VISIBILITIES.hidden) return '';
+export function formatUndercurrentDebug(content, disclosure, localEntities = []) {
+  const permissions = normalizeEntityDisclosure(disclosure);
+  if (!permissions.showBubbles || !permissions.showNames) return '';
 
   const name = getEntityName(content);
-  if (mode === ENTITY_VISIBILITIES.names) return `🌌 暗流变化：[${name}]`;
-  if (mode === ENTITY_VISIBILITIES.motives) {
+  if (permissions.showMotives) {
     const entity = localEntities.find(item => item.name === name);
     const motive = entity?.motive || entity?.description || '未公开';
     return `🌌 暗流变化：[${name}]（动机：${motive}）`;
   }
-  return String(content || '');
+  return `🌌 暗流变化：[${name}]`;
 }

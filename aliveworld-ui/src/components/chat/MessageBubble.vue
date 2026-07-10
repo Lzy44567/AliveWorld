@@ -16,8 +16,8 @@ const props = defineProps({
 });
 
 const entityDebugText = computed(() => {
-  if (props.msg.role !== 'undercurrent' || !configStore.settings.showEntityDebug) return '';
-  return formatUndercurrentDebug(props.msg.content, configStore.settings.entityVisibility, assetStore.entities.local);
+  if (props.msg.role !== 'undercurrent') return '';
+  return formatUndercurrentDebug(props.msg.content, configStore.settings, assetStore.entities.local);
 });
 
 const doReroll = async () => {

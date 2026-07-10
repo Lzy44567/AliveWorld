@@ -9,13 +9,13 @@ import { configStore } from '../../store/configStore';
 import { assetApi } from '../../api/assetApi';
 import { gameApi } from '../../api/gameApi';
 import { gameStore } from '../../store/gameStore';
-import { ENTITY_VISIBILITIES, normalizeEntityVisibility, projectLocalEntity } from '../../utils/entityVisibility';
+import { normalizeEntityDisclosure, projectLocalEntity } from '../../utils/entityVisibility';
 import { createEntityEditorForm } from '../../utils/entityForm';
 
 const searchKeyword = ref("");
 const confirmDeleteId = ref(null);
-const entityVisibility = computed(() => normalizeEntityVisibility(configStore.settings.entityVisibility));
-const canManageLocalEntity = computed(() => entityVisibility.value === ENTITY_VISIBILITIES.full);
+const entityDisclosure = computed(() => normalizeEntityDisclosure(configStore.settings));
+const canManageLocalEntity = computed(() => entityDisclosure.value.allowEditing);
 
 const currentList = computed(() => {
   const tab = uiStore.rightTab;
@@ -26,7 +26,7 @@ const currentList = computed(() => {
   if (tab === 'style') list = assetStore.styles[scope] || [];
   if (tab === 'entity') list = assetStore.entities[scope] || [];
   if (tab === 'entity' && scope === 'local') {
-    list = list.map(item => projectLocalEntity(item, entityVisibility.value)).filter(Boolean);
+    list = list.map(item => projectLocalEntity(item, entityDisclosure.value)).filter(Boolean);
   }
   
   if (!searchKeyword.value) return list;
@@ -169,8 +169,8 @@ const openInsertCharModal = (charName) => {
               <span v-if="item.is_player" class="text-amber-400" title="玩家化身">👑</span>
               {{ item.name }}
               <button v-if="uiStore.assetScope==='local'" @click.stop="toggleActive(item)" role="switch" :aria-checked="item.is_active !== false" class="inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-[10px] font-bold transition" :class="item.is_active === false ? 'border-slate-600 bg-slate-800 text-slate-400 hover:border-slate-500' : 'border-emerald-700/70 bg-emerald-950/60 text-emerald-300 hover:bg-emerald-900/70'" :title="item.is_active === false ? '点击启用此卡片' : '点击封存此卡片'">
-                <span class="relative h-4 w-8 rounded-full transition-colors" :class="item.is_active === false ? 'bg-slate-600' : 'bg-emerald-500'">
-                  <span class="absolute top-0.5 h-3 w-3 rounded-full bg-white shadow transition-transform" :class="item.is_active === false ? 'translate-x-0.5' : 'translate-x-[18px]'" />
+                <span class="flex h-5 w-10 items-center rounded-full p-0.5 transition-colors" :class="item.is_active === false ? 'justify-start bg-slate-600' : 'justify-end bg-emerald-500'">
+                  <span class="h-4 w-4 rounded-full bg-white shadow" />
                 </span>
                 {{ item.is_active === false ? '已封存' : '已启用' }}
               </button>

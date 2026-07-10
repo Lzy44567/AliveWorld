@@ -1,8 +1,15 @@
 <!-- src/components/modals/SettingsModal.vue -->
 <script setup>
+import { computed } from 'vue';
 import { configStore } from '../../store/configStore';
 import { uiStore } from '../../store/uiStore';
 const close = () => { uiStore.modals.settings = false; };
+const allEntityDisclosure = computed({
+  get: () => ['showEntityNames', 'showEntityMotives', 'allowEntityEditing', 'showEntityBubbles'].every(key => configStore.settings[key]),
+  set: value => {
+    for (const key of ['showEntityNames', 'showEntityMotives', 'allowEntityEditing', 'showEntityBubbles']) configStore.settings[key] = value;
+  }
+});
 </script>
 <template>
   <div class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center backdrop-blur-sm p-4">
@@ -34,17 +41,18 @@ const close = () => { uiStore.modals.settings = false; };
               <label class="flex items-center gap-3 text-sm text-slate-300 cursor-pointer"><input type="checkbox" v-model="configStore.settings.showDice" class="rounded bg-slate-800 border-slate-600 text-rose-500"><span>显示命运掷骰结果</span></label>
               <label class="flex items-center gap-3 text-sm text-slate-300 cursor-pointer"><input type="checkbox" v-model="configStore.settings.allowReroll" class="rounded bg-slate-800 border-slate-600 text-rose-500"><span>开启“重掷未来”允许反悔</span></label>
               <label class="flex items-center gap-3 text-sm text-slate-300 cursor-pointer"><input type="checkbox" v-model="configStore.settings.aiSuggestions" class="rounded bg-slate-800 border-slate-600 text-rose-500"><span>开启 AI 行动灵感建议</span></label>
-              <label class="flex items-center gap-3 text-sm text-slate-300 cursor-pointer"><input type="checkbox" v-model="configStore.settings.showEntityDebug" class="rounded bg-slate-800 border-slate-600 text-amber-500"><span>显示暗流实体提示 (调试)</span></label>
               <label class="flex items-center gap-3 text-sm text-slate-300 cursor-pointer"><input type="checkbox" v-model="configStore.settings.autoCompressMemory" class="rounded bg-slate-800 border-slate-600 text-indigo-500"><span>智能记忆压缩 (未实装)</span></label>
-              <label class="col-span-2 flex flex-col gap-1 text-sm text-slate-300">
-                <span>暗流实体可见性（剧透控制）</span>
-                <select v-model="configStore.settings.entityVisibility" class="bg-slate-900 border border-slate-700 rounded p-2 text-sm text-slate-200 outline-none">
-                  <option value="hidden">hidden：完全隐藏（默认）</option>
-                  <option value="names">names：只显示名称</option>
-                  <option value="motives">motives：显示名称与动机</option>
-                  <option value="full">full：显示完整暗流信息</option>
-                </select>
-              </label>
+              <div class="col-span-2 border border-slate-700 rounded-lg p-3 space-y-3">
+                <p class="text-sm font-bold text-amber-300">暗流实体显示（可自由组合）</p>
+                <div class="grid grid-cols-2 gap-3">
+                  <label class="flex items-center gap-2 text-sm text-slate-300 cursor-pointer"><input type="checkbox" v-model="allEntityDisclosure" class="rounded bg-slate-800 border-slate-600 text-amber-500"><span>实体：全部</span></label>
+                  <label class="flex items-center gap-2 text-sm text-slate-300 cursor-pointer"><input type="checkbox" v-model="configStore.settings.showEntityNames" class="rounded bg-slate-800 border-slate-600 text-amber-500"><span>显示名称</span></label>
+                  <label class="flex items-center gap-2 text-sm text-slate-300 cursor-pointer"><input type="checkbox" v-model="configStore.settings.showEntityMotives" class="rounded bg-slate-800 border-slate-600 text-amber-500"><span>显示动机</span></label>
+                  <label class="flex items-center gap-2 text-sm text-slate-300 cursor-pointer"><input type="checkbox" v-model="configStore.settings.allowEntityEditing" class="rounded bg-slate-800 border-slate-600 text-amber-500"><span>允许编辑</span></label>
+                  <label class="flex items-center gap-2 text-sm text-slate-300 cursor-pointer"><input type="checkbox" v-model="configStore.settings.showEntityBubbles" class="rounded bg-slate-800 border-slate-600 text-amber-500"><span>显示气泡</span></label>
+                </div>
+                <p class="text-[10px] text-slate-500">气泡只显示获准的名称与动机；编辑权限不会自动公开完整幕后行动。</p>
+              </div>
             </div>
           </section>
         </div>
