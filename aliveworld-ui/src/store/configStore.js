@@ -19,6 +19,7 @@ export const configStore = reactive({
     autoImage: savedConfig.settings?.autoImage ?? true,
     showTime: savedConfig.settings?.showTime ?? true,
     showEntityDebug: savedConfig.settings?.showEntityDebug ?? true,
+    entityVisibility: savedConfig.settings?.entityVisibility ?? 'hidden',
     autoCompressMemory: savedConfig.settings?.autoCompressMemory ?? false
   },
   

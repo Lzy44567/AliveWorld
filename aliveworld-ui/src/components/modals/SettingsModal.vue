@@ -34,8 +34,17 @@ const close = () => { uiStore.modals.settings = false; };
               <label class="flex items-center gap-3 text-sm text-slate-300 cursor-pointer"><input type="checkbox" v-model="configStore.settings.showDice" class="rounded bg-slate-800 border-slate-600 text-rose-500"><span>显示命运掷骰结果</span></label>
               <label class="flex items-center gap-3 text-sm text-slate-300 cursor-pointer"><input type="checkbox" v-model="configStore.settings.allowReroll" class="rounded bg-slate-800 border-slate-600 text-rose-500"><span>开启“重掷未来”允许反悔</span></label>
               <label class="flex items-center gap-3 text-sm text-slate-300 cursor-pointer"><input type="checkbox" v-model="configStore.settings.aiSuggestions" class="rounded bg-slate-800 border-slate-600 text-rose-500"><span>开启 AI 行动灵感建议</span></label>
-              <label class="flex items-center gap-3 text-sm text-slate-300 cursor-pointer"><input type="checkbox" v-model="configStore.settings.showEntityDebug" class="rounded bg-slate-800 border-slate-600 text-amber-500"><span>显示暗流实体演算推导 (调试)</span></label>
+              <label class="flex items-center gap-3 text-sm text-slate-300 cursor-pointer"><input type="checkbox" v-model="configStore.settings.showEntityDebug" class="rounded bg-slate-800 border-slate-600 text-amber-500"><span>显示暗流实体提示 (调试)</span></label>
               <label class="flex items-center gap-3 text-sm text-slate-300 cursor-pointer"><input type="checkbox" v-model="configStore.settings.autoCompressMemory" class="rounded bg-slate-800 border-slate-600 text-indigo-500"><span>智能记忆压缩 (未实装)</span></label>
+              <label class="col-span-2 flex flex-col gap-1 text-sm text-slate-300">
+                <span>暗流实体可见性（剧透控制）</span>
+                <select v-model="configStore.settings.entityVisibility" class="bg-slate-900 border border-slate-700 rounded p-2 text-sm text-slate-200 outline-none">
+                  <option value="hidden">hidden：完全隐藏（默认）</option>
+                  <option value="names">names：只显示名称</option>
+                  <option value="motives">motives：显示名称与动机</option>
+                  <option value="full">full：显示完整暗流信息</option>
+                </select>
+              </label>
             </div>
           </section>
         </div>

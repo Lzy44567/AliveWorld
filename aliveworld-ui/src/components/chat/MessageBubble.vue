@@ -1,16 +1,23 @@
 <!-- src/components/chat/MessageBubble.vue -->
 <script setup>
+import { computed } from 'vue';
 import { gameStore } from '../../store/gameStore';
 import { configStore } from '../../store/configStore';
 import { uiStore } from '../../store/uiStore';
 import { gameApi } from '../../api/gameApi';
 import { assetStore } from '../../store/assetStore';
+import { formatUndercurrentDebug } from '../../utils/entityVisibility';
 
-defineProps({
+const props = defineProps({
   msg: {
     type: Object,
     required: true
   }
+});
+
+const entityDebugText = computed(() => {
+  if (props.msg.role !== 'undercurrent' || !configStore.settings.showEntityDebug) return '';
+  return formatUndercurrentDebug(props.msg.content, configStore.settings.entityVisibility, assetStore.entities.local);
 });
 
 const doReroll = async () => {
@@ -63,8 +70,8 @@ const doReroll = async () => {
     </div>
 
     <!-- 🌌 暗流实体推演结果 -->
-    <div v-else-if="msg.role === 'undercurrent' && configStore.settings.showEntityDebug" class="text-xs text-purple-400 mb-2 px-4 py-2 bg-purple-950/60 border border-purple-800/50 rounded-lg backdrop-blur-md italic shadow-md max-w-[85%] shadow-purple-900/20">
-      <span class="flex items-center gap-2"><span>👾</span> {{ msg.content }}</span>
+    <div v-else-if="entityDebugText" class="text-xs text-purple-400 mb-2 px-4 py-2 bg-purple-950/60 border border-purple-800/50 rounded-lg backdrop-blur-md italic shadow-md max-w-[85%] shadow-purple-900/20">
+      <span class="flex items-center gap-2"><span>👾</span> {{ entityDebugText }}</span>
     </div>
 
     <!-- 💬 玩家与 AI 对话正文 -->

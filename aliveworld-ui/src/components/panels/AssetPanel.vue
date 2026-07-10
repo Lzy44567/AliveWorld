@@ -5,12 +5,16 @@
 import { computed, ref } from 'vue';
 import { uiStore } from '../../store/uiStore';
 import { assetStore } from '../../store/assetStore';
+import { configStore } from '../../store/configStore';
 import { assetApi } from '../../api/assetApi';
 import { gameApi } from '../../api/gameApi';
 import { gameStore } from '../../store/gameStore';
+import { ENTITY_VISIBILITIES, normalizeEntityVisibility, projectLocalEntity } from '../../utils/entityVisibility';
 
 const searchKeyword = ref("");
 const confirmDeleteId = ref(null);
+const entityVisibility = computed(() => normalizeEntityVisibility(configStore.settings.entityVisibility));
+const canManageLocalEntity = computed(() => entityVisibility.value === ENTITY_VISIBILITIES.full);
 
 const currentList = computed(() => {
   const tab = uiStore.rightTab;
@@ -20,6 +24,9 @@ const currentList = computed(() => {
   if (tab === 'character') list = assetStore.characters[scope] || [];
   if (tab === 'style') list = assetStore.styles[scope] || [];
   if (tab === 'entity') list = assetStore.entities[scope] || [];
+  if (tab === 'entity' && scope === 'local') {
+    list = list.map(item => projectLocalEntity(item, entityVisibility.value)).filter(Boolean);
+  }
   
   if (!searchKeyword.value) return list;
   return list.filter(item => item.name.toLowerCase().includes(searchKeyword.value.toLowerCase()));
@@ -167,12 +174,12 @@ const openInsertCharModal = (charName) => {
          <p class="text-xs text-slate-500 line-clamp-2 mt-1 leading-relaxed">{{ item.desc }}</p>
          
          <div class="mt-2 flex gap-2 border-t border-slate-800 pt-2 opacity-0 group-hover:opacity-100 transition-opacity">
-           <button @click="openEditAsset(item.name)" class="flex-1 bg-slate-800 hover:bg-slate-700 text-[10px] py-1.5 rounded font-bold text-slate-300">✏️ {{ uiStore.assetScope === 'local' ? '微调' : '编辑' }}</button>
+           <button v-if="uiStore.assetScope === 'global' || canManageLocalEntity" @click="openEditAsset(item.name)" class="flex-1 bg-slate-800 hover:bg-slate-700 text-[10px] py-1.5 rounded font-bold text-slate-300">✏️ {{ uiStore.assetScope === 'local' ? '微调' : '编辑' }}</button>
            <button v-if="uiStore.assetScope==='global'" @click="pullAssetToLocal(item.name)" class="flex-1 bg-indigo-900/50 hover:bg-indigo-600 text-[10px] py-1.5 rounded font-bold text-indigo-300 hover:text-white border border-indigo-700/50">⬇️ 载入局内</button>
-           <button v-if="uiStore.assetScope==='local'" @click="pushToGlobal(item)" class="flex-1 bg-emerald-900/50 hover:bg-emerald-600 text-[10px] py-1.5 rounded font-bold text-emerald-300 hover:text-white border border-emerald-700/50">⬆️ 推送全局</button>
+           <button v-if="uiStore.assetScope==='local' && canManageLocalEntity" @click="pushToGlobal(item)" class="flex-1 bg-emerald-900/50 hover:bg-emerald-600 text-[10px] py-1.5 rounded font-bold text-emerald-300 hover:text-white border border-emerald-700/50">⬆️ 推送全局</button>
 
-           <button v-if="confirmDeleteId !== item.name" @click="confirmDeleteId = item.name" class="px-2 bg-rose-900/30 hover:bg-rose-600 text-rose-400 hover:text-white rounded text-xs border border-rose-900/50">🗑</button>
-           <div v-else class="flex gap-1">
+           <button v-if="(uiStore.assetScope === 'global' || canManageLocalEntity) && confirmDeleteId !== item.name" @click="confirmDeleteId = item.name" class="px-2 bg-rose-900/30 hover:bg-rose-600 text-rose-400 hover:text-white rounded text-xs border border-rose-900/50">🗑</button>
+           <div v-else-if="uiStore.assetScope === 'global' || canManageLocalEntity" class="flex gap-1">
              <button @click="executeDelete(item.name)" class="px-2 bg-rose-700 hover:bg-rose-600 text-white rounded text-[10px] font-bold border border-rose-500">{{ uiStore.assetScope==='local' ? '移除' : '粉碎' }}</button>
              <button @click="confirmDeleteId = null" class="px-2 bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white rounded text-[10px] border border-slate-600">取消</button>
            </div>
