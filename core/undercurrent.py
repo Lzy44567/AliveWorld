@@ -35,7 +35,8 @@ class UndercurrentEngine:
             log.error("未找到 overseer_prompt 法则，暗流中止。")
             return []
         
-        ent_info = "\n".join(entity.prompt_summary() for entity in active_entities(self.entities))
+        active_by_name = {entity.name: entity for entity in active_entities(self.entities)}
+        ent_info = "\n".join(entity.prompt_summary() for entity in active_by_name.values())
         if not ent_info: ent_info = "当前世界暂无潜伏实体。"
         
         prompt_sys = prompt_sys.replace("{entities_info}", ent_info)
@@ -55,14 +56,19 @@ class UndercurrentEngine:
             for ev in events:
                 ent_name = ev.get("entity", "未知实体")
                 act = ev.get("action", "")
-                if act:
+                entity = active_by_name.get(ent_name)
+                if act and entity:
+                    details = {
+                        field: ev[field]
+                        for field in ("status", "new_plans", "new_mechanisms", "new_triggers", "relationship_updates")
+                        if field in ev
+                    }
                     events_this_turn.append(f"【{ent_name}】：{act}")
-                    self.ledger.record(self.tick_count, "action", ent_name, act, ev.get("clues", []))
-                    entity = next((item for item in self.entities if item.name == ent_name), None)
-                    if entity:
-                        entity.add_recent_action(act)
-                        entity.apply_update(ev)
+                    self.ledger.record(self.tick_count, "action", ent_name, act, ev.get("clues", []), details)
+                    entity.apply_action(ev)
                     log.info(f"暗流发生: 【{ent_name}】 {act}")
+                elif act:
+                    log.warning(f"忽略非活跃或不存在实体的行动: {ent_name}")
             
             new_ents = res.get("new_entities", [])
             for ne in new_ents:
@@ -79,15 +85,19 @@ class UndercurrentEngine:
             for ue in up_ents:
                 u_name = ue.get("name", "")
                 u_goal = ue.get("motive", ue.get("goal", ""))
-                for e in self.entities:
-                    if e.name == u_name:
-                        if u_goal:
-                            log.info(f"实体动机转变: {e.name} -> {u_goal}")
-                        e.apply_update(ue)
-                        break
+                entity = active_by_name.get(u_name)
+                if entity:
+                    if u_goal:
+                        log.info(f"实体动机转变: {entity.name} -> {u_goal}")
+                    entity.apply_update(ue)
+                elif u_name:
+                    log.warning(f"忽略非活跃或不存在实体的更新: {u_name}")
             
             del_ents = res.get("delete_entities", [])
             for de_name in del_ents:
+                if de_name not in active_by_name:
+                    log.warning(f"忽略非活跃或不存在实体的删除: {de_name}")
+                    continue
                 original_len = len(self.entities)
                 self.entities = [e for e in self.entities if e.name != de_name]
                 if len(self.entities) < original_len:

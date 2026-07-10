@@ -98,6 +98,28 @@ class Entity:
             self.recent_actions.append(action)
             self.recent_actions = self.recent_actions[-limit:]
 
+    def apply_action(self, action: Dict[str, Any]) -> None:
+        """合并一次实体行动产生的增量，不覆盖既有长期计划。"""
+        action_text = _as_text(action.get("action"))
+        self.add_recent_action(action_text)
+        if "status" in action:
+            self.status = _as_text(action["status"])
+
+        for source, destination in (
+            ("new_plans", "plans"),
+            ("new_mechanisms", "mechanisms"),
+            ("new_triggers", "triggers"),
+        ):
+            if source not in action:
+                continue
+            current = getattr(self, destination)
+            for item in _as_list(action[source]):
+                if item not in current:
+                    current.append(item)
+
+        if isinstance(action.get("relationship_updates"), dict):
+            self.relationships.update(action["relationship_updates"])
+
     def to_dict(self) -> Dict[str, Any]:
         data = dict(self.extra)
         data.update({

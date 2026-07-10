@@ -53,7 +53,7 @@ class EntityDomainTests(unittest.TestCase):
         self.assertLessEqual(len(ledger.context(character_limit=10)), 10)
 
     def test_overseer_excludes_inactive_entity_and_records_active_action(self):
-        response = '{"undercurrent_events":[{"entity":"皇城","action":"派遣密探","status":"戒备"}],"new_entities":[],"update_entities":[{"name":"皇城","status":"追查中"}],"delete_entities":[]}'
+        response = '{"undercurrent_events":[{"entity":"皇城","action":"派遣密探","status":"戒备","new_plans":["搜查客栈"],"new_mechanisms":["守卫盘查"],"new_triggers":[{"condition":"玩家进城","result":"盘查"}],"relationship_updates":{"玩家":"敌对"},"clues":["密探出没"]},{"entity":"封存势力","action":"不应执行"}],"new_entities":[],"update_entities":[{"name":"皇城","status":"追查中"}],"delete_entities":[]}'
         ai_engine = FakeAIEngine(response)
         engine = UndercurrentEngine(ai_engine)
         engine.entities = [
@@ -68,7 +68,12 @@ class EntityDomainTests(unittest.TestCase):
         self.assertNotIn("封存势力", ai_engine.system_prompt)
         self.assertEqual(engine.entities[0].recent_actions, ["派遣密探"])
         self.assertEqual(engine.entities[0].status, "追查中")
+        self.assertEqual(engine.entities[0].plans, ["搜查客栈"])
+        self.assertEqual(engine.entities[0].mechanisms, ["守卫盘查"])
+        self.assertEqual(engine.entities[0].relationships, {"玩家": "敌对"})
         self.assertIn("皇城：派遣密探", engine.get_ledger_context())
+        self.assertNotIn("封存势力：不应执行", engine.get_ledger_context())
+        self.assertEqual(engine.export_state()["shadow_ledger"][-1]["details"]["new_plans"], ["搜查客栈"])
 
 
 if __name__ == "__main__":
