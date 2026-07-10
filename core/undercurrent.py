@@ -4,34 +4,26 @@
 from utils.sys_logger import get_logger
 from core.prompts import load_system_prompts
 from core.ai_engine import robust_json_parse
+from core.entities import Entity, active_entities
+from core.shadow_ledger import ShadowLedger
 
 log = get_logger()
-
-class Entity:
-    def __init__(self, name, goal):
-        self.name = name
-        self.goal = goal
-        
-    def to_dict(self): return {"name": self.name, "goal": self.goal}
-        
-    @classmethod
-    def from_dict(cls, data): return cls(data['name'], data.get('goal', '未知动机'))
 
 class UndercurrentEngine:
     def __init__(self, ai_engine):
         self.ai_engine = ai_engine
         self.tick_count = 0
-        self.shadow_ledger = []
+        self.ledger = ShadowLedger()
         # 🚀 修复问题 1：彻底清空硬编码幽灵实体！现在完全由本地文件决定！
         self.entities = []
 
     def load_state(self, data):
         self.tick_count = data.get('tick_count', 0)
-        self.shadow_ledger = data.get('shadow_ledger', [])
+        self.ledger = ShadowLedger(data.get('shadow_ledger', []))
         if 'entities' in data: self.entities = [Entity.from_dict(e) for e in data['entities']]
 
     def export_state(self):
-        return {"tick_count": self.tick_count, "shadow_ledger": self.shadow_ledger, "entities": [e.to_dict() for e in self.entities]}
+        return {"tick_count": self.tick_count, "shadow_ledger": self.ledger.export(), "entities": [e.to_dict() for e in self.entities]}
 
     def tick(self, world_context_text):
         self.tick_count += 1
@@ -43,7 +35,7 @@ class UndercurrentEngine:
             log.error("未找到 overseer_prompt 法则，暗流中止。")
             return []
         
-        ent_info = "\n".join([f"- 【{e.name}】: {e.goal}" for e in self.entities])
+        ent_info = "\n".join(entity.prompt_summary() for entity in active_entities(self.entities))
         if not ent_info: ent_info = "当前世界暂无潜伏实体。"
         
         prompt_sys = prompt_sys.replace("{entities_info}", ent_info)
@@ -65,27 +57,33 @@ class UndercurrentEngine:
                 act = ev.get("action", "")
                 if act:
                     events_this_turn.append(f"【{ent_name}】：{act}")
-                    self.shadow_ledger.append(f"[Tick {self.tick_count}] {ent_name}行动：{act}")
+                    self.ledger.record(self.tick_count, "action", ent_name, act, ev.get("clues", []))
+                    entity = next((item for item in self.entities if item.name == ent_name), None)
+                    if entity:
+                        entity.add_recent_action(act)
+                        entity.apply_update(ev)
                     log.info(f"暗流发生: 【{ent_name}】 {act}")
             
             new_ents = res.get("new_entities", [])
             for ne in new_ents:
                 n_name = ne.get("name", "")
-                n_goal = ne.get("goal", "")
+                n_goal = ne.get("motive", ne.get("goal", ""))
                 if n_name and not any(e.name == n_name for e in self.entities):
-                    self.entities.append(Entity(n_name, n_goal))
+                    new_entity = Entity.from_dict(ne)
+                    self.entities.append(new_entity)
                     events_this_turn.append(f"🌟 变数潜入暗流：[{n_name}]")
-                    self.shadow_ledger.append(f"[Tick {self.tick_count}] 实体诞生：{n_name} ({n_goal})")
+                    self.ledger.record(self.tick_count, "entity_created", n_name, f"实体诞生：{n_goal}")
                     log.info(f"新实体诞生: {n_name} - {n_goal}")
                     
             up_ents = res.get("update_entities", [])
             for ue in up_ents:
                 u_name = ue.get("name", "")
-                u_goal = ue.get("goal", "")
+                u_goal = ue.get("motive", ue.get("goal", ""))
                 for e in self.entities:
-                    if e.name == u_name and u_goal:
-                        log.info(f"实体动机转变: {e.name} -> {u_goal}")
-                        e.goal = u_goal
+                    if e.name == u_name:
+                        if u_goal:
+                            log.info(f"实体动机转变: {e.name} -> {u_goal}")
+                        e.apply_update(ue)
                         break
             
             del_ents = res.get("delete_entities", [])
@@ -95,7 +93,7 @@ class UndercurrentEngine:
                 if len(self.entities) < original_len:
                     log.info(f"实体湮灭: {de_name}")
                     events_this_turn.append(f"💀 某股势力消亡了：[{de_name}]")
-                    self.shadow_ledger.append(f"[Tick {self.tick_count}] 实体湮灭：{de_name}")
+                    self.ledger.record(self.tick_count, "entity_deleted", de_name, "实体湮灭")
                         
         except Exception as e:
             log.error(f"Overseer JSON 解析失败: {e}\nRaw: {raw_ans}")
@@ -103,5 +101,4 @@ class UndercurrentEngine:
         return events_this_turn
 
     def get_ledger_context(self):
-        if not self.shadow_ledger: return "（世界目前风平浪静）"
-        return "\n".join(self.shadow_ledger[-3:])
+        return self.ledger.context()

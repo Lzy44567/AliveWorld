@@ -1,11 +1,12 @@
 # core/game_session.py
-import os, copy, re, yaml, glob, json, random
+import copy, json, random
 from datetime import datetime
 from core.undercurrent import UndercurrentEngine
 from core.resolution_engine import DualTrackResolver
 from core.state_manager import StateManager
 from core.context_manager import ContextManager
 from core.ai_engine import robust_json_parse, intelligent_salvage
+from core.entity_repository import EntityRepository
 
 class GameSession:
     def __init__(self, ai_engine, save_name="", save_dir_path=""):
@@ -18,6 +19,7 @@ class GameSession:
         self.state_mgr = StateManager()
         self.ctx_mgr = ContextManager()
         self.undercurrent = UndercurrentEngine(self.ai_engine)
+        self.entity_repository = EntityRepository(self.save_dir_path)
         self.resolver = DualTrackResolver()
         
         self.history = {"chat_messages": [], "context_history": []}
@@ -39,34 +41,16 @@ class GameSession:
         self.history["context_history"] = [opening]
 
     def _sync_entities_to_local(self):
-        if not self.save_dir_path: return
-        local_ent_dir = os.path.join(self.save_dir_path, 'entities')
-        os.makedirs(local_ent_dir, exist_ok=True)
-        active_names = [e.name for e in self.undercurrent.entities]
+        self.entity_repository.synchronize(self.undercurrent.entities)
 
-        for f in glob.glob(os.path.join(local_ent_dir, '*.yml')):
-            name = os.path.basename(f).replace('.yml', '')
-            if not any(name == re.sub(r'[^\w\s-]', '', an).strip() for an in active_names):
-                try: os.remove(f)
-                except: pass
-
-        for e in self.undercurrent.entities:
-            safe_fn = re.sub(r'[^\w\s-]', '', e.name).strip()
-            if not safe_fn: safe_fn = "未命名变数"
-            fpath = os.path.join(local_ent_dir, f"{safe_fn}.yml")
-            data = {}
-            if os.path.exists(fpath):
-                try:
-                    with open(fpath, 'r', encoding='utf-8') as file: data = yaml.safe_load(file) or {}
-                except: pass
-            
-            data.update({'name': e.name, 'motive': e.goal, 'is_active': True, 'tags': data.get('tags', ["暗流势力", "AI衍化"]), 'description': data.get('description', e.goal)})
-            with open(fpath, 'w', encoding='utf-8') as file: yaml.safe_dump(data, file, allow_unicode=True, sort_keys=False)
+    def _refresh_local_context(self):
+        self.ctx_mgr.refresh_from_local(self.save_dir_path, self.description)
+        self.undercurrent.entities = self.entity_repository.load()
 
     def process_turn(self, user_action: str):
         self._take_snapshot()
         self.history["chat_messages"].append({"role": "user", "content": user_action})
-        self.ctx_mgr.refresh_from_local(self.save_dir_path, self.description, self.undercurrent)
+        self._refresh_local_context()
         
         result = self.resolver.resolve(self, user_action)
         if not result or not result.get('settlement'): return {"error": True}
@@ -112,7 +96,7 @@ class GameSession:
         self.history["chat_messages"].append({"role": "reactions", "content": reactions})
         self.history["chat_messages"].append({"role": "system", "content": f"命运变数: {chosen['description']}"})
         
-        self.ctx_mgr.refresh_from_local(self.save_dir_path, self.description, self.undercurrent)
+        self._refresh_local_context()
         active_world, _ = self.ctx_mgr.build_active_world_info(self.get_context_text(), action, self.undercurrent.get_ledger_context())
         
         from core.prompts import load_system_prompts
@@ -163,6 +147,7 @@ class GameSession:
 
     def load_save_data(self, data):
         self.save_name, self.save_dir_path, self.description = data.get('save_name', ''), data.get('save_dir_path', ''), data.get('description', '')
+        self.entity_repository = EntityRepository(self.save_dir_path)
         self.state_mgr.state, self.history = data.get('state', self.state), data.get('history', self.history)
         self.undercurrent.load_state(data.get('undercurrent', {}))
         self.snapshots = data.get('snapshots', [])

@@ -1,6 +1,5 @@
 # core/context_manager.py
 import os, glob, yaml
-from core.undercurrent import Entity
 
 class ContextManager:
     def __init__(self):
@@ -9,7 +8,7 @@ class ContextManager:
         self.world_info_base = ""
         self.world_entries = []
 
-    def refresh_from_local(self, save_dir_path, description, undercurrent_engine):
+    def refresh_from_local(self, save_dir_path, description):
         if not save_dir_path or not os.path.exists(save_dir_path): return
 
         styles = []
@@ -42,12 +41,6 @@ class ContextManager:
         if npc_chars: self.world_info_base += "\n\n【当前登场的重要NPC与势力】：\n" + "\n".join(npc_chars)
         if description: self.world_info_base = f"【🔥宇宙主导向 (最高法则)】：{description}\n\n" + self.world_info_base
 
-        undercurrent_engine.entities = []
-        for f in glob.glob(os.path.join(save_dir_path, 'entities', '*.yml')):
-            with open(f, 'r', encoding='utf-8') as file:
-                data = yaml.safe_load(file)
-                if data and data.get('is_active', True):
-                    undercurrent_engine.entities.append(Entity(name=data.get('name', '未知'), goal=data.get('motive', data.get('description', ''))))
 
     def build_active_world_info(self, context_text, action, shadow_ledger):
         active = self.world_info_base + "\n"
