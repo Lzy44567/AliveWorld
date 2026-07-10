@@ -1,0 +1,18 @@
+# 资产目录与模板同处 data/。默认忽略个人卡和游玩产物，
+# 仅跟踪目录占位符与带 .template.yml 后缀的模板卡。
+*
+!.gitignore
+!characters/
+!characters/.gitkeep
+!characters/*.template.yml
+!entities/
+!entities/.gitkeep
+!entities/*.template.yml
+!styles/
+!styles/.gitkeep
+!styles/*.template.yml
+!worldbooks/
+!worldbooks/.gitkeep
+!worldbooks/*.template.yml
+!saves/
+!saves/.gitkeep

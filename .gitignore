@@ -11,7 +11,6 @@ dist/
 .npm/
 
 # AliveWorld 个人资产、游玩产物与敏感配置
-/data/
 config.yml
 settings.json
 ChangeLog.md

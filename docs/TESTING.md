@@ -8,7 +8,7 @@
 | `aliveworld-ui/tests/` | 前端纯逻辑测试 | 是 |
 | `tools/run_checks.ps1` | 一键自动检查 | 是 |
 | `tests/fixtures/manual_assets/` | 可安装的手动验收卡 | 是 |
-| `data/` | 用户个人资产、存档、测试安装副本 | 否 |
+| `data/` | 用户个人资产、存档、测试安装副本；`*.template.yml` 是可推送模板 | 普通资产否；模板是 |
 
 ## 一键自动检查
 
