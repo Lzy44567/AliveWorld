@@ -2,13 +2,13 @@
 # 100% 完整物理读写底稿 (请直接覆盖原文件)
 
 import os
-import glob
 import yaml
 import shutil
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional, Dict, Any
 from utils.file_io import DATA_DIR, CHAR_DIR, STYLE_DIR, WORLD_DIR, ENTITY_DIR, SAVE_DIR, get_all_saves
+from utils.asset_catalog import list_asset_names, personal_asset_dir, resolve_asset_path, resolve_template_path
 from utils.sys_logger import read_logs_parsed
 from core.prompts import PROMPT_FILE, load_system_prompts
 
@@ -28,25 +28,13 @@ class AssetPayload(BaseModel):
 class SavePromptsPayload(BaseModel):
     prompts: Dict[str, str]
 
-def get_yaml_names(directory):
-    names = []
-    if not os.path.exists(directory): return names
-    for f in glob.glob(os.path.join(directory, "*.yml")):
-        try:
-            with open(f, 'r', encoding='utf-8') as file:
-                data = yaml.safe_load(file)
-                if data and 'name' in data: names.append(data['name'])
-        except Exception:
-            pass
-    return names
-
 @router.get("/assets")
 async def get_lobby_assets():
     return {
-        "worldbooks": get_yaml_names(WORLD_DIR),
-        "styles": get_yaml_names(STYLE_DIR),
-        "characters": get_yaml_names(CHAR_DIR),
-        "entities": get_yaml_names(ENTITY_DIR),  # 🚀 返回实体库
+        "worldbooks": list_asset_names("worldbooks"),
+        "styles": list_asset_names("styles"),
+        "characters": list_asset_names("characters"),
+        "entities": list_asset_names("entities"),
         "saves": list(get_all_saves().keys())
     }
 
@@ -68,38 +56,40 @@ async def save_asset(asset_type: str, asset_name: str, payload: AssetPayload):
 @router.get("/assets/{asset_type}/{asset_name}")
 async def get_asset_detail(asset_type: str, asset_name: str):
     if asset_type not in DIR_MAP: raise HTTPException(status_code=400, detail="未知的资产类型")
-    for f in glob.glob(os.path.join(DIR_MAP[asset_type], "*.yml")):
+    path = resolve_asset_path(asset_type, asset_name)
+    if path:
         try:
-            with open(f, 'r', encoding='utf-8') as file:
-                data = yaml.safe_load(file)
-                if data and data.get('name') == asset_name:
-                    file.seek(0)
-                    return {"content": file.read(), "parsed": data}
-        except Exception:
-            pass
+            content = path.read_text(encoding='utf-8')
+            return {"content": content, "parsed": yaml.safe_load(content) or {}}
+        except (OSError, yaml.YAMLError):
+            raise HTTPException(status_code=500, detail="资产文件读取失败")
     raise HTTPException(status_code=404, detail="找不到该资产文件")
 
 @router.delete("/assets/{asset_type}/{asset_name}")
 async def delete_asset(asset_type: str, asset_name: str):
     if asset_type not in DIR_MAP: raise HTTPException(status_code=400, detail="未知类型")
     
-    file_path = os.path.join(DIR_MAP[asset_type], f"{asset_name}.yml")
-    if os.path.exists(file_path):
+    personal_path = os.path.join(DIR_MAP[asset_type], f"{asset_name}.yml")
+    if os.path.exists(personal_path):
         try:
-            os.remove(file_path)
+            os.remove(personal_path)
             return {"status": "success"}
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"文件删除失败: {e}")
-            
-    for f in glob.glob(os.path.join(DIR_MAP[asset_type], "*.yml")):
-        try:
-            with open(f, 'r', encoding='utf-8') as file:
-                data = yaml.safe_load(file)
-                if data and data.get('name') == asset_name:
-                    os.remove(f)
+
+    personal_dir = personal_asset_dir(asset_type)
+    if personal_dir:
+        for path in personal_dir.glob("*.yml"):
+            try:
+                data = yaml.safe_load(path.read_text(encoding='utf-8')) or {}
+                if isinstance(data, dict) and data.get('name') == asset_name:
+                    path.unlink()
                     return {"status": "success"}
-        except Exception:
-            pass
+            except (OSError, yaml.YAMLError):
+                continue
+
+    if resolve_template_path(asset_type, asset_name):
+        raise HTTPException(status_code=403, detail="受控模板不能从个人资产库删除")
     raise HTTPException(status_code=404, detail="无法删除")
 
 @router.get("/logs")

@@ -53,7 +53,7 @@ class EntityDomainTests(unittest.TestCase):
         self.assertLessEqual(len(ledger.context(character_limit=10)), 10)
 
     def test_world_simulation_template_is_a_structured_active_entity(self):
-        template_path = Path(__file__).resolve().parents[1] / "data" / "entities" / "世界推演.yml"
+        template_path = Path(__file__).resolve().parents[1] / "templates" / "entities" / "世界推演.yml"
         template = yaml.safe_load(template_path.read_text(encoding="utf-8"))
         entity = Entity.from_dict(template)
 

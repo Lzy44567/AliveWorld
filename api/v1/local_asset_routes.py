@@ -9,6 +9,7 @@ from typing import Dict, Any
 
 from core.session_manager import active_sessions
 from utils.file_io import DATA_DIR
+from utils.asset_catalog import resolve_asset_path
 
 router = APIRouter()
 
@@ -60,8 +61,8 @@ def pull_asset(session_id: str, payload: PullAssetRequest):
     if not game or not game.save_dir_path: raise HTTPException(status_code=404, detail="会话失效")
     if payload.asset_type not in DIR_MAP: raise HTTPException(status_code=400, detail="类型错误")
     
-    global_file = os.path.join(DIR_MAP[payload.asset_type], f"{payload.asset_name}.yml")
-    if not os.path.exists(global_file): raise HTTPException(status_code=404, detail="全局资源不存在")
+    global_file = resolve_asset_path(payload.asset_type, payload.asset_name)
+    if not global_file: raise HTTPException(status_code=404, detail="全局资源不存在")
     
     local_dir = os.path.join(game.save_dir_path, payload.asset_type)
     os.makedirs(local_dir, exist_ok=True)
