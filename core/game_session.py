@@ -44,10 +44,7 @@ class GameSession:
         self.world_premise = value or ""
 
     def build_active_world_info(self, action):
-        world_info, triggered = self.ctx_mgr.build_active_world_info(self.get_context_text(), action, self.undercurrent.get_ledger_context())
-        if self.plot_compass:
-            world_info += f"\n\n【主线剧情导向（倾向而非世界设定）】：{self.plot_compass}"
-        return world_info, triggered
+        return self.ctx_mgr.build_active_world_info(self.get_context_text(), action, self.undercurrent.get_ledger_context())
     def get_dynamic_state_for_ai(self): return self.state_mgr.get_dynamic_state()
     def get_context_text(self): return "\n".join(self.history["context_history"][-3:])
 

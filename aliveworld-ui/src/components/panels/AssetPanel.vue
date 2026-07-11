@@ -157,30 +157,10 @@ const openInsertCharModal = (charName) => {
   uiStore.modals.insertChar = true;
 };
 
-const toggleEntityRuntime = async () => {
-  if (!gameStore.sessionId) return;
-  const previous = configStore.story.settings.entitiesEnabled;
-  configStore.story.settings.entitiesEnabled = !previous;
-  try {
-    await gameApi.updateStoryConfig(gameStore.sessionId, {
-      world_premise: configStore.story.worldPremise,
-      plot_compass: configStore.story.plotCompass,
-      story_settings: configStore.story.settings
-    });
-    uiStore.showToast(configStore.story.settings.entitiesEnabled ? '暗流实体推演已启用' : '暗流实体推演已暂停');
-  } catch (error) {
-    configStore.story.settings.entitiesEnabled = previous;
-    uiStore.showToast('暗流实体推演开关保存失败', 'error');
-  }
-};
 </script>
 
 <template>
   <div class="flex flex-col flex-1 min-h-0 animate-[fadeIn_0.2s]">
-    <button v-if="uiStore.rightTab === 'entity' && uiStore.assetScope === 'local'" @click="toggleEntityRuntime" role="switch" :aria-checked="configStore.story.settings.entitiesEnabled" class="mb-3 shrink-0 flex items-center justify-between rounded-lg border px-3 py-2 text-xs font-bold transition" :class="configStore.story.settings.entitiesEnabled ? 'border-purple-700/60 bg-purple-950/30 text-purple-300' : 'border-slate-700 bg-slate-800/60 text-slate-400'">
-      <span>👾 暗流实体推演</span>
-      <span>{{ configStore.story.settings.entitiesEnabled ? '运行中' : '已暂停' }}</span>
-    </button>
     <div class="flex bg-slate-900 rounded-lg p-1 border border-slate-700 shadow-inner mb-4 shrink-0">
       <button @click="uiStore.assetScope = 'local'" :class="uiStore.assetScope==='local'?'bg-slate-700 text-white shadow':'text-slate-400 hover:text-slate-200'" class="flex-1 py-1.5 rounded text-xs font-bold transition">🛡️ 本局专属</button>
       <button @click="uiStore.assetScope = 'global'" :class="uiStore.assetScope==='global'?'bg-slate-700 text-white shadow':'text-slate-400 hover:text-slate-200'" class="flex-1 py-1.5 rounded text-xs font-bold transition">🌐 全局图鉴</button>

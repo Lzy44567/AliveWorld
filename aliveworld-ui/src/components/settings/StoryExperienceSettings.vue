@@ -30,7 +30,7 @@ const settings = computed(() => configStore.story.settings);
 
     <section class="rounded-xl border border-slate-700 bg-slate-800/30 p-4">
       <h3 class="mb-3 text-xs font-bold text-cyan-300">👁️ 界面显示</h3>
-      <label class="setting-row"><span>顶部显示当前时间</span><input type="checkbox" v-model="settings.showTime"></label>
+      <label class="setting-row"><span>世界时间</span><input type="checkbox" v-model="settings.showTime"></label>
     </section>
   </div>
 </template>

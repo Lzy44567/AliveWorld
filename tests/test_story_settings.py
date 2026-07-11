@@ -22,8 +22,7 @@ class StorySettingsTests(unittest.TestCase):
             world_info, _ = session.build_active_world_info("调查钟楼")
             saved = session.export_save_data()
 
-            self.assertIn("主线剧情导向", world_info)
-            self.assertIn("不要立刻揭晓凶手", world_info)
+            self.assertNotIn("不要立刻揭晓凶手", world_info)
             self.assertEqual(saved["world_premise"], "蒸汽都市中存在隐秘魔法")
             self.assertEqual(saved["plot_compass"], "近期调查失踪案，不要立刻揭晓凶手")
             self.assertFalse(saved["story_settings"]["entitiesEnabled"])

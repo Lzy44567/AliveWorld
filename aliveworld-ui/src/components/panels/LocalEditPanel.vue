@@ -1,34 +1,13 @@
 <script setup>
-import { ref } from 'vue';
 import { gameStore } from '../../store/gameStore';
 import { configStore } from '../../store/configStore';
-import { uiStore } from '../../store/uiStore';
-import { gameApi } from '../../api/gameApi';
+import { useStoryConfigAutosave } from '../../composables/useStoryConfigAutosave';
 import StoryExperienceSettings from '../settings/StoryExperienceSettings.vue';
 
-const saving = ref(false);
+const { saveState } = useStoryConfigAutosave();
 
-const saveStoryConfig = async () => {
-  if (!gameStore.sessionId || saving.value) return;
-  saving.value = true;
-  try {
-    const data = await gameApi.updateStoryConfig(gameStore.sessionId, {
-      world_premise: configStore.story.worldPremise,
-      plot_compass: configStore.story.plotCompass,
-      story_settings: configStore.story.settings
-    });
-    configStore.applyStoryConfig(data);
-    uiStore.showToast('本局设置已保存');
-  } catch (error) {
-    uiStore.showToast('本局设置保存失败', 'error');
-  } finally {
-    saving.value = false;
-  }
-};
-
-const restoreDefaults = async () => {
+const restoreDefaults = () => {
   configStore.restoreStoryDefaults();
-  await saveStoryConfig();
 };
 </script>
 
@@ -44,15 +23,17 @@ const restoreDefaults = async () => {
 
       <section class="bg-indigo-950/20 border border-indigo-800/50 p-4 rounded-xl">
         <h3 class="text-xs font-bold text-indigo-300 mb-2">🧭 主线剧情导向（Plot Compass）</h3>
-        <p class="text-[10px] text-slate-400 mb-3">指导接下来正文和随机选项的倾向，不会覆盖宇宙设定。</p>
-        <textarea v-model="configStore.story.plotCompass" class="story-textarea" placeholder="例如：近期逐渐揭示导师的欺骗，但不要立刻揭露真相……"></textarea>
+        <p class="text-[10px] text-slate-400 mb-3">用于描述整个故事的剧情风格与发展风格。当前版本仅保存草案，具体推演逻辑将在后续版本单独设计。</p>
+        <textarea v-model="configStore.story.plotCompass" class="story-textarea" placeholder="例如：整体采用缓慢揭密、人物关系逐步反转的发展风格……"></textarea>
       </section>
 
       <StoryExperienceSettings />
 
-      <div class="flex gap-2 sticky bottom-0 bg-slate-900/95 border border-slate-700 rounded-xl p-3 shadow-xl">
-        <button @click="restoreDefaults" :disabled="saving" class="px-3 py-2 text-xs text-slate-300 bg-slate-800 hover:bg-slate-700 rounded-lg disabled:opacity-50">恢复全局默认</button>
-        <button @click="saveStoryConfig" :disabled="saving" class="flex-1 px-3 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 rounded-lg disabled:opacity-50">{{ saving ? '保存中…' : '保存本局设置' }}</button>
+      <div class="flex items-center justify-between sticky bottom-0 bg-slate-900/95 border border-slate-700 rounded-xl p-3 shadow-xl">
+        <button @click="restoreDefaults" class="px-3 py-2 text-xs text-slate-300 bg-slate-800 hover:bg-slate-700 rounded-lg">恢复全局默认</button>
+        <span class="text-[10px]" :class="saveState === 'error' ? 'text-rose-400' : saveState === 'saved' ? 'text-emerald-400' : 'text-amber-300'">
+          {{ saveState === 'error' ? '自动保存失败' : saveState === 'saved' ? '已自动保存' : saveState === 'saving' ? '正在保存…' : '等待自动保存…' }}
+        </span>
       </div>
     </template>
   </div>
