@@ -117,12 +117,13 @@ class EntityDomainTests(unittest.TestCase):
         engine.entities = [Entity(name="皇城", motive="追捕玩家")]
 
         with patch("core.undercurrent.load_system_prompts", return_value={"overseer_prompt": "实体：{entities_info}\n剧情：{world_context}"}):
-            engine.tick("玩家逃离")
+            engine.tick("玩家逃离", world_time="永宁三年春")
 
         self.assertEqual(len(engine.causal_ledger.active()), 1)
         influence = engine.causal_ledger.active()[0]
         self.assertEqual(engine.entities[0].influence_refs[0]["id"], influence.id)
         self.assertEqual(engine.entities[0].influence_refs[0]["summary"], "皇城通缉")
+        self.assertEqual(influence.created_world_time, "永宁三年春")
 
 
 if __name__ == "__main__":

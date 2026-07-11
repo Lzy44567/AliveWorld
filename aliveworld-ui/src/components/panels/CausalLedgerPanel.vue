@@ -81,6 +81,14 @@ onMounted(refresh);
         <div class="flex justify-between gap-2"><div><h4 class="text-sm font-bold text-slate-200">{{ item.summary }}</h4><code class="text-[9px] text-slate-500">{{ item.id }}</code></div><span class="text-[9px] text-fuchsia-300">{{ influenceTypeLabel(item.type) }} · {{ influenceStatusLabel(item.status) }}</span></div>
         <p class="mt-2 text-[11px] text-slate-400">条件：{{ item.condition || '未设置' }}</p><p class="mt-1 text-[11px] text-slate-400">后果：{{ item.effect || '未设置' }}</p>
         <p class="mt-2 text-[9px] text-slate-500">创建于第 {{ item.created_tick }} 回合 · 存在 {{ item.age_ticks }} 回合 · 判断 {{ item.attempt_count }} 次 · 触发 {{ item.trigger_count }} 次</p>
+        <p v-if="item.created_world_time" class="mt-1 text-[9px] text-slate-500">创建时世界时间：{{ item.created_world_time }}</p>
+        <div v-if="item.last_check_reason" class="mt-2 rounded border border-slate-800 bg-slate-900/60 p-2 text-[9px] text-slate-400">
+          最近判断（第 {{ item.last_check_tick }} 回合）：{{ item.last_check_reason }}
+        </div>
+        <details v-if="item.trigger_history?.length" class="mt-2 text-[9px] text-fuchsia-300">
+          <summary class="cursor-pointer">兑现历史（{{ item.trigger_history.length }}）</summary>
+          <div v-for="(history, index) in item.trigger_history" :key="index" class="mt-1 border-l border-fuchsia-900/60 pl-2 text-slate-400">第 {{ history.tick }} 回合：{{ history.reason }} → {{ history.result }}</div>
+        </details>
         <p v-if="item.force_next_turn" class="mt-1 text-[9px] font-bold text-amber-300">⚠ 下回合强制兑现</p>
         <p class="mt-1 text-[9px] text-slate-500">消失规则：{{ consumePolicyLabel(item.consume_policy?.mode) }}</p>
         <p class="mt-1 text-[9px] text-slate-500">来源：{{ (item.source_links || []).map(x => `${x.entity}（${sourceDeathLabel(x.on_source_death)} / 关联 ${x.life_link_strength}）`).join('、') || '无' }}</p>

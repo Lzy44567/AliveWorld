@@ -35,7 +35,7 @@ class UndercurrentEngine:
     def has_active_entities(self):
         return any(active_entities(self.entities))
 
-    def tick(self, world_context_text, enabled=True):
+    def tick(self, world_context_text, enabled=True, world_time=""):
         if not enabled:
             log.info("跳过 Overseer：玩家已关闭暗流实体推演总开关。")
             return []
@@ -97,6 +97,8 @@ class UndercurrentEngine:
                     log.info(f"新实体诞生: {n_name} - {n_goal}")
 
             for influence_data in res.get("new_influences", []):
+                if isinstance(influence_data, dict) and not influence_data.get("created_world_time"):
+                    influence_data = {**influence_data, "created_world_time": world_time}
                 influence = self.causal_ledger.add(influence_data, current_tick=self.causal_ledger.turn_count)
                 valid_sources = {entity.name for entity in active_entities(self.entities)}
                 source_names = {link.get("entity") for link in influence.source_links} if influence else set()

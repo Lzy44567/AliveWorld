@@ -39,7 +39,10 @@ def get_causal_ledger(session_id: str):
 @router.post("/{session_id}/causal-ledger")
 def create_influence(session_id: str, payload: InfluencePayload):
     game = _game(session_id)
-    influence = game.undercurrent.causal_ledger.add(payload.data, current_tick=game.undercurrent.causal_ledger.turn_count)
+    data = dict(payload.data)
+    if not data.get("created_world_time"):
+        data["created_world_time"] = str(game.state.get("properties", {}).get("当前时间", ""))
+    influence = game.undercurrent.causal_ledger.add(data, current_tick=game.undercurrent.causal_ledger.turn_count)
     if not influence:
         raise HTTPException(status_code=400, detail="影响内容无效或 ID 重复")
     _persist(game)

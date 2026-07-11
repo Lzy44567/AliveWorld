@@ -54,6 +54,9 @@ class CausalInfluence:
     consume_policy: Dict[str, Any] = field(default_factory=lambda: {"mode": "never", "max_triggers": None})
     tags: List[Any] = field(default_factory=list)
     force_next_turn: bool = False
+    last_check_reason: str = ""
+    last_check_tick: int | None = None
+    trigger_history: List[Dict[str, Any]] = field(default_factory=list)
 
     @classmethod
     def from_data(cls, data, current_tick=0):
@@ -79,6 +82,9 @@ class CausalInfluence:
             consume_policy={"mode": mode, "max_triggers": policy.get("max_triggers")},
             tags=_list(raw.get("tags")),
             force_next_turn=bool(raw.get("force_next_turn", False)),
+            last_check_reason=str(raw.get("last_check_reason", "")),
+            last_check_tick=raw.get("last_check_tick"),
+            trigger_history=[dict(item) for item in _list(raw.get("trigger_history")) if isinstance(item, dict)][-10:],
         )
 
     def to_dict(self):
@@ -89,6 +95,8 @@ class CausalInfluence:
             "created_world_time": self.created_world_time, "attempt_count": self.attempt_count,
             "trigger_count": self.trigger_count, "consume_policy": self.consume_policy,
             "tags": self.tags, "force_next_turn": self.force_next_turn,
+            "last_check_reason": self.last_check_reason, "last_check_tick": self.last_check_tick,
+            "trigger_history": self.trigger_history,
         }
 
     def is_active(self):
@@ -168,6 +176,8 @@ class CausalLedger:
             checked_ids.add(item.id)
             item.attempt_count += 1
             condition_met = bool(check.get("condition_met", False)) or item.force_next_turn
+            item.last_check_reason = "来源死亡释放" if item.force_next_turn else str(check.get("reason", "未提供判断依据"))
+            item.last_check_tick = self.turn_count
             if item.consume_policy.get("mode") == "on_attempt":
                 item.status = "consumed"
             if condition_met:
@@ -179,6 +189,8 @@ class CausalLedger:
         for item in self.active():
             if item.force_next_turn and item.id not in checked_ids:
                 item.attempt_count += 1
+                item.last_check_reason = "来源死亡释放"
+                item.last_check_tick = self.turn_count
                 triggered.append({"id": item.id, "summary": item.summary, "effect": item.effect, "reason": "来源死亡释放"})
         return triggered
 
@@ -192,6 +204,12 @@ class CausalLedger:
                 continue
             item.trigger_count += 1
             item.force_next_turn = False
+            item.trigger_history.append({
+                "tick": self.turn_count,
+                "reason": item.last_check_reason or "条件满足",
+                "result": str(result.get("result", "已在正文兑现")),
+            })
+            item.trigger_history = item.trigger_history[-10:]
             mode = item.consume_policy.get("mode", "never")
             maximum = item.consume_policy.get("max_triggers")
             if mode == "on_success" or (mode == "after_n" and maximum is not None and item.trigger_count >= int(maximum)):

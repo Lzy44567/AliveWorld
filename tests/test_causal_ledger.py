@@ -32,6 +32,9 @@ class CausalLedgerTests(unittest.TestCase):
         self.assertEqual(resolved, [item])
         self.assertEqual(item.trigger_count, 1)
         self.assertEqual(item.status, "consumed")
+        self.assertEqual(item.last_check_reason, "玩家踩中机关")
+        self.assertEqual(item.trigger_history[0]["result"], "弩箭射出")
+        self.assertEqual(item.trigger_history[0]["tick"], ledger.turn_count)
 
     def test_persistent_influence_can_trigger_repeatedly(self):
         ledger = CausalLedger()
