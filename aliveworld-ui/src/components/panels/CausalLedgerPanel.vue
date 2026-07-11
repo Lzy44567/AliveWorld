@@ -1,14 +1,27 @@
 <script setup>
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { gameApi } from '../../api/gameApi';
 import { gameStore } from '../../store/gameStore';
 import { uiStore } from '../../store/uiStore';
 import { assetStore } from '../../store/assetStore';
+import { consumePolicyLabel, influenceStatusLabel, influenceTypeLabel, sourceDeathLabel } from '../../utils/causalLedgerLabels';
+
+const props = defineProps({ initialSource: { type: String, default: '' } });
 
 const influences = ref([]);
 const editingId = ref(null);
 const emptyForm = () => ({ summary: '', type: 'one_shot', condition: '', effect: '', sources: '', strength: 0.5, death: 'keep', consume: 'on_success', maxTriggers: '', worldTime: '', tags: '' });
 const form = ref(emptyForm());
+const keyword = ref('');
+const statusFilter = ref('all');
+const sourceFilter = ref(props.initialSource);
+watch(() => props.initialSource, value => { sourceFilter.value = value || ''; });
+const visibleInfluences = computed(() => influences.value.filter(item => {
+  const text = `${item.id} ${item.summary} ${item.condition} ${item.effect} ${(item.tags || []).join(' ')}`.toLowerCase();
+  return (!keyword.value || text.includes(keyword.value.toLowerCase()))
+    && (statusFilter.value === 'all' || item.status === statusFilter.value)
+    && (!sourceFilter.value || (item.source_links || []).some(link => link.entity === sourceFilter.value));
+}));
 
 const refresh = async () => {
   try { influences.value = (await gameApi.getCausalLedger(gameStore.sessionId)).influences || []; }
@@ -42,10 +55,15 @@ onMounted(refresh);
 <template>
   <div class="h-full overflow-y-auto custom-scrollbar pr-1 pb-8">
     <div class="mb-3 flex items-center justify-between"><p class="text-[10px] text-slate-500">当前故事 {{ influences.length }} 条记录</p><button @click="startNew" class="rounded border border-fuchsia-700/60 px-2 py-1 text-[10px] font-bold text-fuchsia-300">+ 新建影响</button></div>
+    <div class="mb-3 grid grid-cols-2 gap-2">
+      <input v-model="keyword" class="ledger-input" placeholder="搜索摘要、条件、标签">
+      <select v-model="statusFilter" class="ledger-input"><option value="all">全部状态</option><option value="active">生效中</option><option value="consumed">已消失</option><option value="cancelled">已取消</option></select>
+      <div v-if="sourceFilter" class="col-span-2 flex justify-between rounded border border-fuchsia-900/50 bg-fuchsia-950/20 px-2 py-1 text-[10px] text-fuchsia-300"><span>来源筛选：{{ sourceFilter }}</span><button @click="sourceFilter = ''">清除</button></div>
+    </div>
     <div v-if="editingId" class="mb-4 grid grid-cols-2 gap-2 rounded-xl border border-fuchsia-800/60 bg-slate-900/80 p-3">
       <input v-model="form.summary" class="ledger-input col-span-2" placeholder="影响摘要">
       <select v-model="form.type" class="ledger-input"><option value="one_shot">一次性</option><option value="persistent">持续性</option><option value="evolving">可演化</option></select>
-      <select v-model="form.consume" class="ledger-input"><option value="on_success">成功后消费</option><option value="on_attempt">尝试后消费</option><option value="after_n">触发 N 次后消费</option><option value="never">不自动消费</option></select>
+      <select v-model="form.consume" class="ledger-input"><option value="on_success">触发后消失</option><option value="on_attempt">判断后消失</option><option value="after_n">触发 N 次后消失</option><option value="never">持续保留</option></select>
       <textarea v-model="form.condition" class="ledger-input col-span-2 h-14" placeholder="触发条件" />
       <textarea v-model="form.effect" class="ledger-input col-span-2 h-14" placeholder="兑现后果" />
       <input v-model="form.sources" class="ledger-input col-span-2" placeholder="来源实体，逗号分隔">
@@ -57,11 +75,12 @@ onMounted(refresh);
       <button @click="cancel" class="rounded bg-slate-700 py-1.5 text-xs">取消</button><button @click="save" class="rounded bg-fuchsia-700 py-1.5 text-xs font-bold">保存</button>
     </div>
     <div class="space-y-3">
-      <article v-for="item in influences" :key="item.id" class="rounded-xl border border-slate-700 bg-aw_panel p-3" :class="item.status !== 'active' ? 'opacity-55' : ''">
-        <div class="flex justify-between gap-2"><div><h4 class="text-sm font-bold text-slate-200">{{ item.summary }}</h4><code class="text-[9px] text-slate-500">{{ item.id }}</code></div><span class="text-[9px] text-fuchsia-300">{{ item.type }} · {{ item.status }}</span></div>
+      <article v-for="item in visibleInfluences" :key="item.id" class="rounded-xl border border-slate-700 bg-aw_panel p-3" :class="item.status !== 'active' ? 'opacity-55' : ''">
+        <div class="flex justify-between gap-2"><div><h4 class="text-sm font-bold text-slate-200">{{ item.summary }}</h4><code class="text-[9px] text-slate-500">{{ item.id }}</code></div><span class="text-[9px] text-fuchsia-300">{{ influenceTypeLabel(item.type) }} · {{ influenceStatusLabel(item.status) }}</span></div>
         <p class="mt-2 text-[11px] text-slate-400">条件：{{ item.condition || '未设置' }}</p><p class="mt-1 text-[11px] text-slate-400">后果：{{ item.effect || '未设置' }}</p>
         <p class="mt-2 text-[9px] text-slate-500">存在 {{ item.age_ticks }} 回合 · 判断 {{ item.attempt_count }} 次 · 触发 {{ item.trigger_count }} 次</p>
-        <p class="mt-1 text-[9px] text-slate-500">来源：{{ (item.source_links || []).map(x => `${x.entity}(${x.on_source_death}/${x.life_link_strength})`).join('、') || '无' }}</p>
+        <p class="mt-1 text-[9px] text-slate-500">消失规则：{{ consumePolicyLabel(item.consume_policy?.mode) }}</p>
+        <p class="mt-1 text-[9px] text-slate-500">来源：{{ (item.source_links || []).map(x => `${x.entity}（${sourceDeathLabel(x.on_source_death)} / 关联 ${x.life_link_strength}）`).join('、') || '无' }}</p>
         <div class="mt-3 flex gap-2"><button @click="edit(item)" class="flex-1 rounded bg-slate-800 py-1 text-[10px]">编辑</button><button v-if="item.status === 'active'" @click="cancelInfluence(item)" class="rounded bg-rose-950/50 px-3 text-[10px] text-rose-400">取消影响</button></div>
       </article>
     </div>

@@ -16,6 +16,7 @@ import CausalLedgerPanel from './CausalLedgerPanel.vue';
 const searchKeyword = ref("");
 const confirmDeleteId = ref(null);
 const entityLibraryView = ref('entities');
+const ledgerSourceFilter = ref('');
 const entityDisclosure = computed(() => normalizeEntityDisclosure(effectiveStorySettings.value));
 const canManageCurrentLocalAsset = computed(() =>
   uiStore.rightTab !== 'entity' || entityDisclosure.value.allowEditing
@@ -185,7 +186,7 @@ const openInsertCharModal = (charName) => {
       <button v-if="uiStore.assetScope==='global'" @click="openNewAsset" class="px-2 h-8 bg-emerald-600/20 text-emerald-400 border border-emerald-700/50 rounded-lg hover:bg-emerald-600 hover:text-white transition text-xs font-bold whitespace-nowrap">+ 新建</button>
     </div>
     
-    <CausalLedgerPanel v-if="uiStore.rightTab === 'entity' && uiStore.assetScope === 'local' && entityLibraryView === 'ledger' && effectiveStorySettings.showCausalLedger" class="flex-1 min-h-0" />
+    <CausalLedgerPanel v-if="uiStore.rightTab === 'entity' && uiStore.assetScope === 'local' && entityLibraryView === 'ledger' && effectiveStorySettings.showCausalLedger" :initial-source="ledgerSourceFilter" class="flex-1 min-h-0" />
 
     <div v-else class="flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-1">
       <div v-if="entitiesHiddenByDisclosure" class="mx-1 mt-6 rounded-lg border border-purple-800/60 bg-purple-950/20 p-3 text-center text-xs leading-relaxed text-purple-300">
@@ -216,7 +217,7 @@ const openInsertCharModal = (charName) => {
          <div v-if="item.influence_refs?.length" class="rounded-lg border border-fuchsia-900/50 bg-fuchsia-950/20 p-2 text-[9px] text-fuchsia-300">
            <div class="font-bold">关联暗流影响：{{ item.influence_refs.length }}</div>
            <div v-for="refItem in item.influence_refs.slice(0, 3)" :key="refItem.id" class="mt-1 truncate">{{ refItem.summary }} · {{ refItem.status }}</div>
-           <button @click="entityLibraryView = 'ledger'" class="mt-1 underline">在账本中查看</button>
+           <button @click="ledgerSourceFilter = item.name; entityLibraryView = 'ledger'" class="mt-1 underline">在账本中查看</button>
          </div>
          
          <div class="mt-2 flex gap-2 border-t border-slate-800 pt-2 opacity-0 group-hover:opacity-100 transition-opacity">
