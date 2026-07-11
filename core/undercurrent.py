@@ -107,6 +107,15 @@ class UndercurrentEngine:
                     log.warning(f"忽略来源实体无效的暗流影响: [{influence.id}] {source_names}")
 
             for influence_data in res.get("update_influences", []):
+                requested_links = influence_data.get("source_links") if isinstance(influence_data, dict) else None
+                valid_sources = {entity.name for entity in active_entities(self.entities)}
+                requested_sources = {
+                    link.get("entity") if isinstance(link, dict) else str(link)
+                    for link in (requested_links or [])
+                }
+                if requested_links is not None and (not requested_sources or not requested_sources.issubset(valid_sources)):
+                    log.warning(f"忽略来源实体无效的暗流影响更新: {requested_sources}")
+                    continue
                 influence = self.causal_ledger.update(influence_data)
                 if influence:
                     log.info(f"暗流影响更新: [{influence.id}] {influence.summary}")

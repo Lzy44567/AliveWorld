@@ -111,6 +111,19 @@ class EntityDomainTests(unittest.TestCase):
         self.assertEqual(ai_engine.call_count, 0)
         self.assertEqual(engine.tick_count, 0)
 
+    def test_overseer_influence_is_linked_back_to_source_entity(self):
+        response = '{"undercurrent_events":[],"new_entities":[],"update_entities":[],"delete_entities":[],"new_influences":[{"source_links":[{"entity":"皇城","life_link_strength":0.8,"on_source_death":"keep"}],"type":"persistent","summary":"皇城通缉","condition":"玩家进入辖区","effect":"守卫盘查","consume_policy":{"mode":"never"}}],"update_influences":[],"delete_influences":[]}'
+        engine = UndercurrentEngine(FakeAIEngine(response))
+        engine.entities = [Entity(name="皇城", motive="追捕玩家")]
+
+        with patch("core.undercurrent.load_system_prompts", return_value={"overseer_prompt": "实体：{entities_info}\n剧情：{world_context}"}):
+            engine.tick("玩家逃离")
+
+        self.assertEqual(len(engine.causal_ledger.active()), 1)
+        influence = engine.causal_ledger.active()[0]
+        self.assertEqual(engine.entities[0].influence_refs[0]["id"], influence.id)
+        self.assertEqual(engine.entities[0].influence_refs[0]["summary"], "皇城通缉")
+
 
 if __name__ == "__main__":
     unittest.main()
