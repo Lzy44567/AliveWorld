@@ -46,6 +46,6 @@ def read_logs_parsed():
             match = re.match(pattern, line.strip())
             if match: parsed.append({"time": match.group(1), "icon": match.group(2), "module": match.group(3), "message": match.group(4)})
             else:
-                if parsed: parsed[-1]["message"] += f"<br>{line.strip()}"
+                if parsed: parsed[-1]["message"] += f"\n{line.rstrip()}"
         return parsed
     except Exception as e: return [{"time": "", "icon": "❌", "module": "Sys", "message": f"日志解析失败: {e}"}]

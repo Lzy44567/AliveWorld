@@ -22,9 +22,7 @@ class DualTrackResolver(BaseResolutionStrategy):
         usr_p1 = f"【情景】：\n{ctx}\n【状态】：{json.dumps(dyn_state, ensure_ascii=False)}\n【行动】：{player_action}"
         
         log.info(f"发送推演请求: {player_action[:15]}...")
-        raw_react, err1 = session.ai_engine.chat_json(react_p, usr_p1, temp=0.7)
-        # 【修复】找回日志！
-        log.info(f"RAW 变数生成返回: {raw_react}") 
+        raw_react, err1 = session.ai_engine.chat_json(react_p, usr_p1, temp=0.7, trace_label="变数推演")
         
         if err1 or not raw_react: reactions = [{"id": 1, "description": f"系统提示：法则拦截({err1})", "weight": 100}]
         else:
@@ -38,9 +36,7 @@ class DualTrackResolver(BaseResolutionStrategy):
         settle_p = pts.get('settlement_prompt', '').replace('{world_info}', active_world).replace('{character_info}', session.char_info).replace('{style_info}', session.style_info).replace('{word_limit}', str(session.word_limit))
         usr_p2 = f"{usr_p1}\n【裁定变数】：{chosen['description']}"
         
-        raw_settle, err2 = session.ai_engine.chat_json(settle_p, usr_p2, temp=0.8, max_tokens=max(3000, int(session.word_limit*3)))
-        # 【修复】找回日志！
-        log.info(f"RAW 剧情结算返回: {raw_settle}")
+        raw_settle, err2 = session.ai_engine.chat_json(settle_p, usr_p2, temp=0.8, max_tokens=max(3000, int(session.word_limit*3)), trace_label="剧情结算")
         
         if err2 or not raw_settle: settlement = intelligent_salvage("", "网络或审查拦截")
         else:

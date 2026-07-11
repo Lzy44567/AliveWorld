@@ -19,13 +19,15 @@ import LocalEditPanel from '../panels/LocalEditPanel.vue';
     </div>
 
     <!-- 面板内容挂载区 -->
-    <div class="flex-1 overflow-y-auto bg-slate-900/30 min-w-[400px] custom-scrollbar p-4 relative">
+    <div class="flex-1 min-h-0 overflow-hidden bg-slate-900/30 min-w-[400px] p-4 relative flex flex-col">
       <h2 class="text-sm font-bold text-slate-200 mb-3 tracking-wider">{{ uiStore.tabTitles[uiStore.rightTab] || "数据面板" }}</h2>
       
       <!-- 动态呼叫组件 -->
       <AssetPanel v-if="['character', 'world', 'style', 'entity'].includes(uiStore.rightTab)" />
-      <SavesPanel v-else-if="uiStore.rightTab === 'saves'" />
-      <LocalEditPanel v-else-if="uiStore.rightTab === 'local_edit'" />
+      <div v-else class="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
+        <SavesPanel v-if="uiStore.rightTab === 'saves'" />
+        <LocalEditPanel v-else-if="uiStore.rightTab === 'local_edit'" />
+      </div>
     </div>
   </aside>
 </template>

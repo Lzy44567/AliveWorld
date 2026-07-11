@@ -16,7 +16,7 @@ class FakeAIEngine:
         self.response = response
         self.system_prompt = ""
 
-    def chat_json(self, system_prompt, _user_prompt, temp=0.8):
+    def chat_json(self, system_prompt, _user_prompt, temp=0.8, **_kwargs):
         self.system_prompt = system_prompt
         return self.response, None
 

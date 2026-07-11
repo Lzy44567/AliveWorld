@@ -104,7 +104,7 @@ class GameSession:
         settle_p = pts.get('settlement_prompt', '').replace('{world_info}', active_world).replace('{character_info}', self.ctx_mgr.char_info).replace('{style_info}', self.ctx_mgr.style_info)
         usr_p2 = f"【情景】：\n{self.get_context_text()}\n【状态】：{json.dumps(self.state_mgr.get_dynamic_state(), ensure_ascii=False)}\n【行动】：{action}\n【裁定变数】：{chosen['description']}"
         
-        raw_settle, err2 = self.ai_engine.chat_json(settle_p, usr_p2, temp=0.8, max_tokens=3000)
+        raw_settle, err2 = self.ai_engine.chat_json(settle_p, usr_p2, temp=0.8, max_tokens=3000, trace_label="剧情重写")
         settlement = intelligent_salvage("", "网络拦截") if err2 else (robust_json_parse(raw_settle) if raw_settle else intelligent_salvage("", "空返回"))
             
         story_text = settlement.get('story_text', '').replace('\\n', '\n')

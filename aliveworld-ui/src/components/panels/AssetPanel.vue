@@ -16,6 +16,15 @@ const searchKeyword = ref("");
 const confirmDeleteId = ref(null);
 const entityDisclosure = computed(() => normalizeEntityDisclosure(configStore.settings));
 const canManageLocalEntity = computed(() => entityDisclosure.value.allowEditing);
+const rawLocalEntityCount = computed(() => (assetStore.entities.local || []).length);
+const entitiesHiddenByDisclosure = computed(() =>
+  uiStore.rightTab === 'entity' &&
+  uiStore.assetScope === 'local' &&
+  rawLocalEntityCount.value > 0 &&
+  !entityDisclosure.value.showNames &&
+  !entityDisclosure.value.showMotives &&
+  !entityDisclosure.value.allowEditing
+);
 
 const currentList = computed(() => {
   const tab = uiStore.rightTab;
@@ -100,7 +109,10 @@ const pullAssetToLocal = async (name) => {
   try {
     await gameApi.pullAsset(gameStore.sessionId, { asset_type: getApiType(), asset_name: name });
     await assetStore.fetchLocalAssets(gameStore.sessionId);
-    uiStore.showToast(`[${name}] 已成功载入本局`);
+    const hiddenNotice = getApiType() === 'entities' && entitiesHiddenByDisclosure.value
+      ? '；实体名称当前隐藏，可在设置中开启显示名称或允许编辑'
+      : '';
+    uiStore.showToast(`[${name}] 已成功载入本局${hiddenNotice}`);
   } catch(e) { uiStore.showToast("拉取失败：" + e.message, "error"); }
 };
 
@@ -145,7 +157,7 @@ const openInsertCharModal = (charName) => {
 </script>
 
 <template>
-  <div class="flex flex-col h-full animate-[fadeIn_0.2s]">
+  <div class="flex flex-col flex-1 min-h-0 animate-[fadeIn_0.2s]">
     <div class="flex bg-slate-900 rounded-lg p-1 border border-slate-700 shadow-inner mb-4 shrink-0">
       <button @click="uiStore.assetScope = 'local'" :class="uiStore.assetScope==='local'?'bg-slate-700 text-white shadow':'text-slate-400 hover:text-slate-200'" class="flex-1 py-1.5 rounded text-xs font-bold transition">🛡️ 本局专属</button>
       <button @click="uiStore.assetScope = 'global'" :class="uiStore.assetScope==='global'?'bg-slate-700 text-white shadow':'text-slate-400 hover:text-slate-200'" class="flex-1 py-1.5 rounded text-xs font-bold transition">🌐 全局图鉴</button>
@@ -159,9 +171,13 @@ const openInsertCharModal = (charName) => {
       <button v-if="uiStore.assetScope==='global'" @click="openNewAsset" class="px-2 h-8 bg-emerald-600/20 text-emerald-400 border border-emerald-700/50 rounded-lg hover:bg-emerald-600 hover:text-white transition text-xs font-bold whitespace-nowrap">+ 新建</button>
     </div>
     
-    <div v-if="currentList.length === 0" class="text-center text-slate-500 text-xs mt-10">当前区域暂无资产记录</div>
+    <div class="flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-1">
+      <div v-if="entitiesHiddenByDisclosure" class="mx-1 mt-6 rounded-lg border border-purple-800/60 bg-purple-950/20 p-3 text-center text-xs leading-relaxed text-purple-300">
+        本局已载入 {{ rawLocalEntityCount }} 个暗流实体。名称当前隐藏；可在设置中勾选“显示名称”或“允许编辑”进行查看。
+      </div>
+      <div v-else-if="currentList.length === 0" class="text-center text-slate-500 text-xs mt-10">当前区域暂无资产记录</div>
 
-    <div class="space-y-3 pb-8">
+      <div class="space-y-3 pb-8">
        <div v-for="item in currentList" :key="item.name" class="bg-aw_panel border border-slate-700 p-3 rounded-xl hover:border-indigo-500 transition group shadow flex flex-col gap-2 relative overflow-hidden" :class="item.is_active === false ? 'opacity-60 grayscale' : ''">
          
          <div class="flex justify-between items-start">
@@ -194,6 +210,7 @@ const openInsertCharModal = (charName) => {
            </div>
          </div>
        </div>
+      </div>
     </div>
   </div>
 </template>

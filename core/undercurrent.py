@@ -42,7 +42,7 @@ class UndercurrentEngine:
         prompt_sys = prompt_sys.replace("{entities_info}", ent_info)
         prompt_sys = prompt_sys.replace("{world_context}", world_context_text)
         
-        raw_ans, err = self.ai_engine.chat_json(prompt_sys, "请推演实体的幕后行动与生灭。无动作的数组必须留空 []。", temp=0.8)
+        raw_ans, err = self.ai_engine.chat_json(prompt_sys, "请推演实体的幕后行动与生灭。无动作的数组必须留空 []。", temp=0.8, trace_label="Overseer实体推演")
         
         events_this_turn = []
         if err or not raw_ans:

@@ -2,6 +2,7 @@
 import json, re
 from openai import OpenAI
 from utils.sys_logger import get_logger
+from core.llm_trace import begin_llm_trace, finish_llm_trace
 
 log = get_logger()
 
@@ -31,22 +32,32 @@ class AIEngine:
         self.client = OpenAI(api_key=config['api_key'], base_url=config['base_url'])
         self.model = config['model']
 
-    def chat_json(self, system_prompt, user_prompt, temp=0.8, max_tokens=None):
+    def chat_json(self, system_prompt, user_prompt, temp=0.8, max_tokens=None, trace_label="json"):
         """强制 JSON 输出模式（主线 DM 用）"""
+        trace_id = begin_llm_trace(trace_label, self.model, system_prompt, user_prompt, "json")
         try:
             kwargs = {"model": self.model, "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}], "temperature": temp, "response_format": {"type": "json_object"}}
             if max_tokens: kwargs["max_tokens"] = max_tokens
             res = self.client.chat.completions.create(**kwargs)
-            return res.choices[0].message.content or "", None
-        except Exception as e: return "", str(e)
+            content = res.choices[0].message.content or ""
+            finish_llm_trace(trace_label, trace_id, response=content)
+            return content, None
+        except Exception as e:
+            finish_llm_trace(trace_label, trace_id, error=str(e))
+            return "", str(e)
 
-    def chat_text(self, system_prompt, user_prompt, temp=0.8):
+    def chat_text(self, system_prompt, user_prompt, temp=0.8, trace_label="text"):
         """纯文本输出模式（暗流实体引擎用）"""
+        trace_id = begin_llm_trace(trace_label, self.model, system_prompt, user_prompt, "text")
         try:
             res = self.client.chat.completions.create(
                 model=self.model, 
                 messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}], 
                 temperature=temp
             )
-            return res.choices[0].message.content or "", None
-        except Exception as e: return "", str(e)
+            content = res.choices[0].message.content or ""
+            finish_llm_trace(trace_label, trace_id, response=content)
+            return content, None
+        except Exception as e:
+            finish_llm_trace(trace_label, trace_id, error=str(e))
+            return "", str(e)
