@@ -23,6 +23,8 @@ assert.equal(projectLocalEntity(entity, hidden), null);
 assert.equal(projectLocalEntity(entity, names).desc, '暗流详情已隐藏');
 assert.equal(projectLocalEntity(entity, motives).desc, '动机：追捕玩家');
 assert.equal(normalizeEntityDisclosure({ allowEntityEditing: true }).showNames, true);
+assert.equal(projectLocalEntity(entity, normalizeEntityDisclosure(names)).name, '皇城');
+assert.equal(projectLocalEntity(entity, normalizeEntityDisclosure(motives)).desc, '动机：追捕玩家');
 assert.equal(formatUndercurrentDebug(event, hidden, [entity]), '');
 assert.equal(formatUndercurrentDebug(event, bubbles, [entity]), '🌌 暗流变化：[皇城]');
 assert.equal(formatUndercurrentDebug(event, { ...bubbles, showEntityMotives: true }, [entity]), '🌌 暗流变化：[皇城]（动机：追捕玩家）');

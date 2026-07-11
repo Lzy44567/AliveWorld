@@ -1,11 +1,11 @@
 export function normalizeEntityDisclosure(settings = {}) {
-  const showMotives = Boolean(settings.showEntityMotives);
-  const allowEditing = Boolean(settings.allowEntityEditing);
+  const showMotives = Boolean(settings.showEntityMotives ?? settings.showMotives);
+  const allowEditing = Boolean(settings.allowEntityEditing ?? settings.allowEditing);
   return {
-    showNames: Boolean(settings.showEntityNames) || showMotives || allowEditing,
+    showNames: Boolean(settings.showEntityNames ?? settings.showNames) || showMotives || allowEditing,
     showMotives,
     allowEditing,
-    showBubbles: Boolean(settings.showEntityBubbles)
+    showBubbles: Boolean(settings.showEntityBubbles ?? settings.showBubbles)
   };
 }
 
