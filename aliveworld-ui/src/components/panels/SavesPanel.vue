@@ -8,6 +8,7 @@ import { assetStore } from '../../store/assetStore';
 import { gameStore } from '../../store/gameStore';
 import { gameApi } from '../../api/gameApi';
 import { assetApi } from '../../api/assetApi';
+import { configStore } from '../../store/configStore';
 
 const searchSaveKeyword = ref("");
 const confirmDeleteId = ref(null);
@@ -28,6 +29,7 @@ const loadSave = async (saveName) => {
     gameStore.currentSaveName = saveName;
     gameStore.chatLog = data.chat_messages || [];
     gameStore.syncState(data.state);
+    configStore.applyStoryConfig(data);
     
     // 恢复基础设定显示（尽管 V2 已经弱化了全局强绑定，但用于兜底显示）
     assetStore.selectedStyle = data.style_name || "默认 (无)";
@@ -52,6 +54,7 @@ const executeDelete = async (saveName) => {
     // 如果粉碎的正是当前正在推演的世界，直接物理清屏！
     if (gameStore.currentSaveName === saveName) {
       gameStore.reset();
+      configStore.resetStoryConfig();
       assetStore.fetchLocalAssets(null); // 清空局内专属
     }
     

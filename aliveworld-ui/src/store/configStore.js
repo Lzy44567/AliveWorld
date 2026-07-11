@@ -1,5 +1,6 @@
 // src/store/configStore.js
-import { reactive, watch } from 'vue';
+import { computed, reactive, watch } from 'vue';
+import { normalizeStorySettings } from '../utils/storySettings';
 
 const savedConfig = JSON.parse(localStorage.getItem('aw_config')) || {};
 const legacyEntityVisibility = savedConfig.settings?.entityVisibility;
@@ -12,7 +13,7 @@ export const configStore = reactive({
     imageApiUrl: savedConfig.globalSettings?.imageApiUrl || "http://127.0.0.1:8188"
   },
   
-  settings: {
+  settings: normalizeStorySettings({
     showFutures: savedConfig.settings?.showFutures ?? true,      
     showDice: savedConfig.settings?.showDice ?? true,         
     allowReroll: savedConfig.settings?.allowReroll ?? true,      
@@ -25,9 +26,30 @@ export const configStore = reactive({
     allowEntityEditing: savedConfig.settings?.allowEntityEditing ?? legacyEntityVisibility === 'full',
     showEntityBubbles: savedConfig.settings?.showEntityBubbles ?? Boolean(savedConfig.settings?.showEntityDebug && legacyEntityVisibility !== 'hidden'),
     autoCompressMemory: savedConfig.settings?.autoCompressMemory ?? false
-  },
+  }),
   
-  localSettings: { showTime: null, showMap: false, plotCompass: "" },
+  story: {
+    active: false, worldPremise: "", plotCompass: "",
+    settings: normalizeStorySettings()
+  },
+
+  applyStoryConfig(data = {}) {
+    this.story.active = true;
+    this.story.worldPremise = data.world_premise ?? data.description ?? "";
+    this.story.plotCompass = data.plot_compass ?? "";
+    this.story.settings = normalizeStorySettings(data.story_settings, this.settings);
+  },
+
+  resetStoryConfig() {
+    this.story.active = false;
+    this.story.worldPremise = "";
+    this.story.plotCompass = "";
+    this.story.settings = normalizeStorySettings({}, this.settings);
+  },
+
+  restoreStoryDefaults() {
+    this.story.settings = normalizeStorySettings({}, this.settings);
+  },
 
   async syncToBackend() {
     try {
@@ -51,6 +73,10 @@ export const configStore = reactive({
     } catch (e) { console.error("读取配置失败", e); }
   }
 });
+
+export const effectiveStorySettings = computed(() =>
+  configStore.story.active ? configStore.story.settings : configStore.settings
+);
 
 // 网页启动时从后端拉取一次最新配置（以防后端是被其他人改动的）
 configStore.fetchFromBackend();

@@ -3,7 +3,7 @@
 import { computed } from 'vue';
 import { uiStore } from '../../store/uiStore';
 import { gameStore } from '../../store/gameStore';
-import { configStore } from '../../store/configStore';
+import { effectiveStorySettings } from '../../store/configStore';
 import RadarBars from './RadarBars.vue';
 import RadarNpcs from './RadarNpcs.vue';
 
@@ -23,7 +23,7 @@ const otherProperties = computed(() => {
       
       <template v-else>
         <!-- 时间悬浮置顶展示 -->
-        <div v-if="configStore.settings.showTime && currentTime !== '未知纪元'" class="bg-indigo-950/60 border border-indigo-800/50 p-3 rounded-lg flex items-center justify-center gap-2 shadow-inner">
+        <div v-if="effectiveStorySettings.showTime && currentTime !== '未知纪元'" class="bg-indigo-950/60 border border-indigo-800/50 p-3 rounded-lg flex items-center justify-center gap-2 shadow-inner">
           <span class="text-xl">⏳</span>
           <span class="font-bold text-indigo-200 tracking-wide">{{ currentTime }}</span>
         </div>

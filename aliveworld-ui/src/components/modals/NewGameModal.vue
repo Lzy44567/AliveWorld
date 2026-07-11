@@ -5,6 +5,7 @@ import { uiStore } from '../../store/uiStore';
 import { assetStore } from '../../store/assetStore';
 import { gameStore } from '../../store/gameStore';
 import { gameApi } from '../../api/gameApi';
+import { configStore } from '../../store/configStore';
 
 const newSaveDesc = ref("");
 const close = () => { uiStore.modals.newGame = false; };
@@ -13,11 +14,12 @@ const startNewGame = async () => {
   if (!assetStore.newSaveName.trim()) return uiStore.showToast("存档名不能为空！", "error"); 
   gameStore.isProcessing = true;
   try {
-    const data = await gameApi.startGame({ save_name: assetStore.newSaveName, description: newSaveDesc.value });
+    const data = await gameApi.startGame({ save_name: assetStore.newSaveName, world_premise: newSaveDesc.value, story_settings: configStore.settings });
     gameStore.sessionId = data.session_id;
     gameStore.currentSaveName = assetStore.newSaveName;
     gameStore.chatLog = data.chat_messages;
     gameStore.syncState(data.state);
+    configStore.applyStoryConfig(data);
     
     close();
     await assetStore.fetchAssets();

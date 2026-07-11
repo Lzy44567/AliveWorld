@@ -13,7 +13,7 @@ const allEntityDisclosure = computed({
   <div class="col-span-2 border border-slate-700 rounded-lg p-3 space-y-3">
     <label class="flex items-center gap-2 text-sm font-bold text-purple-300 cursor-pointer">
       <input type="checkbox" v-model="configStore.settings.entitiesEnabled" class="rounded bg-slate-800 border-slate-600 text-purple-500">
-      <span>启用暗流实体推演</span>
+      <span>新故事默认启用暗流实体推演</span>
     </label>
     <p class="text-[10px] text-slate-500">关闭后保留所有实体卡及其逐卡状态，但不会请求 Overseer；没有启用中的实体时也会自动跳过。</p>
     <div class="border-t border-slate-700 pt-3 space-y-3">

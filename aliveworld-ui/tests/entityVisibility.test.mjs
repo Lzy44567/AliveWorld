@@ -5,6 +5,7 @@ import {
   projectLocalEntity
 } from '../src/utils/entityVisibility.js';
 import { buildEntityPayload, createEntityEditorForm } from '../src/utils/entityForm.js';
+import { normalizeStorySettings } from '../src/utils/storySettings.js';
 
 const entity = {
   name: '皇城',
@@ -36,5 +37,10 @@ assert.deepEqual(entityPayload.triggers, [{ condition: '进城', result: '盘查
 assert.deepEqual(entityPayload.relationships, { 玩家: '敌对' });
 assert.equal(entityPayload.importance, 0.6);
 assert.deepEqual(buildEntityPayload({ ...editorForm, triggers: [{ condition: '雨天', result: '' }] }).triggers, [{ condition: '雨天', result: '' }]);
+
+const storyDefaults = normalizeStorySettings({ showDice: false, unknown: true });
+assert.equal(storyDefaults.showDice, false);
+assert.equal(storyDefaults.entitiesEnabled, true);
+assert.equal('unknown' in storyDefaults, false);
 
 console.log('entity UI behavior: OK');

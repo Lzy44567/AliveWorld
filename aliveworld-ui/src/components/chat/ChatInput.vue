@@ -2,7 +2,7 @@
 <script setup>
 import { ref } from 'vue';
 import { gameStore } from '../../store/gameStore';
-import { configStore } from '../../store/configStore';
+import { configStore, effectiveStorySettings } from '../../store/configStore';
 import { gameApi } from '../../api/gameApi';
 import { assetStore } from '../../store/assetStore';
 
@@ -22,8 +22,7 @@ const submitAction = async (text = null) => {
   try {
     const res = await gameApi.processAction(gameStore.sessionId, {
       action: finalAction,
-      plot_compass: configStore.localSettings.plotCompass,
-      entities_enabled: configStore.settings.entitiesEnabled
+      plot_compass: configStore.story.plotCompass
     });
     
     const newMsgs = res.chat_messages.filter(m => m.role !== 'user');
@@ -60,8 +59,7 @@ const retryTurn = async () => {
   try {
     const res = await gameApi.retryTurn(gameStore.sessionId, {
       action: lastAction.value,
-      plot_compass: configStore.localSettings.plotCompass,
-      entities_enabled: configStore.settings.entitiesEnabled
+      plot_compass: configStore.story.plotCompass
     });
     gameStore.chatLog = res.full_chat;
     gameStore.syncState(res.state);
@@ -88,7 +86,7 @@ const scrollToBottom = () => {
   <div class="w-full p-4 md:p-6 bg-aw_bg border-t border-slate-700 z-20 shrink-0 shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
     <div class="max-w-4xl mx-auto flex flex-col gap-2">
       
-      <div class="flex gap-2 px-1 mb-1 overflow-x-auto custom-scrollbar" v-if="configStore.settings.aiSuggestions && !gameStore.isProcessing && gameStore.sessionId && gameStore.aiSuggestions.length > 0">
+      <div class="flex gap-2 px-1 mb-1 overflow-x-auto custom-scrollbar" v-if="effectiveStorySettings.aiSuggestions && !gameStore.isProcessing && gameStore.sessionId && gameStore.aiSuggestions.length > 0">
         <button v-for="(sug, idx) in gameStore.aiSuggestions" :key="idx" @click="submitAction(sug)" class="px-4 py-2 text-xs font-bold bg-slate-800/80 hover:bg-emerald-600/80 text-slate-300 hover:text-white border border-slate-600 hover:border-emerald-500 rounded-full transition whitespace-nowrap backdrop-blur shadow-lg">
           💡 {{ sug }}
         </button>

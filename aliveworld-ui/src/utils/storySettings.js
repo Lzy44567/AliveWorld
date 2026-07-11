@@ -1,0 +1,12 @@
+export const STORY_SETTING_DEFAULTS = Object.freeze({
+  showFutures: true, showDice: true, allowReroll: true, aiSuggestions: true,
+  entitiesEnabled: true, showEntityNames: false, showEntityMotives: false,
+  allowEntityEditing: false, showEntityBubbles: false, showTime: true,
+  autoCompressMemory: false
+});
+
+export function normalizeStorySettings(settings = {}, defaults = STORY_SETTING_DEFAULTS) {
+  return Object.fromEntries(Object.keys(STORY_SETTING_DEFAULTS).map(key => [
+    key, Boolean(settings[key] ?? defaults[key] ?? STORY_SETTING_DEFAULTS[key])
+  ]));
+}

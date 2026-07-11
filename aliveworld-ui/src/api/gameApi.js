@@ -17,6 +17,11 @@ export const gameApi = {
     if (!res.ok) throw new Error("推演失败");
     return res.json();
   },
+  async updateStoryConfig(sessionId, payload) {
+    const res = await fetch(`${API_URL}/${sessionId}/story_config`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    if (!res.ok) throw new Error("局内设置保存失败");
+    return res.json();
+  },
   async undoTurn(sessionId) {
     const res = await fetch(`${API_URL}/${sessionId}/undo`, { method: 'POST' });
     if (!res.ok) throw new Error("撤回失败");

@@ -3,12 +3,13 @@ import os
 import yaml
 import uuid
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
-from typing import Optional
+from pydantic import BaseModel, Field
+from typing import Optional, Dict, Any
 
 from core.game_session import GameSession
 from core.ai_engine import AIEngine
 from core.session_manager import active_sessions
+from core.story_settings import normalize_story_settings
 from utils.file_io import BASE_DIR, init_save_folder, get_all_saves, save_game_data
 
 router = APIRouter()
@@ -23,14 +24,20 @@ else:
 class StartRequest(BaseModel):
     save_name: str = "未命名冒险"
     description: str = ""
+    world_premise: Optional[str] = None
+    story_settings: Dict[str, Any] = Field(default_factory=dict)
 
 class ActionRequest(BaseModel):
     action: str
-    plot_compass: Optional[str] = ""
-    entities_enabled: bool = True
+    plot_compass: Optional[str] = None
 
 class EntityRuntimeRequest(BaseModel):
-    entities_enabled: bool = True
+    entities_enabled: Optional[bool] = None
+
+class StoryConfigPayload(BaseModel):
+    world_premise: str = ""
+    plot_compass: str = ""
+    story_settings: Dict[str, Any] = Field(default_factory=dict)
 
 class LoadRequest(BaseModel):
     save_name: str
@@ -46,16 +53,17 @@ def start_game(payload: StartRequest):
     if not global_ai_engine: raise HTTPException(status_code=500, detail="未找到 config.yml")
     session_id = str(uuid.uuid4())
     save_dir_path = init_save_folder(payload.save_name)
-    game = GameSession(global_ai_engine, payload.save_name, save_dir_path=save_dir_path)
+    game = GameSession(global_ai_engine, payload.save_name, save_dir_path=save_dir_path, story_settings=payload.story_settings)
+    world_premise = payload.world_premise if payload.world_premise is not None else payload.description
     
     opening = "【时间线已建立】\n"
-    if payload.description: opening += f"宇宙法则主导向被设定为：{payload.description}\n"
+    if world_premise: opening += f"宇宙法则主导向被设定为：{world_premise}\n"
     opening += "当前世界犹如一张白纸。你可以随时从右侧“万象资产”中拉取角色、世界书或文风进入本局..."
     
-    game.start_new_game(description=payload.description, opening=opening.strip())
+    game.start_new_game(world_premise=world_premise, opening=opening.strip())
     active_sessions[session_id] = game
     save_game_data(game.save_dir_path, game.export_save_data())
-    return {"session_id": session_id, "chat_messages": game.history["chat_messages"], "state": game.state, "description": game.description}
+    return _session_payload(session_id, game)
 
 @router.post("/load")
 def load_game(payload: LoadRequest):
@@ -67,16 +75,16 @@ def load_game(payload: LoadRequest):
     game = GameSession(global_ai_engine, payload.save_name, save_dir_path=save_data.get('save_dir_path', ''))
     game.load_save_data(save_data)
     active_sessions[session_id] = game
-    return {"session_id": session_id, "chat_messages": game.history["chat_messages"], "state": game.state, "description": game.description}
+    return _session_payload(session_id, game)
 
 @router.post("/{session_id}/action")
 def process_turn(session_id: str, payload: ActionRequest):
     game = active_sessions.get(session_id)
     if not game: raise HTTPException(status_code=404, detail="会话失效")
-    if payload.plot_compass is not None: game.description = payload.plot_compass
+    if payload.plot_compass is not None: game.plot_compass = payload.plot_compass
         
     history_len = len(game.history["chat_messages"])
-    result = game.process_turn(payload.action, entities_enabled=payload.entities_enabled)
+    result = game.process_turn(payload.action)
     if result and result.get('error'): raise HTTPException(status_code=500, detail="推演失败")
     
     save_game_data(game.save_dir_path, game.export_save_data())
@@ -95,9 +103,9 @@ def retry_turn(session_id: str, payload: ActionRequest):
     game = active_sessions.get(session_id)
     if not game: raise HTTPException(status_code=404, detail="会话失效")
     if not game.rollback(): raise HTTPException(status_code=400, detail="无历史")
-    if payload.plot_compass is not None: game.description = payload.plot_compass
+    if payload.plot_compass is not None: game.plot_compass = payload.plot_compass
         
-    result = game.process_turn(payload.action, entities_enabled=payload.entities_enabled)
+    result = game.process_turn(payload.action)
     if result and result.get('error'): raise HTTPException(status_code=500, detail="推演失败")
     save_game_data(game.save_dir_path, game.export_save_data())
     return {"full_chat": game.history["chat_messages"], "state": game.state}
@@ -107,11 +115,38 @@ def retry_turn(session_id: str, payload: ActionRequest):
 def reroll_turn(session_id: str, payload: EntityRuntimeRequest):
     game = active_sessions.get(session_id)
     if not game: raise HTTPException(status_code=404, detail="会话失效")
-    game.entities_enabled = payload.entities_enabled
+    if payload.entities_enabled is not None:
+        game.story_settings["entitiesEnabled"] = payload.entities_enabled
     res = game.reroll_turn()
     if not res or res.get("error"): raise HTTPException(status_code=400, detail="无法重掷")
     save_game_data(game.save_dir_path, game.export_save_data())
     return res
+
+@router.post("/{session_id}/story_config")
+def update_story_config(session_id: str, payload: StoryConfigPayload):
+    game = active_sessions.get(session_id)
+    if not game: raise HTTPException(status_code=404, detail="会话失效")
+    game.world_premise = payload.world_premise
+    game.plot_compass = payload.plot_compass
+    game.story_settings = normalize_story_settings(payload.story_settings)
+    save_game_data(game.save_dir_path, game.export_save_data())
+    return _story_config_payload(game)
+
+def _story_config_payload(game):
+    return {
+        "world_premise": game.world_premise,
+        "plot_compass": game.plot_compass,
+        "story_settings": game.story_settings,
+    }
+
+def _session_payload(session_id, game):
+    return {
+        "session_id": session_id,
+        "chat_messages": game.history["chat_messages"],
+        "state": game.state,
+        "description": game.world_premise,
+        **_story_config_payload(game),
+    }
 
 @router.get("/system_config")
 def get_system_config():

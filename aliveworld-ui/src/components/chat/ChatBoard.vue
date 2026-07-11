@@ -25,8 +25,7 @@ const initWorldState = async () => {
   try {
     const res = await gameApi.processAction(gameStore.sessionId, {
       action: "【系统指令：世界初始化】请根据宇宙法则建立状态条(dynamic_bars)与人物属性(status_updates)，需包含'当前时间'属性，不要续写剧情。",
-      plot_compass: configStore.localSettings.plotCompass,
-      entities_enabled: configStore.settings.entitiesEnabled
+      plot_compass: configStore.story.plotCompass
     });
     const newMsgs = res.chat_messages.filter(m => m.role !== 'user');
     gameStore.chatLog.push(...newMsgs);

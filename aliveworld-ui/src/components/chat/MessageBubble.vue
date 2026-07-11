@@ -2,7 +2,7 @@
 <script setup>
 import { computed } from 'vue';
 import { gameStore } from '../../store/gameStore';
-import { configStore } from '../../store/configStore';
+import { effectiveStorySettings } from '../../store/configStore';
 import { uiStore } from '../../store/uiStore';
 import { gameApi } from '../../api/gameApi';
 import { assetStore } from '../../store/assetStore';
@@ -17,7 +17,7 @@ const props = defineProps({
 
 const entityDebugText = computed(() => {
   if (props.msg.role !== 'undercurrent') return '';
-  return formatUndercurrentDebug(props.msg.content, configStore.settings, assetStore.entities.local);
+  return formatUndercurrentDebug(props.msg.content, effectiveStorySettings.value, assetStore.entities.local);
 });
 
 const doReroll = async () => {
@@ -25,7 +25,7 @@ const doReroll = async () => {
   gameStore.isProcessing = true;
   try {
     const res = await gameApi.rerollTurn(gameStore.sessionId, {
-      entities_enabled: configStore.settings.entitiesEnabled
+      entities_enabled: effectiveStorySettings.value.entitiesEnabled
     });
     gameStore.chatLog = res.chat_messages;
     gameStore.syncState(res.state);
@@ -48,7 +48,7 @@ const doReroll = async () => {
   <div class="flex flex-col" :class="msg.role === 'user' ? 'items-end' : 'items-start'">
     
     <!-- 🎲 命运观测器 (N*n 折叠面板) -->
-    <div v-if="msg.role === 'reactions' && configStore.settings.showFutures" class="w-full max-w-[85%] bg-amber-950/60 border border-amber-700/50 rounded-xl overflow-hidden backdrop-blur-md shadow-lg mb-2">
+    <div v-if="msg.role === 'reactions' && effectiveStorySettings.showFutures" class="w-full max-w-[85%] bg-amber-950/60 border border-amber-700/50 rounded-xl overflow-hidden backdrop-blur-md shadow-lg mb-2">
       <details class="group">
         <summary class="cursor-pointer px-4 py-2.5 text-xs text-amber-400 font-bold flex justify-between items-center hover:bg-amber-900/50 transition select-none">
           <span>🎲 观测到 {{ msg.content.length }} 种时间线</span>
@@ -64,9 +64,9 @@ const doReroll = async () => {
     </div>
 
     <!-- 🎯 命运掷骰裁定结果 -->
-    <div v-else-if="msg.role === 'system' && configStore.settings.showDice" class="text-xs text-rose-400 mb-2 px-4 py-2 bg-rose-950/80 border border-rose-700/50 rounded-lg backdrop-blur-md italic shadow-md max-w-[85%] flex justify-between items-center group">
+    <div v-else-if="msg.role === 'system' && effectiveStorySettings.showDice" class="text-xs text-rose-400 mb-2 px-4 py-2 bg-rose-950/80 border border-rose-700/50 rounded-lg backdrop-blur-md italic shadow-md max-w-[85%] flex justify-between items-center group">
       <span>{{ msg.content }}</span>
-      <button v-if="configStore.settings.allowReroll" @click="doReroll" class="hidden group-hover:block px-3 py-1 bg-rose-800 hover:bg-rose-600 text-white rounded text-[10px] font-bold transition ml-4 shadow shrink-0">
+      <button v-if="effectiveStorySettings.allowReroll" @click="doReroll" class="hidden group-hover:block px-3 py-1 bg-rose-800 hover:bg-rose-600 text-white rounded text-[10px] font-bold transition ml-4 shadow shrink-0">
         🔄 重掷
       </button>
     </div>
