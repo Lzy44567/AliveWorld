@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from typing import Dict, Any
 
 from core.session_manager import active_sessions
-from utils.file_io import DATA_DIR
+from utils.file_io import DATA_DIR, save_game_data
 from utils.asset_catalog import resolve_asset_path
 
 router = APIRouter()
@@ -84,8 +84,11 @@ def update_local_asset(session_id: str, asset_type: str, asset_name: str, payloa
     local_file = os.path.join(local_dir, f"{asset_name}.yml")
     
     try:
+        parsed_data = dict(payload.parsed_data)
+        if asset_type == "entities":
+            parsed_data["influence_refs"] = game.undercurrent.causal_ledger.refs_for_entity(asset_name)
         with open(local_file, 'w', encoding='utf-8') as f:
-            yaml.safe_dump(payload.parsed_data, f, allow_unicode=True, sort_keys=False)
+            yaml.safe_dump(parsed_data, f, allow_unicode=True, sort_keys=False)
         return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"局内资源保存失败: {str(e)}")
@@ -98,8 +101,17 @@ def delete_local_asset(session_id: str, asset_type: str, asset_name: str):
     local_file = os.path.join(game.save_dir_path, asset_type, f"{asset_name}.yml")
     if os.path.exists(local_file):
         try:
+            if asset_type == "entities":
+                result = game.undercurrent.causal_ledger.handle_source_death(asset_name)
+                game.undercurrent.entities = [entity for entity in game.undercurrent.entities if entity.name != asset_name]
+                game.undercurrent.sync_influence_refs()
+                save_game_data(game.save_dir_path, game.export_save_data())
             os.remove(local_file)
-            return {"status": "success"}
+            return {
+                "status": "success",
+                "released_influences": [item.id for item in result["released"]] if asset_type == "entities" else [],
+                "removed_influences": [item.id for item in result["removed"]] if asset_type == "entities" else [],
+            }
         except Exception as e:
             raise HTTPException(status_code=500, detail="无法删除本地副本")
     raise HTTPException(status_code=404, detail="本局专属库未找到此文件")
