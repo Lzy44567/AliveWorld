@@ -30,7 +30,10 @@ def _persist(game):
 @router.get("/{session_id}/causal-ledger")
 def get_causal_ledger(session_id: str):
     game = _game(session_id)
-    return {"influences": game.undercurrent.causal_ledger.export()}
+    return {
+        "turn_count": game.undercurrent.causal_ledger.turn_count,
+        "influences": game.undercurrent.causal_ledger.export(),
+    }
 
 
 @router.post("/{session_id}/causal-ledger")
