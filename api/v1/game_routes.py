@@ -27,6 +27,10 @@ class StartRequest(BaseModel):
 class ActionRequest(BaseModel):
     action: str
     plot_compass: Optional[str] = ""
+    entities_enabled: bool = True
+
+class EntityRuntimeRequest(BaseModel):
+    entities_enabled: bool = True
 
 class LoadRequest(BaseModel):
     save_name: str
@@ -72,7 +76,7 @@ def process_turn(session_id: str, payload: ActionRequest):
     if payload.plot_compass is not None: game.description = payload.plot_compass
         
     history_len = len(game.history["chat_messages"])
-    result = game.process_turn(payload.action)
+    result = game.process_turn(payload.action, entities_enabled=payload.entities_enabled)
     if result and result.get('error'): raise HTTPException(status_code=500, detail="推演失败")
     
     save_game_data(game.save_dir_path, game.export_save_data())
@@ -93,16 +97,17 @@ def retry_turn(session_id: str, payload: ActionRequest):
     if not game.rollback(): raise HTTPException(status_code=400, detail="无历史")
     if payload.plot_compass is not None: game.description = payload.plot_compass
         
-    result = game.process_turn(payload.action)
+    result = game.process_turn(payload.action, entities_enabled=payload.entities_enabled)
     if result and result.get('error'): raise HTTPException(status_code=500, detail="推演失败")
     save_game_data(game.save_dir_path, game.export_save_data())
     return {"full_chat": game.history["chat_messages"], "state": game.state}
 
 # 🚀 核心：重掷未来专用接口
 @router.post("/{session_id}/reroll")
-def reroll_turn(session_id: str):
+def reroll_turn(session_id: str, payload: EntityRuntimeRequest):
     game = active_sessions.get(session_id)
     if not game: raise HTTPException(status_code=404, detail="会话失效")
+    game.entities_enabled = payload.entities_enabled
     res = game.reroll_turn()
     if not res or res.get("error"): raise HTTPException(status_code=400, detail="无法重掷")
     save_game_data(game.save_dir_path, game.export_save_data())

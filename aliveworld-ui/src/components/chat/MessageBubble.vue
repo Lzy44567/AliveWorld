@@ -24,7 +24,9 @@ const doReroll = async () => {
   if (!gameStore.sessionId || gameStore.isProcessing) return;
   gameStore.isProcessing = true;
   try {
-    const res = await gameApi.rerollTurn(gameStore.sessionId);
+    const res = await gameApi.rerollTurn(gameStore.sessionId, {
+      entities_enabled: configStore.settings.entitiesEnabled
+    });
     gameStore.chatLog = res.chat_messages;
     gameStore.syncState(res.state);
     

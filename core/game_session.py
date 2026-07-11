@@ -15,6 +15,7 @@ class GameSession:
         self.save_name, self.save_dir_path, self.description = save_name, save_dir_path, ""
         self.is_game_over = False
         self.word_limit = 500
+        self.entities_enabled = True
         
         self.state_mgr = StateManager()
         self.ctx_mgr = ContextManager()
@@ -47,7 +48,8 @@ class GameSession:
         self.ctx_mgr.refresh_from_local(self.save_dir_path, self.description)
         self.undercurrent.entities = self.entity_repository.load()
 
-    def process_turn(self, user_action: str):
+    def process_turn(self, user_action: str, entities_enabled=True):
+        self.entities_enabled = entities_enabled
         self._take_snapshot()
         self.history["chat_messages"].append({"role": "user", "content": user_action})
         self._refresh_local_context()
@@ -64,7 +66,7 @@ class GameSession:
         
         # 🚀 修复实体延迟1回合Bug：手动把当前回合刚发生的剧情喂给 Overseer
         current_context = self.get_context_text() + f"\n玩家：{user_action}\n结果：{story_text}"
-        events = self.undercurrent.tick(current_context)
+        events = self.undercurrent.tick(current_context, enabled=self.entities_enabled)
         
         self._sync_entities_to_local()
         for ev in events: self.history["chat_messages"].append({"role": "undercurrent", "content": f"🌌 潜流涌动: {ev}"})
@@ -112,7 +114,7 @@ class GameSession:
         
         # 🚀 修复实体延迟1回合Bug
         current_context = self.get_context_text() + f"\n玩家：{action}\n结果：{story_text}"
-        events = self.undercurrent.tick(current_context)
+        events = self.undercurrent.tick(current_context, enabled=self.entities_enabled)
         
         self._sync_entities_to_local()
         for ev in events: self.history["chat_messages"].append({"role": "undercurrent", "content": f"🌌 潜流涌动: {ev}"})

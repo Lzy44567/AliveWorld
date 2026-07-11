@@ -28,8 +28,8 @@ export const gameApi = {
     return res.json();
   },
   // 🚀 新增：专门为了“重掷未来”开辟的端点
-  async rerollTurn(sessionId) {
-    const res = await fetch(`${API_URL}/${sessionId}/reroll`, { method: 'POST' });
+  async rerollTurn(sessionId, payload) {
+    const res = await fetch(`${API_URL}/${sessionId}/reroll`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     if (!res.ok) throw new Error("重掷失败");
     return res.json();
   },

@@ -19,6 +19,7 @@ export const configStore = reactive({
     aiSuggestions: savedConfig.settings?.aiSuggestions ?? true,    
     autoImage: savedConfig.settings?.autoImage ?? true,
     showTime: savedConfig.settings?.showTime ?? true,
+    entitiesEnabled: savedConfig.settings?.entitiesEnabled ?? true,
     showEntityNames: savedConfig.settings?.showEntityNames ?? ['names', 'motives', 'full'].includes(legacyEntityVisibility),
     showEntityMotives: savedConfig.settings?.showEntityMotives ?? ['motives', 'full'].includes(legacyEntityVisibility),
     allowEntityEditing: savedConfig.settings?.allowEntityEditing ?? legacyEntityVisibility === 'full',

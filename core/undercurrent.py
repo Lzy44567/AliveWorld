@@ -25,7 +25,17 @@ class UndercurrentEngine:
     def export_state(self):
         return {"tick_count": self.tick_count, "shadow_ledger": self.ledger.export(), "entities": [e.to_dict() for e in self.entities]}
 
-    def tick(self, world_context_text):
+    def has_active_entities(self):
+        return any(active_entities(self.entities))
+
+    def tick(self, world_context_text, enabled=True):
+        if not enabled:
+            log.info("跳过 Overseer：玩家已关闭暗流实体推演总开关。")
+            return []
+        if not self.has_active_entities():
+            log.info("跳过 Overseer：局内没有启用中的暗流实体。")
+            return []
+
         self.tick_count += 1
         log.info(f"=== 暗流时间流转: Tick {self.tick_count} ===")
         
@@ -37,8 +47,6 @@ class UndercurrentEngine:
         
         active_by_name = {entity.name: entity for entity in active_entities(self.entities)}
         ent_info = "\n".join(entity.prompt_summary() for entity in active_by_name.values())
-        if not ent_info: ent_info = "当前世界暂无潜伏实体。"
-        
         prompt_sys = prompt_sys.replace("{entities_info}", ent_info)
         prompt_sys = prompt_sys.replace("{world_context}", world_context_text)
         

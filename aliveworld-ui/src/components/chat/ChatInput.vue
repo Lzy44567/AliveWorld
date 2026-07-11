@@ -22,7 +22,8 @@ const submitAction = async (text = null) => {
   try {
     const res = await gameApi.processAction(gameStore.sessionId, {
       action: finalAction,
-      plot_compass: configStore.localSettings.plotCompass
+      plot_compass: configStore.localSettings.plotCompass,
+      entities_enabled: configStore.settings.entitiesEnabled
     });
     
     const newMsgs = res.chat_messages.filter(m => m.role !== 'user');
@@ -59,7 +60,8 @@ const retryTurn = async () => {
   try {
     const res = await gameApi.retryTurn(gameStore.sessionId, {
       action: lastAction.value,
-      plot_compass: configStore.localSettings.plotCompass
+      plot_compass: configStore.localSettings.plotCompass,
+      entities_enabled: configStore.settings.entitiesEnabled
     });
     gameStore.chatLog = res.full_chat;
     gameStore.syncState(res.state);

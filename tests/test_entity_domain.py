@@ -15,8 +15,10 @@ class FakeAIEngine:
     def __init__(self, response):
         self.response = response
         self.system_prompt = ""
+        self.call_count = 0
 
     def chat_json(self, system_prompt, _user_prompt, temp=0.8, **_kwargs):
+        self.call_count += 1
         self.system_prompt = system_prompt
         return self.response, None
 
@@ -95,6 +97,19 @@ class EntityDomainTests(unittest.TestCase):
         self.assertIn("机制：守卫盘查", engine.get_ledger_context())
         self.assertNotIn("封存势力：不应执行", engine.get_ledger_context())
         self.assertEqual(engine.export_state()["shadow_ledger"][-1]["details"]["new_plans"], ["搜查客栈"])
+
+    def test_overseer_skips_request_when_disabled_or_no_entity_is_active(self):
+        ai_engine = FakeAIEngine('{}')
+        engine = UndercurrentEngine(ai_engine)
+
+        self.assertEqual(engine.tick("空世界"), [])
+        engine.entities = [Entity(name="封存势力", motive="沉睡", is_active=False)]
+        self.assertEqual(engine.tick("仍然沉睡"), [])
+        engine.entities = [Entity(name="活跃势力", motive="行动")]
+        self.assertEqual(engine.tick("玩家关闭总开关", enabled=False), [])
+
+        self.assertEqual(ai_engine.call_count, 0)
+        self.assertEqual(engine.tick_count, 0)
 
 
 if __name__ == "__main__":
