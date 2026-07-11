@@ -22,11 +22,11 @@ class UndercurrentEngine:
     def load_state(self, data):
         self.tick_count = data.get('tick_count', 0)
         self.ledger = ShadowLedger(data.get('shadow_ledger', []))
-        self.causal_ledger = CausalLedger(data.get('causal_ledger', []))
+        self.causal_ledger = CausalLedger(data.get('causal_ledger', []), turn_count=data.get('causal_turn_count', 0))
         if 'entities' in data: self.entities = [Entity.from_dict(e) for e in data['entities']]
 
     def export_state(self):
-        return {"tick_count": self.tick_count, "shadow_ledger": self.ledger.export(), "causal_ledger": self.causal_ledger.export(), "entities": [e.to_dict() for e in self.entities]}
+        return {"tick_count": self.tick_count, "shadow_ledger": self.ledger.export(), "causal_ledger": self.causal_ledger.export(), "causal_turn_count": self.causal_ledger.turn_count, "entities": [e.to_dict() for e in self.entities]}
 
     def sync_influence_refs(self):
         for entity in self.entities:
@@ -97,7 +97,7 @@ class UndercurrentEngine:
                     log.info(f"新实体诞生: {n_name} - {n_goal}")
 
             for influence_data in res.get("new_influences", []):
-                influence = self.causal_ledger.add(influence_data, current_tick=self.tick_count)
+                influence = self.causal_ledger.add(influence_data, current_tick=self.causal_ledger.turn_count)
                 valid_sources = {entity.name for entity in active_entities(self.entities)}
                 source_names = {link.get("entity") for link in influence.source_links} if influence else set()
                 if influence and source_names and source_names.issubset(valid_sources):

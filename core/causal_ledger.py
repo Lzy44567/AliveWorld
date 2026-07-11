@@ -105,8 +105,9 @@ class CausalInfluence:
 
 
 class CausalLedger:
-    def __init__(self, influences: Iterable[Any] = ()):
+    def __init__(self, influences: Iterable[Any] = (), turn_count=0):
         self.influences = [CausalInfluence.from_data(item) for item in influences]
+        self.turn_count = int(turn_count or 0)
 
     def export(self):
         return [item.to_dict() for item in self.influences]
@@ -141,13 +142,19 @@ class CausalLedger:
         return item
 
     def advance_turn(self):
+        self.turn_count += 1
         for item in self.active():
             item.age_ticks += 1
 
-    def context(self, character_limit=4000):
-        lines = [item.context_line() for item in self.active()]
+    def context(self, item_limit=20, character_limit=4000):
+        active = sorted(
+            self.active(),
+            key=lambda item: (bool(item.force_next_turn), item.created_tick, item.id),
+            reverse=True,
+        )[:item_limit]
+        lines = [item.context_line() for item in active]
         text = "\n".join(lines) or "（当前没有潜在暗流影响）"
-        return text if len(text) <= character_limit else text[:character_limit] + "…"
+        return text if len(text) <= character_limit else text[:character_limit - 1] + "…"
 
     def evaluate_checks(self, checks):
         triggered = []

@@ -70,6 +70,26 @@ class CausalLedgerTests(unittest.TestCase):
         self.assertEqual(refs[0]["on_source_death"], "release")
         self.assertNotIn("condition", refs[0])
 
+    def test_player_turn_counter_advances_without_overseer_and_persists_creation_tick(self):
+        ledger = CausalLedger(turn_count=7)
+        ledger.advance_turn()
+        item = ledger.add(influence("第八回合创建"), current_tick=ledger.turn_count)
+
+        self.assertEqual(ledger.turn_count, 8)
+        self.assertEqual(item.created_tick, 8)
+
+    def test_context_prioritizes_forced_then_newer_influences(self):
+        ledger = CausalLedger()
+        old = ledger.add({**influence("旧影响"), "created_tick": 1})
+        newest = ledger.add({**influence("新影响"), "created_tick": 9})
+        forced = ledger.add({**influence("死亡释放"), "created_tick": 2, "force_next_turn": True})
+
+        context = ledger.context(item_limit=2)
+
+        self.assertIn(forced.id, context)
+        self.assertIn(newest.id, context)
+        self.assertNotIn(old.id, context)
+
 
 if __name__ == "__main__":
     unittest.main()
