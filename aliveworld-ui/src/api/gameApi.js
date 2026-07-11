@@ -22,6 +22,26 @@ export const gameApi = {
     if (!res.ok) throw new Error("局内设置保存失败");
     return res.json();
   },
+  async getCausalLedger(sessionId) {
+    const res = await fetch(`${API_URL}/${sessionId}/causal-ledger`);
+    if (!res.ok) throw new Error("读取暗流因果账本失败");
+    return res.json();
+  },
+  async createInfluence(sessionId, data) {
+    const res = await fetch(`${API_URL}/${sessionId}/causal-ledger`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data }) });
+    if (!res.ok) throw new Error("创建暗流影响失败");
+    return res.json();
+  },
+  async updateInfluence(sessionId, influenceId, data) {
+    const res = await fetch(`${API_URL}/${sessionId}/causal-ledger/${encodeURIComponent(influenceId)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data }) });
+    if (!res.ok) throw new Error("更新暗流影响失败");
+    return res.json();
+  },
+  async deleteInfluence(sessionId, influenceId) {
+    const res = await fetch(`${API_URL}/${sessionId}/causal-ledger/${encodeURIComponent(influenceId)}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error("删除暗流影响失败");
+    return res.json();
+  },
   async undoTurn(sessionId) {
     const res = await fetch(`${API_URL}/${sessionId}/undo`, { method: 'POST' });
     if (!res.ok) throw new Error("撤回失败");

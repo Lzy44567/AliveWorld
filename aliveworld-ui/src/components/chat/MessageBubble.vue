@@ -76,6 +76,13 @@ const doReroll = async () => {
       <span class="flex items-center gap-2"><span>👾</span> {{ entityDebugText }}</span>
     </div>
 
+    <div v-else-if="msg.role === 'influence' && effectiveStorySettings.showInfluenceBubbles" class="text-xs text-fuchsia-300 mb-2 px-4 py-2 bg-fuchsia-950/50 border border-fuchsia-800/50 rounded-lg max-w-[85%]">
+      <div class="font-bold">🕸️ 暗流影响已触发</div>
+      <div class="mt-1">{{ msg.content.summary }}</div>
+      <div class="mt-1 text-fuchsia-400/80">结果：{{ msg.content.result }}</div>
+      <div class="mt-1 font-mono text-[9px] text-slate-500">{{ msg.content.id }}</div>
+    </div>
+
     <!-- 💬 玩家与 AI 对话正文 -->
     <div v-else-if="msg.role === 'user' || msg.role === 'ai'" class="max-w-[85%] rounded-2xl p-5 whitespace-pre-wrap leading-relaxed shadow-2xl text-[15px] backdrop-blur-md" 
          :class="msg.role === 'user' ? 'bg-indigo-600/95 text-white rounded-br-sm' : 'bg-slate-900/90 border border-slate-600 text-slate-200 rounded-bl-sm'">

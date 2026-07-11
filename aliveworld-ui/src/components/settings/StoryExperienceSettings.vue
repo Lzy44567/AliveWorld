@@ -25,6 +25,8 @@ const settings = computed(() => configStore.story.settings);
         <label class="setting-row"><span>显示动机</span><input type="checkbox" v-model="settings.showEntityMotives"></label>
         <label class="setting-row"><span>允许编辑</span><input type="checkbox" v-model="settings.allowEntityEditing"></label>
         <label class="setting-row"><span>显示气泡</span><input type="checkbox" v-model="settings.showEntityBubbles"></label>
+        <label class="setting-row col-span-2"><span>显示暗流影响触发气泡（调试）</span><input type="checkbox" v-model="settings.showInfluenceBubbles"></label>
+        <label class="setting-row col-span-2"><span>显示暗流因果账本（调试）</span><input type="checkbox" v-model="settings.showCausalLedger"></label>
       </div>
     </section>
 

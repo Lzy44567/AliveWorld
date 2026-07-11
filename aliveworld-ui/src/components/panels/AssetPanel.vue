@@ -11,9 +11,11 @@ import { gameApi } from '../../api/gameApi';
 import { gameStore } from '../../store/gameStore';
 import { normalizeEntityDisclosure, projectLocalEntity } from '../../utils/entityVisibility';
 import { createEntityEditorForm } from '../../utils/entityForm';
+import CausalLedgerPanel from './CausalLedgerPanel.vue';
 
 const searchKeyword = ref("");
 const confirmDeleteId = ref(null);
+const entityLibraryView = ref('entities');
 const entityDisclosure = computed(() => normalizeEntityDisclosure(effectiveStorySettings.value));
 const canManageCurrentLocalAsset = computed(() =>
   uiStore.rightTab !== 'entity' || entityDisclosure.value.allowEditing
@@ -37,7 +39,11 @@ const currentList = computed(() => {
   if (tab === 'style') list = assetStore.styles[scope] || [];
   if (tab === 'entity') list = assetStore.entities[scope] || [];
   if (tab === 'entity' && scope === 'local') {
-    list = list.map(item => projectLocalEntity(item, entityDisclosure.value)).filter(Boolean);
+    list = list.map(item => {
+      const projected = projectLocalEntity(item, entityDisclosure.value);
+      if (projected && effectiveStorySettings.value.showCausalLedger) projected.influence_refs = item.influence_refs || [];
+      return projected;
+    }).filter(Boolean);
   }
   
   if (!searchKeyword.value) return list;
@@ -165,8 +171,13 @@ const openInsertCharModal = (charName) => {
       <button @click="uiStore.assetScope = 'local'" :class="uiStore.assetScope==='local'?'bg-slate-700 text-white shadow':'text-slate-400 hover:text-slate-200'" class="flex-1 py-1.5 rounded text-xs font-bold transition">🛡️ 本局专属</button>
       <button @click="uiStore.assetScope = 'global'" :class="uiStore.assetScope==='global'?'bg-slate-700 text-white shadow':'text-slate-400 hover:text-slate-200'" class="flex-1 py-1.5 rounded text-xs font-bold transition">🌐 全局图鉴</button>
     </div>
+
+    <div v-if="uiStore.rightTab === 'entity' && uiStore.assetScope === 'local' && effectiveStorySettings.showCausalLedger" class="mb-3 flex shrink-0 rounded-lg border border-slate-700 bg-slate-900 p-1 text-[10px] font-bold">
+      <button @click="entityLibraryView = 'entities'" :class="entityLibraryView === 'entities' ? 'bg-slate-700 text-white' : 'text-slate-400'" class="flex-1 rounded py-1.5">实体</button>
+      <button @click="entityLibraryView = 'ledger'" :class="entityLibraryView === 'ledger' ? 'bg-fuchsia-900/60 text-fuchsia-200' : 'text-slate-400'" class="flex-1 rounded py-1.5">暗流因果账本</button>
+    </div>
     
-    <div class="flex gap-2 mb-4 shrink-0">
+    <div v-if="entityLibraryView !== 'ledger' || uiStore.rightTab !== 'entity' || uiStore.assetScope !== 'local' || !effectiveStorySettings.showCausalLedger" class="flex gap-2 mb-4 shrink-0">
       <div class="flex-1 relative">
         <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs">🔍</span>
         <input v-model="searchKeyword" class="w-full bg-slate-800 border border-slate-600 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-200 outline-none focus:border-indigo-500" placeholder="搜索名称或标签..." />
@@ -174,7 +185,9 @@ const openInsertCharModal = (charName) => {
       <button v-if="uiStore.assetScope==='global'" @click="openNewAsset" class="px-2 h-8 bg-emerald-600/20 text-emerald-400 border border-emerald-700/50 rounded-lg hover:bg-emerald-600 hover:text-white transition text-xs font-bold whitespace-nowrap">+ 新建</button>
     </div>
     
-    <div class="flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-1">
+    <CausalLedgerPanel v-if="uiStore.rightTab === 'entity' && uiStore.assetScope === 'local' && entityLibraryView === 'ledger' && effectiveStorySettings.showCausalLedger" class="flex-1 min-h-0" />
+
+    <div v-else class="flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-1">
       <div v-if="entitiesHiddenByDisclosure" class="mx-1 mt-6 rounded-lg border border-purple-800/60 bg-purple-950/20 p-3 text-center text-xs leading-relaxed text-purple-300">
         本局已载入 {{ rawLocalEntityCount }} 个暗流实体。名称当前隐藏；可在设置中勾选“显示名称”或“允许编辑”进行查看。
       </div>
@@ -200,6 +213,11 @@ const openInsertCharModal = (charName) => {
            <span v-for="t in item.tags" :key="t" class="bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded text-[9px] border border-slate-700">{{ t }}</span>
          </div>
          <p class="text-xs text-slate-500 line-clamp-2 mt-1 leading-relaxed">{{ item.desc }}</p>
+         <div v-if="item.influence_refs?.length" class="rounded-lg border border-fuchsia-900/50 bg-fuchsia-950/20 p-2 text-[9px] text-fuchsia-300">
+           <div class="font-bold">关联暗流影响：{{ item.influence_refs.length }}</div>
+           <div v-for="refItem in item.influence_refs.slice(0, 3)" :key="refItem.id" class="mt-1 truncate">{{ refItem.summary }} · {{ refItem.status }}</div>
+           <button @click="entityLibraryView = 'ledger'" class="mt-1 underline">在账本中查看</button>
+         </div>
          
          <div class="mt-2 flex gap-2 border-t border-slate-800 pt-2 opacity-0 group-hover:opacity-100 transition-opacity">
            <button v-if="uiStore.assetScope === 'global' || canManageCurrentLocalAsset" @click="openEditAsset(item.name)" class="flex-1 bg-slate-800 hover:bg-slate-700 text-[10px] py-1.5 rounded font-bold text-slate-300">✏️ {{ uiStore.assetScope === 'local' ? '微调' : '编辑' }}</button>

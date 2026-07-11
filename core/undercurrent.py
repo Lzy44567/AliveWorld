@@ -6,6 +6,7 @@ from core.prompts import load_system_prompts
 from core.ai_engine import robust_json_parse
 from core.entities import Entity, active_entities
 from core.shadow_ledger import ShadowLedger
+from core.causal_ledger import CausalLedger
 
 log = get_logger()
 
@@ -14,16 +15,22 @@ class UndercurrentEngine:
         self.ai_engine = ai_engine
         self.tick_count = 0
         self.ledger = ShadowLedger()
+        self.causal_ledger = CausalLedger()
         # 🚀 修复问题 1：彻底清空硬编码幽灵实体！现在完全由本地文件决定！
         self.entities = []
 
     def load_state(self, data):
         self.tick_count = data.get('tick_count', 0)
         self.ledger = ShadowLedger(data.get('shadow_ledger', []))
+        self.causal_ledger = CausalLedger(data.get('causal_ledger', []))
         if 'entities' in data: self.entities = [Entity.from_dict(e) for e in data['entities']]
 
     def export_state(self):
-        return {"tick_count": self.tick_count, "shadow_ledger": self.ledger.export(), "entities": [e.to_dict() for e in self.entities]}
+        return {"tick_count": self.tick_count, "shadow_ledger": self.ledger.export(), "causal_ledger": self.causal_ledger.export(), "entities": [e.to_dict() for e in self.entities]}
+
+    def sync_influence_refs(self):
+        for entity in self.entities:
+            entity.influence_refs = self.causal_ledger.refs_for_entity(entity.name)
 
     def has_active_entities(self):
         return any(active_entities(self.entities))
@@ -88,6 +95,26 @@ class UndercurrentEngine:
                     events_this_turn.append(f"🌟 变数潜入暗流：[{n_name}]")
                     self.ledger.record(self.tick_count, "entity_created", n_name, f"实体诞生：{n_goal}")
                     log.info(f"新实体诞生: {n_name} - {n_goal}")
+
+            for influence_data in res.get("new_influences", []):
+                influence = self.causal_ledger.add(influence_data, current_tick=self.tick_count)
+                valid_sources = {entity.name for entity in active_entities(self.entities)}
+                source_names = {link.get("entity") for link in influence.source_links} if influence else set()
+                if influence and source_names and source_names.issubset(valid_sources):
+                    log.info(f"暗流影响创建: [{influence.id}] {influence.summary}")
+                elif influence:
+                    self.causal_ledger.remove(influence.id)
+                    log.warning(f"忽略来源实体无效的暗流影响: [{influence.id}] {source_names}")
+
+            for influence_data in res.get("update_influences", []):
+                influence = self.causal_ledger.update(influence_data)
+                if influence:
+                    log.info(f"暗流影响更新: [{influence.id}] {influence.summary}")
+
+            for influence_id in res.get("delete_influences", []):
+                influence = self.causal_ledger.remove(str(influence_id))
+                if influence:
+                    log.info(f"暗流影响取消: [{influence.id}] {influence.summary}")
                     
             up_ents = res.get("update_entities", [])
             for ue in up_ents:
@@ -106,12 +133,19 @@ class UndercurrentEngine:
                 if de_name not in active_by_name:
                     log.warning(f"忽略非活跃或不存在实体的删除: {de_name}")
                     continue
+                death_result = self.causal_ledger.handle_source_death(de_name)
+                for influence in death_result["released"]:
+                    log.info(f"实体死亡释放影响: [{influence.id}] {influence.summary}")
+                for influence in death_result["removed"]:
+                    log.info(f"实体死亡移除影响: [{influence.id}] {influence.summary}")
                 original_len = len(self.entities)
                 self.entities = [e for e in self.entities if e.name != de_name]
                 if len(self.entities) < original_len:
                     log.info(f"实体湮灭: {de_name}")
                     events_this_turn.append(f"💀 某股势力消亡了：[{de_name}]")
                     self.ledger.record(self.tick_count, "entity_deleted", de_name, "实体湮灭")
+
+            self.sync_influence_refs()
                         
         except Exception as e:
             log.error(f"Overseer JSON 解析失败: {e}\nRaw: {raw_ans}")
@@ -119,4 +153,4 @@ class UndercurrentEngine:
         return events_this_turn
 
     def get_ledger_context(self):
-        return self.ledger.context()
+        return self.ledger.context() + "\n\n【暗流因果账本】\n" + self.causal_ledger.context()

@@ -13,6 +13,8 @@ DEFAULT_STORY_SETTINGS = {
     "showEntityMotives": False,
     "allowEntityEditing": False,
     "showEntityBubbles": False,
+    "showInfluenceBubbles": False,
+    "showCausalLedger": False,
     "showTime": True,
     "autoCompressMemory": False,
 }

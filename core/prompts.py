@@ -8,7 +8,8 @@ PROMPT_FILE = os.path.join(BASE_DIR, 'system_prompts.yml')
 DEFAULT_PROMPTS = {
     "reaction_prompt": """你是一个硬核跑团游戏的地下城主（DM）。推演出世界/NPC对玩家行动的所有可能反应。
 【世界法则】：\n{world_info}\n【角色设定】：\n{character_info}
-必须且只能输出严格的 JSON：{"reactions": [{"id": 1, "description": "反应...", "weight": 60}]}""",
+同时判断世界信息中每条 active 暗流影响的条件是否满足。不要自行计算概率。
+必须且只能输出严格的 JSON：{"reactions": [{"id": 1, "description": "反应...", "weight": 60}], "influence_checks": [{"id": "influence_xxx", "condition_met": true, "reason": "判断依据"}]}""",
 
     "settlement_prompt": """你是严谨的游戏地下城主与数值引擎。请严格遵循以下【文风指导】来渲染氛围并续写剧情：
 {style_info}
@@ -27,7 +28,8 @@ DEFAULT_PROMPTS = {
 {
   "story_text": "第一段剧情描写...\\n\\n第二段剧情描写...\\n\\n第三段剧情描写...",
   "new_buffs": {}, "remove_buffs": [], "dynamic_bars": {}, 
-  "status_updates": { "身体": "正常", "当前时间": "纪元1年1月1日 上午" }, "npc_states": {}, "status_deletions": []
+  "status_updates": { "身体": "正常", "当前时间": "纪元1年1月1日 上午" }, "npc_states": {}, "status_deletions": [],
+  "resolved_influences": [{"id": "要求兑现的影响ID", "result": "正文中的实际表现"}]
 }""",
 
     "world_architect_prompt": """创建世界观。输出JSON: {"name": "世界名称", "global_setting": "法则", "starting_scene": "开场", "entries": [ {"name": "势力", "keys": "词", "content": "设定"} ]}""",

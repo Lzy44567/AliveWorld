@@ -24,6 +24,8 @@ const allEntityDisclosure = computed({
         <label class="flex items-center gap-2 text-sm text-slate-300 cursor-pointer"><input type="checkbox" v-model="configStore.settings.showEntityMotives" class="rounded bg-slate-800 border-slate-600 text-amber-500"><span>显示动机</span></label>
         <label class="flex items-center gap-2 text-sm text-slate-300 cursor-pointer"><input type="checkbox" v-model="configStore.settings.allowEntityEditing" class="rounded bg-slate-800 border-slate-600 text-amber-500"><span>允许编辑</span></label>
         <label class="flex items-center gap-2 text-sm text-slate-300 cursor-pointer"><input type="checkbox" v-model="configStore.settings.showEntityBubbles" class="rounded bg-slate-800 border-slate-600 text-amber-500"><span>显示气泡</span></label>
+        <label class="col-span-2 flex items-center gap-2 text-sm text-slate-300 cursor-pointer"><input type="checkbox" v-model="configStore.settings.showInfluenceBubbles" class="rounded bg-slate-800 border-slate-600 text-purple-500"><span>默认显示暗流影响触发气泡（调试）</span></label>
+        <label class="col-span-2 flex items-center gap-2 text-sm text-slate-300 cursor-pointer"><input type="checkbox" v-model="configStore.settings.showCausalLedger" class="rounded bg-slate-800 border-slate-600 text-purple-500"><span>默认显示暗流因果账本（调试）</span></label>
       </div>
       <p class="text-[10px] text-slate-500">显示权限不控制推演是否运行；气泡只显示获准的名称与动机。</p>
     </div>

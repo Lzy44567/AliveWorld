@@ -2,6 +2,8 @@ export const STORY_SETTING_DEFAULTS = Object.freeze({
   showFutures: true, showDice: true, allowReroll: true, aiSuggestions: true,
   entitiesEnabled: true, showEntityNames: false, showEntityMotives: false,
   allowEntityEditing: false, showEntityBubbles: false, showTime: true,
+  showInfluenceBubbles: false,
+  showCausalLedger: false,
   autoCompressMemory: false
 });
 

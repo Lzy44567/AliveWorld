@@ -42,11 +42,12 @@ class Entity:
     importance: float = 0.5
     is_active: bool = True
     tags: List[Any] = field(default_factory=list)
+    influence_refs: List[Any] = field(default_factory=list)
     extra: Dict[str, Any] = field(default_factory=dict, repr=False)
 
     _KNOWN_FIELDS = {
         "name", "motive", "goal", "status", "recent_actions", "plans", "mechanisms",
-        "triggers", "relationships", "importance", "is_active", "tags",
+        "triggers", "relationships", "importance", "is_active", "tags", "influence_refs",
     }
 
     @classmethod
@@ -69,6 +70,7 @@ class Entity:
             importance=max(0.0, min(1.0, importance)),
             is_active=bool(raw.get("is_active", True)),
             tags=_as_list(raw.get("tags")),
+            influence_refs=_as_list(raw.get("influence_refs")),
             extra={key: value for key, value in raw.items() if key not in cls._KNOWN_FIELDS},
         )
 
@@ -134,6 +136,7 @@ class Entity:
             "importance": self.importance,
             "is_active": self.is_active,
             "tags": self.tags,
+            "influence_refs": self.influence_refs,
         })
         return data
 

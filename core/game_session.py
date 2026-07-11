@@ -54,6 +54,7 @@ class GameSession:
         self.history["context_history"] = [opening]
 
     def _sync_entities_to_local(self):
+        self.undercurrent.sync_influence_refs()
         self.entity_repository.synchronize(self.undercurrent.entities)
 
     def _refresh_local_context(self):
@@ -62,6 +63,7 @@ class GameSession:
 
     def process_turn(self, user_action: str):
         self._take_snapshot()
+        self.undercurrent.causal_ledger.advance_turn()
         self.history["chat_messages"].append({"role": "user", "content": user_action})
         self._refresh_local_context()
         
@@ -69,14 +71,25 @@ class GameSession:
         if not result or not result.get('settlement'): return {"error": True}
             
         settlement = result['settlement']
+        resolutions = settlement.get("resolved_influences", [])
+        resolved_items = self.undercurrent.causal_ledger.resolve(resolutions)
         self.history["chat_messages"].append({"role": "reactions", "content": result['reactions']})
+        self.history["chat_messages"].append({"role": "influence_checks", "content": result.get("triggered_influences", [])})
         self.history["chat_messages"].append({"role": "system", "content": f"命运变数: {result['chosen_reaction']['description']}"})
         
         story_text = settlement.get('story_text', '').replace('\\n', '\n')
         self.history["chat_messages"].append({"role": "ai", "content": story_text})
+        resolution_by_id = {item.get("id"): item for item in resolutions if isinstance(item, dict)}
+        for influence in resolved_items:
+            resolution = resolution_by_id.get(influence.id, {})
+            self.history["chat_messages"].append({
+                "role": "influence",
+                "content": {"id": influence.id, "summary": influence.summary, "result": resolution.get("result", "已在正文兑现")},
+            })
         
         # 🚀 修复实体延迟1回合Bug：手动把当前回合刚发生的剧情喂给 Overseer
-        current_context = self.get_context_text() + f"\n玩家：{user_action}\n结果：{story_text}"
+        active_world, _ = self.build_active_world_info(user_action)
+        current_context = active_world + f"\n\n【本回合】\n玩家：{user_action}\n结果：{story_text}"
         events = self.undercurrent.tick(current_context, enabled=self.story_settings["entitiesEnabled"])
         
         self._sync_entities_to_local()
@@ -89,10 +102,11 @@ class GameSession:
     def reroll_turn(self):
         if not self.snapshots: return {"error": True}
         
-        action, reactions, old_desc = "", [], ""
+        action, reactions, old_desc, triggered_influences = "", [], "", []
         for msg in reversed(self.history["chat_messages"]):
             if msg.get("role") == "user" and not action: action = msg.get("content")
             if msg.get("role") == "reactions" and not reactions: reactions = msg.get("content")
+            if msg.get("role") == "influence_checks" and not triggered_influences: triggered_influences = msg.get("content")
             if msg.get("role") == "system" and "命运变数" in msg.get("content", "") and not old_desc: old_desc = msg["content"].replace("命运变数: ", "")
             if action and reactions and old_desc: break 
         
@@ -100,6 +114,7 @@ class GameSession:
         
         self.rollback()
         self._take_snapshot()
+        self.undercurrent.causal_ledger.advance_turn()
         self.history["chat_messages"].append({"role": "user", "content": action})
         
         valid_reactions = [r for r in reactions if r['description'] != old_desc]
@@ -107,6 +122,7 @@ class GameSession:
         chosen = random.choices(valid_reactions, weights=[p.get('weight', 50) for p in valid_reactions], k=1)[0]
         
         self.history["chat_messages"].append({"role": "reactions", "content": reactions})
+        self.history["chat_messages"].append({"role": "influence_checks", "content": triggered_influences})
         self.history["chat_messages"].append({"role": "system", "content": f"命运变数: {chosen['description']}"})
         
         self._refresh_local_context()
@@ -115,16 +131,29 @@ class GameSession:
         from core.prompts import load_system_prompts
         pts = load_system_prompts()
         settle_p = pts.get('settlement_prompt', '').replace('{world_info}', active_world).replace('{character_info}', self.ctx_mgr.char_info).replace('{style_info}', self.ctx_mgr.style_info)
-        usr_p2 = f"【情景】：\n{self.get_context_text()}\n【状态】：{json.dumps(self.state_mgr.get_dynamic_state(), ensure_ascii=False)}\n【行动】：{action}\n【裁定变数】：{chosen['description']}"
+        influence_instruction = "\n".join(
+            f"- [{item['id']}] {item['summary']}；必须体现的后果：{item['effect']}；依据：{item['reason']}"
+            for item in triggered_influences
+        ) or "（本回合没有满足条件的暗流影响）"
+        usr_p2 = f"【情景】：\n{self.get_context_text()}\n【状态】：{json.dumps(self.state_mgr.get_dynamic_state(), ensure_ascii=False)}\n【行动】：{action}\n【裁定变数】：{chosen['description']}\n【本回合必须兑现的暗流影响】：\n{influence_instruction}"
         
         raw_settle, err2 = self.ai_engine.chat_json(settle_p, usr_p2, temp=0.8, max_tokens=3000, trace_label="剧情重写")
         settlement = intelligent_salvage("", "网络拦截") if err2 else (robust_json_parse(raw_settle) if raw_settle else intelligent_salvage("", "空返回"))
+        resolutions = settlement.get("resolved_influences", [])
+        resolved_items = self.undercurrent.causal_ledger.resolve(resolutions)
             
         story_text = settlement.get('story_text', '').replace('\\n', '\n')
         self.history["chat_messages"].append({"role": "ai", "content": story_text})
+        resolution_by_id = {item.get("id"): item for item in resolutions if isinstance(item, dict)}
+        for influence in resolved_items:
+            self.history["chat_messages"].append({"role": "influence", "content": {
+                "id": influence.id, "summary": influence.summary,
+                "result": resolution_by_id.get(influence.id, {}).get("result", "已在正文兑现"),
+            }})
         
         # 🚀 修复实体延迟1回合Bug
-        current_context = self.get_context_text() + f"\n玩家：{action}\n结果：{story_text}"
+        active_world, _ = self.build_active_world_info(action)
+        current_context = active_world + f"\n\n【本回合】\n玩家：{action}\n结果：{story_text}"
         events = self.undercurrent.tick(current_context, enabled=self.story_settings["entitiesEnabled"])
         
         self._sync_entities_to_local()
