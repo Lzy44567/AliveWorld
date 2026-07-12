@@ -1,0 +1,125 @@
+from pathlib import Path
+import uuid
+
+import yaml
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
+from typing import Any, Dict, List, Optional
+
+from core.worldbook_workshop import WorkshopError, WorldbookWorkshop
+from utils.asset_catalog import resolve_asset_path
+from utils.file_io import DATA_DIR, WORLD_DIR
+
+
+router = APIRouter()
+WORKSHOP_DIR = Path(DATA_DIR) / "workshops"
+active_workshops: Dict[str, WorldbookWorkshop] = {}
+
+
+class StartWorkshopRequest(BaseModel):
+    worldbook_name: str
+
+
+class ApplyOperationsRequest(BaseModel):
+    operations: List[Dict[str, Any]] = Field(default_factory=list)
+    confirm_high_risk: bool = False
+
+
+class PublishRequest(BaseModel):
+    worldbook_name: Optional[str] = None
+
+
+def _get(workshop_id: str) -> WorldbookWorkshop:
+    workshop = active_workshops.get(workshop_id)
+    if workshop:
+        return workshop
+    path = WORKSHOP_DIR / f"{workshop_id}.json"
+    if path.exists():
+        import json
+        workshop = WorldbookWorkshop.from_dict(json.loads(path.read_text(encoding="utf-8")))
+        active_workshops[workshop_id] = workshop
+        return workshop
+    raise HTTPException(status_code=404, detail="世界书工坊会话不存在")
+
+
+def _payload(workshop: WorldbookWorkshop):
+    return {"workshop_id": workshop.id, "draft": workshop.draft, "pending": workshop.pending, "messages": workshop.messages}
+
+
+@router.post("/workshops/start")
+def start_workshop(payload: StartWorkshopRequest):
+    source_path = resolve_asset_path("worldbooks", payload.worldbook_name)
+    if not source_path:
+        raise HTTPException(status_code=404, detail="世界书不存在")
+    source = yaml.safe_load(source_path.read_text(encoding="utf-8")) or {}
+    workshop = WorldbookWorkshop(str(uuid.uuid4()), source_path, source)
+    active_workshops[workshop.id] = workshop
+    workshop.save_session(WORKSHOP_DIR)
+    return _payload(workshop)
+
+
+@router.get("/workshops/{workshop_id}")
+def get_workshop(workshop_id: str):
+    return _payload(_get(workshop_id))
+
+
+@router.post("/workshops/{workshop_id}/operations")
+def apply_operations(workshop_id: str, payload: ApplyOperationsRequest):
+    workshop = _get(workshop_id)
+    try:
+        result = workshop.apply_operations(payload.operations, confirm_high_risk=payload.confirm_high_risk)
+        workshop.save_session(WORKSHOP_DIR)
+        return {**_payload(workshop), "applied": result["applied"]}
+    except WorkshopError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.post("/workshops/{workshop_id}/pending/{operation_id}/approve")
+def approve_operation(workshop_id: str, operation_id: str):
+    workshop = _get(workshop_id)
+    try:
+        workshop.approve(operation_id)
+        workshop.save_session(WORKSHOP_DIR)
+        return _payload(workshop)
+    except WorkshopError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.delete("/workshops/{workshop_id}/pending/{operation_id}")
+def reject_operation(workshop_id: str, operation_id: str):
+    workshop = _get(workshop_id)
+    try:
+        workshop.reject(operation_id)
+        workshop.save_session(WORKSHOP_DIR)
+        return _payload(workshop)
+    except WorkshopError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.post("/workshops/{workshop_id}/undo")
+def undo_workshop(workshop_id: str):
+    workshop = _get(workshop_id)
+    try:
+        workshop.undo()
+        workshop.save_session(WORKSHOP_DIR)
+        return _payload(workshop)
+    except WorkshopError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.post("/workshops/{workshop_id}/publish")
+def publish_workshop(workshop_id: str, payload: PublishRequest):
+    workshop = _get(workshop_id)
+    target = workshop.target_path
+    if payload.worldbook_name:
+        safe_name = "".join(char for char in payload.worldbook_name if char.isalnum() or char in " _-").strip()
+        if not safe_name:
+            raise HTTPException(status_code=400, detail="世界书名称无效")
+        workshop.draft["name"] = payload.worldbook_name.strip()
+        target = Path(WORLD_DIR) / f"{safe_name}.yml"
+    elif target.name.endswith(".template.yml") or workshop.draft.get("is_template") is True:
+        raise HTTPException(status_code=400, detail="模板世界书必须另存为个人世界书")
+    workshop.publish(target)
+    workshop.target_path = target
+    workshop.save_session(WORKSHOP_DIR)
+    return {**_payload(workshop), "published_path": str(target)}
