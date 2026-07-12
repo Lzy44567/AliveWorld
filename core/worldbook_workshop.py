@@ -5,13 +5,14 @@ from __future__ import annotations
 import copy
 import json
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from core.worldbook import normalize_entry, normalize_tags, normalize_worldbook, save_worldbook_atomic
 
 
-ALLOWED_OPERATIONS = {"add_entry", "update_entry", "deactivate_entry", "request_delete"}
+ALLOWED_OPERATIONS = {"add_entry", "update_entry", "deactivate_entry", "request_delete", "delete_entry", "update_overview", "set_axioms"}
 
 
 class WorkshopError(ValueError):
@@ -28,6 +29,8 @@ def _find_entry(book: dict[str, Any], entry_id: str) -> tuple[int, dict[str, Any
 def _is_high_risk(book: dict[str, Any], operation: dict[str, Any]) -> bool:
     op = operation.get("op")
     if op == "request_delete":
+        return True
+    if op in {"delete_entry", "set_axioms"}:
         return True
     if op == "add_entry":
         return bool(operation.get("creates_axiom")) or "绝对规则" in normalize_tags(operation.get("entry", {}).get("tags", []))
@@ -47,6 +50,13 @@ class WorldbookWorkshop:
         self.snapshots: list[dict[str, Any]] = []
         self.pending: list[dict[str, Any]] = []
         self.messages: list[dict[str, str]] = []
+        self.dirty = False
+        self.published = False
+        self.updated_at = datetime.now(timezone.utc).isoformat()
+
+    def touch(self, *, dirty: bool = True) -> None:
+        self.dirty = self.dirty or dirty
+        self.updated_at = datetime.now(timezone.utc).isoformat()
 
     def _snapshot(self) -> None:
         self.snapshots.append(copy.deepcopy(self.draft))
@@ -63,10 +73,17 @@ class WorldbookWorkshop:
             if not entry["name"] or not entry["content"]:
                 raise WorkshopError("新增条目必须包含名称和内容")
             operation["entry"] = entry
-        elif operation["op"] in {"update_entry", "deactivate_entry", "request_delete"}:
+        elif operation["op"] in {"update_entry", "deactivate_entry", "request_delete", "delete_entry"}:
             _find_entry(self.draft, str(operation.get("entry_id", "")))
             if operation["op"] == "update_entry" and not isinstance(operation.get("changes"), dict):
                 raise WorkshopError("修改条目必须提供 changes")
+        elif operation["op"] == "update_overview":
+            operation["overview"] = str(operation.get("overview", "")).strip()
+        elif operation["op"] == "set_axioms":
+            axioms = operation.get("axioms", [])
+            if not isinstance(axioms, list):
+                raise WorkshopError("世界公理必须是数组")
+            operation["axioms"] = [str(item).strip() for item in axioms if str(item).strip()]
         return operation
 
     def apply_operations(self, operations: list[dict[str, Any]], *, confirm_high_risk: bool = False) -> dict[str, Any]:
@@ -81,10 +98,18 @@ class WorldbookWorkshop:
                 self._snapshot()
             self._apply(operation)
             applied.append(operation)
+        if applied or pending:
+            self.touch()
         return {"applied": applied, "pending": pending, "draft": copy.deepcopy(self.draft)}
 
     def _apply(self, operation: dict[str, Any]) -> None:
         op = operation["op"]
+        if op == "update_overview":
+            self.draft["overview"] = operation["overview"]
+            return
+        if op == "set_axioms":
+            self.draft["axioms"] = operation["axioms"]
+            return
         if op == "add_entry":
             entry = normalize_entry(operation["entry"])
             existing_ids = {item["id"] for item in self.draft.get("entries", [])}
@@ -108,6 +133,8 @@ class WorldbookWorkshop:
                 tags.append("待删除")
             self.draft["entries"][index]["tags"] = tags
             self.draft["entries"][index]["is_active"] = False
+        elif op == "delete_entry":
+            self.draft["entries"].pop(index)
 
     def approve(self, operation_id: str) -> dict[str, Any]:
         for index, operation in enumerate(self.pending):
@@ -115,6 +142,7 @@ class WorldbookWorkshop:
                 self._snapshot()
                 self._apply(operation)
                 self.pending.pop(index)
+                self.touch()
                 return copy.deepcopy(self.draft)
         raise WorkshopError("待确认操作不存在")
 
@@ -128,11 +156,15 @@ class WorldbookWorkshop:
         if not self.snapshots:
             raise WorkshopError("没有可撤销的工坊修改")
         self.draft = self.snapshots.pop()
+        self.touch()
         return copy.deepcopy(self.draft)
 
     def publish(self, output_path: Path | None = None) -> Path:
         path = Path(output_path or self.target_path)
         save_worldbook_atomic(path, self.draft)
+        self.published = True
+        self.dirty = False
+        self.touch(dirty=False)
         return path
 
     def to_dict(self) -> dict[str, Any]:
@@ -143,6 +175,9 @@ class WorldbookWorkshop:
             "snapshots": self.snapshots,
             "pending": self.pending,
             "messages": self.messages,
+            "dirty": self.dirty,
+            "published": self.published,
+            "updated_at": self.updated_at,
         }
 
     def save_session(self, directory: Path) -> Path:
@@ -157,4 +192,7 @@ class WorldbookWorkshop:
         workshop.snapshots = data.get("snapshots", [])
         workshop.pending = data.get("pending", [])
         workshop.messages = data.get("messages", [])
+        workshop.dirty = bool(data.get("dirty", False))
+        workshop.published = bool(data.get("published", False))
+        workshop.updated_at = str(data.get("updated_at") or workshop.updated_at)
         return workshop

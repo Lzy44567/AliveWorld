@@ -70,6 +70,31 @@ class WorldbookWorkshopTests(unittest.TestCase):
             loaded = WorldbookWorkshop.from_dict(json.loads(session_path.read_text(encoding="utf-8")))
             self.assertEqual(len(loaded.draft["entries"]), 3)
 
+    def test_overview_is_editable_and_axioms_require_confirmation_for_ai(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workshop = self.make_workshop(temp_dir)
+            result = workshop.apply_operations([
+                {"op": "update_overview", "overview": "新的口语化概述"},
+                {"op": "set_axioms", "axioms": ["死亡不可逆"]},
+            ])
+            self.assertEqual(workshop.draft["overview"], "新的口语化概述")
+            self.assertEqual(len(result["pending"]), 1)
+            workshop.apply_operations([{"op": "set_axioms", "axioms": ["死亡不可逆"]}], confirm_high_risk=True)
+            self.assertEqual(workshop.draft["axioms"], ["死亡不可逆"])
+
+    def test_publish_marks_session_complete_and_persistence_keeps_dirty_state(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workshop = self.make_workshop(temp_dir)
+            workshop.apply_operations([{"op": "update_overview", "overview": "草稿"}])
+            self.assertTrue(workshop.dirty)
+            session_path = workshop.save_session(Path(temp_dir) / "sessions")
+            import json
+            loaded = WorldbookWorkshop.from_dict(json.loads(session_path.read_text(encoding="utf-8")))
+            self.assertTrue(loaded.dirty)
+            loaded.publish()
+            self.assertTrue(loaded.published)
+            self.assertFalse(loaded.dirty)
+
 
 if __name__ == "__main__":
     unittest.main()

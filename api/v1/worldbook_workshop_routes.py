@@ -69,7 +69,21 @@ def _get(workshop_id: str) -> WorldbookWorkshop:
 
 
 def _payload(workshop: WorldbookWorkshop):
-    return {"workshop_id": workshop.id, "draft": workshop.draft, "pending": workshop.pending, "messages": workshop.messages}
+    return {"workshop_id": workshop.id, "draft": workshop.draft, "pending": workshop.pending, "messages": workshop.messages, "dirty": workshop.dirty, "published": workshop.published, "updated_at": workshop.updated_at}
+
+
+def _find_resumable(target_path: Path) -> WorldbookWorkshop | None:
+    candidates = []
+    if WORKSHOP_DIR.exists():
+        import json
+        for path in WORKSHOP_DIR.glob("*.json"):
+            try:
+                item = WorldbookWorkshop.from_dict(json.loads(path.read_text(encoding="utf-8")))
+                if item.target_path.resolve() == target_path.resolve() and not item.published:
+                    candidates.append(item)
+            except (OSError, ValueError, KeyError):
+                continue
+    return max(candidates, key=lambda item: item.updated_at) if candidates else None
 
 
 @router.post("/workshops/start")
@@ -77,11 +91,15 @@ def start_workshop(payload: StartWorkshopRequest):
     source_path = resolve_asset_path("worldbooks", payload.worldbook_name)
     if not source_path:
         raise HTTPException(status_code=404, detail="世界书不存在")
+    resumed = _find_resumable(source_path)
+    if resumed:
+        active_workshops[resumed.id] = resumed
+        return {**_payload(resumed), "resumed": True}
     source = yaml.safe_load(source_path.read_text(encoding="utf-8")) or {}
     workshop = WorldbookWorkshop(str(uuid.uuid4()), source_path, source)
     active_workshops[workshop.id] = workshop
     workshop.save_session(WORKSHOP_DIR)
-    return _payload(workshop)
+    return {**_payload(workshop), "resumed": False}
 
 
 @router.get("/workshops/{workshop_id}")

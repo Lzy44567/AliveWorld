@@ -17,6 +17,9 @@ export const worldbookWorkshopApi = {
   chat(id, message, mode) {
     return request(`${BASE_URL}/${id}/chat`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message, mode }) });
   },
+  operations(id, operations, confirmHighRisk = true) {
+    return request(`${BASE_URL}/${id}/operations`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ operations, confirm_high_risk: confirmHighRisk }) });
+  },
   approve(id, operationId) {
     return request(`${BASE_URL}/${id}/pending/${operationId}/approve`, { method: 'POST' });
   },
