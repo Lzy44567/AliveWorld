@@ -19,6 +19,15 @@ const settings = computed(() => configStore.story.settings);
     </section>
 
     <section class="rounded-xl border border-slate-700 bg-slate-800/30 p-4">
+      <h3 class="mb-2 text-xs font-bold text-cyan-300">📚 世界书辅助</h3>
+      <p class="mb-3 text-[10px] leading-relaxed text-slate-500">正文返回后异步识别稳定的新世界设定，不阻塞故事。动态事件不会写入世界书。</p>
+      <div class="grid grid-cols-2 gap-3">
+        <label class="setting-row"><span>捕获局内新设定</span><input type="checkbox" v-model="settings.worldbookCaptureEnabled"></label>
+        <label class="setting-row" :class="!settings.worldbookCaptureEnabled ? 'opacity-50' : ''"><span>AI内容二次确认</span><input type="checkbox" v-model="settings.worldbookCaptureReview" :disabled="!settings.worldbookCaptureEnabled"></label>
+      </div>
+    </section>
+
+    <section class="rounded-xl border border-slate-700 bg-slate-800/30 p-4">
       <h3 class="mb-3 text-xs font-bold text-amber-300">👾 暗流实体显示</h3>
       <div class="grid grid-cols-2 gap-3">
         <label class="setting-row"><span>显示名称</span><input type="checkbox" v-model="settings.showEntityNames"></label>

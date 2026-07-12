@@ -4,7 +4,9 @@ export const STORY_SETTING_DEFAULTS = Object.freeze({
   allowEntityEditing: false, showEntityBubbles: false, showTime: true,
   showInfluenceBubbles: false,
   showCausalLedger: false,
-  autoCompressMemory: false
+  autoCompressMemory: false,
+  worldbookCaptureEnabled: true,
+  worldbookCaptureReview: false
 });
 
 export function normalizeStorySettings(settings = {}, defaults = STORY_SETTING_DEFAULTS) {

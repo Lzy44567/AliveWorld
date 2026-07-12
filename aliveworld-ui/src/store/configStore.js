@@ -25,7 +25,9 @@ export const configStore = reactive({
     showEntityMotives: savedConfig.settings?.showEntityMotives ?? ['motives', 'full'].includes(legacyEntityVisibility),
     allowEntityEditing: savedConfig.settings?.allowEntityEditing ?? legacyEntityVisibility === 'full',
     showEntityBubbles: savedConfig.settings?.showEntityBubbles ?? Boolean(savedConfig.settings?.showEntityDebug && legacyEntityVisibility !== 'hidden'),
-    autoCompressMemory: savedConfig.settings?.autoCompressMemory ?? false
+    autoCompressMemory: savedConfig.settings?.autoCompressMemory ?? false,
+    worldbookCaptureEnabled: savedConfig.settings?.worldbookCaptureEnabled ?? true,
+    worldbookCaptureReview: savedConfig.settings?.worldbookCaptureReview ?? false
   }),
   
   story: {

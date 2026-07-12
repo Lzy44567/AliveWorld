@@ -17,6 +17,8 @@ DEFAULT_STORY_SETTINGS = {
     "showCausalLedger": False,
     "showTime": True,
     "autoCompressMemory": False,
+    "worldbookCaptureEnabled": True,
+    "worldbookCaptureReview": False,
 }
 
 

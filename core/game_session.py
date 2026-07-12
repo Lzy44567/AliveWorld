@@ -9,6 +9,7 @@ from core.ai_engine import robust_json_parse, intelligent_salvage
 from core.entity_repository import EntityRepository
 from core.story_settings import normalize_story_settings
 from core.future_candidates import choose_candidate, normalize_candidates
+from core.worldbook_capture import WorldbookCaptureService
 
 class GameSession:
     def __init__(self, ai_engine, save_name="", save_dir_path="", story_settings=None):
@@ -25,6 +26,7 @@ class GameSession:
         self.undercurrent = UndercurrentEngine(self.ai_engine)
         self.entity_repository = EntityRepository(self.save_dir_path)
         self.resolver = DualTrackResolver()
+        self.worldbook_capture = WorldbookCaptureService(self.ai_engine)
         
         self.history = {"chat_messages": [], "context_history": []}
         self.snapshots = [] 
@@ -99,6 +101,11 @@ class GameSession:
         
         self.state_mgr.apply_updates(settlement)
         self.history["context_history"].append(f"玩家：{user_action}\n结果：{story_text}")
+        if self.story_settings["worldbookCaptureEnabled"]:
+            self.worldbook_capture.schedule(
+                self.save_dir_path, user_action, story_text,
+                review_all=self.story_settings["worldbookCaptureReview"],
+            )
         return result
 
     def reroll_turn(self):
