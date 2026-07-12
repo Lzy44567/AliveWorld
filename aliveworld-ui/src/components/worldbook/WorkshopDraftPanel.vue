@@ -4,7 +4,7 @@ import ExpandableTextarea from '../common/ExpandableTextarea.vue';
 import { useDeleteConfirmation } from '../../composables/useDeleteConfirmation';
 
 const props = defineProps({ draft: { type: Object, required: true }, editingEntry: { type: Object, default: null } });
-const emit = defineEmits(['saveHeader', 'addEntry', 'editEntry', 'cancelEdit', 'saveEntry', 'toggleEntry', 'deleteEntry', 'askAi']);
+const emit = defineEmits(['addEntry', 'editEntry', 'cancelEdit', 'saveEntry', 'toggleEntry', 'deleteEntry', 'askAi']);
 const overview = defineModel('overview', { type: String, default: '' });
 const axioms = defineModel('axioms', { type: String, default: '' });
 const tab = ref('overview');
@@ -27,12 +27,12 @@ const confirmDelete = (entry) => { emit('deleteEntry', entry); cancelDelete(); }
       <section v-if="tab === 'overview'">
         <h3 class="font-bold text-slate-200">世界概述</h3><p class="mt-1 text-[10px] text-slate-500">世界背景、总体印象和希望重点呈现的体验。</p>
         <ExpandableTextarea v-model="overview" label="工坊世界概述" textarea-class="mt-3 h-64 rounded border border-slate-800 bg-slate-900 p-3 text-xs text-slate-300" />
-        <button @click="emit('saveHeader')" class="mt-3 rounded bg-indigo-700 px-3 py-1.5 text-xs text-white">保存概述到草稿</button>
+        <p class="mt-3 text-[10px] text-emerald-400">停止输入后自动保存到工坊草稿</p>
       </section>
       <section v-else-if="tab === 'axioms'">
         <h3 class="font-bold text-amber-300">世界公理</h3><p class="mt-1 text-[10px] text-slate-500">每行一条，描述世界内部真实成立的底层规则。</p>
         <ExpandableTextarea v-model="axioms" label="工坊世界公理" textarea-class="mt-3 h-64 rounded border border-amber-900/60 bg-slate-900 p-3 text-xs text-slate-300" />
-        <button @click="emit('saveHeader')" class="mt-3 rounded bg-amber-800 px-3 py-1.5 text-xs text-white">保存公理到草稿</button>
+        <p class="mt-3 text-[10px] text-emerald-400">停止输入后自动保存到工坊草稿</p>
       </section>
       <section v-else>
         <div class="flex gap-2"><input v-model="search" placeholder="搜索名称、触发词、标签或内容" class="min-w-0 flex-1 rounded border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-white"><button @click="emit('addEntry')" class="rounded bg-indigo-700 px-3 text-xs text-white">+ 新增</button></div>

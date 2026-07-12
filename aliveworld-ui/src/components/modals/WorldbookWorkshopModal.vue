@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { uiStore } from '../../store/uiStore';
 import { assetStore } from '../../store/assetStore';
 import { worldbookWorkshopApi } from '../../api/worldbookWorkshopApi';
@@ -17,6 +17,8 @@ const dirty = ref(false);
 const editingEntry = ref(null);
 const overviewDraft = ref('');
 const axiomsDraft = ref('');
+let headerSaveTimer = null;
+let syncingHeader = false;
 
 const modes = [
   { id: 'create', label: '从一句话创建', description: '根据一句核心想法、题材和偏好建立概述、公理与首批条目。' },
@@ -28,20 +30,26 @@ const worldbookNames = computed(() => uiStore.workshopSessionId
   ? (assetStore.worlds.local || []).map(item => item.name)
   : (assetStore.availableWorldbooks || []));
 
-const close = () => { uiStore.modals.worldbookWorkshop = false; };
+const close = async () => {
+  if (await saveBookHeader() === false) return;
+  uiStore.modals.worldbookWorkshop = false;
+};
 const sync = (data) => {
   workshopId.value = data.workshop_id || workshopId.value;
   draft.value = data.draft || draft.value;
   pending.value = data.pending || [];
   dirty.value = Boolean(data.dirty);
+  syncingHeader = true;
   overviewDraft.value = draft.value.overview || '';
   axiomsDraft.value = (draft.value.axioms || []).join('\n');
+  syncingHeader = false;
   if (data.messages) messages.value = data.messages;
   if (data.suggested_actions) suggestions.value = data.suggested_actions;
 };
 
 const loadWorldbook = async (name) => {
   if (!name || busy.value) return;
+  if (workshopId.value && await saveBookHeader() === false) return;
   busy.value = true;
   editingEntry.value = null;
   try {
@@ -65,17 +73,35 @@ const send = async (text = input.value) => {
   finally { busy.value = false; }
 };
 
-const applyManual = async (operations) => {
-  try { sync(await worldbookWorkshopApi.operations(workshopId.value, operations, true)); return true; }
+const applyManual = async (operations, syncResponse = true) => {
+  try {
+    const data = await worldbookWorkshopApi.operations(workshopId.value, operations, true);
+    if (syncResponse) sync(data);
+    else {
+      draft.value = data.draft || draft.value;
+      pending.value = data.pending || [];
+      dirty.value = Boolean(data.dirty);
+    }
+    return true;
+  }
   catch (e) { uiStore.showToast(e.message, 'error'); return false; }
 };
 
 const saveBookHeader = async () => {
-  await applyManual([
+  if (headerSaveTimer) window.clearTimeout(headerSaveTimer);
+  headerSaveTimer = null;
+  if (!workshopId.value || syncingHeader) return true;
+  return applyManual([
     { op: 'update_overview', overview: overviewDraft.value },
     { op: 'set_axioms', axioms: axiomsDraft.value.split(/\r?\n/).map(item => item.trim()).filter(Boolean) },
-  ]);
+  ], false);
 };
+watch([overviewDraft, axiomsDraft], () => {
+  if (syncingHeader || !workshopId.value) return;
+  if (headerSaveTimer) window.clearTimeout(headerSaveTimer);
+  headerSaveTimer = window.setTimeout(saveBookHeader, 800);
+}, { flush: 'sync' });
+onBeforeUnmount(() => { if (headerSaveTimer) window.clearTimeout(headerSaveTimer); });
 
 const startAddEntry = () => { editingEntry.value = { isNew: true, id: '', name: '', keys: '', content: '', tagsText: '', is_active: true }; };
 const startEditEntry = (entry) => { editingEntry.value = { ...JSON.parse(JSON.stringify(entry)), isNew: false, tagsText: (entry.tags || []).join(', ') }; };
@@ -107,6 +133,7 @@ const undo = async () => {
 };
 const publish = async () => {
   try {
+    if (await saveBookHeader() === false) return;
     const isTemplate = draft.value.is_template === true || (draft.value.tags || []).includes('模板');
     const publishName = isTemplate ? window.prompt('模板不能被覆盖，请输入个人世界书名称：', `${draft.value.name || '新世界书'}_个人版`) : null;
     if (isTemplate && !publishName) return;
@@ -135,7 +162,7 @@ const publish = async () => {
           <div class="border-t border-slate-800 p-3"><div v-if="suggestions.length" class="mb-2 flex flex-wrap gap-1"><button v-for="item in suggestions" :key="item" @click="send(item)" class="rounded-full border border-indigo-800 px-2 py-1 text-[10px] text-indigo-300">{{ item }}</button></div><div class="flex gap-2"><textarea v-model="input" @keydown.ctrl.enter.prevent="send()" class="h-20 flex-1 rounded-lg border border-slate-700 bg-slate-900 p-3 text-sm text-slate-200" :placeholder="`${activeMode.description} Ctrl+Enter发送`"></textarea><button @click="send()" :disabled="busy" class="w-20 rounded-lg bg-indigo-700 text-sm font-bold text-white disabled:opacity-50">{{ busy ? '处理中' : '发送' }}</button></div></div>
         </section>
 
-        <WorkshopDraftPanel v-model:overview="overviewDraft" v-model:axioms="axiomsDraft" :draft="draft" :editing-entry="editingEntry" @save-header="saveBookHeader" @add-entry="startAddEntry" @edit-entry="startEditEntry" @cancel-edit="cancelEditEntry" @save-entry="saveEntry" @toggle-entry="toggleEntry" @delete-entry="deleteEntry" @ask-ai="askAiToEdit" />
+        <WorkshopDraftPanel v-model:overview="overviewDraft" v-model:axioms="axiomsDraft" :draft="draft" :editing-entry="editingEntry" @add-entry="startAddEntry" @edit-entry="startEditEntry" @cancel-edit="cancelEditEntry" @save-entry="saveEntry" @toggle-entry="toggleEntry" @delete-entry="deleteEntry" @ask-ai="askAiToEdit" />
       </div>
     </div>
   </div>
