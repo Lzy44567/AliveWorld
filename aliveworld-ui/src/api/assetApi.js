@@ -29,12 +29,12 @@ export const assetApi = {
   },
 
 // 修改这个方法
-  async saveAsset(type, name, yamlContent, parsedData = null) {
+  async saveAsset(type, name, yamlContent, parsedData = null, overwrite = false) {
     const res = await fetch(`${BASE_URL}/assets/${type}/${encodeURIComponent(name)}`, {
       method: 'POST',
       headers: { "Content-Type": "application/json" },
       // 同时把原代码和解析后的表单对象传过去
-      body: JSON.stringify({ content: yamlContent, parsed_data: parsedData })
+      body: JSON.stringify({ content: yamlContent, parsed_data: parsedData, overwrite })
     });
     if (!res.ok) throw new Error("保存资产失败");
     return await res.json();

@@ -85,7 +85,7 @@ const saveContent = async () => {
       await gameApi.updateLocalAsset(gameStore.sessionId, type.value, form.value.name, payload);
       await assetStore.fetchLocalAssets(gameStore.sessionId);
     } else {
-      await assetApi.saveAsset(type.value, form.value.name, "", payload);
+      await assetApi.saveAsset(type.value, form.value.name, "", payload, !uiStore.editorData.isNew);
       await assetStore.fetchAssets(); 
     }
     

@@ -50,6 +50,16 @@ def download_embedding_model():
     return embedding_manager.download_in_background()
 
 
+@router.post("/workshops/embeddings/pause")
+def pause_embedding_download():
+    return embedding_manager.pause_download()
+
+
+@router.delete("/workshops/embeddings/model")
+def uninstall_embedding_model():
+    return embedding_manager.uninstall()
+
+
 @router.post("/workshops/embeddings/toggle")
 def toggle_embeddings(payload: EmbeddingToggleRequest):
     return embedding_manager.set_enabled(payload.enabled)

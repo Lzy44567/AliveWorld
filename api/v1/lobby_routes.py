@@ -25,6 +25,7 @@ DIR_MAP = {
 class AssetPayload(BaseModel):
     content: Optional[str] = None
     parsed_data: Optional[Dict[str, Any]] = None
+    overwrite: bool = False
 
 class SavePromptsPayload(BaseModel):
     prompts: Dict[str, str]
@@ -44,7 +45,12 @@ async def get_lobby_assets():
 @router.post("/assets/{asset_type}/{asset_name}")
 async def save_asset(asset_type: str, asset_name: str, payload: AssetPayload):
     if asset_type not in DIR_MAP: raise HTTPException(status_code=400, detail="未知的资产类型")
-    file_path = os.path.join(DIR_MAP[asset_type], f"{asset_name}.yml")
+    existing_path = resolve_asset_path(asset_type, asset_name)
+    if existing_path and not payload.overwrite:
+        raise HTTPException(status_code=409, detail=f"已存在同名资产“{asset_name}”，需要明确确认覆盖")
+    if existing_path and resolve_template_path(asset_type, asset_name) == existing_path:
+        raise HTTPException(status_code=403, detail="模板资产不能被覆盖，请另存为个人资产")
+    file_path = str(existing_path) if existing_path else os.path.join(DIR_MAP[asset_type], f"{asset_name}.yml")
     try:
         if payload.parsed_data:
             parsed_data = normalize_worldbook(payload.parsed_data) if asset_type == "worldbooks" else payload.parsed_data

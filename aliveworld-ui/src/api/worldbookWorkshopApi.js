@@ -10,6 +10,8 @@ const request = async (url, options = {}) => {
 export const worldbookWorkshopApi = {
   embeddingStatus() { return request(`${BASE_URL}/embeddings/status`); },
   downloadEmbeddings() { return request(`${BASE_URL}/embeddings/download`, { method: 'POST' }); },
+  pauseEmbeddings() { return request(`${BASE_URL}/embeddings/pause`, { method: 'POST' }); },
+  uninstallEmbeddings() { return request(`${BASE_URL}/embeddings/model`, { method: 'DELETE' }); },
   toggleEmbeddings(enabled) { return request(`${BASE_URL}/embeddings/toggle`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled }) }); },
   start(worldbookName) {
     return request(`${BASE_URL}/start`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ worldbook_name: worldbookName }) });

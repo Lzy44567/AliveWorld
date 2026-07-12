@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import multiprocessing
+import shutil
 import threading
 from pathlib import Path
 from typing import Any, Callable
@@ -17,6 +19,28 @@ DEFAULT_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 MODEL_DIR = Path(DATA_DIR) / "models" / "worldbook_embedding"
 CACHE_FILE = Path(DATA_DIR) / "cache" / "worldbook_embeddings.json"
 SETTINGS_FILE = Path(DATA_DIR) / "worldbook_embedding_settings.json"
+DOWNLOAD_STATUS_FILE = Path(DATA_DIR) / "cache" / "worldbook_embedding_download.json"
+ESTIMATED_DOWNLOAD_BYTES = 486 * 1024 * 1024
+
+
+def _download_model_process(model_name: str, model_dir: str, status_file: str) -> None:
+    status_path = Path(status_file)
+    try:
+        from huggingface_hub import snapshot_download
+        Path(model_dir).mkdir(parents=True, exist_ok=True)
+        snapshot_download(
+            repo_id=model_name,
+            local_dir=model_dir,
+            allow_patterns=[
+                "config.json", "model.safetensors", "tokenizer.json", "tokenizer_config.json",
+                "special_tokens_map.json", "sentencepiece.bpe.model", "unigram.json",
+            ],
+        )
+        status_path.parent.mkdir(parents=True, exist_ok=True)
+        status_path.write_text(json.dumps({"state": "complete", "error": ""}), encoding="utf-8")
+    except Exception as exc:
+        status_path.parent.mkdir(parents=True, exist_ok=True)
+        status_path.write_text(json.dumps({"state": "error", "error": str(exc)}, ensure_ascii=False), encoding="utf-8")
 
 
 class VectorCache:
@@ -64,6 +88,7 @@ class LocalEmbeddingManager:
         self._tokenizer = None
         self._model = None
         self._lock = threading.RLock()
+        self._download_process = None
         self._load_settings()
 
     def _load_settings(self) -> None:
@@ -83,15 +108,40 @@ class LocalEmbeddingManager:
     def is_downloaded(self) -> bool:
         if self._custom_encoder:
             return True
-        return (self.model_dir / "config.json").exists()
+        return all((self.model_dir / name).exists() for name in ("config.json", "model.safetensors", "tokenizer.json"))
 
     def status(self) -> dict[str, Any]:
+        if self._download_process is not None and not self._download_process.is_alive():
+            self._download_process.join(timeout=0.1)
+            self._download_process = None
+            if self.is_downloaded():
+                self.enabled, self.state, self.error = True, "ready", ""
+                self._save_settings()
+            else:
+                try:
+                    result = json.loads(DOWNLOAD_STATUS_FILE.read_text(encoding="utf-8"))
+                    self.state, self.error = result.get("state", "error"), result.get("error", "")
+                except (OSError, ValueError):
+                    self.state = "paused"
+        downloaded_bytes = 0
+        if self.model_dir.exists():
+            for path in self.model_dir.rglob("*"):
+                try:
+                    if path.is_file(): downloaded_bytes += path.stat().st_size
+                except OSError:
+                    continue
         return {
             "enabled": self.enabled,
             "state": self.state,
             "model_name": self.model_name,
             "downloaded": self.is_downloaded(),
             "error": self.error,
+            "downloaded_bytes": downloaded_bytes,
+            "estimated_bytes": ESTIMATED_DOWNLOAD_BYTES,
+            "progress": min(100, round(downloaded_bytes / ESTIMATED_DOWNLOAD_BYTES * 100, 1)) if ESTIMATED_DOWNLOAD_BYTES else 0,
+            "model_dir": str(self.model_dir.resolve()),
+            "source_url": f"https://huggingface.co/{self.model_name}",
+            "runtime_note": "无需独立显卡；CPU可运行，建议至少预留2GB可用内存。",
         }
 
     def set_enabled(self, enabled: bool) -> dict[str, Any]:
@@ -101,29 +151,42 @@ class LocalEmbeddingManager:
         return self.status()
 
     def download_in_background(self) -> dict[str, Any]:
-        if self.state == "downloading":
+        if self._download_process is not None and self._download_process.is_alive():
             return self.status()
         self.state, self.error = "downloading", ""
-        thread = threading.Thread(target=self._download, name="worldbook-embedding-download", daemon=True)
-        thread.start()
+        DOWNLOAD_STATUS_FILE.parent.mkdir(parents=True, exist_ok=True)
+        DOWNLOAD_STATUS_FILE.write_text(json.dumps({"state": "downloading", "error": ""}), encoding="utf-8")
+        self._download_process = multiprocessing.Process(
+            target=_download_model_process,
+            args=(self.model_name, str(self.model_dir), str(DOWNLOAD_STATUS_FILE)),
+            name="worldbook-embedding-download",
+            daemon=True,
+        )
+        self._download_process.start()
         return self.status()
 
-    def _download(self) -> None:
-        try:
-            from transformers import AutoModel, AutoTokenizer
-            self.model_dir.mkdir(parents=True, exist_ok=True)
-            tokenizer = AutoTokenizer.from_pretrained(self.model_name, trust_remote_code=False)
-            model = AutoModel.from_pretrained(self.model_name, trust_remote_code=False)
-            tokenizer.save_pretrained(self.model_dir)
-            model.save_pretrained(self.model_dir)
-            with self._lock:
-                self._tokenizer, self._model = tokenizer, model.eval()
-                self.enabled, self.state, self.error = True, "ready", ""
-                self._save_settings()
-            log.info("世界书本地嵌入模型已就绪: %s", self.model_name)
-        except Exception as exc:
-            self.state, self.error = "error", str(exc)
-            log.warning("世界书嵌入模型下载失败，继续使用关键词降级: %s", exc)
+    def pause_download(self) -> dict[str, Any]:
+        if self._download_process is not None and self._download_process.is_alive():
+            self._download_process.terminate()
+            self._download_process.join(timeout=3)
+        self._download_process = None
+        self.state, self.error = "paused", ""
+        return self.status()
+
+    def uninstall(self) -> dict[str, Any]:
+        self.pause_download()
+        with self._lock:
+            self._tokenizer = None
+            self._model = None
+        self.enabled = False
+        if self.model_dir.exists():
+            shutil.rmtree(self.model_dir)
+        if self.cache.path.exists():
+            self.cache.path.unlink()
+        self.cache.items = {}
+        self.state, self.error = "missing", ""
+        self._save_settings()
+        return self.status()
 
     def _ensure_loaded(self) -> bool:
         if self._custom_encoder:

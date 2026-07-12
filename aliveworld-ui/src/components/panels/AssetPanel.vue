@@ -50,7 +50,8 @@ const currentList = computed(() => {
   }
   
   if (!searchKeyword.value) return list;
-  return list.filter(item => item.name.toLowerCase().includes(searchKeyword.value.toLowerCase()));
+  const keyword = searchKeyword.value.toLowerCase();
+  return list.filter(item => item.name.toLowerCase().includes(keyword) || (item.tags || []).some(tag => String(tag).toLowerCase().includes(keyword)));
 });
 
 const getApiType = () => {
@@ -134,6 +135,9 @@ const pushToGlobal = async (item) => {
   const newName = window.prompt("推送至全局图鉴：\n请输入保存名称（覆盖同名或另存为）", defaultName);
   
   if (!newName) return; 
+  const globalList = ({ worldbooks: assetStore.worlds.global, characters: assetStore.characters.global, styles: assetStore.styles.global, entities: assetStore.entities.global })[getApiType()] || [];
+  const sameNameExists = globalList.some(asset => asset.name === newName);
+  if (sameNameExists && !window.confirm(`全局图鉴中已存在“${newName}”。确定覆盖同名个人资产吗？模板资产不会被覆盖。`)) return;
 
   try {
     const payload = JSON.parse(JSON.stringify(item));
@@ -141,7 +145,7 @@ const pushToGlobal = async (item) => {
     payload.tags = (payload.tags || []).filter(t => t !== '本局独有');
     delete payload.is_active; 
     
-    await assetApi.saveAsset(getApiType(), newName, "", payload);
+    await assetApi.saveAsset(getApiType(), newName, "", payload, sameNameExists);
     await assetStore.fetchAssets();
     uiStore.showToast(`[${newName}] 已安全记录至全局图鉴`);
   } catch(e) {
@@ -194,18 +198,6 @@ onBeforeUnmount(() => {
   if (localWorldbookRefreshTimer) window.clearInterval(localWorldbookRefreshTimer);
 });
 
-const configureEmbeddings = async () => {
-  try {
-    if (!embeddingStatus.value.downloaded) {
-      if (!window.confirm('首次启用语义检索需要下载本地多语言嵌入模型。下载期间游戏仍可使用关键词检索，是否开始？')) return;
-      embeddingStatus.value = await worldbookWorkshopApi.downloadEmbeddings();
-      uiStore.showToast('模型已在后台下载；完成前继续使用关键词检索');
-      setTimeout(refreshEmbeddingStatus, 3000);
-      return;
-    }
-    embeddingStatus.value = await worldbookWorkshopApi.toggleEmbeddings(!embeddingStatus.value.enabled);
-  } catch (e) { uiStore.showToast(e.message, 'error'); }
-};
 
 </script>
 
@@ -227,7 +219,7 @@ const configureEmbeddings = async () => {
         <input v-model="searchKeyword" class="w-full bg-slate-800 border border-slate-600 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-200 outline-none focus:border-indigo-500" placeholder="搜索名称或标签..." />
       </div>
       <button v-if="uiStore.assetScope==='global'" @click="openNewAsset" class="px-2 h-8 bg-emerald-600/20 text-emerald-400 border border-emerald-700/50 rounded-lg hover:bg-emerald-600 hover:text-white transition text-xs font-bold whitespace-nowrap">+ 新建</button>
-      <button v-if="uiStore.rightTab==='world'" @click="configureEmbeddings" class="px-2 h-8 rounded-lg border text-[10px] font-bold whitespace-nowrap" :class="embeddingStatus.enabled?'border-cyan-700 bg-cyan-950/50 text-cyan-300':'border-slate-700 bg-slate-900 text-slate-400'" :title="embeddingStatus.error || '未启用时自动使用关键词检索'">{{ embeddingStatus.state==='downloading'?'语义模型下载中':embeddingStatus.enabled?'语义检索已启用':embeddingStatus.downloaded?'启用语义检索':'下载语义模型' }}</button>
+      <button v-if="uiStore.rightTab==='world'" @click="uiStore.modals.embeddingModel=true" class="px-2 h-8 rounded-lg border text-[10px] font-bold whitespace-nowrap" :class="embeddingStatus.enabled?'border-cyan-700 bg-cyan-950/50 text-cyan-300':'border-slate-700 bg-slate-900 text-slate-400'" :title="embeddingStatus.error || '打开语义模型管理'">{{ embeddingStatus.state==='downloading'?`下载中 ${embeddingStatus.progress||0}%`:embeddingStatus.enabled?'语义检索已启用':embeddingStatus.downloaded?'语义模型已安装':'管理语义模型' }}</button>
     </div>
     
     <CausalLedgerPanel v-if="uiStore.rightTab === 'entity' && uiStore.assetScope === 'local' && entityLibraryView === 'ledger' && effectiveStorySettings.showCausalLedger" :initial-source="ledgerSourceFilter" class="flex-1 min-h-0" />

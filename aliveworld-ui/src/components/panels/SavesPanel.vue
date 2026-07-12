@@ -66,7 +66,7 @@ const executeDelete = async (saveName) => {
 </script>
 
 <template>
-  <div class="flex flex-col h-full animate-[fadeIn_0.2s]">
+  <div class="flex flex-col flex-1 min-h-0 animate-[fadeIn_0.2s]">
     
     <!-- 顶部工具栏 -->
     <div class="flex gap-2 mb-4 shrink-0">
@@ -83,7 +83,8 @@ const executeDelete = async (saveName) => {
       <span>共 {{ filteredSaves.length }} 份</span>
     </div>
     
-    <!-- 存档卡片列表 -->
+    <!-- 只滚动存档卡片，搜索、收藏、新局和计数固定 -->
+    <div class="flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-1">
     <div class="space-y-3 pb-8">
       <div v-for="save in filteredSaves" :key="save.id" class="bg-aw_panel border border-slate-700 rounded-xl p-3 hover:border-indigo-500 transition group shadow">
         
@@ -111,6 +112,7 @@ const executeDelete = async (saveName) => {
         </div>
 
       </div>
+    </div>
     </div>
   </div>
 </template>

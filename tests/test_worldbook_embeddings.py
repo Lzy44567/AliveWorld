@@ -50,6 +50,25 @@ class WorldbookEmbeddingTests(unittest.TestCase):
             self.assertEqual(manager.scores("学校", [{"id": "one", "name": "学校", "content": "", "tags": []}]), {})
             self.assertEqual(manager.state, "error")
 
+    def test_uninstall_removes_model_and_vector_cache(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            model_dir = root / "model"
+            model_dir.mkdir()
+            for name in ("config.json", "model.safetensors", "tokenizer.json"):
+                (model_dir / name).write_text("test", encoding="utf-8")
+            cache = VectorCache(root / "cache.json")
+            cache.put("model", "text", [1.0])
+            cache.save()
+            manager = LocalEmbeddingManager(
+                model_dir=model_dir, cache=cache, encoder=None,
+                settings_file=root / "settings.json",
+            )
+            result = manager.uninstall()
+            self.assertFalse(model_dir.exists())
+            self.assertFalse(cache.path.exists())
+            self.assertFalse(result["enabled"])
+
 
 if __name__ == "__main__":
     unittest.main()

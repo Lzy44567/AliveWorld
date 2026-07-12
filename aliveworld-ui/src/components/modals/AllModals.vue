@@ -4,6 +4,7 @@ import { uiStore } from '../../store/uiStore';
 import TerminalModal from './TerminalModal.vue';
 import AssetEditorModal from './AssetEditorModal.vue';
 import WorldbookWorkshopModal from './WorldbookWorkshopModal.vue';
+import EmbeddingModelModal from './EmbeddingModelModal.vue';
 import SettingsModal from './SettingsModal.vue';
 import NewGameModal from './NewGameModal.vue';
 import InsertCharModal from './InsertCharModal.vue';
@@ -18,4 +19,5 @@ import GalleryModal from './GalleryModal.vue';
   <TerminalModal v-if="uiStore.modals.terminal" />
   <AssetEditorModal v-if="uiStore.modals.assetEditor" />
   <WorldbookWorkshopModal v-if="uiStore.modals.worldbookWorkshop" />
+  <EmbeddingModelModal v-if="uiStore.modals.embeddingModel" />
 </template>
