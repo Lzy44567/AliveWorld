@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
 import multiprocessing
 import shutil
@@ -111,6 +112,7 @@ class LocalEmbeddingManager:
         return all((self.model_dir / name).exists() for name in ("config.json", "model.safetensors", "tokenizer.json"))
 
     def status(self) -> dict[str, Any]:
+        runtime_available = all(importlib.util.find_spec(name) is not None for name in ("torch", "transformers", "huggingface_hub"))
         if self._download_process is not None and not self._download_process.is_alive():
             self._download_process.join(timeout=0.1)
             self._download_process = None
@@ -142,6 +144,7 @@ class LocalEmbeddingManager:
             "model_dir": str(self.model_dir.resolve()),
             "source_url": f"https://huggingface.co/{self.model_name}",
             "runtime_note": "无需独立显卡；CPU可运行，建议至少预留2GB可用内存。",
+            "runtime_available": runtime_available,
         }
 
     def set_enabled(self, enabled: bool) -> dict[str, Any]:
@@ -151,6 +154,10 @@ class LocalEmbeddingManager:
         return self.status()
 
     def download_in_background(self) -> dict[str, Any]:
+        if not all(importlib.util.find_spec(name) is not None for name in ("torch", "transformers", "huggingface_hub")):
+            self.state = "error"
+            self.error = "缺少本地语义依赖，请运行 install_windows.bat 并选择安装可选语义依赖。"
+            return self.status()
         if self._download_process is not None and self._download_process.is_alive():
             return self.status()
         self.state, self.error = "downloading", ""

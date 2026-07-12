@@ -1,0 +1,5 @@
+# Optional: only required for local worldbook semantic retrieval.
+-r requirements.txt
+torch>=2.8,<3
+transformers>=4.57,<5
+huggingface-hub>=0.36,<1

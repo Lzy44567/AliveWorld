@@ -1,0 +1,6 @@
+# Copy this file to config.yml and fill in your own API configuration.
+# Never share or commit config.yml.
+api_key: "YOUR_API_KEY"
+base_url: "https://api.deepseek.com"
+model: "deepseek-chat"
+image_api_url: "http://127.0.0.1:8188"

@@ -1,0 +1,4 @@
+fastapi>=0.124,<1
+uvicorn[standard]>=0.38,<1
+openai>=2.11,<3
+PyYAML>=6.0,<7

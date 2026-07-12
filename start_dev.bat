@@ -1,10 +1,25 @@
 @echo off
-echo [AliveWorld V2] 正在启动双核引擎...
+setlocal
+cd /d "%~dp0"
 
-:: 启动后端 FastAPI (独立窗口)
-start "AW_Backend" cmd /k "python -m uvicorn main:app --reload --port 8000"
+if not exist ".venv\Scripts\python.exe" (
+  echo [AliveWorld] Project environment is missing. Run install_windows.bat first.
+  pause
+  exit /b 1
+)
+if not exist "config.yml" (
+  echo [AliveWorld] config.yml is missing. Copy config.example.yml and fill in your API settings.
+  pause
+  exit /b 1
+)
+if not exist "aliveworld-ui\node_modules" (
+  echo [AliveWorld] Frontend dependencies are missing. Run install_windows.bat first.
+  pause
+  exit /b 1
+)
 
-:: 启动前端 Vite (独立窗口)
-start "AW_Frontend" cmd /k "cd aliveworld-ui && npm run dev"
-
-echo 启动指令已发送！请等待几秒后访问 http://localhost:5173
+echo [AliveWorld] Starting backend and frontend...
+start "AW_Backend" cmd /k "cd /d ""%~dp0"" && .venv\Scripts\python.exe -m uvicorn main:app --port 8000"
+start "AW_Frontend" cmd /k "cd /d ""%~dp0aliveworld-ui"" && npm run dev"
+echo Open http://127.0.0.1:5173 after both windows are ready.
+pause
