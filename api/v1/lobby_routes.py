@@ -11,6 +11,7 @@ from utils.file_io import DATA_DIR, CHAR_DIR, STYLE_DIR, WORLD_DIR, ENTITY_DIR, 
 from utils.asset_catalog import list_asset_names, list_asset_summaries, personal_asset_dir, resolve_asset_path, resolve_template_path
 from utils.sys_logger import read_logs_parsed
 from core.prompts import PROMPT_FILE, load_system_prompts
+from core.worldbook import normalize_worldbook
 
 router = APIRouter()
 
@@ -46,8 +47,9 @@ async def save_asset(asset_type: str, asset_name: str, payload: AssetPayload):
     file_path = os.path.join(DIR_MAP[asset_type], f"{asset_name}.yml")
     try:
         if payload.parsed_data:
+            parsed_data = normalize_worldbook(payload.parsed_data) if asset_type == "worldbooks" else payload.parsed_data
             with open(file_path, 'w', encoding='utf-8') as f:
-                yaml.safe_dump(payload.parsed_data, f, allow_unicode=True, sort_keys=False)
+                yaml.safe_dump(parsed_data, f, allow_unicode=True, sort_keys=False)
         else:
             with open(file_path, 'w', encoding='utf-8') as f:
                 f.write(payload.content)

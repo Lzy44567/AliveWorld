@@ -10,6 +10,7 @@ from typing import Dict, Any
 from core.session_manager import active_sessions
 from utils.file_io import DATA_DIR, save_game_data
 from utils.asset_catalog import resolve_asset_path
+from core.worldbook import normalize_worldbook
 
 router = APIRouter()
 
@@ -85,6 +86,8 @@ def update_local_asset(session_id: str, asset_type: str, asset_name: str, payloa
     
     try:
         parsed_data = dict(payload.parsed_data)
+        if asset_type == "worldbooks":
+            parsed_data = normalize_worldbook(parsed_data)
         if asset_type == "entities":
             parsed_data["influence_refs"] = game.undercurrent.causal_ledger.refs_for_entity(asset_name)
         with open(local_file, 'w', encoding='utf-8') as f:

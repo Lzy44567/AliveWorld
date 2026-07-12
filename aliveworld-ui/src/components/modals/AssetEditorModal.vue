@@ -7,6 +7,7 @@ import { assetApi } from '../../api/assetApi';
 import { gameApi } from '../../api/gameApi';
 import { gameStore } from '../../store/gameStore';
 import { buildEntityPayload } from '../../utils/entityForm';
+import SystemTagInput from '../common/SystemTagInput.vue';
 
 const form = computed(() => uiStore.editorData.form);
 const type = computed(() => uiStore.editorData.type);
@@ -14,7 +15,7 @@ const closeEditor = () => { uiStore.modals.assetEditor = false; };
 
 const addWorldEntry = () => {
   if (!form.value.entries) form.value.entries = [];
-  form.value.entries.push({ name: '', keys: '', content: '' });
+  form.value.entries.push({ name: '', keys: '', content: '', tags: '', is_active: true });
 };
 
 const removeWorldEntry = (idx) => { form.value.entries.splice(idx, 1); };
@@ -39,7 +40,11 @@ const saveContent = async () => {
     if (type.value === 'worldbooks') {
       payload.global_setting = form.value.global_setting;
       payload.starting_scene = form.value.starting_scene;
-      payload.entries = form.value.entries.filter(e => e.name || e.keys).map(e => ({ ...e, keys: e.keys ? e.keys.replace(/，/g, ',') : '' }));
+      payload.entries = form.value.entries.filter(e => e.name || e.keys || e.content).map(e => ({
+        ...e,
+        keys: e.keys ? e.keys.replace(/，/g, ',') : '',
+        tags: typeof e.tags === 'string' ? e.tags.split(/[,，]/).map(t => t.trim()).filter(Boolean) : (e.tags || []),
+      }));
     } else if (type.value === 'characters') {
       payload.description = form.value.desc;
       payload.starting_scene = form.value.starting_scene;
@@ -71,7 +76,8 @@ const saveContent = async () => {
       <div class="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
         <div class="grid grid-cols-2 gap-6">
           <div><label class="text-xs text-slate-400 font-bold mb-1.5 block">资产名称 (Name)</label><input v-model="form.name" class="w-full bg-[#0d0d12] border border-slate-700 text-slate-200 px-4 py-2.5 rounded-lg text-sm" /></div>
-          <div><label class="text-xs text-slate-400 font-bold mb-1.5 block">标签 (逗号分隔)</label><input v-model="form.tags" class="w-full bg-[#0d0d12] border border-slate-700 text-slate-200 px-4 py-2.5 rounded-lg text-sm" /></div>
+          <SystemTagInput v-if="type === 'worldbooks'" v-model="form.tags"><template #label><span class="text-xs text-slate-400 font-bold">标签（系统标签可补全，自由标签可直接输入）</span></template></SystemTagInput>
+          <div v-else><label class="text-xs text-slate-400 font-bold mb-1.5 block">标签 (逗号分隔)</label><input v-model="form.tags" class="w-full bg-[#0d0d12] border border-slate-700 text-slate-200 px-4 py-2.5 rounded-lg text-sm" /></div>
         </div>
 
         <!-- 🚀 修复问题10：补回完整视图 -->
@@ -87,6 +93,7 @@ const saveContent = async () => {
                   <div><label class="text-[10px] text-slate-500 block mb-1">触发关键词 (逗号分隔)</label><input v-model="entry.keys" class="w-full bg-slate-900 border border-slate-700 text-slate-200 px-3 py-1.5 rounded text-xs" /></div>
                 </div>
                 <div><label class="text-[10px] text-slate-500 block mb-1">词条内容</label><textarea v-model="entry.content" class="w-full h-20 bg-slate-900 border border-slate-700 text-slate-300 p-3 rounded text-xs"></textarea></div>
+                <div class="mt-3"><SystemTagInput v-model="entry.tags"><template #label><span class="text-[10px] text-slate-500">词条标签</span></template></SystemTagInput></div>
               </div>
             </div>
           </div>

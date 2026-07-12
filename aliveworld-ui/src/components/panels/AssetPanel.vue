@@ -88,7 +88,7 @@ const openEditAsset = async (name) => {
         desc: p.description || p.content || p.motive || '',
         global_setting: p.global_setting || '',
         starting_scene: p.starting_scene || '',
-        entries: p.entries || [],
+        entries: (p.entries || []).map(entry => ({ ...entry, tags: Array.isArray(entry.tags) ? entry.tags.join(', ') : (entry.tags || '') })),
         is_active: p.is_active !== false,
         is_player: p.is_player || false, // 🚀 问题 3
         ...(getApiType() === 'entities' ? createEntityEditorForm(p) : {})
