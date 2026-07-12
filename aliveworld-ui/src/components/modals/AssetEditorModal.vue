@@ -8,6 +8,7 @@ import { gameApi } from '../../api/gameApi';
 import { gameStore } from '../../store/gameStore';
 import { buildEntityPayload } from '../../utils/entityForm';
 import SystemTagInput from '../common/SystemTagInput.vue';
+import ExpandableTextarea from '../common/ExpandableTextarea.vue';
 
 const form = computed(() => uiStore.editorData.form);
 const type = computed(() => uiStore.editorData.type);
@@ -109,8 +110,8 @@ const saveContent = async () => {
 
         <!-- 🚀 修复问题10：补回完整视图 -->
         <template v-if="type === 'worldbooks'">
-          <div><label class="text-xs text-slate-400 font-bold block mb-1.5">世界概述</label><p class="mb-1.5 text-[10px] text-slate-500">介绍世界背景与总体印象，不视为不可违反的规则。</p><textarea v-model="form.overview" class="w-full h-24 bg-[#0d0d12] border border-slate-700 text-slate-300 p-3 rounded-lg text-sm"></textarea></div>
-          <div><label class="text-xs text-amber-300 font-bold block mb-1.5">世界公理（每行一条）</label><p class="mb-1.5 text-[10px] text-slate-500">定义世界最基础的客观规则与基调，和口语化概述分开。</p><textarea v-model="form.axiomsText" class="w-full h-24 bg-[#0d0d12] border border-amber-900/70 text-slate-300 p-3 rounded-lg text-sm"></textarea></div>
+          <div><label class="text-xs text-slate-400 font-bold block mb-1.5">世界概述</label><p class="mb-1.5 text-[10px] text-slate-500">介绍世界背景与总体印象，不视为不可违反的规则。</p><ExpandableTextarea v-model="form.overview" label="世界概述" textarea-class="h-24 bg-[#0d0d12] border border-slate-700 text-slate-300 p-3 rounded-lg text-sm" /></div>
+          <div><label class="text-xs text-amber-300 font-bold block mb-1.5">世界公理（每行一条）</label><p class="mb-1.5 text-[10px] text-slate-500">定义世界最基础的客观规则与基调，和口语化概述分开。</p><ExpandableTextarea v-model="form.axiomsText" label="世界公理" textarea-class="h-24 bg-[#0d0d12] border border-amber-900/70 text-slate-300 p-3 rounded-lg text-sm" /></div>
           <div class="border-t border-slate-700 pt-4">
             <div class="flex justify-between items-center mb-3"><h3 class="text-sm font-bold text-slate-300">📚 世界书条目</h3><button @click="addWorldEntry" class="px-3 py-1 bg-indigo-900/50 text-indigo-400 border border-indigo-700/50 rounded text-xs font-bold">+ 新增条目</button></div>
             <input v-model="entrySearch" class="mb-3 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-200" placeholder="搜索条目名称、触发词、标签或内容……" />
@@ -127,7 +128,7 @@ const saveContent = async () => {
                   <div><label class="text-[10px] text-slate-500 block mb-1">词条名</label><input v-model="entry.name" class="w-full bg-slate-900 border border-slate-700 text-slate-200 px-3 py-1.5 rounded text-xs" /></div>
                   <div><label class="text-[10px] text-slate-500 block mb-1">触发关键词 (逗号分隔)</label><input v-model="entry.keys" class="w-full bg-slate-900 border border-slate-700 text-slate-200 px-3 py-1.5 rounded text-xs" /></div>
                 </div>
-                <div><label class="text-[10px] text-slate-500 block mb-1">词条内容</label><textarea v-model="entry.content" class="w-full h-20 bg-slate-900 border border-slate-700 text-slate-300 p-3 rounded text-xs"></textarea></div>
+                <div><label class="text-[10px] text-slate-500 block mb-1">词条内容</label><ExpandableTextarea v-model="entry.content" :label="`世界书条目：${entry.name || '未命名'}`" textarea-class="h-20 bg-slate-900 border border-slate-700 text-slate-300 p-3 rounded text-xs" /></div>
                 <div class="mt-3"><SystemTagInput v-model="entry.tags"><template #label><span class="text-[10px] text-slate-500">词条标签</span></template></SystemTagInput></div>
                 <div v-if="isPendingEntry(entry)" class="mt-3 flex items-center justify-between rounded-lg border border-amber-700/60 bg-amber-950/30 p-2">
                   <span class="text-[10px] text-amber-300">此AI候选尚未参与正文检索</span>

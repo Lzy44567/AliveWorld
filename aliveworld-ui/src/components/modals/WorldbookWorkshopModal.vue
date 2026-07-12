@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from 'vue';
 import { uiStore } from '../../store/uiStore';
 import { assetStore } from '../../store/assetStore';
 import { worldbookWorkshopApi } from '../../api/worldbookWorkshopApi';
-import { useDeleteConfirmation } from '../../composables/useDeleteConfirmation';
+import WorkshopDraftPanel from '../worldbook/WorkshopDraftPanel.vue';
 
 const workshopId = ref('');
 const draft = ref({ overview: '', axioms: [], entries: [] });
@@ -17,7 +17,6 @@ const dirty = ref(false);
 const editingEntry = ref(null);
 const overviewDraft = ref('');
 const axiomsDraft = ref('');
-const { confirmDeleteId, requestDelete, cancelDelete } = useDeleteConfirmation();
 
 const modes = [
   { id: 'create', label: '从一句话创建', description: '根据一句核心想法、题材和偏好建立概述、公理与首批条目。' },
@@ -91,7 +90,7 @@ const saveEntry = async () => {
 };
 const toggleEntry = (entry) => applyManual([{ op: 'update_entry', entry_id: entry.id, changes: { is_active: entry.is_active === false } }]);
 const deleteEntry = async (entry) => {
-  if (await applyManual([{ op: 'delete_entry', entry_id: entry.id }])) cancelDelete();
+  await applyManual([{ op: 'delete_entry', entry_id: entry.id }]);
 };
 const askAiToEdit = (entry) => {
   input.value = `请修改指定条目“${entry.name}”（entry_id: ${entry.id}）。我的要求是：`;
@@ -136,15 +135,7 @@ const publish = async () => {
           <div class="border-t border-slate-800 p-3"><div v-if="suggestions.length" class="mb-2 flex flex-wrap gap-1"><button v-for="item in suggestions" :key="item" @click="send(item)" class="rounded-full border border-indigo-800 px-2 py-1 text-[10px] text-indigo-300">{{ item }}</button></div><div class="flex gap-2"><textarea v-model="input" @keydown.ctrl.enter.prevent="send()" class="h-20 flex-1 rounded-lg border border-slate-700 bg-slate-900 p-3 text-sm text-slate-200" :placeholder="`${activeMode.description} Ctrl+Enter发送`"></textarea><button @click="send()" :disabled="busy" class="w-20 rounded-lg bg-indigo-700 text-sm font-bold text-white disabled:opacity-50">{{ busy ? '处理中' : '发送' }}</button></div></div>
         </section>
 
-        <aside class="overflow-y-auto p-4">
-          <div class="flex items-center justify-between"><h3 class="font-bold text-slate-200">当前草稿</h3><button @click="startAddEntry" class="rounded bg-indigo-800 px-2 py-1 text-[10px] text-white">+ 手动新增条目</button></div>
-          <label class="mt-3 block text-[10px] text-slate-500">世界概述</label><textarea v-model="overviewDraft" class="mt-1 h-20 w-full rounded border border-slate-800 bg-slate-900 p-2 text-xs text-slate-300"></textarea>
-          <label class="mt-3 block text-[10px] text-amber-400">世界公理（每行一条）</label><textarea v-model="axiomsDraft" class="mt-1 h-20 w-full rounded border border-amber-900/60 bg-slate-900 p-2 text-xs text-slate-300"></textarea><button @click="saveBookHeader" class="mt-2 rounded bg-slate-700 px-2 py-1 text-[10px] text-white">保存概述与公理到草稿</button>
-
-          <div v-if="editingEntry" class="mt-4 rounded-lg border border-indigo-700/60 bg-indigo-950/20 p-3"><div class="text-xs font-bold text-indigo-300">{{ editingEntry.isNew ? '新增条目' : '编辑条目' }}</div><input v-model="editingEntry.name" placeholder="条目名" class="mt-2 w-full rounded border border-slate-700 bg-slate-950 p-2 text-xs text-white"><input v-model="editingEntry.keys" placeholder="触发词" class="mt-2 w-full rounded border border-slate-700 bg-slate-950 p-2 text-xs text-white"><textarea v-model="editingEntry.content" placeholder="条目内容" class="mt-2 h-24 w-full rounded border border-slate-700 bg-slate-950 p-2 text-xs text-white"></textarea><input v-model="editingEntry.tagsText" placeholder="标签，逗号分隔" class="mt-2 w-full rounded border border-slate-700 bg-slate-950 p-2 text-xs text-white"><div class="mt-2 flex gap-2"><button @click="saveEntry" class="rounded bg-emerald-700 px-2 py-1 text-[10px] text-white">保存到草稿</button><button @click="cancelEditEntry" class="rounded bg-slate-700 px-2 py-1 text-[10px] text-white">取消</button></div></div>
-
-          <div class="mt-4 space-y-2"><div v-for="entry in draft.entries" :key="entry.id" class="rounded-lg border border-slate-800 bg-slate-900 p-2" :class="entry.is_active===false?'opacity-50':''"><div class="flex items-start justify-between gap-2"><div class="min-w-0"><div class="truncate text-xs font-bold text-slate-300">{{ entry.name }}</div><div class="mt-1 line-clamp-3 text-[10px] text-slate-500">{{ entry.content }}</div></div><button @click="toggleEntry(entry)" class="shrink-0 text-[9px]" :class="entry.is_active===false?'text-slate-500':'text-emerald-400'">{{ entry.is_active===false?'已关闭':'已启用' }}</button></div><div class="mt-1 flex flex-wrap gap-1"><span v-for="tag in entry.tags" :key="tag" class="rounded bg-slate-800 px-1 text-[9px] text-indigo-300">{{ tag }}</span></div><div class="mt-2 flex gap-1"><button @click="startEditEntry(entry)" class="rounded bg-slate-800 px-2 py-1 text-[9px] text-slate-300">编辑</button><button @click="askAiToEdit(entry)" class="rounded bg-violet-900/60 px-2 py-1 text-[9px] text-violet-300">让AI修改</button><button v-if="confirmDeleteId !== entry.id" @click="requestDelete(entry.id)" class="rounded bg-rose-950 px-2 py-1 text-[9px] text-rose-400">删除</button><template v-else><button @click="deleteEntry(entry)" class="rounded bg-rose-700 px-2 py-1 text-[9px] text-white">确认删除</button><button @click="cancelDelete" class="rounded bg-slate-700 px-2 py-1 text-[9px] text-slate-200">取消</button></template></div></div></div>
-        </aside>
+        <WorkshopDraftPanel v-model:overview="overviewDraft" v-model:axioms="axiomsDraft" :draft="draft" :editing-entry="editingEntry" @save-header="saveBookHeader" @add-entry="startAddEntry" @edit-entry="startEditEntry" @cancel-edit="cancelEditEntry" @save-entry="saveEntry" @toggle-entry="toggleEntry" @delete-entry="deleteEntry" @ask-ai="askAiToEdit" />
       </div>
     </div>
   </div>
