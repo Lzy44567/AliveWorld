@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional
 from core.worldbook_workshop import WorkshopError, WorldbookWorkshop
 from core.worldbook_workshop_agent import WorldbookWorkshopAgent
 from core.worldbook_embeddings import embedding_manager
+from core.worldbook import normalize_worldbook
 from utils.asset_catalog import resolve_asset_path
 from utils.file_io import DATA_DIR, WORLD_DIR
 
@@ -84,12 +85,17 @@ def _payload(workshop: WorldbookWorkshop):
 
 def _find_resumable(target_path: Path) -> WorldbookWorkshop | None:
     candidates = []
+    try:
+        current_book = normalize_worldbook(yaml.safe_load(target_path.read_text(encoding="utf-8")) or {})
+    except (OSError, yaml.YAMLError):
+        current_book = {}
     if WORKSHOP_DIR.exists():
         import json
         for path in WORKSHOP_DIR.glob("*.json"):
             try:
                 item = WorldbookWorkshop.from_dict(json.loads(path.read_text(encoding="utf-8")))
-                if item.target_path.resolve() == target_path.resolve() and not item.published:
+                has_unpublished_changes = item.dirty or normalize_worldbook(item.draft) != current_book
+                if item.target_path.resolve() == target_path.resolve() and not item.published and has_unpublished_changes:
                     candidates.append(item)
             except (OSError, ValueError, KeyError):
                 continue
