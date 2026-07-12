@@ -1,5 +1,5 @@
 # core/game_session.py
-import copy, json, random
+import copy, json
 from datetime import datetime
 from core.undercurrent import UndercurrentEngine
 from core.resolution_engine import DualTrackResolver
@@ -8,6 +8,7 @@ from core.context_manager import ContextManager
 from core.ai_engine import robust_json_parse, intelligent_salvage
 from core.entity_repository import EntityRepository
 from core.story_settings import normalize_story_settings
+from core.future_candidates import choose_candidate, normalize_candidates
 
 class GameSession:
     def __init__(self, ai_engine, save_name="", save_dir_path="", story_settings=None):
@@ -118,9 +119,8 @@ class GameSession:
         self.undercurrent.causal_ledger.advance_turn()
         self.history["chat_messages"].append({"role": "user", "content": action})
         
-        valid_reactions = [r for r in reactions if r['description'] != old_desc]
-        if not valid_reactions: valid_reactions = reactions
-        chosen = random.choices(valid_reactions, weights=[p.get('weight', 50) for p in valid_reactions], k=1)[0]
+        reactions = normalize_candidates(reactions)
+        chosen = choose_candidate(reactions, exclude_description=old_desc)
         
         self.history["chat_messages"].append({"role": "reactions", "content": reactions})
         self.history["chat_messages"].append({"role": "influence_checks", "content": triggered_influences})

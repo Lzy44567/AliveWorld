@@ -47,7 +47,7 @@ const doReroll = async () => {
 <template>
   <div class="flex flex-col" :class="msg.role === 'user' ? 'items-end' : 'items-start'">
     
-    <!-- 🎲 命运观测器 (N*n 折叠面板) -->
+    <!-- 🎲 动态未来候选折叠面板 -->
     <div v-if="msg.role === 'reactions' && effectiveStorySettings.showFutures" class="w-full max-w-[85%] bg-amber-950/60 border border-amber-700/50 rounded-xl overflow-hidden backdrop-blur-md shadow-lg mb-2">
       <details class="group">
         <summary class="cursor-pointer px-4 py-2.5 text-xs text-amber-400 font-bold flex justify-between items-center hover:bg-amber-900/50 transition select-none">
@@ -55,9 +55,14 @@ const doReroll = async () => {
           <span class="group-open:rotate-180 transition">▼</span>
         </summary>
         <div class="px-4 py-3 border-t border-amber-900/50 space-y-2">
-          <div v-for="r in msg.content" :key="r.id" class="flex items-center gap-3 text-xs text-amber-200 bg-black/40 p-2 rounded hover:bg-black/60 transition">
-            <div class="w-10 text-center font-mono font-bold bg-amber-600/40 rounded px-1">{{ r.weight }}%</div>
-            <div class="flex-1">{{ r.description }}</div>
+          <div v-for="r in msg.content" :key="r.id" class="flex items-start gap-3 text-xs bg-black/40 p-2 rounded hover:bg-black/60 transition" :class="r.eligible === false ? 'text-slate-500' : 'text-amber-200'">
+            <div class="min-w-16 text-center font-mono font-bold rounded px-1" :class="r.eligible === false ? 'bg-slate-700/40' : 'bg-amber-600/40'">
+              {{ r.eligible === false ? '不成立' : `权重 ${r.weight}` }}
+            </div>
+            <div class="flex-1">
+              <div>{{ r.description }}</div>
+              <div v-if="r.basis?.length" class="mt-1 text-[10px] opacity-65">依据：{{ r.basis.join('；') }}</div>
+            </div>
           </div>
         </div>
       </details>

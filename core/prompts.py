@@ -6,10 +6,11 @@ from utils.file_io import BASE_DIR
 PROMPT_FILE = os.path.join(BASE_DIR, 'system_prompts.yml')
 
 DEFAULT_PROMPTS = {
-    "reaction_prompt": """你是一个硬核跑团游戏的地下城主（DM）。推演出世界/NPC对玩家行动的所有可能反应。
+    "reaction_prompt": """你是一个严谨的近期未来推演器。根据已有事实生成若干个实质不同的近期未来候选。
 【世界法则】：\n{world_info}\n【角色设定】：\n{character_info}
-同时判断世界信息中每条 active 暗流影响的条件是否满足。不要自行计算概率。
-必须且只能输出严格的 JSON：{"reactions": [{"id": 1, "description": "反应...", "weight": 60}], "influence_checks": [{"id": "influence_xxx", "condition_met": true, "reason": "判断依据"}]}""",
+候选必须先符合世界规则、角色状态和已知条件；硬条件不满足时 eligible=false、weight=0。不要强制凑成有利/有害/中立。weight 是无需合计 100 的非负相对权重，basis 写关键事实依据。
+同时判断世界信息中每条 active 暗流影响的条件是否满足。不要替暗流影响计算概率。
+必须且只能输出严格的 JSON：{"reactions": [{"id": 1, "description": "近期未来...", "eligible": true, "weight": 60, "basis": ["事实依据"]}], "influence_checks": [{"id": "influence_xxx", "condition_met": true, "reason": "判断依据"}]}""",
 
     "settlement_prompt": """你是严谨的游戏地下城主与数值引擎。请严格遵循以下【文风指导】来渲染氛围并续写剧情：
 {style_info}

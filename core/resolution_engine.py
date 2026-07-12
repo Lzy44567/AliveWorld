@@ -1,9 +1,9 @@
 # core/resolution_engine.py
-import random
 import json
 from utils.sys_logger import get_logger
 from core.prompts import load_system_prompts
 from core.ai_engine import robust_json_parse, intelligent_salvage
+from core.future_candidates import candidate_probability, choose_candidate, normalize_candidates
 
 log = get_logger()
 
@@ -25,14 +25,14 @@ class DualTrackResolver(BaseResolutionStrategy):
         raw_react, err1 = session.ai_engine.chat_json(react_p, usr_p1, temp=0.7, trace_label="变数推演")
         reaction_payload = {}
         
-        if err1 or not raw_react: reactions = [{"id": 1, "description": f"系统提示：法则拦截({err1})", "weight": 100}]
+        if err1 or not raw_react: raw_candidates = [{"id": 1, "description": f"系统提示：法则拦截({err1})", "weight": 100}]
         else:
             try:
                 reaction_payload = robust_json_parse(raw_react)
-                reactions = reaction_payload.get('reactions', [])
-            except: reactions = [{"id": 1, "description": "系统提示：因果混沌", "weight": 100}]
-        if not reactions:
-            reactions = [{"id": 1, "description": "世界按当前因果继续发展", "weight": 100}]
+                raw_candidates = reaction_payload.get('reactions', [])
+            except Exception:
+                raw_candidates = [{"id": 1, "description": "系统提示：因果混沌", "weight": 100}]
+        reactions = normalize_candidates(raw_candidates)
 
         triggered_influences = session.undercurrent.causal_ledger.evaluate_checks(
             reaction_payload.get("influence_checks", [])
@@ -46,8 +46,16 @@ class DualTrackResolver(BaseResolutionStrategy):
         for influence in triggered_influences:
             log.info("暗流影响进入正文: id=%s reason=%s", influence["id"], influence["reason"])
         
-        chosen = random.choices(reactions, weights=[p['weight'] for p in reactions], k=1)[0]
-        log.info(f"物理掷骰选中: {chosen['description']}")
+        for candidate in reactions:
+            log.info(
+                "动态未来候选: id=%s eligible=%s weight=%s basis=%s description=%s",
+                candidate["id"], candidate["eligible"], candidate["weight"], candidate["basis"], candidate["description"],
+            )
+        chosen = choose_candidate(reactions)
+        log.info(
+            "物理掷骰选中: id=%s relative_weight=%s normalized_probability=%.4f description=%s",
+            chosen["id"], chosen["weight"], candidate_probability(chosen, reactions), chosen["description"],
+        )
         
         # 2. 剧情结算
         settle_p = pts.get('settlement_prompt', '').replace('{world_info}', active_world).replace('{character_info}', session.char_info).replace('{style_info}', session.style_info).replace('{word_limit}', str(session.word_limit))
