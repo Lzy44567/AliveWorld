@@ -1,6 +1,7 @@
 # core/context_manager.py
 import os, glob, yaml
 from core.worldbook import WorldbookRetriever, normalize_worldbook
+from core.worldbook_embeddings import embedding_manager
 from utils.sys_logger import get_logger
 
 log = get_logger()
@@ -11,7 +12,7 @@ class ContextManager:
         self.style_info = ""
         self.world_info_base = ""
         self.world_entries = []
-        self.worldbook_retriever = worldbook_retriever or WorldbookRetriever()
+        self.worldbook_retriever = worldbook_retriever or WorldbookRetriever(semantic=embedding_manager)
 
     def refresh_from_local(self, save_dir_path, description):
         if not save_dir_path or not os.path.exists(save_dir_path): return

@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional
 
 from core.worldbook_workshop import WorkshopError, WorldbookWorkshop
 from core.worldbook_workshop_agent import WorldbookWorkshopAgent
+from core.worldbook_embeddings import embedding_manager
 from utils.asset_catalog import resolve_asset_path
 from utils.file_io import DATA_DIR, WORLD_DIR
 
@@ -33,6 +34,25 @@ class PublishRequest(BaseModel):
 class WorkshopChatRequest(BaseModel):
     message: str
     mode: str = "expand"
+
+
+class EmbeddingToggleRequest(BaseModel):
+    enabled: bool
+
+
+@router.get("/workshops/embeddings/status")
+def embedding_status():
+    return embedding_manager.status()
+
+
+@router.post("/workshops/embeddings/download")
+def download_embedding_model():
+    return embedding_manager.download_in_background()
+
+
+@router.post("/workshops/embeddings/toggle")
+def toggle_embeddings(payload: EmbeddingToggleRequest):
+    return embedding_manager.set_enabled(payload.enabled)
 
 
 def _get(workshop_id: str) -> WorldbookWorkshop:

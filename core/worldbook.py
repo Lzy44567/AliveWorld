@@ -77,9 +77,10 @@ class SemanticRetriever(Protocol):
 class WorldbookRetriever:
     """Hybrid retrieval. A semantic provider can be added without changing callers."""
 
-    def __init__(self, semantic: SemanticRetriever | None = None, budget_chars: int = 6000):
+    def __init__(self, semantic: SemanticRetriever | None = None, budget_chars: int = 6000, semantic_threshold: float = 0.35):
         self.semantic = semantic
         self.budget_chars = budget_chars
+        self.semantic_threshold = semantic_threshold
 
     def retrieve(self, entries: list[dict[str, Any]], query: str) -> tuple[list[RetrievalHit], list[RetrievalHit]]:
         semantic_scores = self.semantic.scores(query, entries) if self.semantic else {}
@@ -100,7 +101,7 @@ class WorldbookRetriever:
                 score += 1000.0
                 reasons.append("常驻")
             semantic_score = float(semantic_scores.get(entry["id"], 0.0))
-            if semantic_score > 0:
+            if semantic_score >= self.semantic_threshold:
                 score += semantic_score * 100.0
                 reasons.append(f"语义:{semantic_score:.3f}")
             if score > 0:

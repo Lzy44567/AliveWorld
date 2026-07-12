@@ -12,11 +12,14 @@ import { gameStore } from '../../store/gameStore';
 import { normalizeEntityDisclosure, projectLocalEntity } from '../../utils/entityVisibility';
 import { createEntityEditorForm } from '../../utils/entityForm';
 import CausalLedgerPanel from './CausalLedgerPanel.vue';
+import { worldbookWorkshopApi } from '../../api/worldbookWorkshopApi';
+import { onMounted, watch } from 'vue';
 
 const searchKeyword = ref("");
 const confirmDeleteId = ref(null);
 const entityLibraryView = ref('entities');
 const ledgerSourceFilter = ref('');
+const embeddingStatus = ref({ state: 'disabled', downloaded: false, enabled: false });
 const entityDisclosure = computed(() => normalizeEntityDisclosure(effectiveStorySettings.value));
 const canManageCurrentLocalAsset = computed(() =>
   uiStore.rightTab !== 'entity' || entityDisclosure.value.allowEditing
@@ -169,6 +172,29 @@ const openWorldbookWorkshop = (name) => {
   uiStore.modals.worldbookWorkshop = true;
 };
 
+const refreshEmbeddingStatus = async () => {
+  if (uiStore.rightTab !== 'world') return;
+  try {
+    embeddingStatus.value = await worldbookWorkshopApi.embeddingStatus();
+    if (embeddingStatus.value.state === 'downloading') setTimeout(refreshEmbeddingStatus, 3000);
+  } catch (_) { /* 后端未启动时保持降级显示 */ }
+};
+onMounted(refreshEmbeddingStatus);
+watch(() => uiStore.rightTab, refreshEmbeddingStatus);
+
+const configureEmbeddings = async () => {
+  try {
+    if (!embeddingStatus.value.downloaded) {
+      if (!window.confirm('首次启用语义检索需要下载本地多语言嵌入模型。下载期间游戏仍可使用关键词检索，是否开始？')) return;
+      embeddingStatus.value = await worldbookWorkshopApi.downloadEmbeddings();
+      uiStore.showToast('模型已在后台下载；完成前继续使用关键词检索');
+      setTimeout(refreshEmbeddingStatus, 3000);
+      return;
+    }
+    embeddingStatus.value = await worldbookWorkshopApi.toggleEmbeddings(!embeddingStatus.value.enabled);
+  } catch (e) { uiStore.showToast(e.message, 'error'); }
+};
+
 </script>
 
 <template>
@@ -189,6 +215,7 @@ const openWorldbookWorkshop = (name) => {
         <input v-model="searchKeyword" class="w-full bg-slate-800 border border-slate-600 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-200 outline-none focus:border-indigo-500" placeholder="搜索名称或标签..." />
       </div>
       <button v-if="uiStore.assetScope==='global'" @click="openNewAsset" class="px-2 h-8 bg-emerald-600/20 text-emerald-400 border border-emerald-700/50 rounded-lg hover:bg-emerald-600 hover:text-white transition text-xs font-bold whitespace-nowrap">+ 新建</button>
+      <button v-if="uiStore.rightTab==='world'" @click="configureEmbeddings" class="px-2 h-8 rounded-lg border text-[10px] font-bold whitespace-nowrap" :class="embeddingStatus.enabled?'border-cyan-700 bg-cyan-950/50 text-cyan-300':'border-slate-700 bg-slate-900 text-slate-400'" :title="embeddingStatus.error || '未启用时自动使用关键词检索'">{{ embeddingStatus.state==='downloading'?'语义模型下载中':embeddingStatus.enabled?'语义检索已启用':embeddingStatus.downloaded?'启用语义检索':'下载语义模型' }}</button>
     </div>
     
     <CausalLedgerPanel v-if="uiStore.rightTab === 'entity' && uiStore.assetScope === 'local' && entityLibraryView === 'ledger' && effectiveStorySettings.showCausalLedger" :initial-source="ledgerSourceFilter" class="flex-1 min-h-0" />
