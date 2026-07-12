@@ -150,7 +150,7 @@ class GameSession:
             for item in triggered_influences
         ) or "（本回合没有满足条件的暗流影响）"
         usr_p2 = f"【情景】：\n{self.get_context_text()}\n【状态】：{json.dumps(self.state_mgr.get_dynamic_state(), ensure_ascii=False)}\n【行动】：{action}\n【裁定变数】：{chosen['description']}\n【本回合必须兑现的暗流影响】：\n{influence_instruction}"
-        
+
         raw_settle, err2 = self.ai_engine.chat_json(settle_p, usr_p2, temp=0.8, max_tokens=3000, trace_label="剧情重写")
         if err2 or not raw_settle:
             self.rollback()
