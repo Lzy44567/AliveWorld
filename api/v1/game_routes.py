@@ -85,7 +85,7 @@ def process_turn(session_id: str, payload: ActionRequest):
         
     history_len = len(game.history["chat_messages"])
     result = game.process_turn(payload.action)
-    if result and result.get('error'): raise HTTPException(status_code=500, detail="推演失败")
+    if result and result.get('error'): raise HTTPException(status_code=502, detail=result.get("message", "推演失败，本回合未保存。"))
     
     save_game_data(game.save_dir_path, game.export_save_data())
     return {"chat_messages": game.history["chat_messages"][history_len:], "state": game.state, "is_game_over": game.is_game_over}
@@ -106,7 +106,7 @@ def retry_turn(session_id: str, payload: ActionRequest):
     if payload.plot_compass is not None: game.plot_compass = payload.plot_compass
         
     result = game.process_turn(payload.action)
-    if result and result.get('error'): raise HTTPException(status_code=500, detail="推演失败")
+    if result and result.get('error'): raise HTTPException(status_code=502, detail=result.get("message", "推演失败，本回合未保存。"))
     save_game_data(game.save_dir_path, game.export_save_data())
     return {"full_chat": game.history["chat_messages"], "state": game.state}
 

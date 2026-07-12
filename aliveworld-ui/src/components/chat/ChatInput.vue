@@ -29,7 +29,7 @@ const submitAction = async (text = null) => {
     gameStore.chatLog.push(...newMsgs);
     gameStore.syncState(res.state);
   } catch (err) {
-    gameStore.chatLog.push({ role: "system", content: "⚠️ 虚空风暴：推演失败，已被拦截。" });
+    gameStore.chatLog.push({ role: "system", content: `⚠️ ${e.message || '推演失败，本回合未保存。'}` });
   } finally {
     gameStore.isProcessing = false;
     assetStore.fetchLocalAssets(gameStore.sessionId);

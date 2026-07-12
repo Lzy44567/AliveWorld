@@ -14,7 +14,10 @@ export const gameApi = {
   },
   async processAction(sessionId, payload) {
     const res = await fetch(`${API_URL}/${sessionId}/action`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-    if (!res.ok) throw new Error("推演失败");
+    if (!res.ok) {
+      const payload = await res.json().catch(() => ({}));
+      throw new Error(payload.detail || "推演失败，本回合未保存。");
+    }
     return res.json();
   },
   async updateStoryConfig(sessionId, payload) {

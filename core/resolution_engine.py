@@ -2,7 +2,8 @@
 import json
 from utils.sys_logger import get_logger
 from core.prompts import load_system_prompts
-from core.ai_engine import robust_json_parse, intelligent_salvage
+from core.ai_engine import robust_json_parse
+from core.model_response import failure_message
 from core.future_candidates import candidate_probability, choose_candidate, normalize_candidates
 
 log = get_logger()
@@ -25,13 +26,16 @@ class DualTrackResolver(BaseResolutionStrategy):
         raw_react, err1 = session.ai_engine.chat_json(react_p, usr_p1, temp=0.7, trace_label="变数推演")
         reaction_payload = {}
         
-        if err1 or not raw_react: raw_candidates = [{"id": 1, "description": f"系统提示：法则拦截({err1})", "weight": 100}]
+        if err1:
+            return {"error": True, "stage": "reaction", "message": failure_message(err1)}
+        if not raw_react:
+            return {"error": True, "stage": "reaction", "message": failure_message(empty=True)}
         else:
             try:
                 reaction_payload = robust_json_parse(raw_react)
                 raw_candidates = reaction_payload.get('reactions', [])
             except Exception:
-                raw_candidates = [{"id": 1, "description": "系统提示：因果混沌", "weight": 100}]
+                return {"error": True, "stage": "reaction", "message": failure_message(invalid=True)}
         reactions = normalize_candidates(raw_candidates)
 
         triggered_influences = session.undercurrent.causal_ledger.evaluate_checks(
@@ -69,10 +73,13 @@ class DualTrackResolver(BaseResolutionStrategy):
         
         raw_settle, err2 = session.ai_engine.chat_json(settle_p, usr_p2, temp=0.8, max_tokens=max(3000, int(session.word_limit*3)), trace_label="剧情结算")
         
-        if err2 or not raw_settle: settlement = intelligent_salvage("", "网络或审查拦截")
+        if err2:
+            return {"error": True, "stage": "settlement", "message": failure_message(err2)}
+        if not raw_settle:
+            return {"error": True, "stage": "settlement", "message": failure_message(empty=True)}
         else:
             try: settlement = robust_json_parse(raw_settle)
-            except Exception as e: settlement = intelligent_salvage(raw_settle, str(e))
+            except Exception: return {"error": True, "stage": "settlement", "message": failure_message(invalid=True)}
 
         reported = settlement.get("resolved_influences", [])
         reported_ids = {item.get("id") for item in reported if isinstance(item, dict)}

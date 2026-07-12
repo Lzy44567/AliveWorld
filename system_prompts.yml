@@ -40,7 +40,7 @@ settlement_prompt: |
 
   【严格 JSON 格式】
   {
-    "story_text": "分段良好的小说正文...",
+    "story_text": "小说正文；必须写成2至5个自然段，并在JSON字符串中使用\\n\\n分隔段落，禁止整篇只有一个段落...",
     "new_buffs": {},
     "remove_buffs": [],
     "dynamic_bars": {},

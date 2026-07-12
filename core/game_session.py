@@ -5,7 +5,8 @@ from core.undercurrent import UndercurrentEngine
 from core.resolution_engine import DualTrackResolver
 from core.state_manager import StateManager
 from core.context_manager import ContextManager
-from core.ai_engine import robust_json_parse, intelligent_salvage
+from core.ai_engine import robust_json_parse
+from core.model_response import failure_message, format_story_text
 from core.entity_repository import EntityRepository
 from core.story_settings import normalize_story_settings
 from core.future_candidates import choose_candidate, normalize_candidates
@@ -71,7 +72,9 @@ class GameSession:
         self._refresh_local_context()
         
         result = self.resolver.resolve(self, user_action)
-        if not result or not result.get('settlement'): return {"error": True}
+        if not result or result.get("error") or not result.get('settlement'):
+            self.rollback()
+            return result or {"error": True, "message": "推演未完成，本回合未保存。"}
             
         settlement = result['settlement']
         resolutions = settlement.get("resolved_influences", [])
@@ -80,7 +83,10 @@ class GameSession:
         self.history["chat_messages"].append({"role": "influence_checks", "content": result.get("triggered_influences", [])})
         self.history["chat_messages"].append({"role": "system", "content": f"命运变数: {result['chosen_reaction']['description']}"})
         
-        story_text = settlement.get('story_text', '').replace('\\n', '\n')
+        story_text = format_story_text(settlement.get('story_text', ''))
+        if not story_text:
+            self.rollback()
+            return {"error": True, "message": failure_message(empty=True)}
         self.history["chat_messages"].append({"role": "ai", "content": story_text})
         resolution_by_id = {item.get("id"): item for item in resolutions if isinstance(item, dict)}
         for influence in resolved_items:
@@ -146,11 +152,18 @@ class GameSession:
         usr_p2 = f"【情景】：\n{self.get_context_text()}\n【状态】：{json.dumps(self.state_mgr.get_dynamic_state(), ensure_ascii=False)}\n【行动】：{action}\n【裁定变数】：{chosen['description']}\n【本回合必须兑现的暗流影响】：\n{influence_instruction}"
         
         raw_settle, err2 = self.ai_engine.chat_json(settle_p, usr_p2, temp=0.8, max_tokens=3000, trace_label="剧情重写")
-        settlement = intelligent_salvage("", "网络拦截") if err2 else (robust_json_parse(raw_settle) if raw_settle else intelligent_salvage("", "空返回"))
+        if err2 or not raw_settle:
+            self.rollback()
+            return {"error": True, "message": failure_message(err2, empty=not raw_settle and not err2)}
+        try:
+            settlement = robust_json_parse(raw_settle)
+        except Exception:
+            self.rollback()
+            return {"error": True, "message": failure_message(invalid=True)}
         resolutions = settlement.get("resolved_influences", [])
         resolved_items = self.undercurrent.causal_ledger.resolve(resolutions)
             
-        story_text = settlement.get('story_text', '').replace('\\n', '\n')
+        story_text = format_story_text(settlement.get('story_text', ''))
         self.history["chat_messages"].append({"role": "ai", "content": story_text})
         resolution_by_id = {item.get("id"): item for item in resolutions if isinstance(item, dict)}
         for influence in resolved_items:
