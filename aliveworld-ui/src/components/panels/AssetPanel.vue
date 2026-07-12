@@ -265,7 +265,7 @@ onBeforeUnmount(() => {
            <button v-if="uiStore.assetScope==='local' && canManageCurrentLocalAsset" @click="pushToGlobal(item)" class="flex-1 bg-emerald-900/50 hover:bg-emerald-600 text-[10px] py-1.5 rounded font-bold text-emerald-300 hover:text-white border border-emerald-700/50">⬆️ 推送全局</button>
 
            <button v-if="(uiStore.assetScope === 'global' || canManageCurrentLocalAsset) && confirmDeleteId !== item.name" @click="requestDelete(item.name)" class="px-2 bg-rose-900/30 hover:bg-rose-600 text-rose-400 hover:text-white rounded text-xs border border-rose-900/50">🗑</button>
-           <div v-else-if="uiStore.assetScope === 'global' || canManageCurrentLocalAsset" class="flex gap-1">
+           <div v-else-if="uiStore.assetScope === 'global' || canManageCurrentLocalAsset" :data-delete-confirm-id="item.name" class="flex gap-1">
              <button @click="executeDelete(item.name)" class="px-2 bg-rose-700 hover:bg-rose-600 text-white rounded text-[10px] font-bold border border-rose-500">{{ uiStore.assetScope==='local' ? '移除' : '粉碎' }}</button>
              <button @click="cancelDelete" class="px-2 bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white rounded text-[10px] border border-slate-600">取消</button>
            </div>

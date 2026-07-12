@@ -28,7 +28,7 @@ import EntityRuntimeToggle from '../controls/EntityRuntimeToggle.vue';
       
       <!-- 动态呼叫组件 -->
       <AssetPanel v-if="['character', 'world', 'style', 'entity'].includes(uiStore.rightTab)" />
-      <div v-else class="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
+      <div v-else class="flex flex-1 min-h-0 flex-col overflow-hidden">
         <SavesPanel v-if="uiStore.rightTab === 'saves'" />
         <LocalEditPanel v-else-if="uiStore.rightTab === 'local_edit'" />
       </div>

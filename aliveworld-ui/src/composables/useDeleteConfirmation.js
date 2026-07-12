@@ -1,18 +1,19 @@
-import { onBeforeUnmount, ref } from 'vue';
+import { onBeforeUnmount, onMounted, ref } from 'vue';
 
-export function useDeleteConfirmation(timeoutMs = 6000) {
+export function useDeleteConfirmation() {
   const confirmDeleteId = ref(null);
-  let timer = null;
   const cancelDelete = () => {
     confirmDeleteId.value = null;
-    if (timer) window.clearTimeout(timer);
-    timer = null;
   };
   const requestDelete = (id) => {
-    cancelDelete();
     confirmDeleteId.value = id;
-    timer = window.setTimeout(cancelDelete, timeoutMs);
   };
-  onBeforeUnmount(cancelDelete);
+  const handleOutsidePointer = (event) => {
+    if (confirmDeleteId.value === null) return;
+    const area = event.target.closest?.('[data-delete-confirm-id]');
+    if (!area || area.dataset.deleteConfirmId !== String(confirmDeleteId.value)) cancelDelete();
+  };
+  onMounted(() => document.addEventListener('pointerdown', handleOutsidePointer, true));
+  onBeforeUnmount(() => document.removeEventListener('pointerdown', handleOutsidePointer, true));
   return { confirmDeleteId, requestDelete, cancelDelete };
 }

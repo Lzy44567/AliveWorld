@@ -106,7 +106,7 @@ const executeDelete = async (saveName) => {
           </button>
           
           <!-- 展开后的防误触确认区 -->
-          <div v-else class="flex gap-1">
+          <div v-else :data-delete-confirm-id="save.name" class="flex gap-1">
             <button @click="executeDelete(save.name)" class="px-3 bg-rose-700 hover:bg-rose-600 text-white rounded transition text-[10px] font-bold shadow-lg border border-rose-500">确认粉碎</button>
             <button @click="cancelDelete" class="w-10 bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white rounded transition text-xs flex items-center justify-center border border-slate-600">取消</button>
           </div>
