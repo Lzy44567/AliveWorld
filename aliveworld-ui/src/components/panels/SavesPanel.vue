@@ -86,10 +86,10 @@ const executeDelete = async (saveName) => {
     <!-- 只滚动存档卡片，搜索、收藏、新局和计数固定 -->
     <div class="flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-1">
     <div class="space-y-3 pb-8">
-      <div v-for="save in filteredSaves" :key="save.id" class="bg-aw_panel border border-slate-700 rounded-xl p-3 hover:border-indigo-500 transition group shadow">
+      <div v-for="save in filteredSaves" :key="save.id" class="bg-aw_panel border rounded-xl p-3 transition group shadow" :class="gameStore.currentSaveName===save.name?'border-emerald-500 ring-1 ring-emerald-500/30':'border-slate-700 hover:border-indigo-500'">
         
         <div class="flex justify-between items-start mb-2">
-          <h4 class="text-sm font-bold text-slate-200 group-hover:text-indigo-400">{{ save.name }}</h4>
+          <h4 class="text-sm font-bold text-slate-200 group-hover:text-indigo-400">{{ save.name }} <span v-if="gameStore.currentSaveName===save.name" class="ml-1 rounded bg-emerald-950 px-1.5 py-0.5 text-[9px] text-emerald-300">当前游玩</span></h4>
           <span class="text-[9px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded border border-slate-700">{{ save.type }}</span>
         </div>
         

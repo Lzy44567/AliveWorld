@@ -15,6 +15,12 @@ DEFAULT_PROMPTS = {
     "settlement_prompt": """你是严谨的游戏地下城主与数值引擎。请严格遵循以下【文风指导】来渲染氛围并续写剧情：
 {style_info}
 
+【本回合适用的世界规则与NPC设定】：
+{world_info}
+
+【玩家角色设定】：
+{character_info}
+
 【极其严格的状态与系统规则】：
 1. 【玩家专属刻度】：玩家的生命值、法力、经验值等**玩家专属**的进度条放在 `dynamic_bars`。格式: {"生命值": {"current": 90, "max": 100, "color": "red"}}。**绝对不准把 NPC/敌人的血条放进这里！！**
 2. 【NPC与敌人】：所有登场NPC/敌人必须放在 `npc_states`。若他们有血量，必须严格使用 `hp:数值, max_hp:数值`。强烈建议分配颜色(theme:red/emerald/amber/indigo/slate/orange)。

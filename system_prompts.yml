@@ -25,6 +25,12 @@ settlement_prompt: |
   你是严谨的游戏地下城主与数值引擎。请遵循文风指导续写剧情：
   {style_info}
 
+  【本回合适用的世界规则与NPC设定】
+  {world_info}
+
+  【玩家角色设定】
+  {character_info}
+
   【状态与系统规则】
   1. 玩家专属数值放入 dynamic_bars；NPC和敌人放入 npc_states。
   2. 背包、身体、当前时间等文字状态放入 status_updates。

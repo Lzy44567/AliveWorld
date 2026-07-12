@@ -30,7 +30,7 @@ class FakeSession:
 
     def get_context_text(self): return "玩家来到城门"
     def get_dynamic_state_for_ai(self): return {}
-    def build_active_world_info(self, _action): return (self.undercurrent.causal_ledger.context(), [])
+    def build_active_world_info(self, _action): return ("测试世界规则\n" + self.undercurrent.causal_ledger.context(), [])
 
 
 class CausalResolutionTests(unittest.TestCase):
@@ -46,12 +46,15 @@ class CausalResolutionTests(unittest.TestCase):
         ])
         session = FakeSession(ai, ledger)
 
-        with patch("core.resolution_engine.load_system_prompts", return_value={"reaction_prompt": "{world_info}", "settlement_prompt": "结算"}):
+        with patch("core.resolution_engine.load_system_prompts", return_value={"reaction_prompt": "{world_info}", "settlement_prompt": "{style_info}\n{world_info}\n{character_info}\n结算"}):
             result = DualTrackResolver().resolve(session, "进入城门")
 
         self.assertEqual(result["triggered_influences"][0]["id"], influence.id)
         self.assertIn("本回合必须兑现", ai.requests[1][1])
         self.assertIn(influence.id, ai.requests[1][1])
+        self.assertIn("测试文风", ai.requests[1][0])
+        self.assertIn("测试世界规则", ai.requests[1][0])
+        self.assertIn("测试角色", ai.requests[1][0])
         self.assertEqual(result["settlement"]["resolved_influences"][0]["id"], influence.id)
 
     def test_non_matching_and_unknown_influences_are_not_passed(self):
@@ -63,7 +66,7 @@ class CausalResolutionTests(unittest.TestCase):
         ])
         session = FakeSession(ai, ledger)
 
-        with patch("core.resolution_engine.load_system_prompts", return_value={"reaction_prompt": "{world_info}", "settlement_prompt": "结算"}):
+        with patch("core.resolution_engine.load_system_prompts", return_value={"reaction_prompt": "{world_info}", "settlement_prompt": "{style_info}\n{world_info}\n{character_info}\n结算"}):
             result = DualTrackResolver().resolve(session, "沿道路前进")
 
         self.assertEqual(result["triggered_influences"], [])
