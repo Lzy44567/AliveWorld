@@ -41,8 +41,8 @@ const toggleEntryExpanded = (entry, index) => { expandedEntries.value[entryKey(e
 const isEntryExpanded = (entry, index) => Boolean(expandedEntries.value[entryKey(entry, index)]);
 const openWorkshop = () => {
   if (uiStore.editorData.isNew) return uiStore.showToast('请先保存世界书，再进入工坊', 'error');
-  if (uiStore.assetScope !== 'global') return uiStore.showToast('当前工坊先用于局外世界书资产', 'error');
   uiStore.workshopWorldbookName = form.value.name;
+  uiStore.workshopSessionId = uiStore.assetScope === 'local' ? gameStore.sessionId : '';
   uiStore.modals.assetEditor = false;
   uiStore.modals.worldbookWorkshop = true;
 };

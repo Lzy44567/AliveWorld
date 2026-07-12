@@ -21,6 +21,7 @@ active_workshops: Dict[str, WorldbookWorkshop] = {}
 
 class StartWorkshopRequest(BaseModel):
     worldbook_name: str
+    session_id: Optional[str] = None
 
 
 class ApplyOperationsRequest(BaseModel):
@@ -104,7 +105,21 @@ def _find_resumable(target_path: Path) -> WorldbookWorkshop | None:
 
 @router.post("/workshops/start")
 def start_workshop(payload: StartWorkshopRequest):
-    source_path = resolve_asset_path("worldbooks", payload.worldbook_name)
+    source_path = None
+    if payload.session_id:
+        from core.session_manager import active_sessions
+        game = active_sessions.get(payload.session_id)
+        if not game:
+            raise HTTPException(status_code=404, detail="当前故事会话不存在，请重新载入存档")
+        for candidate in (Path(game.save_dir_path) / "worldbooks").glob("*.yml"):
+            try:
+                if (yaml.safe_load(candidate.read_text(encoding="utf-8")) or {}).get("name") == payload.worldbook_name:
+                    source_path = candidate
+                    break
+            except (OSError, yaml.YAMLError):
+                continue
+    else:
+        source_path = resolve_asset_path("worldbooks", payload.worldbook_name)
     if not source_path:
         raise HTTPException(status_code=404, detail="世界书不存在")
     resumed = _find_resumable(source_path)

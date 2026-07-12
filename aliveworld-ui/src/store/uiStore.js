@@ -14,6 +14,7 @@ export const uiStore = reactive({
     assetEditor: false, worldbookWorkshop: false, embeddingModel: false
   },
   workshopWorldbookName: '',
+  workshopSessionId: '',
   
   editorData: { 
     type: '', name: '', content: '', isNew: false,

@@ -9,9 +9,10 @@ import { gameStore } from '../../store/gameStore';
 import { gameApi } from '../../api/gameApi';
 import { assetApi } from '../../api/assetApi';
 import { configStore } from '../../store/configStore';
+import { useDeleteConfirmation } from '../../composables/useDeleteConfirmation';
 
 const searchSaveKeyword = ref("");
-const confirmDeleteId = ref(null);
+const { confirmDeleteId, requestDelete, cancelDelete } = useDeleteConfirmation();
 
 const filteredSaves = computed(() => {
   if (!searchSaveKeyword.value) return assetStore.saves;
@@ -49,7 +50,7 @@ const loadSave = async (saveName) => {
 const executeDelete = async (saveName) => {
   try {
     await assetApi.deleteSave(saveName);
-    confirmDeleteId.value = null;
+    cancelDelete();
     
     // 如果粉碎的正是当前正在推演的世界，直接物理清屏！
     if (gameStore.currentSaveName === saveName) {
@@ -100,14 +101,14 @@ const executeDelete = async (saveName) => {
           <button @click="loadSave(save.name)" class="flex-1 bg-indigo-600/20 hover:bg-indigo-600 text-indigo-300 hover:text-white text-[10px] py-1.5 rounded font-bold transition">▶ 唤醒</button>
           
           <!-- 常规的垃圾桶按钮 -->
-          <button v-if="confirmDeleteId !== save.name" @click="confirmDeleteId = save.name" class="w-10 bg-rose-900/30 hover:bg-rose-600 text-rose-400 hover:text-white rounded transition text-xs border border-rose-900/50 flex items-center justify-center">
+          <button v-if="confirmDeleteId !== save.name" @click="requestDelete(save.name)" class="w-10 bg-rose-900/30 hover:bg-rose-600 text-rose-400 hover:text-white rounded transition text-xs border border-rose-900/50 flex items-center justify-center">
             🗑
           </button>
           
           <!-- 展开后的防误触确认区 -->
           <div v-else class="flex gap-1">
             <button @click="executeDelete(save.name)" class="px-3 bg-rose-700 hover:bg-rose-600 text-white rounded transition text-[10px] font-bold shadow-lg border border-rose-500">确认粉碎</button>
-            <button @click="confirmDeleteId = null" class="w-10 bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white rounded transition text-xs flex items-center justify-center border border-slate-600">取消</button>
+            <button @click="cancelDelete" class="w-10 bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white rounded transition text-xs flex items-center justify-center border border-slate-600">取消</button>
           </div>
         </div>
 

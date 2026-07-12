@@ -13,8 +13,8 @@ export const worldbookWorkshopApi = {
   pauseEmbeddings() { return request(`${BASE_URL}/embeddings/pause`, { method: 'POST' }); },
   uninstallEmbeddings() { return request(`${BASE_URL}/embeddings/model`, { method: 'DELETE' }); },
   toggleEmbeddings(enabled) { return request(`${BASE_URL}/embeddings/toggle`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled }) }); },
-  start(worldbookName) {
-    return request(`${BASE_URL}/start`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ worldbook_name: worldbookName }) });
+  start(worldbookName, sessionId = null) {
+    return request(`${BASE_URL}/start`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ worldbook_name: worldbookName, session_id: sessionId }) });
   },
   chat(id, message, mode) {
     return request(`${BASE_URL}/${id}/chat`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message, mode }) });

@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue';
 import { uiStore } from '../../store/uiStore';
 import { assetStore } from '../../store/assetStore';
 import { worldbookWorkshopApi } from '../../api/worldbookWorkshopApi';
+import { useDeleteConfirmation } from '../../composables/useDeleteConfirmation';
 
 const workshopId = ref('');
 const draft = ref({ overview: '', axioms: [], entries: [] });
@@ -16,6 +17,7 @@ const dirty = ref(false);
 const editingEntry = ref(null);
 const overviewDraft = ref('');
 const axiomsDraft = ref('');
+const { confirmDeleteId, requestDelete, cancelDelete } = useDeleteConfirmation();
 
 const modes = [
   { id: 'create', label: '从一句话创建', description: '根据一句核心想法、题材和偏好建立概述、公理与首批条目。' },
@@ -23,7 +25,9 @@ const modes = [
   { id: 'evolve', label: '演化已有设定', description: '从已有公理推导逻辑后果，检查关联、缺口与冲突。' },
 ];
 const activeMode = computed(() => modes.find(item => item.id === mode.value));
-const worldbookNames = computed(() => assetStore.availableWorldbooks || []);
+const worldbookNames = computed(() => uiStore.workshopSessionId
+  ? (assetStore.worlds.local || []).map(item => item.name)
+  : (assetStore.availableWorldbooks || []));
 
 const close = () => { uiStore.modals.worldbookWorkshop = false; };
 const sync = (data) => {
@@ -43,7 +47,7 @@ const loadWorldbook = async (name) => {
   editingEntry.value = null;
   try {
     uiStore.workshopWorldbookName = name;
-    const data = await worldbookWorkshopApi.start(name);
+    const data = await worldbookWorkshopApi.start(name, uiStore.workshopSessionId || null);
     sync(data);
     if (data.resumed) uiStore.showToast('已恢复这本世界书尚未发布的工坊草稿');
   } catch (e) { uiStore.showToast(e.message, 'error'); }
@@ -87,8 +91,7 @@ const saveEntry = async () => {
 };
 const toggleEntry = (entry) => applyManual([{ op: 'update_entry', entry_id: entry.id, changes: { is_active: entry.is_active === false } }]);
 const deleteEntry = async (entry) => {
-  if (!window.confirm(`确定从草稿中删除条目“${entry.name}”吗？仍可通过撤销恢复。`)) return;
-  await applyManual([{ op: 'delete_entry', entry_id: entry.id }]);
+  if (await applyManual([{ op: 'delete_entry', entry_id: entry.id }])) cancelDelete();
 };
 const askAiToEdit = (entry) => {
   input.value = `请修改指定条目“${entry.name}”（entry_id: ${entry.id}）。我的要求是：`;
@@ -140,7 +143,7 @@ const publish = async () => {
 
           <div v-if="editingEntry" class="mt-4 rounded-lg border border-indigo-700/60 bg-indigo-950/20 p-3"><div class="text-xs font-bold text-indigo-300">{{ editingEntry.isNew ? '新增条目' : '编辑条目' }}</div><input v-model="editingEntry.name" placeholder="条目名" class="mt-2 w-full rounded border border-slate-700 bg-slate-950 p-2 text-xs text-white"><input v-model="editingEntry.keys" placeholder="触发词" class="mt-2 w-full rounded border border-slate-700 bg-slate-950 p-2 text-xs text-white"><textarea v-model="editingEntry.content" placeholder="条目内容" class="mt-2 h-24 w-full rounded border border-slate-700 bg-slate-950 p-2 text-xs text-white"></textarea><input v-model="editingEntry.tagsText" placeholder="标签，逗号分隔" class="mt-2 w-full rounded border border-slate-700 bg-slate-950 p-2 text-xs text-white"><div class="mt-2 flex gap-2"><button @click="saveEntry" class="rounded bg-emerald-700 px-2 py-1 text-[10px] text-white">保存到草稿</button><button @click="cancelEditEntry" class="rounded bg-slate-700 px-2 py-1 text-[10px] text-white">取消</button></div></div>
 
-          <div class="mt-4 space-y-2"><div v-for="entry in draft.entries" :key="entry.id" class="rounded-lg border border-slate-800 bg-slate-900 p-2" :class="entry.is_active===false?'opacity-50':''"><div class="flex items-start justify-between gap-2"><div class="min-w-0"><div class="truncate text-xs font-bold text-slate-300">{{ entry.name }}</div><div class="mt-1 line-clamp-3 text-[10px] text-slate-500">{{ entry.content }}</div></div><button @click="toggleEntry(entry)" class="shrink-0 text-[9px]" :class="entry.is_active===false?'text-slate-500':'text-emerald-400'">{{ entry.is_active===false?'已关闭':'已启用' }}</button></div><div class="mt-1 flex flex-wrap gap-1"><span v-for="tag in entry.tags" :key="tag" class="rounded bg-slate-800 px-1 text-[9px] text-indigo-300">{{ tag }}</span></div><div class="mt-2 flex gap-1"><button @click="startEditEntry(entry)" class="rounded bg-slate-800 px-2 py-1 text-[9px] text-slate-300">编辑</button><button @click="askAiToEdit(entry)" class="rounded bg-violet-900/60 px-2 py-1 text-[9px] text-violet-300">让AI修改</button><button @click="deleteEntry(entry)" class="rounded bg-rose-950 px-2 py-1 text-[9px] text-rose-400">删除</button></div></div></div>
+          <div class="mt-4 space-y-2"><div v-for="entry in draft.entries" :key="entry.id" class="rounded-lg border border-slate-800 bg-slate-900 p-2" :class="entry.is_active===false?'opacity-50':''"><div class="flex items-start justify-between gap-2"><div class="min-w-0"><div class="truncate text-xs font-bold text-slate-300">{{ entry.name }}</div><div class="mt-1 line-clamp-3 text-[10px] text-slate-500">{{ entry.content }}</div></div><button @click="toggleEntry(entry)" class="shrink-0 text-[9px]" :class="entry.is_active===false?'text-slate-500':'text-emerald-400'">{{ entry.is_active===false?'已关闭':'已启用' }}</button></div><div class="mt-1 flex flex-wrap gap-1"><span v-for="tag in entry.tags" :key="tag" class="rounded bg-slate-800 px-1 text-[9px] text-indigo-300">{{ tag }}</span></div><div class="mt-2 flex gap-1"><button @click="startEditEntry(entry)" class="rounded bg-slate-800 px-2 py-1 text-[9px] text-slate-300">编辑</button><button @click="askAiToEdit(entry)" class="rounded bg-violet-900/60 px-2 py-1 text-[9px] text-violet-300">让AI修改</button><button v-if="confirmDeleteId !== entry.id" @click="requestDelete(entry.id)" class="rounded bg-rose-950 px-2 py-1 text-[9px] text-rose-400">删除</button><template v-else><button @click="deleteEntry(entry)" class="rounded bg-rose-700 px-2 py-1 text-[9px] text-white">确认删除</button><button @click="cancelDelete" class="rounded bg-slate-700 px-2 py-1 text-[9px] text-slate-200">取消</button></template></div></div></div>
         </aside>
       </div>
     </div>
