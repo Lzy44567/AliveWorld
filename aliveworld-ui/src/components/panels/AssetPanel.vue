@@ -2,7 +2,7 @@
 <!-- 100% 完整底稿 (请直接覆盖原文件) -->
 
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { uiStore } from '../../store/uiStore';
 import { assetStore } from '../../store/assetStore';
 import { configStore, effectiveStorySettings } from '../../store/configStore';
@@ -13,7 +13,6 @@ import { normalizeEntityDisclosure, projectLocalEntity } from '../../utils/entit
 import { createEntityEditorForm } from '../../utils/entityForm';
 import CausalLedgerPanel from './CausalLedgerPanel.vue';
 import { worldbookWorkshopApi } from '../../api/worldbookWorkshopApi';
-import { onMounted, watch } from 'vue';
 
 const searchKeyword = ref("");
 const confirmDeleteId = ref(null);
@@ -181,6 +180,18 @@ const refreshEmbeddingStatus = async () => {
 };
 onMounted(refreshEmbeddingStatus);
 watch(() => uiStore.rightTab, refreshEmbeddingStatus);
+
+let localWorldbookRefreshTimer = null;
+onMounted(() => {
+  localWorldbookRefreshTimer = window.setInterval(() => {
+    if (uiStore.rightTab === 'world' && uiStore.assetScope === 'local' && gameStore.sessionId) {
+      assetStore.fetchLocalAssets(gameStore.sessionId).catch(() => {});
+    }
+  }, 5000);
+});
+onBeforeUnmount(() => {
+  if (localWorldbookRefreshTimer) window.clearInterval(localWorldbookRefreshTimer);
+});
 
 const configureEmbeddings = async () => {
   try {
