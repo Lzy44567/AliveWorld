@@ -7,18 +7,27 @@ import { assetApi } from '../../api/assetApi';
 import { gameApi } from '../../api/gameApi';
 import { gameStore } from '../../store/gameStore';
 import { buildEntityPayload } from '../../utils/entityForm';
-import SystemTagInput from '../common/SystemTagInput.vue';
 import ExpandableTextarea from '../common/ExpandableTextarea.vue';
 import { useDeleteConfirmation } from '../../composables/useDeleteConfirmation';
 import FieldHelp from '../common/FieldHelp.vue';
+import WorldbookEntryEditorModal from '../worldbook/WorldbookEntryEditorModal.vue';
 
 const form = computed(() => uiStore.editorData.form);
 const type = computed(() => uiStore.editorData.type);
 const closeEditor = () => { uiStore.modals.assetEditor = false; };
 
-const addWorldEntry = () => {
-  if (!form.value.entries) form.value.entries = [];
-  form.value.entries.push({ name: '', keys: '', content: '', tags: '', is_active: true });
+const worldEntryEditor = ref(null);
+const worldEntryEditorIndex = ref(-1);
+const addWorldEntry = () => { worldEntryEditorIndex.value = -1; worldEntryEditor.value = { name: '', keys: '', content: '', tagsText: '', is_active: true }; };
+const editWorldEntry = (entry, index) => { worldEntryEditorIndex.value = index; worldEntryEditor.value = { ...JSON.parse(JSON.stringify(entry)), tagsText: typeof entry.tags === 'string' ? entry.tags : (entry.tags || []).join(', ') }; };
+const cancelWorldEntryEdit = () => { worldEntryEditor.value = null; worldEntryEditorIndex.value = -1; };
+const saveWorldEntryEdit = () => {
+  const item = worldEntryEditor.value;
+  const saved = { ...item, tags: item.tagsText, is_active: item.is_active !== false };
+  delete saved.tagsText;
+  if (worldEntryEditorIndex.value < 0) form.value.entries.push(saved);
+  else form.value.entries.splice(worldEntryEditorIndex.value, 1, saved);
+  cancelWorldEntryEdit();
 };
 
 const { confirmDeleteId, requestDelete, cancelDelete } = useDeleteConfirmation();
@@ -31,7 +40,6 @@ const acceptPendingEntry = (entry) => {
 };
 const rejectPendingEntry = (idx) => { form.value.entries.splice(idx, 1); };
 const entrySearch = ref('');
-const expandedEntries = ref({});
 const filteredWorldEntries = computed(() => {
   const keyword = entrySearch.value.trim().toLowerCase();
   return (form.value.entries || []).map((entry, index) => ({ entry, index })).filter(({ entry }) => {
@@ -41,8 +49,6 @@ const filteredWorldEntries = computed(() => {
   });
 });
 const entryKey = (entry, index) => entry.id || `index_${index}`;
-const toggleEntryExpanded = (entry, index) => { expandedEntries.value[entryKey(entry, index)] = !expandedEntries.value[entryKey(entry, index)]; };
-const isEntryExpanded = (entry, index) => Boolean(expandedEntries.value[entryKey(entry, index)]);
 const openWorkshop = () => {
   if (uiStore.editorData.isNew) return uiStore.showToast('请先保存世界书，再进入工坊', 'error');
   uiStore.workshopWorldbookName = form.value.name;
@@ -121,22 +127,14 @@ const saveContent = async () => {
             <div class="space-y-4">
               <div v-for="({entry, index: idx}) in filteredWorldEntries" :key="entry.id || idx" class="bg-slate-800/50 p-3 rounded-lg border border-slate-700 relative group" :class="entry.is_active===false?'opacity-60':''">
                 <div class="flex items-center gap-3">
-                  <button type="button" @click="toggleEntryExpanded(entry, idx)" class="text-slate-400">{{ isEntryExpanded(entry, idx) ? '▼' : '▶' }}</button>
+                  <button type="button" @click="editWorldEntry(entry, idx)" class="rounded bg-slate-900 px-2 py-1 text-[10px] text-slate-300">编辑</button>
                   <div class="min-w-0 flex-1"><div class="truncate text-xs font-bold text-slate-200">{{ entry.name || '未命名条目' }}</div><div class="mt-1 flex flex-wrap gap-1 text-[9px] text-slate-500"><span v-if="entry.keys">触发：{{ entry.keys }}</span><span v-for="tag in entryTags(entry)" :key="tag" class="rounded bg-slate-900 px-1 text-indigo-300">{{ tag }}</span></div></div>
                   <button type="button" role="switch" :aria-checked="entry.is_active!==false" @click="entry.is_active=entry.is_active===false" class="rounded-full border px-2 py-1 text-[10px]" :class="entry.is_active===false?'border-slate-600 text-slate-500':'border-emerald-700 text-emerald-300'">{{ entry.is_active===false?'已关闭':'已启用' }}</button>
                   <button v-if="confirmDeleteId !== entryKey(entry, idx)" @click="requestDelete(entryKey(entry, idx))" class="rounded px-2 py-1 text-rose-500">删除</button><span v-else :data-delete-confirm-id="entryKey(entry, idx)" class="flex gap-1"><button @click="cancelDelete" class="rounded bg-slate-700 px-2 py-1 text-[10px] text-slate-200">取消</button><button @click="removeWorldEntry(idx)" class="rounded bg-rose-700 px-2 py-1 text-[10px] text-white">确认</button></span>
                 </div>
-                <div v-if="isEntryExpanded(entry, idx)" class="mt-4 border-t border-slate-700 pt-3">
-                <div class="grid grid-cols-2 gap-4 mb-3">
-                  <div><label class="text-[10px] text-slate-500 block mb-1">词条名</label><input v-model="entry.name" class="w-full bg-slate-900 border border-slate-700 text-slate-200 px-3 py-1.5 rounded text-xs" /></div>
-                  <div><label class="text-[10px] text-slate-500 block mb-1">触发关键词 (逗号分隔)</label><input v-model="entry.keys" class="w-full bg-slate-900 border border-slate-700 text-slate-200 px-3 py-1.5 rounded text-xs" /></div>
-                </div>
-                <div><label class="text-[10px] text-slate-500 block mb-1">词条内容</label><ExpandableTextarea v-model="entry.content" :label="`世界书条目：${entry.name || '未命名'}`" textarea-class="h-20 bg-slate-900 border border-slate-700 text-slate-300 p-3 rounded text-xs" /></div>
-                <div class="mt-3"><SystemTagInput v-model="entry.tags"><template #label><span class="text-[10px] text-slate-500">词条标签</span></template></SystemTagInput></div>
                 <div v-if="isPendingEntry(entry)" class="mt-3 flex items-center justify-between rounded-lg border border-amber-700/60 bg-amber-950/30 p-2">
                   <span class="text-[10px] text-amber-300">此AI候选尚未参与正文检索</span>
                   <div class="flex gap-2"><button type="button" @click="acceptPendingEntry(entry)" class="rounded bg-emerald-700 px-2 py-1 text-[10px] font-bold text-white">接受并启用</button><button type="button" @click="rejectPendingEntry(idx)" class="rounded bg-rose-800 px-2 py-1 text-[10px] font-bold text-white">拒绝并删除</button></div>
-                </div>
                 </div>
               </div>
             </div>
@@ -172,4 +170,5 @@ const saveContent = async () => {
       </div>
     </div>
   </div>
+  <WorldbookEntryEditorModal v-if="worldEntryEditor" :entry="worldEntryEditor" :title="worldEntryEditorIndex < 0 ? '新增世界书条目' : '编辑世界书条目'" @save="saveWorldEntryEdit" @cancel="cancelWorldEntryEdit" />
 </template>

@@ -62,7 +62,7 @@ onMounted(refresh);
       <select v-model="statusFilter" class="ledger-input"><option value="all">全部状态</option><option value="active">生效中</option><option value="consumed">已消失</option><option value="cancelled">已取消</option></select>
       <div v-if="sourceFilter" class="col-span-2 flex justify-between rounded border border-fuchsia-900/50 bg-fuchsia-950/20 px-2 py-1 text-[10px] text-fuchsia-300"><span>来源筛选：{{ sourceFilter }}</span><button @click="sourceFilter = ''">清除</button></div>
     </div>
-    <div v-if="editingId" class="mb-4 grid grid-cols-2 gap-2 rounded-xl border border-fuchsia-800/60 bg-slate-900/80 p-3">
+    <Teleport to="body"><div v-if="editingId" class="fixed inset-0 z-[125] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm"><div class="grid max-h-[88vh] w-full max-w-3xl grid-cols-2 gap-3 overflow-y-auto rounded-2xl border border-fuchsia-800/70 bg-slate-950 p-5 shadow-2xl">
       <input v-model="form.summary" class="ledger-input col-span-2" placeholder="影响摘要">
       <select v-model="form.type" class="ledger-input"><option value="one_shot">一次性</option><option value="persistent">持续性</option><option value="evolving">可演化</option></select>
       <select v-model="form.consume" class="ledger-input"><option value="on_success">触发后消失</option><option value="on_attempt">判断后消失</option><option value="after_n">触发 N 次后消失</option><option value="never">持续保留</option></select>
@@ -75,8 +75,8 @@ onMounted(refresh);
       <input v-model="form.worldTime" class="ledger-input" placeholder="创建时世界时间（文本）">
       <input v-model="form.tags" class="ledger-input col-span-2" placeholder="标签，逗号分隔">
       <label class="col-span-2 flex items-center justify-between rounded border border-amber-900/50 bg-amber-950/20 px-2 py-1.5 text-[10px] text-amber-300"><span>调试：下回合强制兑现</span><input type="checkbox" v-model="form.forceNextTurn"></label>
-      <button @click="cancel" class="rounded bg-slate-700 py-1.5 text-xs">取消</button><button @click="save" class="rounded bg-fuchsia-700 py-1.5 text-xs font-bold">保存</button>
-    </div>
+      <button @click="cancel" class="rounded bg-slate-700 py-2 text-xs">取消</button><button @click="save" class="rounded bg-fuchsia-700 py-2 text-xs font-bold">保存</button>
+    </div></div></Teleport>
     <div class="space-y-3">
       <article v-for="item in visibleInfluences" :key="item.id" class="rounded-xl border border-slate-700 bg-aw_panel p-3" :class="item.status !== 'active' ? 'opacity-55' : ''">
         <div class="flex justify-between gap-2"><div><h4 class="text-sm font-bold text-slate-200">{{ item.summary }}</h4><code class="text-[9px] text-slate-500">{{ item.id }}</code></div><span class="text-[9px] text-fuchsia-300">{{ influenceTypeLabel(item.type) }} · {{ influenceStatusLabel(item.status) }}</span></div>
