@@ -7,6 +7,10 @@ from core.worldbook import WorldbookRetriever, normalize_entry, normalize_worldb
 
 
 class WorldbookDomainTests(unittest.TestCase):
+    def test_axiom_numbering_and_bullets_are_normalized(self):
+        book = normalize_worldbook({"name": "编号", "axioms": "1. 第一条\n2、第二条\n- 第三条\n• 第四条"})
+        self.assertEqual(book["axioms"], ["第一条", "第二条", "第三条", "第四条"])
+
     def test_normalization_assigns_stable_entry_id_and_system_tags(self):
         book = normalize_worldbook({
             "name": "测试世界",

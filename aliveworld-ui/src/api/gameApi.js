@@ -45,6 +45,12 @@ export const gameApi = {
     if (!res.ok) throw new Error("删除暗流影响失败");
     return res.json();
   },
+  async restoreInfluence(sessionId, influenceId) {
+    const res = await fetch(`${API_URL}/${sessionId}/causal-ledger/${encodeURIComponent(influenceId)}/restore`, { method: 'POST' });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || "恢复暗流影响失败");
+    return data;
+  },
   async undoTurn(sessionId) {
     const res = await fetch(`${API_URL}/${sessionId}/undo`, { method: 'POST' });
     if (!res.ok) throw new Error("撤回失败");

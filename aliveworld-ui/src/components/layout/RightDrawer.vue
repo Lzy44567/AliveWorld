@@ -23,7 +23,7 @@ import EntityRuntimeToggle from '../controls/EntityRuntimeToggle.vue';
     <div class="flex-1 min-h-0 overflow-hidden bg-slate-900/30 min-w-[400px] p-4 relative flex flex-col">
       <div class="mb-3 flex min-h-7 items-center justify-between">
         <h2 class="text-sm font-bold text-slate-200 tracking-wider">{{ uiStore.tabTitles[uiStore.rightTab] || "数据面板" }}</h2>
-        <EntityRuntimeToggle v-if="uiStore.rightTab === 'entity'" />
+        <div v-if="uiStore.rightTab === 'entity'" class="flex items-center gap-2"><button v-if="uiStore.assetScope === 'local'" @click="uiStore.ledgerSourceFilter=''; uiStore.modals.causalLedger=true" class="rounded border border-fuchsia-800/70 bg-fuchsia-950/40 px-2 py-1 text-[10px] text-fuchsia-300">因果账本</button><EntityRuntimeToggle /></div>
       </div>
       
       <!-- 动态呼叫组件 -->

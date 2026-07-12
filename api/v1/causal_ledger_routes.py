@@ -67,3 +67,13 @@ def delete_influence(session_id: str, influence_id: str):
         raise HTTPException(status_code=404, detail="影响不存在")
     _persist(game)
     return {"status": "success"}
+
+
+@router.post("/{session_id}/causal-ledger/{influence_id}/restore")
+def restore_influence(session_id: str, influence_id: str):
+    game = _game(session_id)
+    influence = game.undercurrent.causal_ledger.restore(influence_id)
+    if not influence:
+        raise HTTPException(status_code=404, detail="仅已取消的影响可以恢复")
+    _persist(game)
+    return influence.to_dict()

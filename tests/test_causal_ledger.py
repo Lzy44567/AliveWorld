@@ -15,6 +15,10 @@ def influence(summary, action="keep", mode="never", influence_type="persistent")
 
 
 class CausalLedgerTests(unittest.TestCase):
+    def test_cancelled_influence_can_be_restored(self):
+        ledger = CausalLedger([{"id": "restore_me", "summary": "可恢复", "status": "cancelled"}])
+        self.assertEqual(ledger.restore("restore_me").status, "active")
+
     def test_turn_age_condition_check_and_one_shot_consumption(self):
         ledger = CausalLedger()
         item = ledger.add(influence("弩箭陷阱", mode="on_success", influence_type="one_shot"), current_tick=3)

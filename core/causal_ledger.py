@@ -149,6 +149,13 @@ class CausalLedger:
             item.status = status
         return item
 
+    def restore(self, influence_id):
+        item = self.by_id(influence_id)
+        if not item or item.status != "cancelled":
+            return None
+        item.status = "active"
+        return item
+
     def advance_turn(self):
         self.turn_count += 1
         for item in self.active():

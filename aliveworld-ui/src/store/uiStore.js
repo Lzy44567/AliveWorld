@@ -11,10 +11,11 @@ export const uiStore = reactive({
 
   modals: { 
     settings: false, gallery: false, terminal: false, newGame: false, insertChar: false,
-    assetEditor: false, worldbookWorkshop: false, embeddingModel: false
+    assetEditor: false, worldbookWorkshop: false, embeddingModel: false, causalLedger: false
   },
   workshopWorldbookName: '',
   workshopSessionId: '',
+  ledgerSourceFilter: '',
   
   editorData: { 
     type: '', name: '', content: '', isNew: false,

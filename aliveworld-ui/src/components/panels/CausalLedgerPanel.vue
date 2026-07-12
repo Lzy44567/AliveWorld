@@ -50,6 +50,7 @@ const save = async () => {
   } catch (error) { uiStore.showToast(error.message, 'error'); }
 };
 const cancelInfluence = async item => { try { await gameApi.deleteInfluence(gameStore.sessionId, item.id); await refresh(); await assetStore.fetchLocalAssets(gameStore.sessionId); } catch (error) { uiStore.showToast(error.message, 'error'); } };
+const restoreInfluence = async item => { try { await gameApi.restoreInfluence(gameStore.sessionId, item.id); await refresh(); await assetStore.fetchLocalAssets(gameStore.sessionId); uiStore.showToast('暗流影响已重新启用'); } catch (error) { uiStore.showToast(error.message, 'error'); } };
 onMounted(refresh);
 </script>
 
@@ -92,7 +93,7 @@ onMounted(refresh);
         <p v-if="item.force_next_turn" class="mt-1 text-[9px] font-bold text-amber-300">⚠ 下回合强制兑现</p>
         <p class="mt-1 text-[9px] text-slate-500">消失规则：{{ consumePolicyLabel(item.consume_policy?.mode) }}</p>
         <p class="mt-1 text-[9px] text-slate-500">来源：{{ (item.source_links || []).map(x => `${x.entity}（${sourceDeathLabel(x.on_source_death)} / 关联 ${x.life_link_strength}）`).join('、') || '无' }}</p>
-        <div class="mt-3 flex gap-2"><button @click="edit(item)" class="flex-1 rounded bg-slate-800 py-1 text-[10px]">编辑</button><button v-if="item.status === 'active'" @click="cancelInfluence(item)" class="rounded bg-rose-950/50 px-3 text-[10px] text-rose-400">取消影响</button></div>
+        <div class="mt-3 flex gap-2"><button @click="edit(item)" class="flex-1 rounded bg-slate-800 py-1 text-[10px]">编辑</button><button v-if="item.status === 'active'" @click="cancelInfluence(item)" class="rounded bg-rose-950/50 px-3 text-[10px] text-rose-400">取消影响</button><button v-else-if="item.status === 'cancelled'" @click="restoreInfluence(item)" class="rounded bg-emerald-950/60 px-3 text-[10px] text-emerald-300">重新启用</button></div>
       </article>
     </div>
   </div>

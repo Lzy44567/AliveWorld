@@ -9,6 +9,8 @@ import { gameStore } from '../../store/gameStore';
 import { buildEntityPayload } from '../../utils/entityForm';
 import SystemTagInput from '../common/SystemTagInput.vue';
 import ExpandableTextarea from '../common/ExpandableTextarea.vue';
+import { useDeleteConfirmation } from '../../composables/useDeleteConfirmation';
+import FieldHelp from '../common/FieldHelp.vue';
 
 const form = computed(() => uiStore.editorData.form);
 const type = computed(() => uiStore.editorData.type);
@@ -19,7 +21,8 @@ const addWorldEntry = () => {
   form.value.entries.push({ name: '', keys: '', content: '', tags: '', is_active: true });
 };
 
-const removeWorldEntry = (idx) => { form.value.entries.splice(idx, 1); };
+const { confirmDeleteId, requestDelete, cancelDelete } = useDeleteConfirmation();
+const removeWorldEntry = (idx) => { form.value.entries.splice(idx, 1); cancelDelete(); };
 const entryTags = (entry) => typeof entry.tags === 'string' ? entry.tags.split(/[,，]/).map(tag => tag.trim()).filter(Boolean) : (entry.tags || []);
 const isPendingEntry = (entry) => entryTags(entry).includes('待确认');
 const acceptPendingEntry = (entry) => {
@@ -121,7 +124,7 @@ const saveContent = async () => {
                   <button type="button" @click="toggleEntryExpanded(entry, idx)" class="text-slate-400">{{ isEntryExpanded(entry, idx) ? '▼' : '▶' }}</button>
                   <div class="min-w-0 flex-1"><div class="truncate text-xs font-bold text-slate-200">{{ entry.name || '未命名条目' }}</div><div class="mt-1 flex flex-wrap gap-1 text-[9px] text-slate-500"><span v-if="entry.keys">触发：{{ entry.keys }}</span><span v-for="tag in entryTags(entry)" :key="tag" class="rounded bg-slate-900 px-1 text-indigo-300">{{ tag }}</span></div></div>
                   <button type="button" role="switch" :aria-checked="entry.is_active!==false" @click="entry.is_active=entry.is_active===false" class="rounded-full border px-2 py-1 text-[10px]" :class="entry.is_active===false?'border-slate-600 text-slate-500':'border-emerald-700 text-emerald-300'">{{ entry.is_active===false?'已关闭':'已启用' }}</button>
-                  <button @click="removeWorldEntry(idx)" class="text-rose-500">✕</button>
+                  <button v-if="confirmDeleteId !== entryKey(entry, idx)" @click="requestDelete(entryKey(entry, idx))" class="rounded px-2 py-1 text-rose-500">删除</button><span v-else :data-delete-confirm-id="entryKey(entry, idx)" class="flex gap-1"><button @click="cancelDelete" class="rounded bg-slate-700 px-2 py-1 text-[10px] text-slate-200">取消</button><button @click="removeWorldEntry(idx)" class="rounded bg-rose-700 px-2 py-1 text-[10px] text-white">确认</button></span>
                 </div>
                 <div v-if="isEntryExpanded(entry, idx)" class="mt-4 border-t border-slate-700 pt-3">
                 <div class="grid grid-cols-2 gap-4 mb-3">
@@ -147,14 +150,14 @@ const saveContent = async () => {
         
         <template v-else-if="type === 'entities'">
           <div class="grid grid-cols-2 gap-4">
-            <div><label class="text-xs text-slate-400 font-bold mb-1.5 block">动机 (Motive)</label><textarea v-model="form.motive" class="w-full h-24 bg-[#0d0d12] border border-slate-700 text-slate-300 p-3 rounded-lg text-sm"></textarea></div>
-            <div><label class="text-xs text-slate-400 font-bold mb-1.5 block">当前状态 (Status)</label><textarea v-model="form.status" class="w-full h-24 bg-[#0d0d12] border border-slate-700 text-slate-300 p-3 rounded-lg text-sm"></textarea></div>
+            <div><label class="text-xs text-slate-400 font-bold mb-1.5 block">动机 (Motive)<FieldHelp text="实体长期想实现什么，是 Overseer 判断行动方向的主要依据。" /></label><textarea v-model="form.motive" class="w-full h-24 bg-[#0d0d12] border border-slate-700 text-slate-300 p-3 rounded-lg text-sm"></textarea></div>
+            <div><label class="text-xs text-slate-400 font-bold mb-1.5 block">当前状态 (Status)<FieldHelp text="实体此刻所处的客观状态，例如位置、资源、伤势、权力与处境。" /></label><textarea v-model="form.status" class="w-full h-24 bg-[#0d0d12] border border-slate-700 text-slate-300 p-3 rounded-lg text-sm"></textarea></div>
           </div>
           <div><label class="text-xs text-slate-400 font-bold mb-1.5 block">描述（供资产库浏览）</label><textarea v-model="form.desc" class="w-full h-20 bg-[#0d0d12] border border-slate-700 text-slate-300 p-3 rounded-lg text-sm"></textarea></div>
           <div class="grid grid-cols-3 gap-4">
-            <div><label class="text-xs text-slate-400 font-bold mb-1.5 block">近期行动（每行一项）</label><textarea v-model="form.recentActionsText" class="w-full h-28 bg-[#0d0d12] border border-slate-700 text-slate-300 p-3 rounded-lg text-xs"></textarea></div>
-            <div><label class="text-xs text-slate-400 font-bold mb-1.5 block">计划（每行一项）</label><textarea v-model="form.plansText" class="w-full h-28 bg-[#0d0d12] border border-slate-700 text-slate-300 p-3 rounded-lg text-xs"></textarea></div>
-            <div><label class="text-xs text-slate-400 font-bold mb-1.5 block">机制（每行一项）</label><textarea v-model="form.mechanismsText" class="w-full h-28 bg-[#0d0d12] border border-slate-700 text-slate-300 p-3 rounded-lg text-xs"></textarea></div>
+            <div><label class="text-xs text-slate-400 font-bold mb-1.5 block">机制（每行一项）<FieldHelp text="实体能够反复使用的手段、制度、能力或运作方式；比单次行动更稳定。" /></label><textarea v-model="form.mechanismsText" class="w-full h-28 bg-[#0d0d12] border border-slate-700 text-slate-300 p-3 rounded-lg text-xs"></textarea></div>
+            <div><label class="text-xs text-slate-400 font-bold mb-1.5 block">计划（每行一项）<FieldHelp text="实体准备执行但尚未完成的阶段性安排，会随剧情和状态调整。" /></label><textarea v-model="form.plansText" class="w-full h-28 bg-[#0d0d12] border border-slate-700 text-slate-300 p-3 rounded-lg text-xs"></textarea></div>
+            <div><label class="text-xs text-slate-400 font-bold mb-1.5 block">近期行动（每行一项）<FieldHelp text="实体最近已经做过的事情，用于避免失忆、重复行动或时间线冲突。" /></label><textarea v-model="form.recentActionsText" class="w-full h-28 bg-[#0d0d12] border border-slate-700 text-slate-300 p-3 rounded-lg text-xs"></textarea></div>
           </div>
           <div class="grid grid-cols-2 gap-4">
             <div class="border border-slate-700 rounded-lg p-3 space-y-3"><div class="flex items-center justify-between"><label class="text-xs text-slate-400 font-bold">触发器</label><button @click="addEntityTrigger" class="px-2 py-1 rounded bg-indigo-900/50 text-indigo-300 text-[10px]">+ 添加</button></div><div v-if="!form.triggers.length" class="text-xs text-slate-500">暂无触发器</div><div v-for="(trigger, idx) in form.triggers" :key="idx" class="grid grid-cols-[1fr_1fr_auto] gap-2"><input v-model="trigger.condition" placeholder="触发条件" class="min-w-0 bg-[#0d0d12] border border-slate-700 text-slate-300 px-2 py-1.5 rounded text-xs"><input v-model="trigger.result" placeholder="触发后果" class="min-w-0 bg-[#0d0d12] border border-slate-700 text-slate-300 px-2 py-1.5 rounded text-xs"><button @click="removeEntityTrigger(idx)" class="text-rose-400 px-1">✕</button></div></div>

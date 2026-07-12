@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from core.worldbook import normalize_entry, normalize_tags, normalize_worldbook, save_worldbook_atomic
+from core.worldbook import normalize_axioms, normalize_entry, normalize_tags, normalize_worldbook, save_worldbook_atomic
 
 
 ALLOWED_OPERATIONS = {"add_entry", "update_entry", "deactivate_entry", "request_delete", "delete_entry", "update_overview", "set_axioms"}
@@ -108,7 +108,7 @@ class WorldbookWorkshop:
             self.draft["overview"] = operation["overview"]
             return
         if op == "set_axioms":
-            self.draft["axioms"] = operation["axioms"]
+            self.draft["axioms"] = normalize_axioms(operation["axioms"])
             return
         if op == "add_entry":
             entry = normalize_entry(operation["entry"])

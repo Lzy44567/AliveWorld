@@ -11,14 +11,11 @@ import { gameApi } from '../../api/gameApi';
 import { gameStore } from '../../store/gameStore';
 import { normalizeEntityDisclosure, projectLocalEntity } from '../../utils/entityVisibility';
 import { createEntityEditorForm } from '../../utils/entityForm';
-import CausalLedgerPanel from './CausalLedgerPanel.vue';
 import { worldbookWorkshopApi } from '../../api/worldbookWorkshopApi';
 import { useDeleteConfirmation } from '../../composables/useDeleteConfirmation';
 
 const searchKeyword = ref("");
 const { confirmDeleteId, requestDelete, cancelDelete } = useDeleteConfirmation();
-const entityLibraryView = ref('entities');
-const ledgerSourceFilter = ref('');
 const embeddingStatus = ref({ state: 'disabled', downloaded: false, enabled: false });
 const entityDisclosure = computed(() => normalizeEntityDisclosure(effectiveStorySettings.value));
 const canManageCurrentLocalAsset = computed(() =>
@@ -210,12 +207,7 @@ onBeforeUnmount(() => {
       <button @click="uiStore.assetScope = 'global'" :class="uiStore.assetScope==='global'?'bg-slate-700 text-white shadow':'text-slate-400 hover:text-slate-200'" class="flex-1 py-1.5 rounded text-xs font-bold transition">🌐 全局图鉴</button>
     </div>
 
-    <div v-if="uiStore.rightTab === 'entity' && uiStore.assetScope === 'local' && effectiveStorySettings.showCausalLedger" class="mb-3 flex shrink-0 rounded-lg border border-slate-700 bg-slate-900 p-1 text-[10px] font-bold">
-      <button @click="entityLibraryView = 'entities'" :class="entityLibraryView === 'entities' ? 'bg-slate-700 text-white' : 'text-slate-400'" class="flex-1 rounded py-1.5">实体</button>
-      <button @click="entityLibraryView = 'ledger'" :class="entityLibraryView === 'ledger' ? 'bg-fuchsia-900/60 text-fuchsia-200' : 'text-slate-400'" class="flex-1 rounded py-1.5">暗流因果账本</button>
-    </div>
-    
-    <div v-if="entityLibraryView !== 'ledger' || uiStore.rightTab !== 'entity' || uiStore.assetScope !== 'local' || !effectiveStorySettings.showCausalLedger" class="flex gap-2 mb-4 shrink-0">
+    <div class="flex gap-2 mb-4 shrink-0">
       <div class="flex-1 relative">
         <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs">🔍</span>
         <input v-model="searchKeyword" class="w-full bg-slate-800 border border-slate-600 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-200 outline-none focus:border-indigo-500" placeholder="搜索名称或标签..." />
@@ -224,9 +216,7 @@ onBeforeUnmount(() => {
       <button v-if="uiStore.rightTab==='world'" @click="uiStore.modals.embeddingModel=true" class="px-2 h-8 rounded-lg border text-[10px] font-bold whitespace-nowrap" :class="embeddingStatus.enabled?'border-cyan-700 bg-cyan-950/50 text-cyan-300':'border-slate-700 bg-slate-900 text-slate-400'" :title="embeddingStatus.error || '打开语义模型管理'">{{ embeddingStatus.state==='downloading'?`下载中 ${embeddingStatus.progress||0}%`:embeddingStatus.enabled?'语义检索已启用':embeddingStatus.downloaded?'语义模型已安装':'管理语义模型' }}</button>
     </div>
     
-    <CausalLedgerPanel v-if="uiStore.rightTab === 'entity' && uiStore.assetScope === 'local' && entityLibraryView === 'ledger' && effectiveStorySettings.showCausalLedger" :initial-source="ledgerSourceFilter" class="flex-1 min-h-0" />
-
-    <div v-else class="flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-1">
+    <div class="flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-1">
       <div v-if="entitiesHiddenByDisclosure" class="mx-1 mt-6 rounded-lg border border-purple-800/60 bg-purple-950/20 p-3 text-center text-xs leading-relaxed text-purple-300">
         本局已载入 {{ rawLocalEntityCount }} 个暗流实体。名称当前隐藏；可在设置中勾选“显示名称”或“允许编辑”进行查看。
       </div>
@@ -255,7 +245,7 @@ onBeforeUnmount(() => {
          <div v-if="item.influence_refs?.length" class="rounded-lg border border-fuchsia-900/50 bg-fuchsia-950/20 p-2 text-[9px] text-fuchsia-300">
            <div class="font-bold">关联暗流影响：{{ item.influence_refs.length }}</div>
            <div v-for="refItem in item.influence_refs.slice(0, 3)" :key="refItem.id" class="mt-1 truncate">{{ refItem.summary }} · {{ refItem.status }}</div>
-           <button @click="ledgerSourceFilter = item.name; entityLibraryView = 'ledger'" class="mt-1 underline">在账本中查看</button>
+           <button @click="uiStore.ledgerSourceFilter = item.name; uiStore.modals.causalLedger = true" class="mt-1 underline">在账本中查看</button>
          </div>
          
          <div class="mt-2 flex gap-2 border-t border-slate-800 pt-2 opacity-0 group-hover:opacity-100 transition-opacity">

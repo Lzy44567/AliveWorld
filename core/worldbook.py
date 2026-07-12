@@ -22,6 +22,13 @@ SYSTEM_TAGS = {
     "待删除": "已自动停用、等待玩家确认删除的条目。",
 }
 
+AXIOM_PREFIX = re.compile(r"^\s*(?:(?:\d+|[一二三四五六七八九十]+)[.、．)]|[-*•])\s*")
+
+
+def normalize_axioms(value: Any) -> list[str]:
+    items = value.splitlines() if isinstance(value, str) else (value if isinstance(value, list) else [])
+    return [cleaned for item in items if (cleaned := AXIOM_PREFIX.sub("", str(item).strip()).strip())]
+
 
 def normalize_tags(value: Any) -> list[str]:
     if isinstance(value, str):
@@ -63,10 +70,7 @@ def normalize_worldbook(raw: Any) -> dict[str, Any]:
     normalized["name"] = str(raw.get("name", "")).strip()
     normalized["tags"] = normalize_tags(raw.get("tags", []))
     normalized["overview"] = str(raw.get("overview", raw.get("global_setting", ""))).strip()
-    axioms = raw.get("axioms", [])
-    if isinstance(axioms, str):
-        axioms = [line.strip() for line in axioms.splitlines() if line.strip()]
-    normalized["axioms"] = [str(item).strip() for item in axioms if str(item).strip()] if isinstance(axioms, list) else []
+    normalized["axioms"] = normalize_axioms(raw.get("axioms", []))
     normalized.pop("global_setting", None)
     normalized["entries"] = [normalize_entry(item) for item in raw.get("entries", []) if isinstance(item, dict)]
     return normalized

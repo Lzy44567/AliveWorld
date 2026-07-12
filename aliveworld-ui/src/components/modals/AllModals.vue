@@ -9,6 +9,7 @@ import SettingsModal from './SettingsModal.vue';
 import NewGameModal from './NewGameModal.vue';
 import InsertCharModal from './InsertCharModal.vue';
 import GalleryModal from './GalleryModal.vue';
+import CausalLedgerModal from './CausalLedgerModal.vue';
 </script>
 
 <template>
@@ -20,4 +21,5 @@ import GalleryModal from './GalleryModal.vue';
   <AssetEditorModal v-if="uiStore.modals.assetEditor" />
   <WorldbookWorkshopModal v-if="uiStore.modals.worldbookWorkshop" />
   <EmbeddingModelModal v-if="uiStore.modals.embeddingModel" />
+  <CausalLedgerModal v-if="uiStore.modals.causalLedger" />
 </template>

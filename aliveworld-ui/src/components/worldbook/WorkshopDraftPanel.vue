@@ -42,3 +42,8 @@ const confirmDelete = (entry) => { emit('deleteEntry', entry); cancelDelete(); }
     </div>
   </aside>
 </template>
+
+<style scoped>
+[data-delete-confirm-id] button:first-child { order: 2; }
+[data-delete-confirm-id] button:last-child { order: 1; }
+</style>
