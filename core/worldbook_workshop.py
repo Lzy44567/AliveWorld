@@ -8,9 +8,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-import yaml
-
-from core.worldbook import normalize_entry, normalize_tags, normalize_worldbook
+from core.worldbook import normalize_entry, normalize_tags, normalize_worldbook, save_worldbook_atomic
 
 
 ALLOWED_OPERATIONS = {"add_entry", "update_entry", "deactivate_entry", "request_delete"}
@@ -134,8 +132,7 @@ class WorldbookWorkshop:
 
     def publish(self, output_path: Path | None = None) -> Path:
         path = Path(output_path or self.target_path)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(yaml.safe_dump(normalize_worldbook(self.draft), allow_unicode=True, sort_keys=False), encoding="utf-8")
+        save_worldbook_atomic(path, self.draft)
         return path
 
     def to_dict(self) -> dict[str, Any]:

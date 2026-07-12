@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import re
+import uuid
+from pathlib import Path
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -61,6 +64,16 @@ def normalize_worldbook(raw: Any) -> dict[str, Any]:
     normalized["tags"] = normalize_tags(raw.get("tags", []))
     normalized["entries"] = [normalize_entry(item) for item in raw.get("entries", []) if isinstance(item, dict)]
     return normalized
+
+
+def save_worldbook_atomic(path: Path | str, book: dict[str, Any]) -> None:
+    """Write a complete YAML file without exposing readers to partial content."""
+    import yaml
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    temporary = target.with_name(f".{target.name}.{uuid.uuid4().hex}.tmp")
+    temporary.write_text(yaml.safe_dump(normalize_worldbook(book), allow_unicode=True, sort_keys=False), encoding="utf-8")
+    os.replace(temporary, target)
 
 
 @dataclass(frozen=True)

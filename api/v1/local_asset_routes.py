@@ -10,7 +10,7 @@ from typing import Dict, Any
 from core.session_manager import active_sessions
 from utils.file_io import DATA_DIR, save_game_data
 from utils.asset_catalog import resolve_asset_path
-from core.worldbook import normalize_worldbook
+from core.worldbook import normalize_worldbook, save_worldbook_atomic
 
 router = APIRouter()
 
@@ -90,8 +90,11 @@ def update_local_asset(session_id: str, asset_type: str, asset_name: str, payloa
             parsed_data = normalize_worldbook(parsed_data)
         if asset_type == "entities":
             parsed_data["influence_refs"] = game.undercurrent.causal_ledger.refs_for_entity(asset_name)
-        with open(local_file, 'w', encoding='utf-8') as f:
-            yaml.safe_dump(parsed_data, f, allow_unicode=True, sort_keys=False)
+        if asset_type == "worldbooks":
+            save_worldbook_atomic(local_file, parsed_data)
+        else:
+            with open(local_file, 'w', encoding='utf-8') as f:
+                yaml.safe_dump(parsed_data, f, allow_unicode=True, sort_keys=False)
         return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"局内资源保存失败: {str(e)}")

@@ -10,7 +10,7 @@ from typing import Any
 import yaml
 
 from core.ai_engine import robust_json_parse
-from core.worldbook import normalize_entry, normalize_tags, normalize_worldbook
+from core.worldbook import normalize_entry, normalize_tags, normalize_worldbook, save_worldbook_atomic
 from utils.sys_logger import get_logger
 
 
@@ -117,6 +117,6 @@ class WorldbookCaptureService:
                 (pending if "待确认" in candidate["tags"] else added).append(candidate)
 
             if added or pending:
-                path.write_text(yaml.safe_dump(normalize_worldbook(book), allow_unicode=True, sort_keys=False), encoding="utf-8")
+                save_worldbook_atomic(path, book)
             log.info("世界书异步捕获完成: target=%s auto_added=%s pending=%s skipped=%s", path.name, [item["name"] for item in added], [item["name"] for item in pending], skipped)
             return {"added": added, "pending": pending, "skipped": skipped}

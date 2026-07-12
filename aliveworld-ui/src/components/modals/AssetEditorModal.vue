@@ -19,6 +19,13 @@ const addWorldEntry = () => {
 };
 
 const removeWorldEntry = (idx) => { form.value.entries.splice(idx, 1); };
+const entryTags = (entry) => typeof entry.tags === 'string' ? entry.tags.split(/[,，]/).map(tag => tag.trim()).filter(Boolean) : (entry.tags || []);
+const isPendingEntry = (entry) => entryTags(entry).includes('待确认');
+const acceptPendingEntry = (entry) => {
+  entry.tags = entryTags(entry).filter(tag => tag !== '待确认').join(', ');
+  entry.is_active = true;
+};
+const rejectPendingEntry = (idx) => { form.value.entries.splice(idx, 1); };
 const addEntityTrigger = () => { form.value.triggers.push({ condition: '', result: '' }); };
 const removeEntityTrigger = (idx) => { form.value.triggers.splice(idx, 1); };
 const addEntityRelationship = () => { form.value.relationships.push({ target: '', relation: '' }); };
@@ -94,6 +101,10 @@ const saveContent = async () => {
                 </div>
                 <div><label class="text-[10px] text-slate-500 block mb-1">词条内容</label><textarea v-model="entry.content" class="w-full h-20 bg-slate-900 border border-slate-700 text-slate-300 p-3 rounded text-xs"></textarea></div>
                 <div class="mt-3"><SystemTagInput v-model="entry.tags"><template #label><span class="text-[10px] text-slate-500">词条标签</span></template></SystemTagInput></div>
+                <div v-if="isPendingEntry(entry)" class="mt-3 flex items-center justify-between rounded-lg border border-amber-700/60 bg-amber-950/30 p-2">
+                  <span class="text-[10px] text-amber-300">此AI候选尚未参与正文检索</span>
+                  <div class="flex gap-2"><button type="button" @click="acceptPendingEntry(entry)" class="rounded bg-emerald-700 px-2 py-1 text-[10px] font-bold text-white">接受并启用</button><button type="button" @click="rejectPendingEntry(idx)" class="rounded bg-rose-800 px-2 py-1 text-[10px] font-bold text-white">拒绝并删除</button></div>
+                </div>
               </div>
             </div>
           </div>

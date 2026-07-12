@@ -1,6 +1,9 @@
 import unittest
+import tempfile
+from pathlib import Path
+import yaml
 
-from core.worldbook import WorldbookRetriever, normalize_entry, normalize_worldbook
+from core.worldbook import WorldbookRetriever, normalize_entry, normalize_worldbook, save_worldbook_atomic
 
 
 class WorldbookDomainTests(unittest.TestCase):
@@ -52,6 +55,14 @@ class WorldbookDomainTests(unittest.TestCase):
         ], "玩家进入校园")
         self.assertEqual(selected[0].entry["name"], "学校制度")
         self.assertIn("语义:0.820", selected[0].reasons)
+
+    def test_atomic_save_writes_normalized_worldbook_without_temp_file(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "book.yml"
+            save_worldbook_atomic(path, {"name": "世界", "entries": [{"name": "规则", "content": "内容"}]})
+            saved = yaml.safe_load(path.read_text(encoding="utf-8"))
+            self.assertTrue(saved["entries"][0]["id"].startswith("entry_"))
+            self.assertEqual(list(Path(temp_dir).glob(".book.yml.*.tmp")), [])
 
 
 if __name__ == "__main__":
