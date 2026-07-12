@@ -20,7 +20,7 @@ class ContextManager:
         styles = []
         for f in glob.glob(os.path.join(save_dir_path, 'styles', '*.yml')):
             with open(f, 'r', encoding='utf-8') as file:
-                data = normalize_worldbook(yaml.safe_load(file))
+                data = yaml.safe_load(file)
                 if data and data.get('is_active', True): styles.append(data.get('content', ''))
         self.style_info = "\n---\n".join(styles)
 
@@ -28,9 +28,10 @@ class ContextManager:
         self.world_entries = []
         for f in glob.glob(os.path.join(save_dir_path, 'worldbooks', '*.yml')):
             with open(f, 'r', encoding='utf-8') as file:
-                data = yaml.safe_load(file)
+                data = normalize_worldbook(yaml.safe_load(file))
                 if data and data.get('is_active', True):
-                    if data.get('global_setting'): worlds_base.append(f"[{data.get('name', '界域法则')}]：{data.get('global_setting')}")
+                    if data.get('overview'): worlds_base.append(f"【{data.get('name', '世界')} · 概述】：{data.get('overview')}")
+                    if data.get('axioms'): worlds_base.append("【世界公理】：\n" + "\n".join(f"- {item}" for item in data.get('axioms', [])))
                     self.world_entries.extend(data.get('entries', []))
         self.world_info_base = "\n".join(worlds_base)
 

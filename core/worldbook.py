@@ -62,6 +62,12 @@ def normalize_worldbook(raw: Any) -> dict[str, Any]:
     normalized = dict(raw)
     normalized["name"] = str(raw.get("name", "")).strip()
     normalized["tags"] = normalize_tags(raw.get("tags", []))
+    normalized["overview"] = str(raw.get("overview", raw.get("global_setting", ""))).strip()
+    axioms = raw.get("axioms", [])
+    if isinstance(axioms, str):
+        axioms = [line.strip() for line in axioms.splitlines() if line.strip()]
+    normalized["axioms"] = [str(item).strip() for item in axioms if str(item).strip()] if isinstance(axioms, list) else []
+    normalized.pop("global_setting", None)
     normalized["entries"] = [normalize_entry(item) for item in raw.get("entries", []) if isinstance(item, dict)]
     return normalized
 

@@ -63,7 +63,7 @@ const openNewAsset = () => {
   uiStore.editorData = { 
     type, name: '', isNew: true,
     form: {
-      name: '', tags: '', desc: '', global_setting: '', starting_scene: '', entries: [], is_active: true, is_player: false,
+      name: '', tags: '', desc: '', overview: '', axiomsText: '', starting_scene: '', entries: [], is_active: true, is_player: false,
       ...(type === 'entities' ? createEntityEditorForm() : {})
     }
   };
@@ -88,7 +88,8 @@ const openEditAsset = async (name) => {
         name: p.name || name,
         tags: Array.isArray(p.tags) ? p.tags.join(', ') : (p.tags || ''),
         desc: p.description || p.content || p.motive || '',
-        global_setting: p.global_setting || '',
+        overview: p.overview ?? p.global_setting ?? '',
+        axiomsText: Array.isArray(p.axioms) ? p.axioms.join('\n') : (p.axioms || ''),
         starting_scene: p.starting_scene || '',
         entries: (p.entries || []).map(entry => ({ ...entry, tags: Array.isArray(entry.tags) ? entry.tags.join(', ') : (entry.tags || '') })),
         is_active: p.is_active !== false,

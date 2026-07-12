@@ -18,7 +18,7 @@ export const uiStore = reactive({
   editorData: { 
     type: '', name: '', content: '', isNew: false,
     form: {
-      name: '', tags: [], desc: '', global_setting: '', starting_scene: '', entries: [],
+      name: '', tags: [], desc: '', overview: '', axiomsText: '', starting_scene: '', entries: [],
       motive: '', status: '', is_active: true, is_player: false
     }
   },

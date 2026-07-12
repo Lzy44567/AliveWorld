@@ -1,6 +1,6 @@
 <!-- src/components/modals/AssetEditorModal.vue -->
 <script setup>
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { uiStore } from '../../store/uiStore';
 import { assetStore } from '../../store/assetStore';
 import { assetApi } from '../../api/assetApi';
@@ -26,6 +26,26 @@ const acceptPendingEntry = (entry) => {
   entry.is_active = true;
 };
 const rejectPendingEntry = (idx) => { form.value.entries.splice(idx, 1); };
+const entrySearch = ref('');
+const expandedEntries = ref({});
+const filteredWorldEntries = computed(() => {
+  const keyword = entrySearch.value.trim().toLowerCase();
+  return (form.value.entries || []).map((entry, index) => ({ entry, index })).filter(({ entry }) => {
+    if (!keyword) return true;
+    const tags = typeof entry.tags === 'string' ? entry.tags : (entry.tags || []).join(' ');
+    return [entry.name, entry.keys, tags, entry.content].some(value => String(value || '').toLowerCase().includes(keyword));
+  });
+});
+const entryKey = (entry, index) => entry.id || `index_${index}`;
+const toggleEntryExpanded = (entry, index) => { expandedEntries.value[entryKey(entry, index)] = !expandedEntries.value[entryKey(entry, index)]; };
+const isEntryExpanded = (entry, index) => Boolean(expandedEntries.value[entryKey(entry, index)]);
+const openWorkshop = () => {
+  if (uiStore.editorData.isNew) return uiStore.showToast('请先保存世界书，再进入工坊', 'error');
+  if (uiStore.assetScope !== 'global') return uiStore.showToast('当前工坊先用于局外世界书资产', 'error');
+  uiStore.workshopWorldbookName = form.value.name;
+  uiStore.modals.assetEditor = false;
+  uiStore.modals.worldbookWorkshop = true;
+};
 const addEntityTrigger = () => { form.value.triggers.push({ condition: '', result: '' }); };
 const removeEntityTrigger = (idx) => { form.value.triggers.splice(idx, 1); };
 const addEntityRelationship = () => { form.value.relationships.push({ target: '', relation: '' }); };
@@ -45,7 +65,8 @@ const saveContent = async () => {
     else if (Array.isArray(form.value.tags)) payload.tags = form.value.tags;
 
     if (type.value === 'worldbooks') {
-      payload.global_setting = form.value.global_setting;
+      payload.overview = form.value.overview;
+      payload.axioms = String(form.value.axiomsText || '').split(/\r?\n/).map(item => item.trim()).filter(Boolean);
       payload.starting_scene = form.value.starting_scene;
       payload.entries = form.value.entries.filter(e => e.name || e.keys || e.content).map(e => ({
         ...e,
@@ -78,23 +99,30 @@ const saveContent = async () => {
     <div class="bg-[#1a1a1f] border border-slate-600 rounded-xl w-full max-w-4xl shadow-2xl flex flex-col slide-up overflow-hidden h-[85vh]">
       <div class="p-4 border-b border-slate-700 flex justify-between bg-slate-900/80">
         <h2 class="font-bold text-emerald-400 text-lg">✨ 编辑设定 <span class="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded">{{ type }}</span></h2>
-        <div class="flex gap-2"><button @click="saveContent" class="px-5 py-2 bg-emerald-600 text-white text-sm font-bold rounded shadow">保存</button><button @click="closeEditor" class="px-4 py-2 bg-slate-700 text-white text-sm font-bold rounded">取消</button></div>
+        <div class="flex gap-2"><button v-if="type==='worldbooks'" @click="openWorkshop" class="px-4 py-2 bg-violet-800 text-violet-100 text-sm font-bold rounded shadow">🧭 进入工坊</button><button @click="saveContent" class="px-5 py-2 bg-emerald-600 text-white text-sm font-bold rounded shadow">保存</button><button @click="closeEditor" class="px-4 py-2 bg-slate-700 text-white text-sm font-bold rounded">取消</button></div>
       </div>
       <div class="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
         <div class="grid grid-cols-2 gap-6">
           <div><label class="text-xs text-slate-400 font-bold mb-1.5 block">资产名称 (Name)</label><input v-model="form.name" class="w-full bg-[#0d0d12] border border-slate-700 text-slate-200 px-4 py-2.5 rounded-lg text-sm" /></div>
-          <SystemTagInput v-if="type === 'worldbooks'" v-model="form.tags"><template #label><span class="text-xs text-slate-400 font-bold">标签（系统标签可补全，自由标签可直接输入）</span></template></SystemTagInput>
-          <div v-else><label class="text-xs text-slate-400 font-bold mb-1.5 block">标签 (逗号分隔)</label><input v-model="form.tags" class="w-full bg-[#0d0d12] border border-slate-700 text-slate-200 px-4 py-2.5 rounded-lg text-sm" /></div>
+          <div><label class="text-xs text-slate-400 font-bold mb-1.5 block">{{ type === 'worldbooks' ? '世界书分类标签（仅用于玩家检索管理）' : '标签 (逗号分隔)' }}</label><input v-model="form.tags" class="w-full bg-[#0d0d12] border border-slate-700 text-slate-200 px-4 py-2.5 rounded-lg text-sm" /></div>
         </div>
 
         <!-- 🚀 修复问题10：补回完整视图 -->
         <template v-if="type === 'worldbooks'">
-          <div><label class="text-xs text-slate-400 font-bold block mb-1.5">最高法则 (Global Setting)</label><textarea v-model="form.global_setting" class="w-full h-24 bg-[#0d0d12] border border-slate-700 text-slate-300 p-3 rounded-lg text-sm"></textarea></div>
+          <div><label class="text-xs text-slate-400 font-bold block mb-1.5">世界概述</label><p class="mb-1.5 text-[10px] text-slate-500">介绍世界背景与总体印象，不视为不可违反的规则。</p><textarea v-model="form.overview" class="w-full h-24 bg-[#0d0d12] border border-slate-700 text-slate-300 p-3 rounded-lg text-sm"></textarea></div>
+          <div><label class="text-xs text-amber-300 font-bold block mb-1.5">世界公理（每行一条）</label><p class="mb-1.5 text-[10px] text-slate-500">定义世界最基础的客观规则与基调，和口语化概述分开。</p><textarea v-model="form.axiomsText" class="w-full h-24 bg-[#0d0d12] border border-amber-900/70 text-slate-300 p-3 rounded-lg text-sm"></textarea></div>
           <div class="border-t border-slate-700 pt-4">
-            <div class="flex justify-between items-center mb-4"><h3 class="text-sm font-bold text-slate-300">📚 触发词条设定</h3><button @click="addWorldEntry" class="px-3 py-1 bg-indigo-900/50 text-indigo-400 border border-indigo-700/50 rounded text-xs font-bold">+ 新增词条</button></div>
+            <div class="flex justify-between items-center mb-3"><h3 class="text-sm font-bold text-slate-300">📚 世界书条目</h3><button @click="addWorldEntry" class="px-3 py-1 bg-indigo-900/50 text-indigo-400 border border-indigo-700/50 rounded text-xs font-bold">+ 新增条目</button></div>
+            <input v-model="entrySearch" class="mb-3 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-200" placeholder="搜索条目名称、触发词、标签或内容……" />
             <div class="space-y-4">
-              <div v-for="(entry, idx) in form.entries" :key="idx" class="bg-slate-800/50 p-4 rounded-lg border border-slate-700 relative group">
-                <button @click="removeWorldEntry(idx)" class="absolute right-3 top-3 text-rose-500 opacity-0 group-hover:opacity-100 transition">✕</button>
+              <div v-for="({entry, index: idx}) in filteredWorldEntries" :key="entry.id || idx" class="bg-slate-800/50 p-3 rounded-lg border border-slate-700 relative group" :class="entry.is_active===false?'opacity-60':''">
+                <div class="flex items-center gap-3">
+                  <button type="button" @click="toggleEntryExpanded(entry, idx)" class="text-slate-400">{{ isEntryExpanded(entry, idx) ? '▼' : '▶' }}</button>
+                  <div class="min-w-0 flex-1"><div class="truncate text-xs font-bold text-slate-200">{{ entry.name || '未命名条目' }}</div><div class="mt-1 flex flex-wrap gap-1 text-[9px] text-slate-500"><span v-if="entry.keys">触发：{{ entry.keys }}</span><span v-for="tag in entryTags(entry)" :key="tag" class="rounded bg-slate-900 px-1 text-indigo-300">{{ tag }}</span></div></div>
+                  <button type="button" role="switch" :aria-checked="entry.is_active!==false" @click="entry.is_active=entry.is_active===false" class="rounded-full border px-2 py-1 text-[10px]" :class="entry.is_active===false?'border-slate-600 text-slate-500':'border-emerald-700 text-emerald-300'">{{ entry.is_active===false?'已关闭':'已启用' }}</button>
+                  <button @click="removeWorldEntry(idx)" class="text-rose-500">✕</button>
+                </div>
+                <div v-if="isEntryExpanded(entry, idx)" class="mt-4 border-t border-slate-700 pt-3">
                 <div class="grid grid-cols-2 gap-4 mb-3">
                   <div><label class="text-[10px] text-slate-500 block mb-1">词条名</label><input v-model="entry.name" class="w-full bg-slate-900 border border-slate-700 text-slate-200 px-3 py-1.5 rounded text-xs" /></div>
                   <div><label class="text-[10px] text-slate-500 block mb-1">触发关键词 (逗号分隔)</label><input v-model="entry.keys" class="w-full bg-slate-900 border border-slate-700 text-slate-200 px-3 py-1.5 rounded text-xs" /></div>
@@ -104,6 +132,7 @@ const saveContent = async () => {
                 <div v-if="isPendingEntry(entry)" class="mt-3 flex items-center justify-between rounded-lg border border-amber-700/60 bg-amber-950/30 p-2">
                   <span class="text-[10px] text-amber-300">此AI候选尚未参与正文检索</span>
                   <div class="flex gap-2"><button type="button" @click="acceptPendingEntry(entry)" class="rounded bg-emerald-700 px-2 py-1 text-[10px] font-bold text-white">接受并启用</button><button type="button" @click="rejectPendingEntry(idx)" class="rounded bg-rose-800 px-2 py-1 text-[10px] font-bold text-white">拒绝并删除</button></div>
+                </div>
                 </div>
               </div>
             </div>

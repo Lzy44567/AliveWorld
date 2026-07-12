@@ -17,6 +17,12 @@ class WorldbookDomainTests(unittest.TestCase):
         self.assertEqual(entry["tags"], ["绝对规则", "玩家设定"])
         self.assertEqual(entry["id"], normalize_entry(entry)["id"])
 
+    def test_legacy_global_setting_migrates_to_overview_and_axioms_stay_separate(self):
+        book = normalize_worldbook({"name": "旧世界", "global_setting": "口语化介绍", "axioms": ["死亡不可逆"]})
+        self.assertEqual(book["overview"], "口语化介绍")
+        self.assertEqual(book["axioms"], ["死亡不可逆"])
+        self.assertNotIn("global_setting", book)
+
     def test_keyword_and_resident_entries_are_retrieved(self):
         retriever = WorldbookRetriever(budget_chars=1000)
         selected, omitted = retriever.retrieve([
