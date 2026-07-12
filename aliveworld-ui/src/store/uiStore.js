@@ -11,8 +11,9 @@ export const uiStore = reactive({
 
   modals: { 
     settings: false, gallery: false, terminal: false, newGame: false, insertChar: false,
-    assetEditor: false 
+    assetEditor: false, worldbookWorkshop: false
   },
+  workshopWorldbookName: '',
   
   editorData: { 
     type: '', name: '', content: '', isNew: false,

@@ -164,6 +164,11 @@ const openInsertCharModal = (charName) => {
   uiStore.modals.insertChar = true;
 };
 
+const openWorldbookWorkshop = (name) => {
+  uiStore.workshopWorldbookName = name;
+  uiStore.modals.worldbookWorkshop = true;
+};
+
 </script>
 
 <template>
@@ -223,6 +228,7 @@ const openInsertCharModal = (charName) => {
          <div class="mt-2 flex gap-2 border-t border-slate-800 pt-2 opacity-0 group-hover:opacity-100 transition-opacity">
            <button v-if="uiStore.assetScope === 'global' || canManageCurrentLocalAsset" @click="openEditAsset(item.name)" class="flex-1 bg-slate-800 hover:bg-slate-700 text-[10px] py-1.5 rounded font-bold text-slate-300">✏️ {{ uiStore.assetScope === 'local' ? '微调' : '编辑' }}</button>
            <button v-if="uiStore.assetScope==='global'" @click="pullAssetToLocal(item.name)" class="flex-1 bg-indigo-900/50 hover:bg-indigo-600 text-[10px] py-1.5 rounded font-bold text-indigo-300 hover:text-white border border-indigo-700/50">⬇️ 载入局内</button>
+           <button v-if="uiStore.assetScope==='global' && uiStore.rightTab==='world'" @click="openWorldbookWorkshop(item.name)" class="flex-1 bg-violet-900/50 hover:bg-violet-600 text-[10px] py-1.5 rounded font-bold text-violet-300 hover:text-white border border-violet-700/50">🧭 工坊</button>
            <button v-if="uiStore.assetScope==='local' && canManageCurrentLocalAsset" @click="pushToGlobal(item)" class="flex-1 bg-emerald-900/50 hover:bg-emerald-600 text-[10px] py-1.5 rounded font-bold text-emerald-300 hover:text-white border border-emerald-700/50">⬆️ 推送全局</button>
 
            <button v-if="(uiStore.assetScope === 'global' || canManageCurrentLocalAsset) && confirmDeleteId !== item.name" @click="confirmDeleteId = item.name" class="px-2 bg-rose-900/30 hover:bg-rose-600 text-rose-400 hover:text-white rounded text-xs border border-rose-900/50">🗑</button>

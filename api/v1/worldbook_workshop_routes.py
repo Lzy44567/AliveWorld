@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 from typing import Any, Dict, List, Optional
 
 from core.worldbook_workshop import WorkshopError, WorldbookWorkshop
+from core.worldbook_workshop_agent import WorldbookWorkshopAgent
 from utils.asset_catalog import resolve_asset_path
 from utils.file_io import DATA_DIR, WORLD_DIR
 
@@ -27,6 +28,11 @@ class ApplyOperationsRequest(BaseModel):
 
 class PublishRequest(BaseModel):
     worldbook_name: Optional[str] = None
+
+
+class WorkshopChatRequest(BaseModel):
+    message: str
+    mode: str = "expand"
 
 
 def _get(workshop_id: str) -> WorldbookWorkshop:
@@ -71,6 +77,20 @@ def apply_operations(workshop_id: str, payload: ApplyOperationsRequest):
         workshop.save_session(WORKSHOP_DIR)
         return {**_payload(workshop), "applied": result["applied"]}
     except WorkshopError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.post("/workshops/{workshop_id}/chat")
+def chat_workshop(workshop_id: str, payload: WorkshopChatRequest):
+    workshop = _get(workshop_id)
+    from api.v1.game_routes import global_ai_engine
+    if not global_ai_engine:
+        raise HTTPException(status_code=500, detail="未找到 config.yml，无法启动世界书工坊 AI")
+    try:
+        result = WorldbookWorkshopAgent(global_ai_engine).respond(workshop, payload.message.strip(), payload.mode)
+        workshop.save_session(WORKSHOP_DIR)
+        return {**_payload(workshop), **result}
+    except (WorkshopError, ValueError) as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
 

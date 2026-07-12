@@ -41,6 +41,15 @@ class WorldbookWorkshopTests(unittest.TestCase):
             self.assertFalse(deleted["is_active"])
             self.assertIn("待删除", deleted["tags"])
 
+    def test_axiom_flag_requires_confirmation_even_without_absolute_tag(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workshop = self.make_workshop(temp_dir)
+            result = workshop.apply_operations([{
+                "op": "add_entry", "entry": {"name": "新公理", "content": "改变世界基调"}, "creates_axiom": True,
+            }])
+            self.assertEqual(result["applied"], [])
+            self.assertEqual(len(result["pending"]), 1)
+
     def test_unknown_operation_and_entry_are_rejected(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             workshop = self.make_workshop(temp_dir)

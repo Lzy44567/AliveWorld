@@ -32,7 +32,7 @@ def _is_high_risk(book: dict[str, Any], operation: dict[str, Any]) -> bool:
     if op == "request_delete":
         return True
     if op == "add_entry":
-        return "绝对规则" in normalize_tags(operation.get("entry", {}).get("tags", []))
+        return bool(operation.get("creates_axiom")) or "绝对规则" in normalize_tags(operation.get("entry", {}).get("tags", []))
     if op == "update_entry":
         _, current = _find_entry(book, str(operation.get("entry_id", "")))
         changes = operation.get("changes", {}) if isinstance(operation.get("changes"), dict) else {}
