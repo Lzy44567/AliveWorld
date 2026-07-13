@@ -14,7 +14,7 @@
 1. 下载或克隆AliveWorld源码。
 2. 双击根目录的 `install_windows.bat`。
 3. 安装脚本会在AliveWorld目录内建立 `.venv`，安装Python依赖和前端依赖。
-4. 根据需要选择是否安装本地语义检索依赖。仅试玩时可以选择 `N`。
+4. 基础安装不会安装 PyTorch。仅在需要本地语义检索时，另行双击 `install_semantic_windows.bat`。
 5. 打开 `config.yml`，填写自己的 `api_key`、`base_url` 和 `model`。
 6. 双击 `start_dev.bat`。
 7. 浏览器访问 `http://127.0.0.1:5173`。

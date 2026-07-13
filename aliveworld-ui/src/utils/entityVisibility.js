@@ -18,6 +18,9 @@ export function projectLocalEntity(entity, disclosure) {
     is_active: entity.is_active,
     tags: ['本局实体']
   };
+  if (permissions.allowEditing) {
+    return { ...entity, ...shared, desc: `动机：${entity.motive || entity.description || '未公开'}` };
+  }
   if (!permissions.showMotives) {
     return { ...shared, desc: '暗流详情已隐藏' };
   }

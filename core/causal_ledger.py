@@ -156,6 +156,13 @@ class CausalLedger:
         item.status = "active"
         return item
 
+    def purge(self, influence_id):
+        item = self.by_id(influence_id)
+        if not item or item.status == "active":
+            return None
+        self.influences.remove(item)
+        return item
+
     def advance_turn(self):
         self.turn_count += 1
         for item in self.active():

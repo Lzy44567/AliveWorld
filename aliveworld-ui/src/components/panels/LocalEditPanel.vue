@@ -12,7 +12,7 @@ const restoreDefaults = () => {
 </script>
 
 <template>
-  <div class="space-y-5 animate-[fadeIn_0.2s] pb-6">
+  <div class="min-h-0 flex-1 space-y-5 overflow-y-auto pr-1 animate-[fadeIn_0.2s] pb-6 custom-scrollbar">
     <div v-if="!gameStore.sessionId" class="text-center text-slate-500 text-xs mt-10">未连接时间线</div>
     <template v-else>
       <section class="bg-emerald-950/20 border border-emerald-800/50 p-4 rounded-xl">

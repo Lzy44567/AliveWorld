@@ -19,6 +19,12 @@ class CausalLedgerTests(unittest.TestCase):
         ledger = CausalLedger([{"id": "restore_me", "summary": "可恢复", "status": "cancelled"}])
         self.assertEqual(ledger.restore("restore_me").status, "active")
 
+    def test_only_inactive_influence_can_be_permanently_deleted(self):
+        ledger = CausalLedger([{"id": "active", "summary": "生效"}, {"id": "old", "summary": "旧账", "status": "cancelled"}])
+        self.assertIsNone(ledger.purge("active"))
+        self.assertEqual(ledger.purge("old").id, "old")
+        self.assertIsNone(ledger.by_id("old"))
+
     def test_turn_age_condition_check_and_one_shot_consumption(self):
         ledger = CausalLedger()
         item = ledger.add(influence("弩箭陷阱", mode="on_success", influence_type="one_shot"), current_tick=3)
