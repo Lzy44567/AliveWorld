@@ -1,6 +1,8 @@
+from pathlib import Path
 from typing import Any, Dict
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from core.image_generation import ImageGenerationService
@@ -49,9 +51,18 @@ def _handle(call):
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
+def _task_payload(session_id: str, task):
+    data = task.to_dict()
+    data["output_images"] = [
+        f"/api/v1/game/{session_id}/images/tasks/{task.id}/files/{index}"
+        for index, _path in enumerate(task.output_images)
+    ]
+    return data
+
+
 @router.get("/{session_id}/images/tasks")
 def list_image_tasks(session_id: str):
-    return [task.to_dict() for task in _handle(lambda: _service(session_id).list())]
+    return [_task_payload(session_id, task) for task in _handle(lambda: _service(session_id).list())]
 
 
 @router.post("/{session_id}/images/tasks")
@@ -62,17 +73,17 @@ def create_image_task(session_id: str, payload: ImageTaskPayload):
     runtime = _runtime(session_id)
     task = _handle(lambda: runtime.service.create(game.save_name or session_id, payload.data))
     runtime.runner.start(task.id)
-    return task.to_dict()
+    return _task_payload(session_id, task)
 
 
 @router.get("/{session_id}/images/tasks/{task_id}")
 def get_image_task(session_id: str, task_id: str):
-    return _handle(lambda: _service(session_id).get(task_id)).to_dict()
+    return _task_payload(session_id, _handle(lambda: _service(session_id).get(task_id)))
 
 
 @router.post("/{session_id}/images/tasks/{task_id}/cancel")
 def cancel_image_task(session_id: str, task_id: str):
-    return _handle(lambda: _runtime(session_id).runner.cancel(task_id)).to_dict()
+    return _task_payload(session_id, _handle(lambda: _runtime(session_id).runner.cancel(task_id)))
 
 
 @router.post("/{session_id}/images/tasks/{task_id}/retry")
@@ -80,7 +91,7 @@ def retry_image_task(session_id: str, task_id: str):
     runtime = _runtime(session_id)
     task = _handle(lambda: runtime.service.retry(task_id))
     runtime.runner.start(task.id)
-    return task.to_dict()
+    return _task_payload(session_id, task)
 
 
 @router.post("/images/providers/comfyui/check")
@@ -128,4 +139,20 @@ def generate_comfyui_test_image(session_id: str, payload: ComfyUIConfigPayload, 
         "provider_options": {"base_url": payload.base_url, "checkpoint": checkpoint},
     })
     runtime.runner.start(task.id)
-    return task.to_dict()
+    return _task_payload(session_id, task)
+
+
+@router.get("/{session_id}/images/tasks/{task_id}/files/{image_index}")
+def get_generated_image(session_id: str, task_id: str, image_index: int):
+    task = _handle(lambda: _service(session_id).get(task_id))
+    if image_index < 0 or image_index >= len(task.output_images):
+        raise HTTPException(status_code=404, detail="图片不存在")
+    runtime = _runtime(session_id)
+    path = runtime.service.repository.outputs_dir / Path(task.output_images[image_index]).name
+    try:
+        path.resolve().relative_to(runtime.service.repository.outputs_dir.resolve())
+    except ValueError as exc:
+        raise HTTPException(status_code=403, detail="图片路径无效") from exc
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="图片文件不存在")
+    return FileResponse(path)

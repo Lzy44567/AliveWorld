@@ -11,6 +11,7 @@ from core.entity_repository import EntityRepository
 from core.story_settings import normalize_story_settings
 from core.future_candidates import choose_candidate, normalize_candidates
 from core.worldbook_capture import WorldbookCaptureService, capture_requested
+from core.chat_messages import ensure_message_ids
 
 class GameSession:
     def __init__(self, ai_engine, save_name="", save_dir_path="", story_settings=None):
@@ -55,6 +56,7 @@ class GameSession:
     def start_new_game(self, world_premise, opening):
         self.world_premise = world_premise
         self.history["chat_messages"] = [{"role": "ai", "content": opening}]
+        ensure_message_ids(self.history["chat_messages"])
         self.history["context_history"] = [opening]
 
     def _sync_entities_to_local(self):
@@ -205,6 +207,7 @@ class GameSession:
         return True
 
     def export_save_data(self):
+        ensure_message_ids(self.history.get("chat_messages", []))
         return {
             "save_name": self.save_name, "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "save_dir_path": self.save_dir_path, "description": self.world_premise, "world_premise": self.world_premise,
@@ -219,5 +222,6 @@ class GameSession:
         self.story_settings = normalize_story_settings(data.get('story_settings'))
         self.entity_repository = EntityRepository(self.save_dir_path)
         self.state_mgr.state, self.history = data.get('state', self.state), data.get('history', self.history)
+        ensure_message_ids(self.history.get("chat_messages", []))
         self.undercurrent.load_state(data.get('undercurrent', {}))
         self.snapshots = data.get('snapshots', [])
