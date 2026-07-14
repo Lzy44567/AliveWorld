@@ -21,17 +21,29 @@ _locks_guard = threading.Lock()
 
 CAPTURE_PROMPT = """你是世界书设定捕获器。阅读一个已经完成的故事回合，只识别值得长期保留的稳定世界设定。
 
-不要捕获：一次性动作、当前伤势、临时地点状态、角色计划、幕后行动、尚未证实的角色台词、普通剧情摘要。这些属于正文、状态、实体或因果账本。
-可以捕获：新出现且预计长期成立的法律、制度、社会习俗、自然规律、技术/魔法规则、稳定地点背景。
+世界书不是剧情摘抄簿。一次出现、能在未来派上用场或具有特殊功能，不等于值得写入世界观。
+不要捕获：一次性动作、当前伤势、临时地点状态、角色计划、幕后行动、普通剧情摘要、单件特殊道具、角色或暗流实体资料、实体制造的陷阱与线索。这些分别属于正文、状态、角色卡、实体库或因果账本。
+可以捕获：预计长期约束许多场景的法律、制度、社会习俗、自然规律、通用技术/魔法规则。稳定地点、独特物品或人物传闻只能作为待确认候选，不能自动升格为世界事实。
 只允许提出全新条目，不修改或删除已有条目，不创造绝对规则。与现有条目重复或冲突时不要输出。
+
+scope 必须从以下枚举选择：world_rule、social_system、natural_law、technology_magic_rule、stable_location、unique_item、character_entity、event_detail。
+confidence 必须为 high、medium 或 low。只有正文明确建立、并且可跨多个场景持续约束世界时才可写 high；由单回合细节推测出的内容不得写 high。
 
 严格输出 JSON：
 {
   "candidates": [
-    {"name":"条目名","content":"稳定设定","keys":"可选明确触发词","tags":["AI推断"],"risk":"low|high","reason":"为何属于长期世界设定"}
+    {"name":"条目名","content":"稳定设定","keys":"可选明确触发词","tags":["AI推断"],"risk":"low|high","scope":"上述枚举","confidence":"high|medium|low","reason":"为何属于长期世界设定"}
   ]
 }
 """
+
+AUTO_CAPTURE_SCOPES = {
+    "world_rule",
+    "social_system",
+    "natural_law",
+    "technology_magic_rule",
+}
+NEVER_CAPTURE_SCOPES = {"event_detail"}
 
 
 def _path_lock(path: Path) -> threading.Lock:
@@ -99,10 +111,16 @@ class WorldbookCaptureService:
                 if not isinstance(raw_candidate, dict):
                     continue
                 tags = normalize_tags(raw_candidate.get("tags", []))
+                scope = str(raw_candidate.get("scope", "")).strip()
+                confidence = str(raw_candidate.get("confidence", "")).strip()
+                if scope in NEVER_CAPTURE_SCOPES:
+                    skipped.append(str(raw_candidate.get("name", "剧情细节")))
+                    continue
                 high_risk = raw_candidate.get("risk") != "low" or "绝对规则" in tags
+                safe_to_auto_add = scope in AUTO_CAPTURE_SCOPES and confidence == "high" and not high_risk
                 if "AI推断" not in tags:
                     tags.append("AI推断")
-                if review_all or high_risk:
+                if review_all or not safe_to_auto_add:
                     tags.append("待确认")
                 candidate = normalize_entry({**raw_candidate, "tags": tags})
                 if not candidate["name"] or not candidate["content"]:

@@ -11,6 +11,7 @@ import ExpandableTextarea from '../common/ExpandableTextarea.vue';
 import { useDeleteConfirmation } from '../../composables/useDeleteConfirmation';
 import FieldHelp from '../common/FieldHelp.vue';
 import WorldbookEntryEditorModal from '../worldbook/WorldbookEntryEditorModal.vue';
+import InlineDeleteConfirm from '../common/InlineDeleteConfirm.vue';
 
 const form = computed(() => uiStore.editorData.form);
 const type = computed(() => uiStore.editorData.type);
@@ -130,7 +131,7 @@ const saveContent = async () => {
                   <button type="button" @click="editWorldEntry(entry, idx)" class="rounded bg-slate-900 px-2 py-1 text-[10px] text-slate-300">编辑</button>
                   <div class="min-w-0 flex-1"><div class="truncate text-xs font-bold text-slate-200">{{ entry.name || '未命名条目' }}</div><div class="mt-1 flex flex-wrap gap-1 text-[9px] text-slate-500"><span v-if="entry.keys">触发：{{ entry.keys }}</span><span v-for="tag in entryTags(entry)" :key="tag" class="rounded bg-slate-900 px-1 text-indigo-300">{{ tag }}</span></div></div>
                   <button type="button" role="switch" :aria-checked="entry.is_active!==false" @click="entry.is_active=entry.is_active===false" class="rounded-full border px-2 py-1 text-[10px]" :class="entry.is_active===false?'border-slate-600 text-slate-500':'border-emerald-700 text-emerald-300'">{{ entry.is_active===false?'已关闭':'已启用' }}</button>
-                  <button v-if="confirmDeleteId !== entryKey(entry, idx)" @click="requestDelete(entryKey(entry, idx))" class="rounded px-2 py-1 text-rose-500">删除</button><span v-else :data-delete-confirm-id="entryKey(entry, idx)" class="flex gap-1"><button @click="cancelDelete" class="rounded bg-slate-700 px-2 py-1 text-[10px] text-slate-200">取消</button><button @click="removeWorldEntry(idx)" class="rounded bg-rose-700 px-2 py-1 text-[10px] text-white">确认</button></span>
+                  <InlineDeleteConfirm :active="confirmDeleteId === entryKey(entry, idx)" :confirm-id="entryKey(entry, idx)" @request="requestDelete(entryKey(entry, idx))" @cancel="cancelDelete" @confirm="removeWorldEntry(idx)" />
                 </div>
                 <div v-if="isPendingEntry(entry)" class="mt-3 flex items-center justify-between rounded-lg border border-amber-700/60 bg-amber-950/30 p-2">
                   <span class="text-[10px] text-amber-300">此AI候选尚未参与正文检索</span>

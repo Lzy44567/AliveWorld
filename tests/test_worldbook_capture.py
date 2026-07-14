@@ -27,7 +27,7 @@ class WorldbookCaptureTests(unittest.TestCase):
     def test_low_risk_candidate_is_added_automatically(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             path = self.write_book(temp_dir)
-            ai = FakeAI('{"candidates":[{"name":"校服制度","content":"学生统一穿特殊校服","risk":"low","reason":"长期制度"}]}')
+            ai = FakeAI('{"candidates":[{"name":"校服制度","content":"学生统一穿特殊校服","risk":"low","scope":"social_system","confidence":"high","reason":"长期制度"}]}')
             result = WorldbookCaptureService(ai).capture(path, "进入学校", "学生们穿着统一校服。", review_all=False)
             self.assertEqual([item["name"] for item in result["added"]], ["校服制度"])
             saved = yaml.safe_load(path.read_text(encoding="utf-8"))
@@ -38,7 +38,7 @@ class WorldbookCaptureTests(unittest.TestCase):
         for review_all, risk in ((True, "low"), (False, "high")):
             with self.subTest(review_all=review_all, risk=risk), tempfile.TemporaryDirectory() as temp_dir:
                 path = self.write_book(temp_dir)
-                ai = FakeAI('{"candidates":[{"name":"新制度","content":"改变社会规则","risk":"%s"}]}' % risk)
+                ai = FakeAI('{"candidates":[{"name":"新制度","content":"改变社会规则","risk":"%s","scope":"social_system","confidence":"high"}]}' % risk)
                 result = WorldbookCaptureService(ai).capture(path, "行动", "正文", review_all=review_all)
                 self.assertEqual(len(result["pending"]), 1)
                 self.assertIn("待确认", result["pending"][0]["tags"])
@@ -50,6 +50,33 @@ class WorldbookCaptureTests(unittest.TestCase):
             result = WorldbookCaptureService(ai).capture(path, "行动", "正文", review_all=False)
             self.assertEqual(result["added"], [])
             self.assertEqual(len(yaml.safe_load(path.read_text(encoding="utf-8"))["entries"]), 1)
+
+    def test_item_location_and_entity_candidates_require_review(self):
+        for scope in ("unique_item", "stable_location", "character_entity"):
+            with self.subTest(scope=scope), tempfile.TemporaryDirectory() as temp_dir:
+                path = self.write_book(temp_dir)
+                ai = FakeAI('{"candidates":[{"name":"单回合发现","content":"看起来具有特殊功能","risk":"low","scope":"%s","confidence":"high"}]}' % scope)
+                result = WorldbookCaptureService(ai).capture(path, "调查", "发现某物", review_all=False)
+                self.assertEqual(result["added"], [])
+                self.assertEqual(len(result["pending"]), 1)
+                self.assertIn("待确认", result["pending"][0]["tags"])
+
+    def test_missing_scope_or_confidence_requires_review(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = self.write_book(temp_dir)
+            ai = FakeAI('{"candidates":[{"name":"模糊设定","content":"可能长期存在","risk":"low"}]}')
+            result = WorldbookCaptureService(ai).capture(path, "行动", "正文", review_all=False)
+            self.assertEqual(result["added"], [])
+            self.assertEqual(len(result["pending"]), 1)
+
+    def test_event_detail_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = self.write_book(temp_dir)
+            ai = FakeAI('{"candidates":[{"name":"本回合爆炸","content":"木屋刚刚被炸毁","risk":"low","scope":"event_detail","confidence":"high"}]}')
+            result = WorldbookCaptureService(ai).capture(path, "爆炸", "木屋被炸毁", review_all=False)
+            self.assertEqual(result["added"], [])
+            self.assertEqual(result["pending"], [])
+            self.assertEqual(len(yaml.safe_load(path.read_text(encoding="utf-8"))["entries"]), 0)
 
     def test_schedule_skips_when_no_active_worldbook(self):
         with tempfile.TemporaryDirectory() as temp_dir:
