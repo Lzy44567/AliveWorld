@@ -7,6 +7,7 @@ import { uiStore } from '../../store/uiStore';
 import { gameApi } from '../../api/gameApi';
 import MessageBubble from './MessageBubble.vue';
 import ChatInput from './ChatInput.vue';
+import { imageStore } from '../../store/imageStore';
 
 // 自动滚动到底部
 const scrollToBottom = () => {
@@ -18,6 +19,10 @@ const scrollToBottom = () => {
 
 onMounted(scrollToBottom);
 watch(() => gameStore.chatLog, scrollToBottom, { deep: true });
+watch(() => gameStore.sessionId, async (sessionId) => {
+  imageStore.reset();
+  if (sessionId) await imageStore.load(sessionId).catch(() => {});
+}, { immediate: true });
 
 const initWorldState = async () => {
   if (!gameStore.sessionId || gameStore.isProcessing) return;

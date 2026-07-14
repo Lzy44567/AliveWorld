@@ -10,7 +10,12 @@ export const configStore = reactive({
     apiKey: savedConfig.globalSettings?.apiKey || "", 
     apiBaseUrl: savedConfig.globalSettings?.apiBaseUrl || "https://api.openai.com/v1",
     model: savedConfig.globalSettings?.model || "gpt-3.5-turbo",
-    imageApiUrl: savedConfig.globalSettings?.imageApiUrl || "http://127.0.0.1:8188"
+    imageApiUrl: savedConfig.globalSettings?.imageApiUrl || "http://127.0.0.1:8188",
+    imageCheckpoint: savedConfig.globalSettings?.imageCheckpoint || "",
+    imageWorkflowId: savedConfig.globalSettings?.imageWorkflowId || "builtin_basic",
+    imageNegativePrompt: savedConfig.globalSettings?.imageNegativePrompt || "text, watermark, blurry, low quality",
+    imageStylePreference: savedConfig.globalSettings?.imageStylePreference || "",
+    imagePresentationLevel: savedConfig.globalSettings?.imagePresentationLevel || ""
   },
   
   settings: normalizeStorySettings({
@@ -18,7 +23,7 @@ export const configStore = reactive({
     showDice: savedConfig.settings?.showDice ?? true,         
     allowReroll: savedConfig.settings?.allowReroll ?? true,      
     aiSuggestions: savedConfig.settings?.aiSuggestions ?? true,    
-    autoImage: savedConfig.settings?.autoImage ?? true,
+    autoImage: savedConfig.settings?.autoImage ?? false,
     showTime: savedConfig.settings?.showTime ?? true,
     entitiesEnabled: savedConfig.settings?.entitiesEnabled ?? true,
     showEntityNames: savedConfig.settings?.showEntityNames ?? ['names', 'motives', 'full'].includes(legacyEntityVisibility),
