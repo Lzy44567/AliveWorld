@@ -67,6 +67,7 @@ class UndercurrentEngine:
         try:
             res = robust_json_parse(raw_ans)
             
+            acted_entity_names = set()
             events = res.get("undercurrent_events", [])
             for ev in events:
                 ent_name = ev.get("entity", "未知实体")
@@ -81,6 +82,7 @@ class UndercurrentEngine:
                     events_this_turn.append(f"【{ent_name}】：{act}")
                     self.ledger.record(self.tick_count, "action", ent_name, act, ev.get("clues", []), details)
                     entity.apply_action(ev)
+                    acted_entity_names.add(ent_name)
                     log.info(f"暗流发生: 【{ent_name}】 {act}")
                 elif act:
                     log.warning(f"忽略非活跃或不存在实体的行动: {ent_name}")
@@ -97,16 +99,24 @@ class UndercurrentEngine:
                     log.info(f"新实体诞生: {n_name} - {n_goal}")
 
             for influence_data in res.get("new_influences", []):
+                if not isinstance(influence_data, dict):
+                    continue
+                raw_links = influence_data.get("source_links", influence_data.get("source_entity"))
+                raw_links = raw_links if isinstance(raw_links, list) else ([raw_links] if raw_links else [])
+                source_names = {
+                    link.get("entity") if isinstance(link, dict) else str(link)
+                    for link in raw_links
+                }
+                if not source_names or not source_names.issubset(acted_entity_names):
+                    log.warning(f"忽略未由本回合实体行动产生的暗流影响: {source_names}")
+                    continue
                 if isinstance(influence_data, dict) and not influence_data.get("created_world_time"):
                     influence_data = {**influence_data, "created_world_time": world_time}
                 influence = self.causal_ledger.add(influence_data, current_tick=self.causal_ledger.turn_count)
-                valid_sources = {entity.name for entity in active_entities(self.entities)}
-                source_names = {link.get("entity") for link in influence.source_links} if influence else set()
-                if influence and source_names and source_names.issubset(valid_sources):
+                if influence:
                     log.info(f"暗流影响创建: [{influence.id}] {influence.summary}")
-                elif influence:
-                    self.causal_ledger.remove(influence.id)
-                    log.warning(f"忽略来源实体无效的暗流影响: [{influence.id}] {source_names}")
+                else:
+                    log.warning(f"忽略无效或重复的暗流影响: {source_names}")
 
             for influence_data in res.get("update_influences", []):
                 requested_links = influence_data.get("source_links") if isinstance(influence_data, dict) else None

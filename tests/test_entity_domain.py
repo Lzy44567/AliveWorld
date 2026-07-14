@@ -130,7 +130,7 @@ class EntityDomainTests(unittest.TestCase):
         self.assertEqual(engine.tick_count, 0)
 
     def test_overseer_influence_is_linked_back_to_source_entity(self):
-        response = '{"undercurrent_events":[],"new_entities":[],"update_entities":[],"delete_entities":[],"new_influences":[{"source_links":[{"entity":"皇城","life_link_strength":0.8,"on_source_death":"keep"}],"type":"persistent","summary":"皇城通缉","condition":"玩家进入辖区","effect":"守卫盘查","consume_policy":{"mode":"never"}}],"update_influences":[],"delete_influences":[]}'
+        response = '{"undercurrent_events":[{"entity":"皇城","action":"发布针对玩家的通缉令"}],"new_entities":[],"update_entities":[],"delete_entities":[],"new_influences":[{"source_links":[{"entity":"皇城","life_link_strength":0.8,"on_source_death":"keep"}],"type":"persistent","summary":"皇城通缉","condition":"玩家进入辖区","effect":"守卫盘查","consume_policy":{"mode":"never"}}],"update_influences":[],"delete_influences":[]}'
         engine = UndercurrentEngine(FakeAIEngine(response))
         engine.entities = [Entity(name="皇城", motive="追捕玩家")]
 
@@ -142,6 +142,17 @@ class EntityDomainTests(unittest.TestCase):
         self.assertEqual(engine.entities[0].influence_refs[0]["id"], influence.id)
         self.assertEqual(engine.entities[0].influence_refs[0]["summary"], "皇城通缉")
         self.assertEqual(influence.created_world_time, "永宁三年春")
+
+    def test_overseer_rejects_influence_without_matching_action(self):
+        response = '{"undercurrent_events":[],"new_entities":[],"update_entities":[],"delete_entities":[],"new_influences":[{"source_links":[{"entity":"皇城"}],"summary":"凭空通缉","condition":"玩家进城","effect":"守卫盘查"}],"update_influences":[],"delete_influences":[]}'
+        engine = UndercurrentEngine(FakeAIEngine(response))
+        engine.entities = [Entity(name="皇城", motive="追捕玩家")]
+
+        with patch("core.undercurrent.load_system_prompts", return_value={"overseer_prompt": "实体：{entities_info}\n剧情：{world_context}"}):
+            engine.tick("玩家逃离")
+
+        self.assertEqual(engine.causal_ledger.export(), [])
+        self.assertEqual(engine.entities[0].influence_refs, [])
 
 
 if __name__ == "__main__":

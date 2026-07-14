@@ -74,6 +74,18 @@ class CausalLedgerTests(unittest.TestCase):
         self.assertEqual(allowed.trigger_count, 1)
         self.assertEqual(blocked.trigger_count, 0)
 
+    def test_active_duplicate_with_same_source_condition_and_effect_is_rejected(self):
+        ledger = CausalLedger()
+        original = ledger.add(influence("第一种表述", mode="never"))
+        duplicate_data = influence("第一种表述", mode="never")
+        duplicate_data["condition"] = original.condition
+        duplicate_data["effect"] = original.effect
+
+        duplicate = ledger.add(duplicate_data)
+
+        self.assertIsNone(duplicate)
+        self.assertEqual(ledger.active(), [original])
+
     def test_source_death_removes_mercenaries_releases_plague_and_keeps_social_effect(self):
         ledger = CausalLedger()
         mercenaries = ledger.add(influence("雇佣队失去雇主", action="remove"))

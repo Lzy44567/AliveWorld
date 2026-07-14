@@ -37,6 +37,16 @@ def _source_link(value):
     return normalized
 
 
+def _signature(item):
+    sources = tuple(sorted(link.get("entity", "").strip().casefold() for link in item.source_links if link.get("entity")))
+    return (
+        sources,
+        " ".join(item.summary.split()).casefold(),
+        " ".join(item.condition.split()).casefold(),
+        " ".join(item.effect.split()).casefold(),
+    )
+
+
 @dataclass
 class CausalInfluence:
     id: str = field(default_factory=lambda: f"influence_{uuid4().hex[:10]}")
@@ -129,6 +139,8 @@ class CausalLedger:
     def add(self, data, current_tick=0):
         item = CausalInfluence.from_data(data, current_tick=current_tick)
         if not item.summary or self.by_id(item.id):
+            return None
+        if any(_signature(existing) == _signature(item) for existing in self.active()):
             return None
         self.influences.append(item)
         return item
