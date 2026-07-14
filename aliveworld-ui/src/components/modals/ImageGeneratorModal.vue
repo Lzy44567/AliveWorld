@@ -67,7 +67,7 @@ const compilePrompt = async () => {
         <textarea v-model="prompt" rows="6" class="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm text-slate-200" placeholder="描述角色外观、服装、姿态、构图和背景……" />
         <div class="flex items-center gap-2"><button @click="compilePrompt" :disabled="compiling" class="rounded bg-violet-900/70 px-3 py-1.5 text-xs text-violet-200 disabled:opacity-50">{{ compiling ? 'AI 整理中…' : '✨ 让 AI 根据角色资料整理' }}</button><span v-if="compilerNotes" class="text-[10px] text-slate-500">{{ compilerNotes }}</span></div>
         <div class="flex items-center gap-2"><select v-model="role" class="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs"><option value="character">角色参考图</option><option value="style">画风参考图</option></select><label class="cursor-pointer rounded bg-slate-800 px-3 py-1 text-xs">选择参考图<input type="file" accept="image/png,image/jpeg,image/webp" multiple class="hidden" @change="chooseFiles" /></label><span class="truncate text-[10px] text-slate-500">{{ files.map(file => file.name).join('、') }}</span></div>
-        <p v-if="files.length && configStore.globalSettings.imageWorkflowId === 'builtin_basic'" class="text-[10px] text-amber-400">内置基础工作流不会使用参考图；图片仍会保存，需换用带参考图输入的工作流。</p>
+        <p v-if="files.length" class="text-[10px] text-amber-400">参考图会作为本局资产安全保存；当前版本尚未把参考图注入 ComfyUI 工作流，首版仍按文字提示生成。</p>
       </main>
       <footer class="flex justify-end gap-2 border-t border-slate-700 p-4"><button @click="close" class="rounded bg-slate-700 px-4 py-2 text-xs">取消</button><button @click="submit" :disabled="submitting" class="rounded bg-fuchsia-700 px-4 py-2 text-xs font-bold text-white disabled:opacity-50">{{ submitting ? '上传并提交中…' : '开始生成' }}</button></footer>
     </div>

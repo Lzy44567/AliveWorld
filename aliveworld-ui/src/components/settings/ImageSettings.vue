@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { configStore } from '../../store/configStore';
 import { gameStore } from '../../store/gameStore';
 import { uiStore } from '../../store/uiStore';
@@ -12,6 +12,9 @@ const connection = ref(null);
 const checkpoints = ref([]);
 const workflows = ref([]);
 const importing = ref(false);
+const testTasks = computed(() => imageStore.tasks.filter(task => task.context_snapshot?.test_task));
+const latestTest = computed(() => testTasks.value[0] || null);
+const testStatusText = { ready:'准备提交', submitted:'已提交', running:'生成中', succeeded:'测试成功', failed:'测试失败', cancelled:'已取消' };
 
 const loadWorkflows = async () => {
   try { workflows.value = await imageApi.listWorkflows(); }
@@ -101,6 +104,12 @@ onMounted(loadWorkflows);
       测试图会真实占用显卡并生成一张 512×512 白底红色圆形；它不调用大语言模型。
     </div>
     <button @click="generateTest" :disabled="testing" class="action primary">{{ testing ? '已提交，请等待…' : '生成极简测试图' }}</button>
+    <div v-if="latestTest" class="rounded-lg border border-fuchsia-900/60 bg-slate-950/70 p-3">
+      <div class="flex justify-between text-xs"><span class="text-fuchsia-300">{{ testStatusText[latestTest.status] || latestTest.status }}</span><span class="font-mono text-[9px] text-slate-600">{{ latestTest.id }}</span></div>
+      <div v-if="['ready','submitted','running'].includes(latestTest.status)" class="mt-2 h-1.5 overflow-hidden rounded bg-slate-800"><div class="h-full w-1/3 animate-pulse bg-fuchsia-500" /></div>
+      <p v-if="latestTest.status==='failed'" class="mt-2 text-xs text-rose-300">{{ latestTest.error_message || 'ComfyUI 执行失败' }}</p>
+      <img v-if="latestTest.status==='succeeded' && latestTest.output_images?.[0]" :src="imageApi.absoluteImageUrl(latestTest.output_images[0])" class="mt-3 max-h-64 rounded border border-slate-700 bg-black object-contain" />
+    </div>
   </section>
 </template>
 
