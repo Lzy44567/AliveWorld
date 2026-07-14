@@ -78,7 +78,8 @@ class GameSession:
             
         settlement = result['settlement']
         resolutions = settlement.get("resolved_influences", [])
-        resolved_items = self.undercurrent.causal_ledger.resolve(resolutions)
+        triggered_ids = {item.get("id") for item in result.get("triggered_influences", []) if isinstance(item, dict)}
+        resolved_items = self.undercurrent.causal_ledger.resolve(resolutions, allowed_ids=triggered_ids)
         self.history["chat_messages"].append({"role": "reactions", "content": result['reactions']})
         self.history["chat_messages"].append({"role": "influence_checks", "content": result.get("triggered_influences", [])})
         self.history["chat_messages"].append({"role": "system", "content": f"命运变数: {result['chosen_reaction']['description']}"})
@@ -161,7 +162,8 @@ class GameSession:
             self.rollback()
             return {"error": True, "message": failure_message(invalid=True)}
         resolutions = settlement.get("resolved_influences", [])
-        resolved_items = self.undercurrent.causal_ledger.resolve(resolutions)
+        triggered_ids = {item.get("id") for item in triggered_influences if isinstance(item, dict)}
+        resolved_items = self.undercurrent.causal_ledger.resolve(resolutions, allowed_ids=triggered_ids)
             
         story_text = format_story_text(settlement.get('story_text', ''))
         self.history["chat_messages"].append({"role": "ai", "content": story_text})

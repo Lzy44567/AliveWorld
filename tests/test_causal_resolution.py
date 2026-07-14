@@ -71,6 +71,23 @@ class CausalResolutionTests(unittest.TestCase):
 
         self.assertEqual(result["triggered_influences"], [])
         self.assertIn("没有满足条件", ai.requests[1][1])
+        self.assertEqual(result["settlement"]["resolved_influences"], [])
+
+    def test_settlement_cannot_resolve_an_untriggered_real_influence(self):
+        ledger = CausalLedger()
+        influence = ledger.add({"summary": "尚未触发的陷阱", "condition": "进入森林", "effect": "陷阱触发"})
+        ai = SequenceAI([
+            '{"reactions":[{"id":1,"description":"继续前进","weight":100}],"influence_checks":[{"id":"%s","condition_met":false,"reason":"不在森林"}]}' % influence.id,
+            '{"story_text":"道路平静。","resolved_influences":[{"id":"%s","result":"模型错误报告"}]}' % influence.id,
+        ])
+        session = FakeSession(ai, ledger)
+
+        with patch("core.resolution_engine.load_system_prompts", return_value={"reaction_prompt": "{world_info}", "settlement_prompt": "{style_info}\n{world_info}\n{character_info}\n结算"}):
+            result = DualTrackResolver().resolve(session, "沿道路前进")
+
+        self.assertEqual(result["triggered_influences"], [])
+        self.assertEqual(result["settlement"]["resolved_influences"], [])
+        self.assertEqual(influence.trigger_count, 0)
 
 
 if __name__ == "__main__":

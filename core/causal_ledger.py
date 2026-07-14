@@ -208,12 +208,18 @@ class CausalLedger:
                 triggered.append({"id": item.id, "summary": item.summary, "effect": item.effect, "reason": "来源死亡释放"})
         return triggered
 
-    def resolve(self, resolutions):
+    def resolve(self, resolutions, allowed_ids=None):
         resolved = []
+        allowed = {str(item) for item in allowed_ids} if allowed_ids is not None else None
+        seen = set()
         for result in _list(resolutions):
             if not isinstance(result, dict):
                 continue
-            item = self.by_id(str(result.get("id", "")))
+            influence_id = str(result.get("id", ""))
+            if not influence_id or influence_id in seen or (allowed is not None and influence_id not in allowed):
+                continue
+            seen.add(influence_id)
+            item = self.by_id(influence_id)
             if not item or item.status not in {"active", "consumed"}:
                 continue
             item.trigger_count += 1

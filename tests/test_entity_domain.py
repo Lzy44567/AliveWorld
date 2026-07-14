@@ -24,6 +24,24 @@ class FakeAIEngine:
 
 
 class EntityDomainTests(unittest.TestCase):
+    def test_empty_overseer_collections_do_not_clear_existing_entity_fields(self):
+        entity = Entity(
+            name="测试实体",
+            plans=["玩家计划"],
+            mechanisms=["每回合埋下炸弹"],
+            triggers=[{"condition": "说出爆炸", "result": "引爆"}],
+            relationships={"玩家": "观察"},
+            tags=["本局实体"],
+        )
+
+        entity.apply_update({"plans": [], "mechanisms": [], "triggers": [], "relationships": {}, "tags": []})
+
+        self.assertEqual(entity.plans, ["玩家计划"])
+        self.assertEqual(entity.mechanisms, ["每回合埋下炸弹"])
+        self.assertEqual(entity.triggers[0]["condition"], "说出爆炸")
+        self.assertEqual(entity.relationships, {"玩家": "观察"})
+        self.assertEqual(entity.tags, ["本局实体"])
+
     def test_legacy_goal_is_read_as_motive_and_extra_is_preserved(self):
         entity = Entity.from_dict({"name": "皇城", "goal": "追捕玩家", "description": "旧资产", "is_active": False})
 

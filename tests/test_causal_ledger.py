@@ -56,6 +56,24 @@ class CausalLedgerTests(unittest.TestCase):
         self.assertEqual(item.trigger_count, 2)
         self.assertEqual(item.status, "active")
 
+    def test_resolution_allowlist_rejects_untriggered_and_duplicate_ids(self):
+        ledger = CausalLedger()
+        allowed = ledger.add(influence("允许结算", mode="never"))
+        blocked = ledger.add(influence("禁止越权结算", mode="never"))
+
+        resolved = ledger.resolve(
+            [
+                {"id": blocked.id, "result": "不应发生"},
+                {"id": allowed.id, "result": "第一次"},
+                {"id": allowed.id, "result": "重复"},
+            ],
+            allowed_ids={allowed.id},
+        )
+
+        self.assertEqual(resolved, [allowed])
+        self.assertEqual(allowed.trigger_count, 1)
+        self.assertEqual(blocked.trigger_count, 0)
+
     def test_source_death_removes_mercenaries_releases_plague_and_keeps_social_effect(self):
         ledger = CausalLedger()
         mercenaries = ledger.add(influence("雇佣队失去雇主", action="remove"))

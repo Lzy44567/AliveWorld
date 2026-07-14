@@ -83,9 +83,11 @@ class Entity:
 
         for field_name in ("recent_actions", "plans", "mechanisms", "triggers", "tags"):
             if field_name in update:
-                setattr(self, field_name, _as_list(update[field_name]))
+                values = _as_list(update[field_name])
+                if values:
+                    setattr(self, field_name, values)
 
-        if "relationships" in update and isinstance(update["relationships"], dict):
+        if "relationships" in update and isinstance(update["relationships"], dict) and update["relationships"]:
             self.relationships = dict(update["relationships"])
         if "importance" in update:
             try:

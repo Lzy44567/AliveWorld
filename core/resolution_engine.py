@@ -81,8 +81,20 @@ class DualTrackResolver(BaseResolutionStrategy):
             try: settlement = robust_json_parse(raw_settle)
             except Exception: return {"error": True, "stage": "settlement", "message": failure_message(invalid=True)}
 
-        reported = settlement.get("resolved_influences", [])
-        reported_ids = {item.get("id") for item in reported if isinstance(item, dict)}
+        triggered_ids = {item["id"] for item in triggered_influences}
+        reported = []
+        reported_ids = set()
+        for item in settlement.get("resolved_influences", []):
+            if not isinstance(item, dict):
+                continue
+            influence_id = str(item.get("id", ""))
+            if influence_id not in triggered_ids:
+                log.warning("忽略正文越权报告的暗流影响: %s", influence_id or "空ID")
+                continue
+            if influence_id in reported_ids:
+                continue
+            reported.append(item)
+            reported_ids.add(influence_id)
         for influence in triggered_influences:
             if influence["id"] not in reported_ids:
                 log.warning("正文未报告强制暗流影响的结构化结果: %s", influence["id"])
