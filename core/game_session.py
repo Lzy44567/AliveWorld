@@ -10,7 +10,7 @@ from core.model_response import failure_message, format_story_text
 from core.entity_repository import EntityRepository
 from core.story_settings import normalize_story_settings
 from core.future_candidates import choose_candidate, normalize_candidates
-from core.worldbook_capture import WorldbookCaptureService
+from core.worldbook_capture import WorldbookCaptureService, capture_requested
 
 class GameSession:
     def __init__(self, ai_engine, save_name="", save_dir_path="", story_settings=None):
@@ -108,7 +108,7 @@ class GameSession:
         
         self.state_mgr.apply_updates(settlement)
         self.history["context_history"].append(f"玩家：{user_action}\n结果：{story_text}")
-        if self.story_settings["worldbookCaptureEnabled"]:
+        if self.story_settings["worldbookCaptureEnabled"] and capture_requested(settlement):
             self.worldbook_capture.schedule(
                 self.save_dir_path, user_action, story_text,
                 review_all=self.story_settings["worldbookCaptureReview"],

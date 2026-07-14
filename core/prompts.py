@@ -30,13 +30,15 @@ DEFAULT_PROMPTS = {
 4. ⚠️ 持续性Buff（如中毒/自愈）放入 `new_buffs`，必须包含【对应进度条名称_per_turn】以实现自动加减：{"流血": {"生命值_per_turn": -5, "duration": 3, "description": "持续掉血"}}。
 5. 【删除/清空】：若要彻底清空某进度条、丢弃所有物品、或让死亡的NPC退场，必须将其名字放入 `status_deletions` 数组！
 6. 📝【排版规则】：`story_text` 按叙事结构换行：场景、时间、行动主体或叙事焦点明显变化时另起自然段；人物直接说话独立成段；同一连续动作保持在同一段，禁止按固定段数或每句话机械换行。JSON 字符串内使用 `\\n\\n` 分隔自然段。
+7. 📚【世界书捕获门槛】：`worldbook_capture_needed` 只在本回合明确建立了会长期约束多个未来场景的新法律、制度、社会习俗、自然规律、通用技术或魔法规则时为 true。一次性事件、单件道具、角色行动、地点临时变化和已有设定的普通表现必须为 false；不要为了让世界书有所变化而返回 true。
 
 【强制JSON格式】：
 {
   "story_text": "场景描写与连续动作...\\n\\n人物对白...\\n\\n叙事焦点变化后的内容...",
   "new_buffs": {}, "remove_buffs": [], "dynamic_bars": {}, 
   "status_updates": { "身体": "正常", "当前时间": "纪元1年1月1日 上午" }, "npc_states": {}, "status_deletions": [],
-  "resolved_influences": [{"id": "要求兑现的影响ID", "result": "正文中的实际表现"}]
+  "resolved_influences": [{"id": "要求兑现的影响ID", "result": "正文中的实际表现"}],
+  "worldbook_capture_needed": false
 }""",
 
     "world_architect_prompt": """创建世界观。输出JSON: {"name": "世界名称", "global_setting": "法则", "starting_scene": "开场", "entries": [ {"name": "势力", "keys": "词", "content": "设定"} ]}""",

@@ -4,7 +4,7 @@ from pathlib import Path
 
 import yaml
 
-from core.worldbook_capture import WorldbookCaptureService
+from core.worldbook_capture import WorldbookCaptureService, capture_requested
 
 
 class FakeAI:
@@ -18,6 +18,13 @@ class FakeAI:
 
 
 class WorldbookCaptureTests(unittest.TestCase):
+    def test_capture_requires_explicit_boolean_true(self):
+        self.assertTrue(capture_requested({"worldbook_capture_needed": True}))
+        self.assertFalse(capture_requested({"worldbook_capture_needed": False}))
+        self.assertFalse(capture_requested({"worldbook_capture_needed": "true"}))
+        self.assertFalse(capture_requested({}))
+        self.assertFalse(capture_requested(None))
+
     def write_book(self, directory, data=None):
         path = Path(directory) / "worldbooks" / "world.yml"
         path.parent.mkdir(parents=True)

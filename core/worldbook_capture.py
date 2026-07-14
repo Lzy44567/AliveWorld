@@ -46,6 +46,11 @@ AUTO_CAPTURE_SCOPES = {
 NEVER_CAPTURE_SCOPES = {"event_detail"}
 
 
+def capture_requested(settlement: dict[str, Any] | None) -> bool:
+    """Only an explicit JSON boolean may spend a second model request."""
+    return isinstance(settlement, dict) and settlement.get("worldbook_capture_needed") is True
+
+
 def _path_lock(path: Path) -> threading.Lock:
     key = str(path.resolve())
     with _locks_guard:
