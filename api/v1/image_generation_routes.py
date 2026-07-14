@@ -1,0 +1,60 @@
+from typing import Any, Dict
+
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
+
+from core.image_generation import ImageGenerationService, ImageTaskRepository
+from core.image_generation.service import ImageTaskError
+from core.session_manager import active_sessions
+
+
+router = APIRouter()
+
+
+class ImageTaskPayload(BaseModel):
+    data: Dict[str, Any] = Field(default_factory=dict)
+
+
+def _service(session_id: str) -> ImageGenerationService:
+    game = active_sessions.get(session_id)
+    if not game:
+        raise HTTPException(status_code=404, detail="会话失效")
+    return ImageGenerationService(ImageTaskRepository(game.save_dir_path))
+
+
+def _handle(call):
+    try:
+        return call()
+    except ImageTaskError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@router.get("/{session_id}/images/tasks")
+def list_image_tasks(session_id: str):
+    return [task.to_dict() for task in _handle(lambda: _service(session_id).list())]
+
+
+@router.post("/{session_id}/images/tasks")
+def create_image_task(session_id: str, payload: ImageTaskPayload):
+    game = active_sessions.get(session_id)
+    if not game:
+        raise HTTPException(status_code=404, detail="会话失效")
+    task = _handle(lambda: _service(session_id).create(game.save_name or session_id, payload.data))
+    return task.to_dict()
+
+
+@router.get("/{session_id}/images/tasks/{task_id}")
+def get_image_task(session_id: str, task_id: str):
+    return _handle(lambda: _service(session_id).get(task_id)).to_dict()
+
+
+@router.post("/{session_id}/images/tasks/{task_id}/cancel")
+def cancel_image_task(session_id: str, task_id: str):
+    return _handle(lambda: _service(session_id).cancel(task_id)).to_dict()
+
+
+@router.post("/{session_id}/images/tasks/{task_id}/retry")
+def retry_image_task(session_id: str, task_id: str):
+    return _handle(lambda: _service(session_id).retry(task_id)).to_dict()
