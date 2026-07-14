@@ -71,7 +71,7 @@ class WorkflowDefinition:
     def render(self, task: ImageTask) -> dict[str, Any]:
         checkpoint = str(task.provider_options.get("checkpoint", "")).strip()
         if not checkpoint:
-            raise WorkflowError("尚未选择 ComfyUI checkpoint")
+            raise WorkflowError("尚未选择 ComfyUI 生图模型")
         values = {
             "checkpoint": checkpoint,
             "positive": task.prompt.positive,
@@ -80,9 +80,14 @@ class WorkflowDefinition:
             "height": task.prompt.height,
             "seed": task.prompt.seed if task.prompt.seed is not None else secrets.randbelow(2**63),
             "filename_prefix": f"AliveWorld/{task.id}",
+            "batch_size": task.prompt.count,
+            "steps": task.prompt.steps,
+            "cfg": task.prompt.cfg,
         }
         rendered = copy.deepcopy(self.workflow)
         for key, value in values.items():
+            if key not in self.mapping:
+                continue
             node_id, input_name = self.mapping[key]
             rendered[node_id]["inputs"][input_name] = value
         return rendered
@@ -160,7 +165,7 @@ def infer_standard_mapping(workflow: dict[str, Any]) -> dict[str, list[str]]:
             negative.append([node_id, "text"])
     if len(positive) != 1 or len(negative) != 1:
         raise WorkflowError("无法从 CLIPTextEncode 标题唯一识别正面/负面提示词，请保留 Positive Prompt 和 Negative Prompt 节点标题")
-    return {
+    mapping = {
         "checkpoint": unique("CheckpointLoaderSimple", "ckpt_name"),
         "positive": positive[0],
         "negative": negative[0],
@@ -169,3 +174,14 @@ def infer_standard_mapping(workflow: dict[str, Any]) -> dict[str, list[str]]:
         "seed": unique("KSampler", "seed"),
         "filename_prefix": unique("SaveImage", "filename_prefix"),
     }
+    optional = {
+        "batch_size": ("EmptyLatentImage", "batch_size"),
+        "steps": ("KSampler", "steps"),
+        "cfg": ("KSampler", "cfg"),
+    }
+    for key, (class_type, input_name) in optional.items():
+        try:
+            mapping[key] = unique(class_type, input_name)
+        except WorkflowError:
+            pass
+    return mapping

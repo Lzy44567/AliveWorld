@@ -37,6 +37,14 @@ class ImageTaskRepository:
             self._write(tasks)
             return task
 
+    def remove(self, task_id: str) -> ImageTask | None:
+        with self._lock:
+            tasks = self._read()
+            task = tasks.pop(task_id, None)
+            if task is not None:
+                self._write(tasks)
+            return task
+
     def _read(self) -> dict[str, ImageTask]:
         if not self.path.exists():
             return {}

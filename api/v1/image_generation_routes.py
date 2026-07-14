@@ -11,7 +11,7 @@ from core.image_generation.providers.comfyui import ComfyUIProvider
 from core.image_generation.runtime import get_image_runtime
 from core.image_generation.references import ReferenceImageError, ReferenceImageRepository
 from core.image_generation.prompt_compiler import ImagePromptCompiler, PromptCompilationError
-from core.image_generation.portrait import PortraitAssignmentError, assign_current_portrait
+from core.image_generation.portrait import PortraitAssignmentError, assign_current_portrait, assign_global_portrait, global_portrait_path, task_is_local_portrait
 from core.image_generation.workflows import WorkflowError, WorkflowRepository
 from core.session_manager import active_sessions
 
@@ -45,11 +45,19 @@ class PromptCompilePayload(BaseModel):
     character_context: str = ""
     style_preference: str = ""
     presentation_level: str = ""
+    model_name: str = ""
+    model_profile: str = ""
+
+
+class CompileAndCreatePayload(BaseModel):
+    task: Dict[str, Any] = Field(default_factory=dict)
+    compile: PromptCompilePayload = Field(default_factory=PromptCompilePayload)
 
 
 class PortraitAssignmentPayload(BaseModel):
     character_name: str
     image_index: int = 0
+    scope: str = "local"
 
 
 def _service(session_id: str) -> ImageGenerationService:
@@ -100,6 +108,47 @@ def create_image_task(session_id: str, payload: ImageTaskPayload):
     return _task_payload(session_id, task)
 
 
+def _compile_payload(game, payload: PromptCompilePayload) -> dict[str, Any]:
+    story_text = ""
+    if payload.source_message_id:
+        message = next((item for item in game.history.get("chat_messages", []) if item.get("id") == payload.source_message_id), None)
+        if not message or message.get("role") != "ai":
+            raise PromptCompilationError("找不到对应的 AI 正文")
+        story_text = str(message.get("content", ""))
+    active_world, _ = game.build_active_world_info(payload.user_request or story_text)
+    return {
+        "intent": payload.intent,
+        "user_request": payload.user_request,
+        "story_text": story_text,
+        "character_context": payload.character_context,
+        "world_context": active_world,
+        "style_preference": payload.style_preference,
+        "presentation_level": payload.presentation_level,
+        "model_name": payload.model_name,
+        "model_profile": payload.model_profile,
+    }
+
+
+@router.post("/{session_id}/images/tasks/compile-and-start")
+def compile_and_create_image_task(session_id: str, payload: CompileAndCreatePayload):
+    game = active_sessions.get(session_id)
+    if not game:
+        raise HTTPException(status_code=404, detail="会话失效")
+    runtime = _runtime(session_id)
+    task_data = dict(payload.task)
+    task_data["prompt"] = {**dict(task_data.get("prompt") or {}), "positive": ""}
+    task_data["context_snapshot"] = {
+        **dict(task_data.get("context_snapshot") or {}),
+        "prompt_compile_request": payload.compile.model_dump(),
+    }
+    task = _handle(lambda: runtime.service.create(game.save_name or session_id, task_data))
+    runtime.pipeline.compile_and_start(
+        task.id,
+        lambda: ImagePromptCompiler(game.ai_engine).compile(_compile_payload(game, payload.compile)),
+    )
+    return _task_payload(session_id, runtime.service.get(task.id))
+
+
 @router.get("/{session_id}/images/tasks/{task_id}")
 def get_image_task(session_id: str, task_id: str):
     return _task_payload(session_id, _handle(lambda: _service(session_id).get(task_id)))
@@ -116,6 +165,37 @@ def retry_image_task(session_id: str, task_id: str):
     task = _handle(lambda: runtime.service.retry(task_id))
     runtime.runner.start(task.id)
     return _task_payload(session_id, task)
+
+
+@router.post("/{session_id}/images/tasks/{task_id}/regenerate")
+def regenerate_image_task(session_id: str, task_id: str):
+    runtime = _runtime(session_id)
+    source = _handle(lambda: runtime.service.get(task_id))
+    compile_request = source.context_snapshot.get("prompt_compile_request")
+    if not source.prompt.positive and not isinstance(compile_request, dict):
+        raise HTTPException(status_code=400, detail="原任务没有可重用的提示词或编译上下文")
+    task = _handle(lambda: runtime.service.regenerate(task_id))
+    if task.prompt.positive:
+        runtime.runner.start(task.id)
+    else:
+        game = active_sessions.get(session_id)
+        if not game:
+            raise HTTPException(status_code=404, detail="会话失效")
+        compile_payload = PromptCompilePayload(**compile_request)
+        runtime.pipeline.compile_and_start(
+            task.id,
+            lambda: ImagePromptCompiler(game.ai_engine).compile(_compile_payload(game, compile_payload)),
+        )
+    return _task_payload(session_id, runtime.service.get(task.id))
+
+
+@router.delete("/{session_id}/images/tasks/{task_id}")
+def delete_image_task(session_id: str, task_id: str):
+    game = active_sessions.get(session_id)
+    if game and task_is_local_portrait(game.save_dir_path, task_id):
+        raise HTTPException(status_code=409, detail="该图片正在作为本局角色立绘使用，请先更换立绘")
+    _handle(lambda: _service(session_id).delete(task_id))
+    return {"status": "success"}
 
 
 @router.post("/images/providers/comfyui/check")
@@ -202,8 +282,8 @@ def generate_comfyui_test_image(session_id: str, payload: ComfyUIConfigPayload, 
         "provider_id": "comfyui",
         "workflow_id": workflow_id,
         "prompt": {
-            "positive": "a simple red circle centered on a plain white background, flat icon, clean edges",
-            "negative": "text, watermark, complex background, blurry",
+            "positive": "a cyan triangle, a magenta square, and a yellow five-pointed star arranged side by side on a dark gray background, flat geometric test card, clean edges",
+            "negative": "text, watermark, flag, national symbol, complex background, blurry",
             "width": 512,
             "height": 512,
         },
@@ -219,23 +299,8 @@ def compile_image_prompt(session_id: str, payload: PromptCompilePayload):
     game = active_sessions.get(session_id)
     if not game:
         raise HTTPException(status_code=404, detail="会话失效")
-    story_text = ""
-    if payload.source_message_id:
-        message = next((item for item in game.history.get("chat_messages", []) if item.get("id") == payload.source_message_id), None)
-        if not message or message.get("role") != "ai":
-            raise HTTPException(status_code=404, detail="找不到对应的 AI 正文")
-        story_text = str(message.get("content", ""))
     try:
-        active_world, _ = game.build_active_world_info(payload.user_request or story_text)
-        return ImagePromptCompiler(game.ai_engine).compile({
-            "intent": payload.intent,
-            "user_request": payload.user_request,
-            "story_text": story_text,
-            "character_context": payload.character_context,
-            "world_context": active_world,
-            "style_preference": payload.style_preference,
-            "presentation_level": payload.presentation_level,
-        })
+        return ImagePromptCompiler(game.ai_engine).compile(_compile_payload(game, payload))
     except PromptCompilationError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
@@ -247,10 +312,22 @@ def set_character_portrait(session_id: str, task_id: str, payload: PortraitAssig
         raise HTTPException(status_code=404, detail="会话失效")
     task = _handle(lambda: _service(session_id).get(task_id))
     try:
-        character = assign_current_portrait(game.save_dir_path, payload.character_name, task, payload.image_index)
+        if payload.scope == "global":
+            runtime = _runtime(session_id)
+            character = assign_global_portrait(payload.character_name, task, runtime.service.repository.outputs_dir, payload.image_index)
+        else:
+            character = assign_current_portrait(game.save_dir_path, payload.character_name, task, payload.image_index)
     except PortraitAssignmentError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {"status": "success", "character": character}
+
+
+@router.get("/images/global-portraits/{filename}")
+def get_global_portrait(filename: str):
+    try:
+        return FileResponse(global_portrait_path(filename))
+    except PortraitAssignmentError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.get("/{session_id}/images/tasks/{task_id}/files/{image_index}")

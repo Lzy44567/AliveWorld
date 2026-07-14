@@ -12,10 +12,17 @@ export const configStore = reactive({
     model: savedConfig.globalSettings?.model || "gpt-3.5-turbo",
     imageApiUrl: savedConfig.globalSettings?.imageApiUrl || "http://127.0.0.1:8188",
     imageCheckpoint: savedConfig.globalSettings?.imageCheckpoint || "",
+    imageCheckpoints: savedConfig.globalSettings?.imageCheckpoints || [],
+    imageModelProfiles: savedConfig.globalSettings?.imageModelProfiles || {},
     imageWorkflowId: savedConfig.globalSettings?.imageWorkflowId || "builtin_basic",
     imageNegativePrompt: savedConfig.globalSettings?.imageNegativePrompt || "text, watermark, blurry, low quality",
     imageStylePreference: savedConfig.globalSettings?.imageStylePreference || "",
-    imagePresentationLevel: savedConfig.globalSettings?.imagePresentationLevel || ""
+    imagePresentationLevel: savedConfig.globalSettings?.imagePresentationLevel || "",
+    imageWidth: savedConfig.globalSettings?.imageWidth || 768,
+    imageHeight: savedConfig.globalSettings?.imageHeight || 768,
+    imageCount: savedConfig.globalSettings?.imageCount || 1,
+    imageSteps: savedConfig.globalSettings?.imageSteps || 20,
+    imageCfg: savedConfig.globalSettings?.imageCfg || 7
   },
   
   settings: normalizeStorySettings({

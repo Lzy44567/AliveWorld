@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
+from pathlib import Path
 
 from core.image_generation.models import ImageTask, ImageTaskStatus, TERMINAL_STATUSES
 from core.image_generation.providers.base import ProviderJob
@@ -62,6 +63,45 @@ class ImageGenerationService:
         task.error_message = ""
         task.output_images = []
         return self.repository.save(task)
+
+    def regenerate(self, task_id: str) -> ImageTask:
+        source = self.get(task_id)
+        payload = source.to_dict()
+        return self.create(source.save_id, payload)
+
+    def mark_compiling(self, task_id: str) -> ImageTask:
+        task = self.get(task_id)
+        if task.status != ImageTaskStatus.QUEUED:
+            raise ImageTaskError("只有等待提示词的任务可以开始整理")
+        task.status = ImageTaskStatus.COMPILING_PROMPT
+        return self.repository.save(task)
+
+    def apply_compiled_prompt(self, task_id: str, result: dict[str, Any]) -> ImageTask:
+        task = self.get(task_id)
+        if task.status == ImageTaskStatus.CANCELLED:
+            return task
+        positive = str(result.get("positive", "")).strip()
+        if not positive:
+            raise ImageTaskError("AI 没有返回可用的正面提示词")
+        task.prompt.positive = positive
+        if str(result.get("negative", "")).strip():
+            task.prompt.negative = str(result["negative"]).strip()
+        task.context_snapshot["prompt_compiler"] = {
+            "content_focus": str(result.get("content_focus", "general")),
+            "notes": str(result.get("notes", "")),
+        }
+        task.status = ImageTaskStatus.READY
+        return self.repository.save(task)
+
+    def delete(self, task_id: str) -> None:
+        task = self.get(task_id)
+        if task.status not in TERMINAL_STATUSES:
+            raise ImageTaskError("请先取消正在运行的任务，再删除")
+        for item in task.output_images:
+            path = self.repository.outputs_dir / Path(item).name
+            if path.is_file():
+                path.unlink()
+        self.repository.remove(task_id)
 
     def mark_submitted(self, task_id: str, provider_job_id: str) -> ImageTask:
         task = self.get(task_id)

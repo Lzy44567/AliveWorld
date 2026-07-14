@@ -29,7 +29,7 @@ export const assetStore = reactive({
       const meta = metaByName.get(name) || {};
       const tags = Array.isArray(meta.tags) && meta.tags.length ? [...meta.tags] : [defaultTag];
       if (meta.is_template && !tags.includes('模板')) tags.unshift('模板');
-      return { name, tags, desc: meta.description || defaultDescription, is_template: Boolean(meta.is_template) };
+      return { name, tags, desc: meta.description || defaultDescription, portrait: meta.portrait || null, is_template: Boolean(meta.is_template) };
     });
   },
 

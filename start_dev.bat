@@ -21,5 +21,6 @@ if not exist "aliveworld-ui\node_modules" (
 echo [AliveWorld] Starting backend and frontend...
 start "AW_Backend" cmd /k "cd /d ""%~dp0"" && .venv\Scripts\python.exe -m uvicorn main:app --port 8000"
 start "AW_Frontend" cmd /k "cd /d ""%~dp0aliveworld-ui"" && npm run dev"
-echo Open http://127.0.0.1:5173 after both windows are ready.
-pause
+echo [AliveWorld] The browser will open automatically when the frontend is ready.
+start "" /min powershell -NoProfile -WindowStyle Hidden -Command "$deadline=(Get-Date).AddMinutes(3); while((Get-Date)-lt $deadline){ try { $r=Invoke-WebRequest -UseBasicParsing -TimeoutSec 2 'http://127.0.0.1:5173'; if($r.StatusCode -ge 200){ Start-Process 'http://127.0.0.1:5173'; break } } catch {}; Start-Sleep -Seconds 1 }"
+exit /b 0

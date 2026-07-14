@@ -9,16 +9,27 @@ import { assetStore } from '../../store/assetStore';
 const close = () => { uiStore.modals.gallery = false; };
 const filter = ref('all');
 const selectedUrl = ref('');
+const deleteConfirmId = ref('');
 const completed = computed(() => imageStore.tasks.filter(task => task.status === 'succeeded' && task.output_images?.length && (filter.value === 'all' || task.intent === filter.value)));
 onMounted(() => { if (gameStore.sessionId) imageStore.load(gameStore.sessionId).catch(() => {}); });
 const setPortrait = async (task) => {
   const characterName = task.character_ids?.[0];
   if (!characterName) return uiStore.showToast('该立绘没有关联角色', 'error');
   try {
-    await imageApi.setPortrait(gameStore.sessionId, task.id, characterName, 0);
-    await assetStore.fetchLocalAssets(gameStore.sessionId);
-    uiStore.showToast(`已设为 ${characterName} 的当前立绘`);
+    const scope = task.context_snapshot?.portrait_scope || 'local';
+    await imageApi.setPortrait(gameStore.sessionId, task.id, characterName, 0, scope);
+    if (scope === 'global') await assetStore.fetchAssets();
+    else await assetStore.fetchLocalAssets(gameStore.sessionId);
+    uiStore.showToast(`已设为 ${characterName} 的${scope === 'global' ? '全局' : '本局'}立绘`);
   } catch (error) { uiStore.showToast(error.message, 'error'); }
+};
+const regenerate = async task => {
+  try { await imageStore.regenerate(task.id); uiStore.showToast('已创建新的重生成任务'); }
+  catch (error) { uiStore.showToast(error.message, 'error'); }
+};
+const removeTask = async task => {
+  try { await imageStore.remove(task.id); deleteConfirmId.value = ''; uiStore.showToast('图片与任务记录已删除'); }
+  catch (error) { uiStore.showToast(error.message, 'error'); }
 };
 </script>
 <template>
@@ -32,8 +43,8 @@ const setPortrait = async (task) => {
         <div v-if="!completed.length" class="h-full flex items-center justify-center text-sm text-slate-500">本局还没有符合条件的生成图片</div>
         <div v-else class="grid grid-cols-2 md:grid-cols-3 gap-4">
           <div v-for="task in completed" :key="task.id" class="bg-slate-900 rounded-lg border border-slate-700 overflow-hidden group relative">
-            <img :src="imageApi.absoluteImageUrl(task.output_images[0])" @click="selectedUrl=imageApi.absoluteImageUrl(task.output_images[0])" class="aspect-square w-full object-cover cursor-zoom-in opacity-85 group-hover:opacity-100 transition">
-            <div class="p-2"><div class="text-[10px] text-amber-300">{{ {character_portrait:'角色立绘',character_cg:'角色 CG',scene_cg:'场景 CG'}[task.intent] }}</div><div class="mt-1 truncate text-[9px] text-slate-500">{{ task.character_ids?.join('、') || task.context_snapshot?.story_text || task.id }}</div><button v-if="task.intent==='character_portrait'" @click="setPortrait(task)" class="mt-2 w-full rounded bg-fuchsia-900/50 py-1 text-[10px] text-fuchsia-200 hover:bg-fuchsia-700">设为当前立绘</button></div>
+            <div class="grid gap-1" :class="task.output_images.length > 1 ? 'grid-cols-2' : 'grid-cols-1'"><img v-for="url in task.output_images" :key="url" :src="imageApi.absoluteImageUrl(url)" @click="selectedUrl=imageApi.absoluteImageUrl(url)" class="aspect-square w-full object-cover cursor-zoom-in opacity-85 group-hover:opacity-100 transition"></div>
+            <div class="p-2"><div class="text-[10px] text-amber-300">{{ {character_portrait:'角色立绘',character_cg:'角色 CG',scene_cg:'场景 CG'}[task.intent] }}</div><div class="mt-1 truncate text-[9px] text-slate-500">{{ task.character_ids?.join('、') || task.context_snapshot?.story_text || task.id }}</div><button v-if="task.intent==='character_portrait'" @click="setPortrait(task)" class="mt-2 w-full rounded bg-fuchsia-900/50 py-1 text-[10px] text-fuchsia-200 hover:bg-fuchsia-700">设为{{ task.context_snapshot?.portrait_scope === 'global' ? '全局' : '本局' }}立绘</button><div class="mt-2 flex justify-end gap-1 text-[10px]"><button @click="regenerate(task)" class="rounded bg-fuchsia-900/50 px-2 py-1 text-fuchsia-200">重新生成</button><template v-if="deleteConfirmId===task.id"><button @click="removeTask(task)" class="rounded bg-rose-700 px-2 py-1 text-white">确认删除</button><button @click="deleteConfirmId=''" class="rounded bg-slate-700 px-2 py-1">取消</button></template><button v-else @click="deleteConfirmId=task.id" class="rounded bg-rose-950/50 px-2 py-1 text-rose-300">删除</button></div></div>
           </div>
         </div>
       </div>

@@ -9,11 +9,20 @@ import { imageStore } from '../../store/imageStore';
 const checking = ref(false);
 const testing = ref(false);
 const connection = ref(null);
-const checkpoints = ref([]);
+const checkpoints = ref([...(configStore.globalSettings.imageCheckpoints || [])]);
 const workflows = ref([]);
 const importing = ref(false);
 const testTasks = computed(() => imageStore.tasks.filter(task => task.context_snapshot?.test_task));
 const latestTest = computed(() => testTasks.value[0] || null);
+const currentModelProfile = computed({
+  get: () => configStore.globalSettings.imageModelProfiles?.[configStore.globalSettings.imageCheckpoint] || '',
+  set: value => {
+    configStore.globalSettings.imageModelProfiles = {
+      ...(configStore.globalSettings.imageModelProfiles || {}),
+      [configStore.globalSettings.imageCheckpoint]: value
+    };
+  }
+});
 const testStatusText = { ready:'准备提交', submitted:'已提交', running:'生成中', succeeded:'测试成功', failed:'测试失败', cancelled:'已取消' };
 
 const loadWorkflows = async () => {
@@ -27,6 +36,7 @@ const checkConnection = async () => {
   try {
     connection.value = await imageApi.checkComfyUI(configStore.globalSettings.imageApiUrl);
     checkpoints.value = connection.value.checkpoints || [];
+    configStore.globalSettings.imageCheckpoints = checkpoints.value;
     if (connection.value.connected) uiStore.showToast('ComfyUI 连接正常');
     else uiStore.showToast(connection.value.message || 'ComfyUI 无法连接', 'error');
   } catch (error) { uiStore.showToast(error.message, 'error'); }
@@ -35,7 +45,7 @@ const checkConnection = async () => {
 
 const generateTest = async () => {
   if (!gameStore.sessionId) return uiStore.showToast('请先创建或载入一个存档', 'error');
-  if (!configStore.globalSettings.imageCheckpoint) return uiStore.showToast('请先选择 checkpoint', 'error');
+  if (!configStore.globalSettings.imageCheckpoint) return uiStore.showToast('请先选择生图模型', 'error');
   testing.value = true;
   try {
     const task = await imageApi.testComfyUI(gameStore.sessionId, {
@@ -70,7 +80,10 @@ const importWorkflow = async (event) => {
   finally { importing.value = false; }
 };
 
-onMounted(loadWorkflows);
+onMounted(async () => {
+  await loadWorkflows();
+  if (!checkpoints.value.length) checkConnection();
+});
 </script>
 
 <template>
@@ -84,12 +97,15 @@ onMounted(loadWorkflows);
       <button @click="checkConnection" :disabled="checking" class="action secondary">{{ checking ? '检查中…' : '检查连接与模型' }}</button>
       <span v-if="connection" class="self-center text-xs" :class="connection.connected ? 'text-emerald-400' : 'text-rose-400'">{{ connection.message }}</span>
     </div>
-    <label class="block"><span class="field-label">Checkpoint</span>
+    <label class="block"><span class="field-label">生图模型 <span class="text-slate-600">（ComfyUI Checkpoint 文件）</span></span>
       <select v-model="configStore.globalSettings.imageCheckpoint" class="field-input">
-        <option value="">请先检查连接并选择模型</option>
+        <option value="">正在读取或尚未选择模型</option>
+        <option v-if="configStore.globalSettings.imageCheckpoint && !checkpoints.includes(configStore.globalSettings.imageCheckpoint)" :value="configStore.globalSettings.imageCheckpoint">{{ configStore.globalSettings.imageCheckpoint }}（上次选择）</option>
         <option v-for="item in checkpoints" :key="item" :value="item">{{ item }}</option>
       </select>
     </label>
+    <label v-if="configStore.globalSettings.imageCheckpoint" class="block"><span class="field-label">当前模型特性说明（可选）</span><textarea v-model="currentModelProfile" rows="2" class="field-input resize-y" placeholder="例如：偏好 Danbooru 英文标签、适合动漫人物、推荐的起始标签……" /></label>
+    <p class="-mt-3 text-[10px] text-slate-500">AliveWorld 会把模型文件名和这段说明交给提示词 AI；不会仅凭文件名猜测模型能力。</p>
     <label class="block"><span class="field-label">工作流</span>
       <select v-model="configStore.globalSettings.imageWorkflowId" class="field-input">
         <option v-for="item in workflows" :key="item.id" :value="item.id">{{ item.name }}{{ item.is_template ? '（内置）' : '' }}</option>
@@ -101,7 +117,7 @@ onMounted(loadWorkflows);
     <label class="block"><span class="field-label">画风偏好提示（可空）</span><textarea v-model="configStore.globalSettings.imageStylePreference" rows="2" class="field-input resize-y" placeholder="例如：柔和厚涂、电影光影……" /></label>
     <label class="block"><span class="field-label">画面表现尺度（可空）</span><input v-model="configStore.globalSettings.imagePresentationLevel" class="field-input" placeholder="例如：唯美、若隐若现、露点……" /></label>
     <div class="rounded-lg border border-amber-800/60 bg-amber-950/20 p-3 text-[11px] text-amber-200/80">
-      测试图会真实占用显卡并生成一张 512×512 白底红色圆形；它不调用大语言模型。
+      测试图会真实占用显卡并生成一张 512×512 的“青色三角形、洋红方块、黄色星形”几何测试卡；它不调用大语言模型，也不代表默认画风。
     </div>
     <button @click="generateTest" :disabled="testing" class="action primary">{{ testing ? '已提交，请等待…' : '生成极简测试图' }}</button>
     <div v-if="latestTest" class="rounded-lg border border-fuchsia-900/60 bg-slate-950/70 p-3">

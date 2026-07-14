@@ -60,6 +60,9 @@ class ImagePromptSpec:
     presentation_level: str = ""
     width: int = 512
     height: int = 768
+    count: int = 1
+    steps: int = 20
+    cfg: float = 7.0
     seed: int | None = None
     references: list[ImageReference] = field(default_factory=list)
 
@@ -77,8 +80,11 @@ class ImagePromptSpec:
             negative=str(data.get("negative", "")).strip(),
             style_preference=str(data.get("style_preference", "")).strip(),
             presentation_level=str(data.get("presentation_level", "")).strip(),
-            width=max(64, min(4096, int(data.get("width", 512) or 512))),
-            height=max(64, min(4096, int(data.get("height", 768) or 768))),
+            width=max(64, min(4096, int(data.get("width", 512) or 512))) // 8 * 8,
+            height=max(64, min(4096, int(data.get("height", 768) or 768))) // 8 * 8,
+            count=max(1, min(4, int(data.get("count", 1) or 1))),
+            steps=max(1, min(100, int(data.get("steps", 20) or 20))),
+            cfg=max(1.0, min(30.0, float(data.get("cfg", 7.0) or 7.0))),
             seed=int(seed) if seed is not None and str(seed).strip() else None,
             references=references,
         )

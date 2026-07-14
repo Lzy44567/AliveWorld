@@ -20,6 +20,9 @@ export const imageApi = {
   createTask(sessionId, data) {
     return request(`${API_URL}/${sessionId}/images/tasks`, jsonOptions({ data }));
   },
+  compileAndCreateTask(sessionId, task, compile) {
+    return request(`${API_URL}/${sessionId}/images/tasks/compile-and-start`, jsonOptions({ task, compile }));
+  },
   compilePrompt(sessionId, payload) {
     return request(`${API_URL}/${sessionId}/images/prompts/compile`, jsonOptions(payload));
   },
@@ -29,8 +32,14 @@ export const imageApi = {
   retryTask(sessionId, taskId) {
     return request(`${API_URL}/${sessionId}/images/tasks/${taskId}/retry`, { method: 'POST' });
   },
-  setPortrait(sessionId, taskId, characterName, imageIndex = 0) {
-    return request(`${API_URL}/${sessionId}/images/tasks/${taskId}/set-portrait`, jsonOptions({ character_name: characterName, image_index: imageIndex }));
+  regenerateTask(sessionId, taskId) {
+    return request(`${API_URL}/${sessionId}/images/tasks/${taskId}/regenerate`, { method: 'POST' });
+  },
+  deleteTask(sessionId, taskId) {
+    return request(`${API_URL}/${sessionId}/images/tasks/${taskId}`, { method: 'DELETE' });
+  },
+  setPortrait(sessionId, taskId, characterName, imageIndex = 0, scope = 'local') {
+    return request(`${API_URL}/${sessionId}/images/tasks/${taskId}/set-portrait`, jsonOptions({ character_name: characterName, image_index: imageIndex, scope }));
   },
   checkComfyUI(baseUrl) {
     return request(`${API_URL}/images/providers/comfyui/check`, jsonOptions({ base_url: baseUrl }));

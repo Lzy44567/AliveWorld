@@ -45,6 +45,14 @@ export const imageStore = reactive({
     return task;
   },
 
+  async compileAndCreate(sessionId, taskData, compileData) {
+    const task = await imageApi.compileAndCreateTask(sessionId, taskData, compileData);
+    this.upsert(task);
+    this.sessionId = sessionId;
+    this.syncPolling();
+    return task;
+  },
+
   async cancel(taskId) {
     const task = await imageApi.cancelTask(this.sessionId, taskId);
     this.upsert(task);
@@ -55,6 +63,19 @@ export const imageStore = reactive({
     this.notified.delete(taskId);
     const task = await imageApi.retryTask(this.sessionId, taskId);
     this.upsert(task);
+    this.syncPolling();
+  },
+
+  async regenerate(taskId) {
+    const task = await imageApi.regenerateTask(this.sessionId, taskId);
+    this.upsert(task);
+    this.syncPolling();
+    return task;
+  },
+
+  async remove(taskId) {
+    await imageApi.deleteTask(this.sessionId, taskId);
+    this.tasks = this.tasks.filter(task => task.id !== taskId);
     this.syncPolling();
   },
 

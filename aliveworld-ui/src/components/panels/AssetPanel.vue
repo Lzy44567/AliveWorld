@@ -19,6 +19,7 @@ import { imageApi } from '../../api/imageApi';
 const searchKeyword = ref("");
 const { confirmDeleteId, requestDelete, cancelDelete } = useDeleteConfirmation();
 const embeddingStatus = ref({ state: 'disabled', downloaded: false, enabled: false });
+const selectedPortraitUrl = ref('');
 const entityDisclosure = computed(() => normalizeEntityDisclosure(effectiveStorySettings.value));
 const canManageCurrentLocalAsset = computed(() =>
   uiStore.rightTab !== 'entity' || entityDisclosure.value.allowEditing
@@ -174,11 +175,12 @@ const openInsertCharModal = (charName) => {
 
 const openPortraitGenerator = (item) => {
   if (!gameStore.sessionId) return uiStore.showToast('请先创建或载入存档', 'error');
-  uiStore.imageGeneratorContext = { characterName: item.name, description: item.description || item.desc || item.content || '' };
+  uiStore.imageGeneratorContext = { characterName: item.name, description: item.description || item.desc || item.content || '', scope: uiStore.assetScope };
   uiStore.modals.imageGenerator = true;
 };
 
 const portraitUrl = (item) => {
+  if (item.portrait?.scope === 'global' && item.portrait?.path) return imageApi.absoluteImageUrl(`/api/v1/game/images/global-portraits/${encodeURIComponent(item.portrait.path)}`);
   const taskId = item.portrait?.task_id;
   const imageIndex = Number(item.portrait?.image_index || 0);
   const task = imageStore.tasks.find(entry => entry.id === taskId);
@@ -254,8 +256,9 @@ onBeforeUnmount(() => {
               </button>
             </h4>
          </div>
-         <img v-if="uiStore.rightTab==='character' && portraitUrl(item)" :src="portraitUrl(item)" class="h-28 w-full rounded-lg border border-fuchsia-900/50 bg-black object-contain" />
-         
+         <div class="flex gap-3" :class="uiStore.rightTab==='character' && portraitUrl(item) ? 'items-stretch' : 'flex-col'">
+         <img v-if="uiStore.rightTab==='character' && portraitUrl(item)" :src="portraitUrl(item)" @click="selectedPortraitUrl=portraitUrl(item)" class="h-44 w-28 shrink-0 cursor-zoom-in rounded-lg border border-fuchsia-900/50 bg-black object-contain transition hover:border-fuchsia-500" title="点击放大立绘" />
+         <div class="min-w-0 flex-1">
          <div class="flex flex-wrap gap-1">
            <span v-for="t in item.tags" :key="t" class="bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded text-[9px] border border-slate-700">{{ t }}</span>
          </div>
@@ -266,11 +269,13 @@ onBeforeUnmount(() => {
            <div v-for="refItem in item.influence_refs.slice(0, 3)" :key="refItem.id" class="mt-1 truncate">{{ refItem.summary }} · {{ refItem.status }}</div>
            <button @click="uiStore.ledgerSourceFilter = item.name; uiStore.modals.causalLedger = true" class="mt-1 underline">在账本中查看</button>
          </div>
+         </div>
+         </div>
          
          <div class="mt-2 flex gap-2 border-t border-slate-800 pt-2 opacity-0 group-hover:opacity-100 transition-opacity">
            <button v-if="uiStore.assetScope === 'global' || canManageCurrentLocalAsset" @click="openEditAsset(item.name)" class="flex-1 bg-slate-800 hover:bg-slate-700 text-[10px] py-1.5 rounded font-bold text-slate-300">✏️ {{ uiStore.assetScope === 'local' ? '微调' : '编辑' }}</button>
            <button v-if="uiStore.rightTab==='world'" @click="openWorldbookWorkshop(item.name)" class="flex-1 bg-violet-900/50 hover:bg-violet-600 text-[10px] py-1.5 rounded font-bold text-violet-300 hover:text-white border border-violet-700/50">🧭 工坊</button>
-           <button v-if="uiStore.rightTab==='character' && uiStore.assetScope==='local'" @click="openPortraitGenerator(item)" class="flex-1 bg-fuchsia-900/40 hover:bg-fuchsia-700 text-[10px] py-1.5 rounded font-bold text-fuchsia-300 hover:text-white border border-fuchsia-800/60">🎨 立绘</button>
+           <button v-if="uiStore.rightTab==='character'" @click="openPortraitGenerator(item)" class="flex-1 bg-fuchsia-900/40 hover:bg-fuchsia-700 text-[10px] py-1.5 rounded font-bold text-fuchsia-300 hover:text-white border border-fuchsia-800/60">🎨 {{ uiStore.assetScope==='global' ? '全局立绘' : '立绘' }}</button>
            <button v-if="uiStore.assetScope==='global'" @click="pullAssetToLocal(item.name)" class="flex-1 bg-indigo-900/50 hover:bg-indigo-600 text-[10px] py-1.5 rounded font-bold text-indigo-300 hover:text-white border border-indigo-700/50">⬇️ 载入局内</button>
            <button v-if="uiStore.assetScope==='local' && canManageCurrentLocalAsset" @click="pushToGlobal(item)" class="flex-1 bg-emerald-900/50 hover:bg-emerald-600 text-[10px] py-1.5 rounded font-bold text-emerald-300 hover:text-white border border-emerald-700/50">⬆️ 推送全局</button>
 
@@ -283,5 +288,6 @@ onBeforeUnmount(() => {
        </div>
       </div>
     </div>
+    <Teleport to="body"><div v-if="selectedPortraitUrl" @click="selectedPortraitUrl=''" class="fixed inset-0 z-[140] flex cursor-zoom-out items-center justify-center bg-black/90 p-6"><img :src="selectedPortraitUrl" class="max-h-full max-w-full rounded-lg object-contain"></div></Teleport>
   </div>
 </template>

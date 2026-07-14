@@ -74,6 +74,7 @@ def list_asset_summaries(asset_type: str) -> List[Dict]:
                 "tags": tags,
                 "description": data.get("description", data.get("motive", data.get("content", ""))),
                 "is_template": is_template,
+                "portrait": data.get("portrait") if asset_type == "characters" else None,
             }
         elif is_template:
             summaries[name]["is_template"] = True

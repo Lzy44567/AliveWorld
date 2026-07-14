@@ -12,12 +12,14 @@ from core.image_generation.providers.comfyui import ComfyUIProvider
 from core.image_generation.repository import ImageTaskRepository
 from core.image_generation.service import ImageGenerationService
 from core.image_generation.workflows import WorkflowRepository
+from core.image_generation.pipeline import ImageGenerationPipeline
 
 
 @dataclass
 class ImageRuntime:
     service: ImageGenerationService
     runner: ImageTaskRunner
+    pipeline: ImageGenerationPipeline
 
 
 _runtimes: dict[str, ImageRuntime] = {}
@@ -45,7 +47,7 @@ def get_image_runtime(save_dir: str | Path) -> ImageRuntime:
             )
 
         runner = ImageTaskRunner(service, provider_factory)
-        runtime = ImageRuntime(service=service, runner=runner)
+        runtime = ImageRuntime(service=service, runner=runner, pipeline=ImageGenerationPipeline(service, runner))
         _runtimes[key] = runtime
         runner.recover()
         return runtime

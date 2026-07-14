@@ -21,6 +21,13 @@ class ImagePromptCompilerTests(unittest.TestCase):
         self.assertEqual(result["positive"], "cinematic portrait")
         self.assertEqual(result["content_focus"], "general")
         self.assertEqual(ai.requests[0][2]["trace_label"], "生图提示词编译")
+        self.assertIn("可长期复用的角色立绘", ai.requests[0][0])
+
+    def test_passes_model_name_and_profile_to_ai(self):
+        ai = FakeAI('{"positive":"anime portrait","negative":"","content_focus":"general","notes":""}')
+        ImagePromptCompiler(ai).compile({"model_name": "example.safetensors", "model_profile": "使用英文标签"})
+        self.assertIn("example.safetensors", ai.requests[0][1])
+        self.assertIn("使用英文标签", ai.requests[0][1])
 
     def test_explicit_focus_is_preserved_as_model_classification(self):
         ai = FakeAI('{"positive":"adult scene","negative":"","content_focus":"explicit","notes":"按正文表现"}')
