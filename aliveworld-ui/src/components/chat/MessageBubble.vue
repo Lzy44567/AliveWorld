@@ -1,15 +1,13 @@
 <!-- src/components/chat/MessageBubble.vue -->
 <script setup>
-import { computed, ref } from 'vue';
+import { computed } from 'vue';
 import { gameStore } from '../../store/gameStore';
 import { effectiveStorySettings } from '../../store/configStore';
 import { uiStore } from '../../store/uiStore';
 import { gameApi } from '../../api/gameApi';
 import { assetStore } from '../../store/assetStore';
 import { formatUndercurrentDebug } from '../../utils/entityVisibility';
-import { imageStore } from '../../store/imageStore';
-import { fileToDataUrl, imageApi } from '../../api/imageApi';
-import { configStore } from '../../store/configStore';
+import MessageImagePanel from './MessageImagePanel.vue';
 
 const props = defineProps({
   msg: {
@@ -22,82 +20,6 @@ const entityDebugText = computed(() => {
   if (props.msg.role !== 'undercurrent') return '';
   return formatUndercurrentDebug(props.msg.content, effectiveStorySettings.value, assetStore.entities.local);
 });
-
-const imageTasks = computed(() => imageStore.forMessage(props.msg.id));
-const showImageForm = ref(false);
-const imagePrompt = ref('');
-const imageIntent = ref('scene_cg');
-const submittingImage = ref(false);
-const compilingPrompt = ref(false);
-const compilerNotes = ref('');
-const referenceFiles = ref([]);
-const referenceRole = ref('character');
-const statusText = {
-  queued: '等待提示词', compiling_prompt: '整理提示词', ready: '准备提交', submitted: '已提交',
-  running: '生成中', succeeded: '已完成', failed: '生成失败', cancelled: '已取消'
-};
-
-const generateImage = async () => {
-  const settings = configStore.globalSettings;
-  if (!imagePrompt.value.trim()) return uiStore.showToast('请填写生图提示词', 'error');
-  if (!settings.imageCheckpoint) return uiStore.showToast('请先在“设置 → 生图配置”选择 checkpoint', 'error');
-  submittingImage.value = true;
-  try {
-    const references = [];
-    for (const file of referenceFiles.value) {
-      const uploaded = await imageApi.uploadReference(gameStore.sessionId, {
-        filename: file.name,
-        role: referenceRole.value,
-        data_url: await fileToDataUrl(file)
-      });
-      references.push({ path: uploaded.id, role: uploaded.role, label: uploaded.filename });
-    }
-    await imageStore.create(gameStore.sessionId, {
-      intent: imageIntent.value,
-      source_message_id: props.msg.id,
-      provider_id: 'comfyui',
-      workflow_id: settings.imageWorkflowId,
-      prompt: {
-        positive: imagePrompt.value.trim(),
-        negative: settings.imageNegativePrompt,
-        style_preference: settings.imageStylePreference,
-        presentation_level: settings.imagePresentationLevel,
-        width: imageIntent.value === 'scene_cg' ? 768 : 512,
-        height: 768,
-        references
-      },
-      context_snapshot: { story_text: props.msg.content },
-      provider_options: { base_url: settings.imageApiUrl, checkpoint: settings.imageCheckpoint }
-    });
-    showImageForm.value = false;
-    imagePrompt.value = '';
-    referenceFiles.value = [];
-    uiStore.showToast('生图任务已进入后台队列');
-  } catch (error) { uiStore.showToast(error.message, 'error'); }
-  finally { submittingImage.value = false; }
-};
-
-const chooseReferences = (event) => {
-  referenceFiles.value = [...(event.target.files || [])];
-};
-
-const compileImagePrompt = async () => {
-  compilingPrompt.value = true;
-  try {
-    const result = await imageApi.compilePrompt(gameStore.sessionId, {
-      intent: imageIntent.value,
-      user_request: imagePrompt.value,
-      source_message_id: props.msg.id,
-      style_preference: configStore.globalSettings.imageStylePreference,
-      presentation_level: configStore.globalSettings.imagePresentationLevel
-    });
-    imagePrompt.value = result.positive;
-    if (result.negative) configStore.globalSettings.imageNegativePrompt = result.negative;
-    compilerNotes.value = result.notes;
-    uiStore.showToast('AI 已整理提示词，请确认后生成');
-  } catch (error) { uiStore.showToast(error.message, 'error'); }
-  finally { compilingPrompt.value = false; }
-};
 
 const doReroll = async () => {
   if (!gameStore.sessionId || gameStore.isProcessing) return;
@@ -173,41 +95,7 @@ const doReroll = async () => {
            :class="msg.role === 'user' ? 'bg-indigo-600/95 text-white rounded-br-sm' : 'bg-slate-900/90 border border-slate-600 text-slate-200 rounded-bl-sm'">
         {{ gameStore.formatContent(msg.content) }}
       </div>
-      <div v-if="msg.role === 'ai'" class="mt-2">
-        <button v-if="!showImageForm" @click="showImageForm = true" class="text-[11px] text-fuchsia-300 hover:text-fuchsia-200 px-2 py-1 rounded border border-fuchsia-800/60 bg-fuchsia-950/20">🎨 生成此处 CG</button>
-        <div v-else class="rounded-xl border border-fuchsia-800/60 bg-slate-950/90 p-3 space-y-2">
-          <div class="flex gap-2">
-            <select v-model="imageIntent" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200">
-              <option value="scene_cg">场景 CG</option><option value="character_cg">角色 CG</option>
-            </select>
-            <span class="text-[10px] text-slate-500 self-center">直接提示词模式，不调用 LLM</span>
-          </div>
-          <textarea v-model="imagePrompt" rows="3" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-xs text-slate-200 resize-y" placeholder="描述希望生成的画面……" />
-          <div class="flex items-center gap-2"><button @click="compileImagePrompt" :disabled="compilingPrompt" class="rounded bg-violet-900/70 px-2 py-1 text-[10px] text-violet-200 disabled:opacity-50">{{ compilingPrompt ? 'AI 整理中…' : '✨ 让 AI 根据正文整理提示词' }}</button><span v-if="compilerNotes" class="text-[10px] text-slate-500">{{ compilerNotes }}</span></div>
-          <div class="flex gap-2 items-center">
-            <select v-model="referenceRole" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200"><option value="character">角色参考图</option><option value="style">画风参考图</option></select>
-            <label class="cursor-pointer rounded bg-slate-800 px-2 py-1 text-[10px] text-slate-300">选择参考图<input type="file" accept="image/png,image/jpeg,image/webp" multiple class="hidden" @change="chooseReferences" /></label>
-            <span class="truncate text-[10px] text-slate-500">{{ referenceFiles.length ? referenceFiles.map(file => file.name).join('、') : '未选择' }}</span>
-          </div>
-          <p v-if="referenceFiles.length && configStore.globalSettings.imageWorkflowId === 'builtin_basic'" class="text-[10px] text-amber-400/80">内置基础工作流是纯文生图：参考图会安全保存，但该工作流不会使用它。请导入带参考图节点并配置映射的工作流。</p>
-          <div class="flex justify-end gap-2">
-            <button @click="showImageForm = false" class="px-3 py-1 text-xs bg-slate-700 rounded">取消</button>
-            <button @click="generateImage" :disabled="submittingImage" class="px-3 py-1 text-xs bg-fuchsia-700 hover:bg-fuchsia-600 disabled:opacity-50 rounded text-white">{{ submittingImage ? '提交中…' : '开始生成' }}</button>
-          </div>
-        </div>
-        <div v-for="task in imageTasks" :key="task.id" class="mt-2 rounded-xl border border-fuchsia-900/60 bg-slate-950/80 p-3">
-          <div class="flex justify-between items-center text-xs"><span class="text-fuchsia-300">🖼️ {{ statusText[task.status] || task.status }}</span><span class="font-mono text-[9px] text-slate-600">{{ task.id }}</span></div>
-          <div v-if="['queued','compiling_prompt','ready','submitted','running'].includes(task.status)" class="mt-2">
-            <div class="h-1.5 rounded bg-slate-800 overflow-hidden"><div class="h-full bg-fuchsia-500 transition-all" :class="task.progress ? '' : 'animate-pulse w-1/3'" :style="task.progress ? { width: `${task.progress * 100}%` } : {}"></div></div>
-            <button @click="imageStore.cancel(task.id)" class="mt-2 text-[10px] text-slate-400 hover:text-rose-300">取消任务</button>
-          </div>
-          <div v-else-if="task.status === 'failed'" class="mt-2 text-xs text-rose-300">{{ task.error_message || '未知错误' }} <button @click="imageStore.retry(task.id)" class="ml-2 underline">重试</button></div>
-          <div v-else-if="task.status === 'cancelled'" class="mt-2 text-xs text-slate-500">任务已取消 <button @click="imageStore.retry(task.id)" class="ml-2 underline">重新生成</button></div>
-          <div v-else-if="task.status === 'succeeded'" class="mt-2 grid gap-2">
-            <img v-for="url in task.output_images" :key="url" :src="imageApi.absoluteImageUrl(url)" class="max-h-[32rem] rounded-lg border border-slate-700 object-contain bg-black" />
-          </div>
-        </div>
-      </div>
+      <MessageImagePanel v-if="msg.role === 'ai'" :message="msg" />
     </div>
 
   </div>
