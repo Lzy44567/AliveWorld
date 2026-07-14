@@ -35,6 +35,15 @@ export const imageApi = {
   importWorkflow(data) {
     return request(`${API_URL}/images/workflows`, jsonOptions({ data }));
   },
+  listReferences(sessionId) {
+    return request(`${API_URL}/${sessionId}/images/references`);
+  },
+  uploadReference(sessionId, payload) {
+    return request(`${API_URL}/${sessionId}/images/references`, jsonOptions(payload));
+  },
+  deleteReference(sessionId, referenceId) {
+    return request(`${API_URL}/${sessionId}/images/references/${referenceId}`, { method: 'DELETE' });
+  },
   testComfyUI(sessionId, { baseUrl, checkpoint, workflowId }) {
     const query = new URLSearchParams({ checkpoint, workflow_id: workflowId });
     return request(`${API_URL}/${sessionId}/images/providers/comfyui/test?${query}`, jsonOptions({ base_url: baseUrl }));
@@ -43,3 +52,12 @@ export const imageApi = {
     return path?.startsWith('http') ? path : `${API_ROOT}${path || ''}`;
   }
 };
+
+export function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error(`无法读取文件：${file.name}`));
+    reader.readAsDataURL(file);
+  });
+}

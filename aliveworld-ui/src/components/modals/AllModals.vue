@@ -9,6 +9,7 @@ import SettingsModal from './SettingsModal.vue';
 import NewGameModal from './NewGameModal.vue';
 import InsertCharModal from './InsertCharModal.vue';
 import GalleryModal from './GalleryModal.vue';
+import ImageGeneratorModal from './ImageGeneratorModal.vue';
 import CausalLedgerModal from './CausalLedgerModal.vue';
 </script>
 
@@ -17,6 +18,7 @@ import CausalLedgerModal from './CausalLedgerModal.vue';
   <NewGameModal v-if="uiStore.modals.newGame" />
   <InsertCharModal v-if="uiStore.modals.insertChar" />
   <GalleryModal v-if="uiStore.modals.gallery" />
+  <ImageGeneratorModal v-if="uiStore.modals.imageGenerator" />
   <TerminalModal v-if="uiStore.modals.terminal" />
   <AssetEditorModal v-if="uiStore.modals.assetEditor" />
   <WorldbookWorkshopModal v-if="uiStore.modals.worldbookWorkshop" />

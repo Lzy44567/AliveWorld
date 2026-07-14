@@ -11,6 +11,7 @@ const testing = ref(false);
 const connection = ref(null);
 const checkpoints = ref([]);
 const workflows = ref([]);
+const importing = ref(false);
 
 const loadWorkflows = async () => {
   try { workflows.value = await imageApi.listWorkflows(); }
@@ -47,6 +48,25 @@ const generateTest = async () => {
   finally { testing.value = false; }
 };
 
+const importWorkflow = async (event) => {
+  const file = event.target.files?.[0];
+  event.target.value = '';
+  if (!file) return;
+  importing.value = true;
+  try {
+    const parsed = JSON.parse(await file.text());
+    const stem = file.name.replace(/\.json$/i, '').replace(/[^A-Za-z0-9_-]+/g, '_') || 'imported_workflow';
+    const payload = parsed.workflow
+      ? { ...parsed, id: parsed.id || stem, name: parsed.name || file.name }
+      : { id: stem, name: file.name, workflow: parsed };
+    const saved = await imageApi.importWorkflow(payload);
+    await loadWorkflows();
+    configStore.globalSettings.imageWorkflowId = saved.id;
+    uiStore.showToast(`工作流“${saved.name}”已导入`);
+  } catch (error) { uiStore.showToast(`导入失败：${error.message}`, 'error'); }
+  finally { importing.value = false; }
+};
+
 onMounted(loadWorkflows);
 </script>
 
@@ -72,6 +92,8 @@ onMounted(loadWorkflows);
         <option v-for="item in workflows" :key="item.id" :value="item.id">{{ item.name }}{{ item.is_template ? '（内置）' : '' }}</option>
       </select>
     </label>
+    <label class="action secondary inline-block cursor-pointer">{{ importing ? '导入中…' : '导入 ComfyUI API 工作流 JSON' }}<input type="file" accept="application/json,.json" class="hidden" :disabled="importing" @change="importWorkflow" /></label>
+    <p class="text-[10px] text-slate-500">会自动识别常见核心节点。多个同类节点或正负提示标题不明确时会拒绝导入，不会猜测运行。</p>
     <label class="block"><span class="field-label">默认负面提示词</span><textarea v-model="configStore.globalSettings.imageNegativePrompt" rows="3" class="field-input resize-y" /></label>
     <label class="block"><span class="field-label">画风偏好提示（可空）</span><textarea v-model="configStore.globalSettings.imageStylePreference" rows="2" class="field-input resize-y" placeholder="例如：柔和厚涂、电影光影……" /></label>
     <label class="block"><span class="field-label">画面表现尺度（可空）</span><input v-model="configStore.globalSettings.imagePresentationLevel" class="field-input" placeholder="例如：唯美、若隐若现、露点……" /></label>

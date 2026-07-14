@@ -8,7 +8,7 @@ import { gameApi } from '../../api/gameApi';
 import { assetStore } from '../../store/assetStore';
 import { formatUndercurrentDebug } from '../../utils/entityVisibility';
 import { imageStore } from '../../store/imageStore';
-import { imageApi } from '../../api/imageApi';
+import { fileToDataUrl, imageApi } from '../../api/imageApi';
 import { configStore } from '../../store/configStore';
 
 const props = defineProps({
@@ -28,6 +28,8 @@ const showImageForm = ref(false);
 const imagePrompt = ref('');
 const imageIntent = ref('scene_cg');
 const submittingImage = ref(false);
+const referenceFiles = ref([]);
+const referenceRole = ref('character');
 const statusText = {
   queued: '等待提示词', compiling_prompt: '整理提示词', ready: '准备提交', submitted: '已提交',
   running: '生成中', succeeded: '已完成', failed: '生成失败', cancelled: '已取消'
@@ -39,6 +41,15 @@ const generateImage = async () => {
   if (!settings.imageCheckpoint) return uiStore.showToast('请先在“设置 → 生图配置”选择 checkpoint', 'error');
   submittingImage.value = true;
   try {
+    const references = [];
+    for (const file of referenceFiles.value) {
+      const uploaded = await imageApi.uploadReference(gameStore.sessionId, {
+        filename: file.name,
+        role: referenceRole.value,
+        data_url: await fileToDataUrl(file)
+      });
+      references.push({ path: uploaded.id, role: uploaded.role, label: uploaded.filename });
+    }
     await imageStore.create(gameStore.sessionId, {
       intent: imageIntent.value,
       source_message_id: props.msg.id,
@@ -50,16 +61,22 @@ const generateImage = async () => {
         style_preference: settings.imageStylePreference,
         presentation_level: settings.imagePresentationLevel,
         width: imageIntent.value === 'scene_cg' ? 768 : 512,
-        height: 768
+        height: 768,
+        references
       },
       context_snapshot: { story_text: props.msg.content },
       provider_options: { base_url: settings.imageApiUrl, checkpoint: settings.imageCheckpoint }
     });
     showImageForm.value = false;
     imagePrompt.value = '';
+    referenceFiles.value = [];
     uiStore.showToast('生图任务已进入后台队列');
   } catch (error) { uiStore.showToast(error.message, 'error'); }
   finally { submittingImage.value = false; }
+};
+
+const chooseReferences = (event) => {
+  referenceFiles.value = [...(event.target.files || [])];
 };
 
 const doReroll = async () => {
@@ -146,6 +163,12 @@ const doReroll = async () => {
             <span class="text-[10px] text-slate-500 self-center">直接提示词模式，不调用 LLM</span>
           </div>
           <textarea v-model="imagePrompt" rows="3" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-xs text-slate-200 resize-y" placeholder="描述希望生成的画面……" />
+          <div class="flex gap-2 items-center">
+            <select v-model="referenceRole" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200"><option value="character">角色参考图</option><option value="style">画风参考图</option></select>
+            <label class="cursor-pointer rounded bg-slate-800 px-2 py-1 text-[10px] text-slate-300">选择参考图<input type="file" accept="image/png,image/jpeg,image/webp" multiple class="hidden" @change="chooseReferences" /></label>
+            <span class="truncate text-[10px] text-slate-500">{{ referenceFiles.length ? referenceFiles.map(file => file.name).join('、') : '未选择' }}</span>
+          </div>
+          <p v-if="referenceFiles.length && configStore.globalSettings.imageWorkflowId === 'builtin_basic'" class="text-[10px] text-amber-400/80">内置基础工作流是纯文生图：参考图会安全保存，但该工作流不会使用它。请导入带参考图节点并配置映射的工作流。</p>
           <div class="flex justify-end gap-2">
             <button @click="showImageForm = false" class="px-3 py-1 text-xs bg-slate-700 rounded">取消</button>
             <button @click="generateImage" :disabled="submittingImage" class="px-3 py-1 text-xs bg-fuchsia-700 hover:bg-fuchsia-600 disabled:opacity-50 rounded text-white">{{ submittingImage ? '提交中…' : '开始生成' }}</button>

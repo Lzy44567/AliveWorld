@@ -169,6 +169,12 @@ const openInsertCharModal = (charName) => {
   uiStore.modals.insertChar = true;
 };
 
+const openPortraitGenerator = (item) => {
+  if (!gameStore.sessionId) return uiStore.showToast('请先创建或载入存档', 'error');
+  uiStore.imageGeneratorContext = { characterName: item.name, description: item.description || item.desc || item.content || '' };
+  uiStore.modals.imageGenerator = true;
+};
+
 const openWorldbookWorkshop = (name) => {
   uiStore.workshopWorldbookName = name;
   uiStore.workshopSessionId = uiStore.assetScope === 'local' ? gameStore.sessionId : '';
@@ -252,6 +258,7 @@ onBeforeUnmount(() => {
          <div class="mt-2 flex gap-2 border-t border-slate-800 pt-2 opacity-0 group-hover:opacity-100 transition-opacity">
            <button v-if="uiStore.assetScope === 'global' || canManageCurrentLocalAsset" @click="openEditAsset(item.name)" class="flex-1 bg-slate-800 hover:bg-slate-700 text-[10px] py-1.5 rounded font-bold text-slate-300">✏️ {{ uiStore.assetScope === 'local' ? '微调' : '编辑' }}</button>
            <button v-if="uiStore.rightTab==='world'" @click="openWorldbookWorkshop(item.name)" class="flex-1 bg-violet-900/50 hover:bg-violet-600 text-[10px] py-1.5 rounded font-bold text-violet-300 hover:text-white border border-violet-700/50">🧭 工坊</button>
+           <button v-if="uiStore.rightTab==='character' && uiStore.assetScope==='local'" @click="openPortraitGenerator(item)" class="flex-1 bg-fuchsia-900/40 hover:bg-fuchsia-700 text-[10px] py-1.5 rounded font-bold text-fuchsia-300 hover:text-white border border-fuchsia-800/60">🎨 立绘</button>
            <button v-if="uiStore.assetScope==='global'" @click="pullAssetToLocal(item.name)" class="flex-1 bg-indigo-900/50 hover:bg-indigo-600 text-[10px] py-1.5 rounded font-bold text-indigo-300 hover:text-white border border-indigo-700/50">⬇️ 载入局内</button>
            <button v-if="uiStore.assetScope==='local' && canManageCurrentLocalAsset" @click="pushToGlobal(item)" class="flex-1 bg-emerald-900/50 hover:bg-emerald-600 text-[10px] py-1.5 rounded font-bold text-emerald-300 hover:text-white border border-emerald-700/50">⬆️ 推送全局</button>
 
