@@ -12,6 +12,8 @@ export const imageStore = reactive({
   initialized: false,
   notified: new Set(),
   portraitHandled: new Set(),
+  libraryWatches: new Map(),
+  libraryPollingHandle: null,
 
   forMessage(messageId) {
     return this.tasks.filter(task => task.source_message_id === messageId);
@@ -61,6 +63,43 @@ export const imageStore = reactive({
     this.sessionId = sessionId;
     this.syncPolling();
     return task;
+  },
+
+  watchLibraryTask(scopeId, task) {
+    this.libraryWatches.set(`${scopeId}:${task.id}`, { scopeId, task });
+    if (!this.libraryPollingHandle) {
+      this.libraryPollingHandle = window.setInterval(() => this.pollLibraryTasks(), 1500);
+    }
+  },
+
+  async pollLibraryTasks() {
+    for (const [key, entry] of [...this.libraryWatches.entries()]) {
+      try {
+        const task = await imageApi.getLibraryTask(entry.scopeId, entry.task.id);
+        entry.task = task;
+        this.libraryWatches.set(key, entry);
+        if (!ACTIVE.has(task.status)) {
+          this.libraryWatches.delete(key);
+          if (task.status === 'succeeded') {
+            const assignment = task.context_snapshot?.portrait_assignment;
+            if (assignment?.status === 'success') {
+              assetStore.fetchAssets().catch(() => {});
+              uiStore.showToast('全局角色立绘已生成并自动挂载', 'success');
+            } else if (assignment?.status === 'failed') {
+              uiStore.showToast(`图片已生成，但挂载全局立绘失败：${assignment.message || '角色卡不存在'}`, 'error');
+            } else {
+              uiStore.showToast('全局图片已生成，可在画廊查看', 'success');
+            }
+          } else if (task.status === 'failed') {
+            uiStore.showToast(`生图失败：${task.error_message || '未知错误'}`, 'error');
+          }
+        }
+      } catch (_) { /* 临时网络错误留待下一轮轮询 */ }
+    }
+    if (!this.libraryWatches.size && this.libraryPollingHandle) {
+      window.clearInterval(this.libraryPollingHandle);
+      this.libraryPollingHandle = null;
+    }
   },
 
   async cancel(taskId) {

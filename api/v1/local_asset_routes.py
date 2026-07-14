@@ -11,6 +11,9 @@ from core.session_manager import active_sessions
 from utils.file_io import DATA_DIR, save_game_data
 from utils.asset_catalog import resolve_asset_path
 from core.worldbook import normalize_worldbook, save_worldbook_atomic
+from core.image_generation.runtime import get_image_runtime
+from core.image_generation.portrait import task_is_local_portrait
+from core.image_generation.service import ImageTaskError
 
 router = APIRouter()
 
@@ -112,14 +115,31 @@ def delete_local_asset(session_id: str, asset_type: str, asset_name: str):
     local_file = os.path.join(game.save_dir_path, asset_type, f"{asset_name}.yml")
     if os.path.exists(local_file):
         try:
+            portrait_task_id = ""
+            if asset_type == "characters":
+                with open(local_file, 'r', encoding='utf-8') as file:
+                    character = yaml.safe_load(file) or {}
+                portrait_task_id = str((character.get("portrait") or {}).get("task_id", ""))
             if asset_type == "entities":
                 result = game.undercurrent.causal_ledger.handle_source_death(asset_name)
                 game.undercurrent.entities = [entity for entity in game.undercurrent.entities if entity.name != asset_name]
                 game.undercurrent.sync_influence_refs()
                 save_game_data(game.save_dir_path, game.export_save_data())
             os.remove(local_file)
+            portrait_deleted = False
+            if portrait_task_id and not task_is_local_portrait(game.save_dir_path, portrait_task_id):
+                runtime = get_image_runtime(game.save_dir_path)
+                if runtime.service.repository.get(portrait_task_id):
+                    try:
+                        runtime.service.delete(portrait_task_id)
+                        portrait_deleted = True
+                    except (ImageTaskError, ValueError, OSError):
+                        # A generated portrait should be terminal. If a legacy task is not,
+                        # keep its files rather than turning a successful card deletion into 500.
+                        portrait_deleted = False
             return {
                 "status": "success",
+                "deleted_portrait": portrait_deleted,
                 "released_influences": [item.id for item in result["released"]] if asset_type == "entities" else [],
                 "removed_influences": [item.id for item in result["removed"]] if asset_type == "entities" else [],
             }

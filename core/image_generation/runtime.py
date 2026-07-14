@@ -13,7 +13,7 @@ from core.image_generation.repository import ImageTaskRepository
 from core.image_generation.service import ImageGenerationService
 from core.image_generation.workflows import WorkflowRepository
 from core.image_generation.pipeline import ImageGenerationPipeline
-from core.image_generation.portrait import PortraitAssignmentError, assign_current_portrait
+from core.image_generation.portrait import PortraitAssignmentError, assign_current_portrait, assign_global_portrait
 
 
 @dataclass
@@ -52,8 +52,12 @@ def get_image_runtime(save_dir: str | Path) -> ImageRuntime:
                 return
             character_name = str(task.context_snapshot.get("character_name", "")).strip()
             try:
-                assign_current_portrait(save_dir, character_name, task, 0)
-                task.context_snapshot["portrait_assignment"] = {"status": "success", "scope": "local", "character_name": character_name}
+                scope = str(task.context_snapshot.get("portrait_scope", "local"))
+                if scope == "global":
+                    assign_global_portrait(character_name, task, service.repository.outputs_dir, 0)
+                else:
+                    assign_current_portrait(save_dir, character_name, task, 0)
+                task.context_snapshot["portrait_assignment"] = {"status": "success", "scope": scope, "character_name": character_name}
             except PortraitAssignmentError as exc:
                 task.context_snapshot["portrait_assignment"] = {"status": "failed", "message": str(exc)}
             service.repository.save(task)

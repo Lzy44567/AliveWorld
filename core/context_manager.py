@@ -49,7 +49,7 @@ class ContextManager:
         if description: self.world_info_base = f"【🔥宇宙主导向 (最高法则)】：{description}\n\n" + self.world_info_base
 
 
-    def build_active_world_info(self, context_text, action, shadow_ledger):
+    def build_visible_world_info(self, context_text, action):
         active = self.world_info_base + "\n"
         search = context_text + "\n" + action
         hits, omitted = self.worldbook_retriever.retrieve(self.world_entries, search)
@@ -61,5 +61,9 @@ class ContextManager:
             log.info("世界书条目命中: id=%s name=%s reasons=%s score=%.3f", ent["id"], ent["name"], list(hit.reasons), hit.score)
         for hit in omitted:
             log.info("世界书条目因上下文预算省略: id=%s name=%s score=%.3f", hit.entry["id"], hit.entry["name"], hit.score)
+        return active, triggered
+
+    def build_active_world_info(self, context_text, action, shadow_ledger):
+        active, triggered = self.build_visible_world_info(context_text, action)
         active += "\n【隐藏的暗流因果】：\n" + shadow_ledger
         return active, triggered

@@ -23,9 +23,9 @@ defineEmits(['toggle', 'edit', 'portrait', 'pull', 'push', 'request-delete', 'co
         </div>
         <div class="mt-2 flex flex-wrap gap-1"><span v-for="tag in item.tags" :key="tag" class="rounded border border-slate-700 bg-slate-800 px-1.5 py-0.5 text-[9px] text-slate-400">{{ tag }}</span></div>
         <p class="mt-2 line-clamp-4 text-[11px] leading-relaxed text-slate-500">{{ item.desc || item.description || item.content || '暂无角色简述' }}</p>
-        <div class="mt-auto grid gap-2 pt-4 text-[10px] font-bold" :class="scope==='global' && !portraitUrl ? 'grid-cols-3' : 'grid-cols-2'">
+        <div class="mt-auto grid grid-cols-2 gap-2 pt-4 text-[10px] font-bold">
           <button @click="$emit('edit')" class="rounded bg-slate-800 py-1.5 text-slate-300 hover:bg-slate-700">✏️ {{ scope === 'local' ? '微调' : '编辑' }}</button>
-          <button v-if="scope==='local'" @click="$emit('portrait')" class="rounded border border-fuchsia-800/60 bg-fuchsia-900/40 py-1.5 text-fuchsia-300 hover:bg-fuchsia-700 hover:text-white">🎨 立绘</button>
+          <button @click="$emit('portrait')" class="rounded border border-fuchsia-800/60 bg-fuchsia-900/40 py-1.5 text-fuchsia-300 hover:bg-fuchsia-700 hover:text-white">🎨 {{ scope === 'global' ? '全局立绘' : '立绘' }}</button>
           <button v-if="scope==='global'" @click="$emit('pull')" class="rounded border border-indigo-700/50 bg-indigo-900/50 py-1.5 text-indigo-300 hover:bg-indigo-600 hover:text-white">⬇️ 载入局内</button>
           <button v-if="scope==='local'" @click="$emit('push')" class="rounded border border-emerald-700/50 bg-emerald-900/50 py-1.5 text-emerald-300 hover:bg-emerald-600 hover:text-white">⬆️ 推送全局</button>
           <div :data-delete-confirm-id="deleteConfirm ? item.name : null" class="flex min-w-0 gap-1">

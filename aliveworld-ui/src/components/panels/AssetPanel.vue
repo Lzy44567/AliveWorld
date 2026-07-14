@@ -16,12 +16,14 @@ import { useDeleteConfirmation } from '../../composables/useDeleteConfirmation';
 import { imageStore } from '../../store/imageStore';
 import { imageApi } from '../../api/imageApi';
 import CharacterAssetCard from '../assets/CharacterAssetCard.vue';
+import CharacterDeleteConfirmModal from '../modals/CharacterDeleteConfirmModal.vue';
 import { buildCharacterImageContext } from '../../utils/characterImageContext';
 
 const searchKeyword = ref("");
 const { confirmDeleteId, requestDelete, cancelDelete } = useDeleteConfirmation();
 const embeddingStatus = ref({ state: 'disabled', downloaded: false, enabled: false });
 const selectedPortraitUrl = ref('');
+const pendingCharacterDelete = ref(null);
 const entityDisclosure = computed(() => normalizeEntityDisclosure(effectiveStorySettings.value));
 const canManageCurrentLocalAsset = computed(() =>
   uiStore.rightTab !== 'entity' || entityDisclosure.value.allowEditing
@@ -117,6 +119,7 @@ const executeDelete = async (name) => {
       await assetStore.fetchAssets();
     }
     cancelDelete();
+    pendingCharacterDelete.value = null;
     uiStore.showToast("资产已移除");
   } catch(e) { uiStore.showToast("操作失败：" + e.message, "error"); }
 };
@@ -177,9 +180,19 @@ const openInsertCharModal = (charName) => {
 };
 
 const openPortraitGenerator = (item) => {
-  if (!gameStore.sessionId) return uiStore.showToast('请先创建或载入存档', 'error');
-  uiStore.imageGeneratorContext = { characterName: item.name, description: buildCharacterImageContext(item), scope: 'local' };
+  const scope = uiStore.assetScope;
+  if (scope === 'local' && !gameStore.sessionId) return uiStore.showToast('请先创建或载入存档', 'error');
+  uiStore.imageGeneratorContext = { characterName: item.name, description: buildCharacterImageContext(item), scope };
   uiStore.modals.imageGenerator = true;
+};
+
+const requestAssetDelete = (item) => {
+  if (uiStore.rightTab === 'character' && uiStore.assetScope === 'local') {
+    pendingCharacterDelete.value = item;
+    cancelDelete();
+    return;
+  }
+  requestDelete(item.name);
 };
 
 const portraitUrl = (item) => {
@@ -246,7 +259,7 @@ onBeforeUnmount(() => {
 
       <div class="space-y-3 pb-8">
        <template v-for="item in currentList" :key="item.name">
-       <CharacterAssetCard v-if="uiStore.rightTab==='character'" :item="item" :scope="uiStore.assetScope" :portrait-url="portraitUrl(item)" :delete-confirm="confirmDeleteId===item.name" @toggle="toggleActive(item)" @edit="openEditAsset(item.name)" @portrait="openPortraitGenerator(item)" @pull="pullAssetToLocal(item.name)" @push="pushToGlobal(item)" @request-delete="requestDelete(item.name)" @confirm-delete="executeDelete(item.name)" @cancel-delete="cancelDelete" @zoom="selectedPortraitUrl=$event" />
+       <CharacterAssetCard v-if="uiStore.rightTab==='character'" :item="item" :scope="uiStore.assetScope" :portrait-url="portraitUrl(item)" :delete-confirm="confirmDeleteId===item.name" @toggle="toggleActive(item)" @edit="openEditAsset(item.name)" @portrait="openPortraitGenerator(item)" @pull="pullAssetToLocal(item.name)" @push="pushToGlobal(item)" @request-delete="requestAssetDelete(item)" @confirm-delete="executeDelete(item.name)" @cancel-delete="cancelDelete" @zoom="selectedPortraitUrl=$event" />
        <div v-else class="bg-aw_panel border border-slate-700 p-3 rounded-xl hover:border-indigo-500 transition group shadow flex flex-col gap-2 relative overflow-hidden" :class="item.is_active === false ? 'opacity-60 grayscale' : ''">
          
          <div class="flex justify-between items-start">
@@ -294,6 +307,7 @@ onBeforeUnmount(() => {
        </template>
       </div>
     </div>
+    <CharacterDeleteConfirmModal v-if="pendingCharacterDelete" :character-name="pendingCharacterDelete.name" :portrait-scope="pendingCharacterDelete.portrait?.task_id ? 'local' : pendingCharacterDelete.portrait?.scope || 'none'" @cancel="pendingCharacterDelete=null" @confirm="executeDelete(pendingCharacterDelete.name)" />
     <Teleport to="body"><div v-if="selectedPortraitUrl" @click="selectedPortraitUrl=''" class="fixed inset-0 z-[140] flex cursor-zoom-out items-center justify-center bg-black/90 p-6"><img :src="selectedPortraitUrl" class="max-h-full max-w-full rounded-lg object-contain"></div></Teleport>
   </div>
 </template>

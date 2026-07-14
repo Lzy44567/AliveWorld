@@ -50,6 +50,10 @@ class GameSession:
 
     def build_active_world_info(self, action):
         return self.ctx_mgr.build_active_world_info(self.get_context_text(), action, self.undercurrent.get_ledger_context())
+
+    def build_visible_world_info(self, action):
+        """Worldbook context for subsystems that must not see hidden entity state."""
+        return self.ctx_mgr.build_visible_world_info(self.get_context_text(), action)
     def get_dynamic_state_for_ai(self): return self.state_mgr.get_dynamic_state()
     def get_context_text(self): return "\n".join(self.history["context_history"][-3:])
 

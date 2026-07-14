@@ -43,6 +43,11 @@ class ContextActivationTests(unittest.TestCase):
             self.assertIn("条目开启", active_world)
             self.assertNotIn("条目关闭", active_world)
 
+            visible_world, _ = context.build_visible_world_info("", "激活词")
+            self.assertIn("条目开启", visible_world)
+            self.assertNotIn("隐藏的暗流因果", visible_world)
+            self.assertNotIn("账本", visible_world)
+
 
 if __name__ == "__main__":
     unittest.main()

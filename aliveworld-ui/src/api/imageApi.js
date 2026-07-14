@@ -38,6 +38,12 @@ export const imageApi = {
   compileAndCreateTask(sessionId, task, compile) {
     return request(`${API_URL}/${sessionId}/images/tasks/compile-and-start`, jsonOptions({ task, compile }));
   },
+  createGlobalPortraitTask(data) {
+    return request(`${API_URL}/images/library/global/character-portraits`, jsonOptions({ data }));
+  },
+  compileAndCreateGlobalPortrait(task, compile) {
+    return request(`${API_URL}/images/library/global/character-portraits/compile-and-start`, jsonOptions({ task, compile }));
+  },
   compilePrompt(sessionId, payload) {
     return request(`${API_URL}/${sessionId}/images/prompts/compile`, jsonOptions(payload));
   },

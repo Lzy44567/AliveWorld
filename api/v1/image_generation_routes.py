@@ -15,6 +15,7 @@ from core.image_generation.portrait import PortraitAssignmentError, assign_curre
 from core.image_generation.workflows import WorkflowError, WorkflowRepository
 from core.image_generation.library import ImageLibraryScope, list_global_portrait_assets, list_library_scopes, resolve_library_scope
 from core.session_manager import active_sessions
+from utils.asset_catalog import resolve_asset_path
 
 
 router = APIRouter()
@@ -224,7 +225,7 @@ def _compile_payload(game, payload: PromptCompilePayload) -> dict[str, Any]:
         if not message or message.get("role") != "ai":
             raise PromptCompilationError("找不到对应的 AI 正文")
         story_text = str(message.get("content", ""))
-    active_world, _ = game.build_active_world_info(payload.user_request or story_text)
+    active_world, _ = game.build_visible_world_info(payload.user_request or story_text)
     return {
         "intent": payload.intent,
         "user_request": payload.user_request,
@@ -236,6 +237,69 @@ def _compile_payload(game, payload: PromptCompilePayload) -> dict[str, Any]:
         "model_name": payload.model_name,
         "model_profile": payload.model_profile,
     }
+
+
+def _global_portrait_task_data(task_data: dict[str, Any], character_name: str) -> dict[str, Any]:
+    data = dict(task_data)
+    data["intent"] = "character_portrait"
+    data["character_ids"] = [character_name]
+    data["context_snapshot"] = {
+        **dict(data.get("context_snapshot") or {}),
+        "character_name": character_name,
+        "portrait_scope": "global",
+        "auto_assign_portrait": True,
+        "library_scope": "global",
+    }
+    return data
+
+
+@router.post("/images/library/global/character-portraits")
+def create_global_character_portrait(payload: ImageTaskPayload):
+    character_name = str((payload.data.get("context_snapshot") or {}).get("character_name", "")).strip()
+    if not character_name:
+        raise HTTPException(status_code=400, detail="缺少全局角色名称")
+    if not resolve_asset_path("characters", character_name):
+        raise HTTPException(status_code=404, detail="全局角色卡不存在")
+    scope = resolve_library_scope("global")
+    runtime = get_image_runtime(scope.root)
+    task = _handle(lambda: runtime.service.create("global", _global_portrait_task_data(payload.data, character_name)))
+    runtime.runner.start(task.id)
+    return _library_task_payload(scope, task)
+
+
+@router.post("/images/library/global/character-portraits/compile-and-start")
+def compile_and_create_global_character_portrait(payload: CompileAndCreatePayload):
+    from api.v1.game_routes import global_ai_engine
+
+    if not global_ai_engine:
+        raise HTTPException(status_code=500, detail="未找到 config.yml")
+    character_name = str((payload.task.get("context_snapshot") or {}).get("character_name", "")).strip()
+    if not character_name:
+        raise HTTPException(status_code=400, detail="缺少全局角色名称")
+    if not resolve_asset_path("characters", character_name):
+        raise HTTPException(status_code=404, detail="全局角色卡不存在")
+    scope = resolve_library_scope("global")
+    runtime = get_image_runtime(scope.root)
+    task_data = _global_portrait_task_data(payload.task, character_name)
+    task_data["prompt"] = {**dict(task_data.get("prompt") or {}), "positive": ""}
+    task_data["context_snapshot"] = {
+        **dict(task_data.get("context_snapshot") or {}),
+        "prompt_compile_request": payload.compile.model_dump(),
+    }
+    task = _handle(lambda: runtime.service.create("global", task_data))
+    compile_data = {
+        "intent": "character_portrait",
+        "user_request": payload.compile.user_request,
+        "story_text": "",
+        "character_context": payload.compile.character_context,
+        "world_context": "",
+        "style_preference": payload.compile.style_preference,
+        "presentation_level": payload.compile.presentation_level,
+        "model_name": payload.compile.model_name,
+        "model_profile": payload.compile.model_profile,
+    }
+    runtime.pipeline.compile_and_start(task.id, lambda: ImagePromptCompiler(global_ai_engine).compile(compile_data))
+    return _library_task_payload(scope, runtime.service.get(task.id))
 
 
 @router.post("/{session_id}/images/tasks/compile-and-start")
