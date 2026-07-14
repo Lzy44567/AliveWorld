@@ -143,6 +143,15 @@ class Entity:
         return data
 
     def prompt_summary(self) -> str:
+        tag_names = [_as_text(item) for item in self.tags if _as_text(item)]
+        tag_set = set(tag_names)
+        if "世界推演" in tag_set:
+            role = "系统型世界推演"
+        elif "系统型实体" in tag_set:
+            role = "系统型暗流实体"
+        else:
+            role = "普通暗流实体"
+        description = _as_text(self.extra.get("description"))[:160]
         recent = "；".join(_as_text(item) for item in self.recent_actions[-2:]) or "无"
         plan = "；".join(_as_text(item) for item in self.plans[-2:]) or "无"
         mechanisms = "；".join(_as_text(item) for item in self.mechanisms[-2:]) or "无"
@@ -157,7 +166,8 @@ class Entity:
         triggers = "；".join(trigger_parts) or "无"
         relationships = "；".join(f"{name}:{value}" for name, value in list(self.relationships.items())[:3]) or "无"
         return (
-            f"- 【{self.name}】动机：{self.motive}；状态：{self.status or '未知'}；近期行动：{recent}；"
+            f"- 【{self.name}】类型：{role}；标签：{'、'.join(tag_names) or '无'}；"
+            f"定位：{description or '未说明'}；动机：{self.motive}；状态：{self.status or '未知'}；近期行动：{recent}；"
             f"计划：{plan}；机制：{mechanisms}；触发器：{triggers}；关系：{relationships}"
         )
 

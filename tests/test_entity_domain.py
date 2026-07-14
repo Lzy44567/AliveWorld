@@ -82,6 +82,17 @@ class EntityDomainTests(unittest.TestCase):
         self.assertEqual(entity.importance, 0.6)
         self.assertIn("世界推演", entity.tags)
         self.assertTrue(entity.mechanisms)
+        summary = entity.prompt_summary()
+        self.assertIn("类型：系统型世界推演", summary)
+        self.assertIn("制度、经济、势力", summary)
+
+    def test_regular_entity_prompt_has_non_system_role(self):
+        entity = Entity(name="皇城密探", motive="追查玩家", tags=["暗流实体"])
+
+        summary = entity.prompt_summary()
+
+        self.assertIn("类型：普通暗流实体", summary)
+        self.assertNotIn("类型：系统型世界推演", summary)
 
     def test_overseer_excludes_inactive_entity_and_records_active_action(self):
         response = '{"undercurrent_events":[{"entity":"皇城","action":"派遣密探","status":"戒备","new_plans":["搜查客栈"],"new_mechanisms":["守卫盘查"],"new_triggers":[{"condition":"玩家进城","result":"盘查"}],"relationship_updates":{"玩家":"敌对"},"clues":["密探出没"]},{"entity":"封存势力","action":"不应执行"}],"new_entities":[],"update_entities":[{"name":"皇城","status":"追查中"}],"delete_entities":[]}'
@@ -102,6 +113,7 @@ class EntityDomainTests(unittest.TestCase):
             engine.tick("玩家进入城镇")
 
         self.assertIn("皇城", ai_engine.system_prompt)
+        self.assertIn("类型：普通暗流实体", ai_engine.system_prompt)
         self.assertNotIn("封存势力", ai_engine.system_prompt)
         self.assertIn("既有盘查机制", ai_engine.system_prompt)
         self.assertIn("玩家进城→守卫盘查", ai_engine.system_prompt)
