@@ -1,10 +1,8 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { configStore } from '../../store/configStore';
-import { gameStore } from '../../store/gameStore';
 import { uiStore } from '../../store/uiStore';
 import { imageApi } from '../../api/imageApi';
-import { imageStore } from '../../store/imageStore';
 
 const checking = ref(false);
 const testing = ref(false);
@@ -12,8 +10,8 @@ const connection = ref(null);
 const checkpoints = ref([...(configStore.globalSettings.imageCheckpoints || [])]);
 const workflows = ref([]);
 const importing = ref(false);
-const testTasks = computed(() => imageStore.tasks.filter(task => task.context_snapshot?.test_task));
-const latestTest = computed(() => testTasks.value[0] || null);
+const latestTest = ref(null);
+let testPollHandle = null;
 const currentModelProfile = computed({
   get: () => configStore.globalSettings.imageModelProfiles?.[configStore.globalSettings.imageCheckpoint] || '',
   set: value => {
@@ -44,21 +42,33 @@ const checkConnection = async () => {
 };
 
 const generateTest = async () => {
-  if (!gameStore.sessionId) return uiStore.showToast('请先创建或载入一个存档', 'error');
   if (!configStore.globalSettings.imageCheckpoint) return uiStore.showToast('请先选择生图模型', 'error');
   testing.value = true;
   try {
-    const task = await imageApi.testComfyUI(gameStore.sessionId, {
+    const task = await imageApi.testComfyUI({
       baseUrl: configStore.globalSettings.imageApiUrl,
       checkpoint: configStore.globalSettings.imageCheckpoint,
       workflowId: configStore.globalSettings.imageWorkflowId
     });
-    imageStore.upsert(task);
-    imageStore.sessionId = gameStore.sessionId;
-    imageStore.syncPolling();
+    latestTest.value = task;
+    startTestPolling(task);
     uiStore.showToast('测试图已进入后台队列');
   } catch (error) { uiStore.showToast(error.message, 'error'); }
   finally { testing.value = false; }
+};
+
+const startTestPolling = task => {
+  if (testPollHandle) window.clearInterval(testPollHandle);
+  if (['succeeded','failed','cancelled'].includes(task.status)) return;
+  testPollHandle = window.setInterval(async () => {
+    try {
+      latestTest.value = await imageApi.getLibraryTask('global', task.id);
+      if (['succeeded','failed','cancelled'].includes(latestTest.value.status)) {
+        window.clearInterval(testPollHandle); testPollHandle = null;
+        uiStore.showToast(latestTest.value.status === 'succeeded' ? '测试图片已生成' : `测试失败：${latestTest.value.error_message || '未知错误'}`, latestTest.value.status === 'succeeded' ? 'success' : 'error');
+      }
+    } catch (_) { /* 下次轮询重试 */ }
+  }, 1500);
 };
 
 const importWorkflow = async (event) => {
@@ -82,8 +92,14 @@ const importWorkflow = async (event) => {
 
 onMounted(async () => {
   await loadWorkflows();
+  try {
+    const library = await imageApi.listLibrary();
+    latestTest.value = library.find(task => task.scope_id === 'global' && task.context_snapshot?.test_task) || null;
+    if (latestTest.value) startTestPolling(latestTest.value);
+  } catch (_) { /* 后端未启动时保持降级 */ }
   if (!checkpoints.value.length) checkConnection();
 });
+onBeforeUnmount(() => { if (testPollHandle) window.clearInterval(testPollHandle); });
 </script>
 
 <template>
@@ -122,7 +138,7 @@ onMounted(async () => {
     <button @click="generateTest" :disabled="testing" class="action primary">{{ testing ? '已提交，请等待…' : '生成极简测试图' }}</button>
     <div v-if="latestTest" class="rounded-lg border border-fuchsia-900/60 bg-slate-950/70 p-3">
       <div class="flex justify-between text-xs"><span class="text-fuchsia-300">{{ testStatusText[latestTest.status] || latestTest.status }}</span><span class="font-mono text-[9px] text-slate-600">{{ latestTest.id }}</span></div>
-      <div v-if="['ready','submitted','running'].includes(latestTest.status)" class="mt-2 h-1.5 overflow-hidden rounded bg-slate-800"><div class="h-full w-1/3 animate-pulse bg-fuchsia-500" /></div>
+      <div v-if="['ready','submitted','running'].includes(latestTest.status)" class="mt-2"><div class="h-1.5 overflow-hidden rounded bg-slate-800"><div class="h-full w-1/3 animate-pulse bg-fuchsia-500" /></div><p class="mt-1 text-[9px] text-slate-600">运行状态动画，不代表精确百分比。</p></div>
       <p v-if="latestTest.status==='failed'" class="mt-2 text-xs text-rose-300">{{ latestTest.error_message || 'ComfyUI 执行失败' }}</p>
       <img v-if="latestTest.status==='succeeded' && latestTest.output_images?.[0]" :src="imageApi.absoluteImageUrl(latestTest.output_images[0])" class="mt-3 max-h-64 rounded border border-slate-700 bg-black object-contain" />
     </div>

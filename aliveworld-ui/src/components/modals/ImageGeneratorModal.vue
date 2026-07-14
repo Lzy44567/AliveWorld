@@ -31,7 +31,7 @@ const submit = async (direct = false) => {
     const task = {
       intent: 'character_portrait', character_ids: [context.characterName], provider_id: 'comfyui', workflow_id: settings.imageWorkflowId,
       prompt: { positive: direct ? prompt.value.trim() : '', negative: settings.imageNegativePrompt, style_preference: settings.imageStylePreference, presentation_level: settings.imagePresentationLevel, ...options, references },
-      context_snapshot: { character_name: context.characterName, character_description: context.description, portrait_scope: context.scope || 'local' },
+      context_snapshot: { character_name: context.characterName, character_description: context.description, portrait_scope: 'local', auto_assign_portrait: true },
       provider_options: { base_url: settings.imageApiUrl, checkpoint: settings.imageCheckpoint }
     };
     if (direct) await imageStore.create(gameStore.sessionId, task);

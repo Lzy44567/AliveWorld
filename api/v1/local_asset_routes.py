@@ -85,7 +85,12 @@ def update_local_asset(session_id: str, asset_type: str, asset_name: str, payloa
     local_file = os.path.join(local_dir, f"{asset_name}.yml")
     
     try:
-        parsed_data = dict(payload.parsed_data)
+        existing_data = {}
+        if os.path.exists(local_file):
+            with open(local_file, 'r', encoding='utf-8') as f:
+                loaded = yaml.safe_load(f) or {}
+                if isinstance(loaded, dict): existing_data = loaded
+        parsed_data = {**existing_data, **dict(payload.parsed_data)}
         if asset_type == "worldbooks":
             parsed_data = normalize_worldbook(parsed_data)
         if asset_type == "entities":

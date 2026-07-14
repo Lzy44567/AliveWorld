@@ -1,6 +1,7 @@
 import { reactive } from 'vue';
 import { imageApi } from '../api/imageApi';
 import { uiStore } from './uiStore';
+import { assetStore } from './assetStore';
 
 const ACTIVE = new Set(['queued', 'compiling_prompt', 'ready', 'submitted', 'running']);
 
@@ -10,6 +11,7 @@ export const imageStore = reactive({
   pollingHandle: null,
   initialized: false,
   notified: new Set(),
+  portraitHandled: new Set(),
 
   forMessage(messageId) {
     return this.tasks.filter(task => task.source_message_id === messageId);
@@ -23,6 +25,14 @@ export const imageStore = reactive({
     this.sessionId = sessionId;
     if (notify && this.initialized) {
       for (const task of tasks) {
+        if (task.context_snapshot?.portrait_assignment && !this.portraitHandled.has(task.id)) {
+          this.portraitHandled.add(task.id);
+          if (task.context_snapshot.portrait_assignment.status === 'success' && this.sessionId) {
+            assetStore.fetchLocalAssets(this.sessionId).catch(() => {});
+          } else if (task.context_snapshot.portrait_assignment.status === 'failed') {
+            uiStore.showToast(`图片已生成，但自动设为立绘失败：${task.context_snapshot.portrait_assignment.message || '角色卡不存在'}`, 'error');
+          }
+        }
         if (task.status === 'succeeded' && previous.get(task.id) !== 'succeeded' && !this.notified.has(task.id)) {
           this.notified.add(task.id);
           uiStore.showToast('图片已生成，可在正文或画廊查看', 'success');
@@ -104,5 +114,6 @@ export const imageStore = reactive({
     this.pollingHandle = null;
     this.initialized = false;
     this.notified = new Set();
+    this.portraitHandled = new Set();
   }
 });

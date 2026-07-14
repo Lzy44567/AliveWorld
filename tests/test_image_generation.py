@@ -124,6 +124,25 @@ class ImageGenerationTests(unittest.TestCase):
             self.assertEqual(completed.status, ImageTaskStatus.SUCCEEDED)
             self.assertEqual(completed.output_images, ["result.png"])
 
+    def test_background_runner_calls_completion_handler_after_success(self):
+        class ImmediateProvider:
+            id = "fake"
+            def submit(self, task): return ProviderJob(id="job_complete", state="submitted")
+            def query(self, provider_job_id): return ProviderJob(id=provider_job_id, state="succeeded", progress=1, output_images=["portrait.png"])
+            def cancel(self, provider_job_id): return True
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            service = ImageGenerationService(ImageTaskRepository(temp_dir))
+            task = service.create("测试存档", {"intent": "character_portrait", "prompt": {"positive": "portrait"}})
+            completed_ids = []
+            runner = ImageTaskRunner(service, lambda _task: ImmediateProvider(), poll_interval=0.001, completion_handler=lambda item: completed_ids.append(item.id))
+            runner.start(task.id)
+            for _ in range(100):
+                if completed_ids:
+                    break
+                __import__("time").sleep(0.005)
+            self.assertEqual(completed_ids, [task.id])
+
 
 if __name__ == "__main__":
     unittest.main()

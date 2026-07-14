@@ -20,6 +20,18 @@ export const imageApi = {
   listTasks(sessionId) {
     return request(`${API_URL}/${sessionId}/images/tasks`);
   },
+  listLibrary() {
+    return request(`${API_URL}/images/library`);
+  },
+  getLibraryTask(scopeId, taskId) {
+    return request(`${API_URL}/images/library/${encodeURIComponent(scopeId)}/tasks/${taskId}`);
+  },
+  deleteLibraryTask(scopeId, taskId) {
+    return request(`${API_URL}/images/library/${encodeURIComponent(scopeId)}/tasks/${taskId}`, { method: 'DELETE' });
+  },
+  regenerateLibraryTask(scopeId, taskId) {
+    return request(`${API_URL}/images/library/${encodeURIComponent(scopeId)}/tasks/${taskId}/regenerate`, { method: 'POST' });
+  },
   createTask(sessionId, data) {
     return request(`${API_URL}/${sessionId}/images/tasks`, jsonOptions({ data }));
   },
@@ -62,9 +74,9 @@ export const imageApi = {
   deleteReference(sessionId, referenceId) {
     return request(`${API_URL}/${sessionId}/images/references/${referenceId}`, { method: 'DELETE' });
   },
-  testComfyUI(sessionId, { baseUrl, checkpoint, workflowId }) {
+  testComfyUI({ baseUrl, checkpoint, workflowId }) {
     const query = new URLSearchParams({ checkpoint, workflow_id: workflowId });
-    return request(`${API_URL}/${sessionId}/images/providers/comfyui/test?${query}`, jsonOptions({ base_url: baseUrl }));
+    return request(`${API_URL}/images/library/test?${query}`, jsonOptions({ base_url: baseUrl }));
   },
   absoluteImageUrl(path) {
     return path?.startsWith('http') ? path : `${API_ROOT}${path || ''}`;

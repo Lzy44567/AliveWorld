@@ -13,6 +13,7 @@ from core.image_generation.repository import ImageTaskRepository
 from core.image_generation.service import ImageGenerationService
 from core.image_generation.workflows import WorkflowRepository
 from core.image_generation.pipeline import ImageGenerationPipeline
+from core.image_generation.portrait import PortraitAssignmentError, assign_current_portrait
 
 
 @dataclass
@@ -46,7 +47,18 @@ def get_image_runtime(save_dir: str | Path) -> ImageRuntime:
                 timeout=float(task.provider_options.get("timeout", 10.0) or 10.0),
             )
 
-        runner = ImageTaskRunner(service, provider_factory)
+        def completion_handler(task: ImageTask) -> None:
+            if task.intent.value != "character_portrait" or not task.context_snapshot.get("auto_assign_portrait") or task.context_snapshot.get("portrait_assignment"):
+                return
+            character_name = str(task.context_snapshot.get("character_name", "")).strip()
+            try:
+                assign_current_portrait(save_dir, character_name, task, 0)
+                task.context_snapshot["portrait_assignment"] = {"status": "success", "scope": "local", "character_name": character_name}
+            except PortraitAssignmentError as exc:
+                task.context_snapshot["portrait_assignment"] = {"status": "failed", "message": str(exc)}
+            service.repository.save(task)
+
+        runner = ImageTaskRunner(service, provider_factory, completion_handler=completion_handler)
         runtime = ImageRuntime(service=service, runner=runner, pipeline=ImageGenerationPipeline(service, runner))
         _runtimes[key] = runtime
         runner.recover()

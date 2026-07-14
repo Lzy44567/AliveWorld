@@ -11,13 +11,15 @@ from core.image_generation.service import ImageGenerationService, ImageTaskError
 
 
 ProviderFactory = Callable[[ImageTask], ImageProvider]
+CompletionHandler = Callable[[ImageTask], None]
 
 
 class ImageTaskRunner:
-    def __init__(self, service: ImageGenerationService, provider_factory: ProviderFactory, *, poll_interval: float = 1.0):
+    def __init__(self, service: ImageGenerationService, provider_factory: ProviderFactory, *, poll_interval: float = 1.0, completion_handler: CompletionHandler | None = None):
         self.service = service
         self.provider_factory = provider_factory
         self.poll_interval = poll_interval
+        self.completion_handler = completion_handler
         self._threads: dict[str, threading.Thread] = {}
         self._providers: dict[str, ImageProvider] = {}
         self._lock = threading.RLock()
@@ -72,6 +74,8 @@ class ImageTaskRunner:
                 job = provider.query(latest.provider_job_id)
                 latest = self.service.apply_provider_job(task_id, job)
                 if latest.status in TERMINAL_STATUSES:
+                    if latest.status == ImageTaskStatus.SUCCEEDED and self.completion_handler:
+                        self.completion_handler(latest)
                     return
                 threading.Event().wait(self.poll_interval)
         except (ImageTaskError, Exception) as exc:

@@ -10,7 +10,7 @@ defineEmits(['toggle', 'edit', 'portrait', 'pull', 'push', 'request-delete', 'co
 
 <template>
   <article class="overflow-hidden rounded-xl border border-slate-700 bg-aw_panel shadow transition hover:border-indigo-500" :class="item.is_active === false ? 'opacity-60 grayscale' : ''">
-    <div class="grid min-h-56" :class="portraitUrl ? 'grid-cols-[9.5rem_minmax(0,1fr)]' : 'grid-cols-1'">
+    <div class="grid" :class="portraitUrl ? 'min-h-56 grid-cols-[9.5rem_minmax(0,1fr)]' : 'grid-cols-1'">
       <button v-if="portraitUrl" @click="$emit('zoom', portraitUrl)" class="group/portrait relative min-h-56 overflow-hidden border-r border-fuchsia-900/50 bg-black" title="点击放大立绘">
         <img :src="portraitUrl" class="absolute inset-0 h-full w-full object-contain transition group-hover/portrait:scale-[1.02]" />
       </button>
@@ -22,8 +22,8 @@ defineEmits(['toggle', 'edit', 'portrait', 'pull', 'push', 'request-delete', 'co
           </button>
         </div>
         <div class="mt-2 flex flex-wrap gap-1"><span v-for="tag in item.tags" :key="tag" class="rounded border border-slate-700 bg-slate-800 px-1.5 py-0.5 text-[9px] text-slate-400">{{ tag }}</span></div>
-        <p class="mt-2 line-clamp-4 text-[11px] leading-relaxed text-slate-500">{{ item.desc }}</p>
-        <div class="mt-auto grid grid-cols-2 gap-2 pt-4 text-[10px] font-bold">
+        <p class="mt-2 line-clamp-4 text-[11px] leading-relaxed text-slate-500">{{ item.desc || item.description || item.content || '暂无角色简述' }}</p>
+        <div class="mt-auto grid gap-2 pt-4 text-[10px] font-bold" :class="scope==='global' && !portraitUrl && !deleteConfirm ? 'grid-cols-3' : 'grid-cols-2'">
           <button @click="$emit('edit')" class="rounded bg-slate-800 py-1.5 text-slate-300 hover:bg-slate-700">✏️ {{ scope === 'local' ? '微调' : '编辑' }}</button>
           <button v-if="scope==='local'" @click="$emit('portrait')" class="rounded border border-fuchsia-800/60 bg-fuchsia-900/40 py-1.5 text-fuchsia-300 hover:bg-fuchsia-700 hover:text-white">🎨 立绘</button>
           <button v-if="scope==='global'" @click="$emit('pull')" class="rounded border border-indigo-700/50 bg-indigo-900/50 py-1.5 text-indigo-300 hover:bg-indigo-600 hover:text-white">⬇️ 载入局内</button>
@@ -34,7 +34,7 @@ defineEmits(['toggle', 'edit', 'portrait', 'pull', 'push', 'request-delete', 'co
           </template>
           <button v-else @click="$emit('request-delete')" class="rounded border border-rose-900/50 bg-rose-900/30 py-1.5 text-rose-400 hover:bg-rose-600 hover:text-white">🗑 删除</button>
         </div>
-        <p v-if="scope==='global'" class="mt-2 text-[9px] leading-relaxed text-slate-600">全局立绘将在角色工坊使用独立的全局任务域，不借用故事存档。</p>
+        <p v-if="scope==='global'" class="mt-2 text-[9px] leading-relaxed text-slate-600">角色工坊未来将使用独立全局任务域，不借用故事存档。</p>
       </div>
     </div>
   </article>

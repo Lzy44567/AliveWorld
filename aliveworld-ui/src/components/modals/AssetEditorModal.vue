@@ -88,6 +88,7 @@ const saveContent = async () => {
       payload.description = form.value.desc;
       payload.starting_scene = form.value.starting_scene;
       payload.is_player = form.value.is_player;
+      if (form.value.portrait) payload.portrait = form.value.portrait;
     } else if (type.value === 'styles') { payload.content = form.value.desc; }
     else if (type.value === 'entities') { Object.assign(payload, buildEntityPayload(form.value)); }
 

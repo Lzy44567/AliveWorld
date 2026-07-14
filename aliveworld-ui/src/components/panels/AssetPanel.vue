@@ -16,6 +16,7 @@ import { useDeleteConfirmation } from '../../composables/useDeleteConfirmation';
 import { imageStore } from '../../store/imageStore';
 import { imageApi } from '../../api/imageApi';
 import CharacterAssetCard from '../assets/CharacterAssetCard.vue';
+import { buildCharacterImageContext } from '../../utils/characterImageContext';
 
 const searchKeyword = ref("");
 const { confirmDeleteId, requestDelete, cancelDelete } = useDeleteConfirmation();
@@ -66,7 +67,7 @@ const openNewAsset = () => {
   uiStore.editorData = { 
     type, name: '', isNew: true,
     form: {
-      name: '', tags: '', desc: '', overview: '', axiomsText: '', starting_scene: '', entries: [], is_active: true, is_player: false,
+      name: '', tags: '', desc: '', overview: '', axiomsText: '', starting_scene: '', entries: [], is_active: true, is_player: false, portrait: null,
       ...(type === 'entities' ? createEntityEditorForm() : {})
     }
   };
@@ -97,6 +98,7 @@ const openEditAsset = async (name) => {
         entries: (p.entries || []).map(entry => ({ ...entry, tags: Array.isArray(entry.tags) ? entry.tags.join(', ') : (entry.tags || '') })),
         is_active: p.is_active !== false,
         is_player: p.is_player || false, // 🚀 问题 3
+        portrait: p.portrait || null,
         ...(getApiType() === 'entities' ? createEntityEditorForm(p) : {})
       }
     };
@@ -176,7 +178,7 @@ const openInsertCharModal = (charName) => {
 
 const openPortraitGenerator = (item) => {
   if (!gameStore.sessionId) return uiStore.showToast('请先创建或载入存档', 'error');
-  uiStore.imageGeneratorContext = { characterName: item.name, description: item.description || item.desc || item.content || '', scope: uiStore.assetScope };
+  uiStore.imageGeneratorContext = { characterName: item.name, description: buildCharacterImageContext(item), scope: 'local' };
   uiStore.modals.imageGenerator = true;
 };
 

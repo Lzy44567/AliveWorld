@@ -13,6 +13,7 @@ from core.image_generation.references import ReferenceImageError, ReferenceImage
 from core.image_generation.prompt_compiler import ImagePromptCompiler, PromptCompilationError
 from core.image_generation.portrait import PortraitAssignmentError, assign_current_portrait, assign_global_portrait, global_portrait_path, task_is_local_portrait
 from core.image_generation.workflows import WorkflowError, WorkflowRepository
+from core.image_generation.library import ImageLibraryScope, list_library_scopes, resolve_library_scope
 from core.session_manager import active_sessions
 
 
@@ -90,6 +91,101 @@ def _task_payload(session_id: str, task):
         for index, _path in enumerate(task.output_images)
     ]
     return data
+
+
+def _library_task_payload(scope: ImageLibraryScope, task):
+    data = task.to_dict()
+    data["scope_id"] = scope.id
+    data["scope_name"] = scope.name
+    data["scope_kind"] = scope.kind
+    data["output_images"] = [
+        f"/api/v1/game/images/library/{scope.id}/tasks/{task.id}/files/{index}"
+        for index, _path in enumerate(task.output_images)
+    ]
+    return data
+
+
+@router.get("/images/library")
+def list_image_library():
+    items = []
+    for scope in list_library_scopes():
+        runtime = get_image_runtime(scope.root)
+        items.extend(_library_task_payload(scope, task) for task in runtime.service.list())
+    return sorted(items, key=lambda item: item.get("created_at", ""), reverse=True)
+
+
+@router.get("/images/library/{scope_id}/tasks/{task_id}")
+def get_library_image_task(scope_id: str, task_id: str):
+    try:
+        scope = resolve_library_scope(scope_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    runtime = get_image_runtime(scope.root)
+    return _library_task_payload(scope, _handle(lambda: runtime.service.get(task_id)))
+
+
+@router.delete("/images/library/{scope_id}/tasks/{task_id}")
+def delete_library_image_task(scope_id: str, task_id: str):
+    try:
+        scope = resolve_library_scope(scope_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    if scope.kind == "save" and task_is_local_portrait(scope.root, task_id):
+        raise HTTPException(status_code=409, detail="该图片正在作为角色立绘使用，请先更换立绘")
+    _handle(lambda: get_image_runtime(scope.root).service.delete(task_id))
+    return {"status": "success"}
+
+
+@router.post("/images/library/{scope_id}/tasks/{task_id}/regenerate")
+def regenerate_library_image_task(scope_id: str, task_id: str):
+    try:
+        scope = resolve_library_scope(scope_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    runtime = get_image_runtime(scope.root)
+    source = _handle(lambda: runtime.service.get(task_id))
+    if not source.prompt.positive:
+        raise HTTPException(status_code=400, detail="该任务需要故事上下文重新整理提示词，请先载入对应存档")
+    task = _handle(lambda: runtime.service.regenerate(task_id))
+    runtime.runner.start(task.id)
+    return _library_task_payload(scope, task)
+
+
+@router.get("/images/library/{scope_id}/tasks/{task_id}/files/{image_index}")
+def get_library_generated_image(scope_id: str, task_id: str, image_index: int):
+    try:
+        scope = resolve_library_scope(scope_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    runtime = get_image_runtime(scope.root)
+    task = _handle(lambda: runtime.service.get(task_id))
+    if image_index < 0 or image_index >= len(task.output_images):
+        raise HTTPException(status_code=404, detail="图片不存在")
+    path = runtime.service.repository.outputs_dir / Path(task.output_images[image_index]).name
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="图片文件不存在")
+    return FileResponse(path)
+
+
+@router.post("/images/library/test")
+def generate_global_comfyui_test_image(payload: ComfyUIConfigPayload, checkpoint: str, workflow_id: str = "builtin_basic"):
+    scope = resolve_library_scope("global")
+    runtime = get_image_runtime(scope.root)
+    task = runtime.service.create("global", {
+        "intent": "scene_cg",
+        "provider_id": "comfyui",
+        "workflow_id": workflow_id,
+        "prompt": {
+            "positive": "a cute fluffy white cat wearing a small blue ribbon, sitting on a sunny windowsill beside colorful flowers, warm soft light, detailed anime illustration, centered composition",
+            "negative": "text, watermark, flag, national symbol, extra limbs, malformed animal, blurry, low quality",
+            "width": 512,
+            "height": 512,
+        },
+        "context_snapshot": {"test_task": True, "library_scope": "global"},
+        "provider_options": {"base_url": payload.base_url, "checkpoint": checkpoint},
+    })
+    runtime.runner.start(task.id)
+    return _library_task_payload(scope, task)
 
 
 @router.get("/{session_id}/images/tasks")

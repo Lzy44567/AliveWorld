@@ -54,6 +54,9 @@ async def save_asset(asset_type: str, asset_name: str, payload: AssetPayload):
     try:
         if payload.parsed_data:
             parsed_data = normalize_worldbook(payload.parsed_data) if asset_type == "worldbooks" else payload.parsed_data
+            if existing_path and asset_type != "worldbooks":
+                existing_data = yaml.safe_load(existing_path.read_text(encoding='utf-8')) or {}
+                if isinstance(existing_data, dict): parsed_data = {**existing_data, **parsed_data}
             if asset_type == "worldbooks":
                 save_worldbook_atomic(file_path, parsed_data)
             else:
