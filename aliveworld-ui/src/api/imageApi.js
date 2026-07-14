@@ -4,7 +4,10 @@ const API_URL = `${API_ROOT}/api/v1/game`;
 async function request(url, options = {}) {
   const response = await fetch(url, options);
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.detail || '生图请求失败');
+  if (!response.ok) {
+    if (response.status === 405) throw new Error('后台仍是旧版本，尚未载入这个生图接口。请关闭 AliveWorld 的前后端窗口并重新运行 start_dev.bat。');
+    throw new Error(data.detail || '生图请求失败');
+  }
   return data;
 }
 

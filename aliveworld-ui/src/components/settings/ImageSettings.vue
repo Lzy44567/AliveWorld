@@ -117,7 +117,7 @@ onMounted(async () => {
     <label class="block"><span class="field-label">画风偏好提示（可空）</span><textarea v-model="configStore.globalSettings.imageStylePreference" rows="2" class="field-input resize-y" placeholder="例如：柔和厚涂、电影光影……" /></label>
     <label class="block"><span class="field-label">画面表现尺度（可空）</span><input v-model="configStore.globalSettings.imagePresentationLevel" class="field-input" placeholder="例如：唯美、若隐若现、露点……" /></label>
     <div class="rounded-lg border border-amber-800/60 bg-amber-950/20 p-3 text-[11px] text-amber-200/80">
-      测试图会真实占用显卡并生成一张 512×512 的“青色三角形、洋红方块、黄色星形”几何测试卡；它不调用大语言模型，也不代表默认画风。
+      测试图会真实占用显卡并生成一张 512×512 的“窗边蓝色蝴蝶结白猫”；它不调用大语言模型，也不代表默认画风。
     </div>
     <button @click="generateTest" :disabled="testing" class="action primary">{{ testing ? '已提交，请等待…' : '生成极简测试图' }}</button>
     <div v-if="latestTest" class="rounded-lg border border-fuchsia-900/60 bg-slate-950/70 p-3">

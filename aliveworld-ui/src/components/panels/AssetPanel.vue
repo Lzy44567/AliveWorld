@@ -15,6 +15,7 @@ import { worldbookWorkshopApi } from '../../api/worldbookWorkshopApi';
 import { useDeleteConfirmation } from '../../composables/useDeleteConfirmation';
 import { imageStore } from '../../store/imageStore';
 import { imageApi } from '../../api/imageApi';
+import CharacterAssetCard from '../assets/CharacterAssetCard.vue';
 
 const searchKeyword = ref("");
 const { confirmDeleteId, requestDelete, cancelDelete } = useDeleteConfirmation();
@@ -242,7 +243,9 @@ onBeforeUnmount(() => {
       <div v-else-if="currentList.length === 0" class="text-center text-slate-500 text-xs mt-10">当前区域暂无资产记录</div>
 
       <div class="space-y-3 pb-8">
-       <div v-for="item in currentList" :key="item.name" class="bg-aw_panel border border-slate-700 p-3 rounded-xl hover:border-indigo-500 transition group shadow flex flex-col gap-2 relative overflow-hidden" :class="item.is_active === false ? 'opacity-60 grayscale' : ''">
+       <template v-for="item in currentList" :key="item.name">
+       <CharacterAssetCard v-if="uiStore.rightTab==='character'" :item="item" :scope="uiStore.assetScope" :portrait-url="portraitUrl(item)" :delete-confirm="confirmDeleteId===item.name" @toggle="toggleActive(item)" @edit="openEditAsset(item.name)" @portrait="openPortraitGenerator(item)" @pull="pullAssetToLocal(item.name)" @push="pushToGlobal(item)" @request-delete="requestDelete(item.name)" @confirm-delete="executeDelete(item.name)" @cancel-delete="cancelDelete" @zoom="selectedPortraitUrl=$event" />
+       <div v-else class="bg-aw_panel border border-slate-700 p-3 rounded-xl hover:border-indigo-500 transition group shadow flex flex-col gap-2 relative overflow-hidden" :class="item.is_active === false ? 'opacity-60 grayscale' : ''">
          
          <div class="flex justify-between items-start">
             <h4 class="text-sm font-bold text-slate-200 group-hover:text-indigo-400 transition flex items-center gap-2">
@@ -286,6 +289,7 @@ onBeforeUnmount(() => {
            </div>
          </div>
        </div>
+       </template>
       </div>
     </div>
     <Teleport to="body"><div v-if="selectedPortraitUrl" @click="selectedPortraitUrl=''" class="fixed inset-0 z-[140] flex cursor-zoom-out items-center justify-center bg-black/90 p-6"><img :src="selectedPortraitUrl" class="max-h-full max-w-full rounded-lg object-contain"></div></Teleport>
