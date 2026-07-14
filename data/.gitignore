@@ -16,3 +16,6 @@
 !worldbooks/*.template.yml
 !saves/
 !saves/.gitkeep
+!image_workflows/
+!image_workflows/.gitkeep
+!image_workflows/*.template.json

@@ -27,6 +27,7 @@ class ImageGenerationService:
                 source_message_id=str(payload.get("source_message_id", "")),
                 character_ids=payload.get("character_ids"),
                 context_snapshot=payload.get("context_snapshot"),
+                provider_options=payload.get("provider_options"),
             )
         except (TypeError, ValueError) as exc:
             raise ImageTaskError(f"生图任务参数无效: {exc}") from exc

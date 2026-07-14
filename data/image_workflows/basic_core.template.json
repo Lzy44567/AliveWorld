@@ -1,0 +1,63 @@
+{
+  "id": "builtin_basic",
+  "name": "基础文生图（ComfyUI 核心节点）",
+  "description": "用于首次联调和基础生成；需要玩家在设置中选择本机已有 checkpoint。",
+  "version": 1,
+  "mapping": {
+    "checkpoint": ["4", "ckpt_name"],
+    "positive": ["6", "text"],
+    "negative": ["7", "text"],
+    "width": ["5", "width"],
+    "height": ["5", "height"],
+    "seed": ["3", "seed"],
+    "filename_prefix": ["9", "filename_prefix"]
+  },
+  "workflow": {
+    "3": {
+      "inputs": {
+        "seed": 1,
+        "steps": 20,
+        "cfg": 7.0,
+        "sampler_name": "euler",
+        "scheduler": "normal",
+        "denoise": 1.0,
+        "model": ["4", 0],
+        "positive": ["6", 0],
+        "negative": ["7", 0],
+        "latent_image": ["5", 0]
+      },
+      "class_type": "KSampler",
+      "_meta": {"title": "KSampler"}
+    },
+    "4": {
+      "inputs": {"ckpt_name": ""},
+      "class_type": "CheckpointLoaderSimple",
+      "_meta": {"title": "Load Checkpoint"}
+    },
+    "5": {
+      "inputs": {"width": 512, "height": 768, "batch_size": 1},
+      "class_type": "EmptyLatentImage",
+      "_meta": {"title": "Empty Latent Image"}
+    },
+    "6": {
+      "inputs": {"text": "", "clip": ["4", 1]},
+      "class_type": "CLIPTextEncode",
+      "_meta": {"title": "Positive Prompt"}
+    },
+    "7": {
+      "inputs": {"text": "", "clip": ["4", 1]},
+      "class_type": "CLIPTextEncode",
+      "_meta": {"title": "Negative Prompt"}
+    },
+    "8": {
+      "inputs": {"samples": ["3", 0], "vae": ["4", 2]},
+      "class_type": "VAEDecode",
+      "_meta": {"title": "VAE Decode"}
+    },
+    "9": {
+      "inputs": {"filename_prefix": "AliveWorld/test", "images": ["8", 0]},
+      "class_type": "SaveImage",
+      "_meta": {"title": "Save Image"}
+    }
+  }
+}

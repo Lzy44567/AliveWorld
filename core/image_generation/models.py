@@ -96,6 +96,7 @@ class ImageTask:
     source_message_id: str = ""
     character_ids: list[str] = field(default_factory=list)
     context_snapshot: dict[str, Any] = field(default_factory=dict)
+    provider_options: dict[str, Any] = field(default_factory=dict)
     provider_job_id: str = ""
     progress: float = 0.0
     error_code: str = ""
@@ -116,6 +117,7 @@ class ImageTask:
         source_message_id: str = "",
         character_ids: list[str] | None = None,
         context_snapshot: dict[str, Any] | None = None,
+        provider_options: dict[str, Any] | None = None,
     ) -> "ImageTask":
         parsed_prompt = ImagePromptSpec.from_dict(prompt)
         status = ImageTaskStatus.READY if parsed_prompt.positive else ImageTaskStatus.QUEUED
@@ -130,6 +132,7 @@ class ImageTask:
             source_message_id=str(source_message_id or ""),
             character_ids=[str(item) for item in (character_ids or []) if str(item).strip()],
             context_snapshot=dict(context_snapshot or {}),
+            provider_options=dict(provider_options or {}),
         )
 
     @classmethod
@@ -145,6 +148,7 @@ class ImageTask:
             source_message_id=str(data.get("source_message_id", "")),
             character_ids=[str(item) for item in data.get("character_ids", [])],
             context_snapshot=dict(data.get("context_snapshot", {})),
+            provider_options=dict(data.get("provider_options", {})),
             provider_job_id=str(data.get("provider_job_id", "")),
             progress=max(0.0, min(1.0, float(data.get("progress", 0.0) or 0.0))),
             error_code=str(data.get("error_code", "")),
