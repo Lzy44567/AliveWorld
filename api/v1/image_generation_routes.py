@@ -13,7 +13,7 @@ from core.image_generation.references import ReferenceImageError, ReferenceImage
 from core.image_generation.prompt_compiler import ImagePromptCompiler, PromptCompilationError
 from core.image_generation.portrait import PortraitAssignmentError, assign_current_portrait, assign_global_portrait, global_portrait_path, task_is_local_portrait
 from core.image_generation.workflows import WorkflowError, WorkflowRepository
-from core.image_generation.library import ImageLibraryScope, list_library_scopes, resolve_library_scope
+from core.image_generation.library import ImageLibraryScope, list_global_portrait_assets, list_library_scopes, resolve_library_scope
 from core.session_manager import active_sessions
 
 
@@ -111,6 +111,19 @@ def list_image_library():
     for scope in list_library_scopes():
         runtime = get_image_runtime(scope.root)
         items.extend(_library_task_payload(scope, task) for task in runtime.service.list())
+    for asset in list_global_portrait_assets():
+        items.append({
+            "id": asset["id"],
+            "scope_id": "global",
+            "scope_name": "全局角色资产",
+            "scope_kind": "global",
+            "intent": "character_portrait",
+            "status": "succeeded",
+            "character_ids": [asset["character_name"]],
+            "context_snapshot": {"asset_portrait": True, "referenced": asset["referenced"]},
+            "output_images": [f"/api/v1/game/images/global-portraits/{asset['filename']}"],
+            "created_at": "",
+        })
     return sorted(items, key=lambda item: item.get("created_at", ""), reverse=True)
 
 
