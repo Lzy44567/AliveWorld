@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from core.image_generation.models import ImageTask, ImageTaskStatus, TERMINAL_STATUSES
+from core.image_generation.providers.base import ProviderJob
 from core.image_generation.repository import ImageTaskRepository
 
 
@@ -60,4 +61,35 @@ class ImageGenerationService:
         task.error_code = ""
         task.error_message = ""
         task.output_images = []
+        return self.repository.save(task)
+
+    def mark_submitted(self, task_id: str, provider_job_id: str) -> ImageTask:
+        task = self.get(task_id)
+        task.status = ImageTaskStatus.SUBMITTED
+        task.provider_job_id = str(provider_job_id)
+        return self.repository.save(task)
+
+    def apply_provider_job(self, task_id: str, job: ProviderJob) -> ImageTask:
+        task = self.get(task_id)
+        if task.status == ImageTaskStatus.CANCELLED:
+            return task
+        states = {
+            "submitted": ImageTaskStatus.SUBMITTED,
+            "running": ImageTaskStatus.RUNNING,
+            "succeeded": ImageTaskStatus.SUCCEEDED,
+            "failed": ImageTaskStatus.FAILED,
+        }
+        task.status = states.get(job.state, ImageTaskStatus.RUNNING)
+        task.progress = max(0.0, min(1.0, float(job.progress or 0.0)))
+        task.output_images = list(job.output_images)
+        task.error_code = str(job.error_code or "")
+        task.error_message = str(job.error_message or "")
+        return self.repository.save(task)
+
+    def fail(self, task_id: str, code: str, message: str) -> ImageTask:
+        task = self.get(task_id)
+        if task.status != ImageTaskStatus.CANCELLED:
+            task.status = ImageTaskStatus.FAILED
+            task.error_code = str(code)
+            task.error_message = str(message)
         return self.repository.save(task)

@@ -3,9 +3,10 @@ from typing import Any, Dict
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from core.image_generation import ImageGenerationService, ImageTaskRepository
+from core.image_generation import ImageGenerationService
 from core.image_generation.service import ImageTaskError
 from core.image_generation.providers.comfyui import ComfyUIProvider
+from core.image_generation.runtime import get_image_runtime
 from core.image_generation.workflows import WorkflowError, WorkflowRepository
 from core.session_manager import active_sessions
 
@@ -29,7 +30,14 @@ def _service(session_id: str) -> ImageGenerationService:
     game = active_sessions.get(session_id)
     if not game:
         raise HTTPException(status_code=404, detail="会话失效")
-    return ImageGenerationService(ImageTaskRepository(game.save_dir_path))
+    return get_image_runtime(game.save_dir_path).service
+
+
+def _runtime(session_id: str):
+    game = active_sessions.get(session_id)
+    if not game:
+        raise HTTPException(status_code=404, detail="会话失效")
+    return get_image_runtime(game.save_dir_path)
 
 
 def _handle(call):
@@ -51,7 +59,9 @@ def create_image_task(session_id: str, payload: ImageTaskPayload):
     game = active_sessions.get(session_id)
     if not game:
         raise HTTPException(status_code=404, detail="会话失效")
-    task = _handle(lambda: _service(session_id).create(game.save_name or session_id, payload.data))
+    runtime = _runtime(session_id)
+    task = _handle(lambda: runtime.service.create(game.save_name or session_id, payload.data))
+    runtime.runner.start(task.id)
     return task.to_dict()
 
 
@@ -62,12 +72,15 @@ def get_image_task(session_id: str, task_id: str):
 
 @router.post("/{session_id}/images/tasks/{task_id}/cancel")
 def cancel_image_task(session_id: str, task_id: str):
-    return _handle(lambda: _service(session_id).cancel(task_id)).to_dict()
+    return _handle(lambda: _runtime(session_id).runner.cancel(task_id)).to_dict()
 
 
 @router.post("/{session_id}/images/tasks/{task_id}/retry")
 def retry_image_task(session_id: str, task_id: str):
-    return _handle(lambda: _service(session_id).retry(task_id)).to_dict()
+    runtime = _runtime(session_id)
+    task = _handle(lambda: runtime.service.retry(task_id))
+    runtime.runner.start(task.id)
+    return task.to_dict()
 
 
 @router.post("/images/providers/comfyui/check")
@@ -95,3 +108,24 @@ def import_image_workflow(payload: WorkflowPayload):
         return WorkflowRepository().import_definition(payload.data).summary()
     except WorkflowError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/{session_id}/images/providers/comfyui/test")
+def generate_comfyui_test_image(session_id: str, payload: ComfyUIConfigPayload, checkpoint: str, workflow_id: str = "builtin_basic"):
+    runtime = _runtime(session_id)
+    game = active_sessions[session_id]
+    task = runtime.service.create(game.save_name or session_id, {
+        "intent": "scene_cg",
+        "provider_id": "comfyui",
+        "workflow_id": workflow_id,
+        "prompt": {
+            "positive": "a simple red circle centered on a plain white background, flat icon, clean edges",
+            "negative": "text, watermark, complex background, blurry",
+            "width": 512,
+            "height": 512,
+        },
+        "context_snapshot": {"test_task": True},
+        "provider_options": {"base_url": payload.base_url, "checkpoint": checkpoint},
+    })
+    runtime.runner.start(task.id)
+    return task.to_dict()
