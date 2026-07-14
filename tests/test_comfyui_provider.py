@@ -50,6 +50,13 @@ class ComfyUIProviderTests(unittest.TestCase):
             self.assertEqual(rendered["6"]["inputs"]["text"], "a red cube")
             self.assertEqual(rendered["3"]["inputs"]["seed"], 7)
 
+    def test_builtin_workflow_generates_non_negative_seed_when_omitted(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            task = self._task()
+            task.prompt.seed = None
+            rendered = self._workflow_repo(temp_dir).get("builtin_basic").render(task)
+            self.assertGreaterEqual(rendered["3"]["inputs"]["seed"], 0)
+
     def test_workflow_rejects_missing_mapping(self):
         with self.assertRaises(WorkflowError):
             WorkflowDefinition.from_dict({"id": "bad", "workflow": {"1": {"inputs": {}, "class_type": "Test"}}, "mapping": {}})

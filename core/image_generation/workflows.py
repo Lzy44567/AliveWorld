@@ -6,6 +6,7 @@ import copy
 import json
 import os
 import re
+import secrets
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -77,7 +78,7 @@ class WorkflowDefinition:
             "negative": task.prompt.negative,
             "width": task.prompt.width,
             "height": task.prompt.height,
-            "seed": task.prompt.seed if task.prompt.seed is not None else -1,
+            "seed": task.prompt.seed if task.prompt.seed is not None else secrets.randbelow(2**63),
             "filename_prefix": f"AliveWorld/{task.id}",
         }
         rendered = copy.deepcopy(self.workflow)
