@@ -10,6 +10,8 @@ const prompt = ref('');
 const files = ref([]);
 const role = ref('character');
 const submitting = ref(false);
+const compiling = ref(false);
+const compilerNotes = ref('');
 const context = uiStore.imageGeneratorContext;
 
 const close = () => { if (!submitting.value) uiStore.modals.imageGenerator = false; };
@@ -37,6 +39,23 @@ const submit = async () => {
   } catch (error) { uiStore.showToast(error.message, 'error'); }
   finally { submitting.value = false; }
 };
+
+const compilePrompt = async () => {
+  compiling.value = true;
+  try {
+    const result = await imageApi.compilePrompt(gameStore.sessionId, {
+      intent: 'character_portrait', user_request: prompt.value,
+      character_ids: [context.characterName], character_context: `${context.characterName}\n${context.description || ''}`,
+      style_preference: configStore.globalSettings.imageStylePreference,
+      presentation_level: configStore.globalSettings.imagePresentationLevel
+    });
+    prompt.value = result.positive;
+    if (result.negative) configStore.globalSettings.imageNegativePrompt = result.negative;
+    compilerNotes.value = result.notes;
+    uiStore.showToast('AI 已整理立绘提示词，请确认后生成');
+  } catch (error) { uiStore.showToast(error.message, 'error'); }
+  finally { compiling.value = false; }
+};
 </script>
 
 <template>
@@ -46,6 +65,7 @@ const submit = async () => {
       <main class="space-y-3 p-5">
         <div class="rounded-lg bg-slate-900/70 p-3 text-xs text-slate-400">角色资料：{{ context.description || '暂无简介，请在提示词中完整描述外观。' }}</div>
         <textarea v-model="prompt" rows="6" class="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm text-slate-200" placeholder="描述角色外观、服装、姿态、构图和背景……" />
+        <div class="flex items-center gap-2"><button @click="compilePrompt" :disabled="compiling" class="rounded bg-violet-900/70 px-3 py-1.5 text-xs text-violet-200 disabled:opacity-50">{{ compiling ? 'AI 整理中…' : '✨ 让 AI 根据角色资料整理' }}</button><span v-if="compilerNotes" class="text-[10px] text-slate-500">{{ compilerNotes }}</span></div>
         <div class="flex items-center gap-2"><select v-model="role" class="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs"><option value="character">角色参考图</option><option value="style">画风参考图</option></select><label class="cursor-pointer rounded bg-slate-800 px-3 py-1 text-xs">选择参考图<input type="file" accept="image/png,image/jpeg,image/webp" multiple class="hidden" @change="chooseFiles" /></label><span class="truncate text-[10px] text-slate-500">{{ files.map(file => file.name).join('、') }}</span></div>
         <p v-if="files.length && configStore.globalSettings.imageWorkflowId === 'builtin_basic'" class="text-[10px] text-amber-400">内置基础工作流不会使用参考图；图片仍会保存，需换用带参考图输入的工作流。</p>
       </main>

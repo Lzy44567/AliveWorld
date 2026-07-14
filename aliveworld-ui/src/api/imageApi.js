@@ -20,6 +20,9 @@ export const imageApi = {
   createTask(sessionId, data) {
     return request(`${API_URL}/${sessionId}/images/tasks`, jsonOptions({ data }));
   },
+  compilePrompt(sessionId, payload) {
+    return request(`${API_URL}/${sessionId}/images/prompts/compile`, jsonOptions(payload));
+  },
   cancelTask(sessionId, taskId) {
     return request(`${API_URL}/${sessionId}/images/tasks/${taskId}/cancel`, { method: 'POST' });
   },

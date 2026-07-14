@@ -28,6 +28,8 @@ const showImageForm = ref(false);
 const imagePrompt = ref('');
 const imageIntent = ref('scene_cg');
 const submittingImage = ref(false);
+const compilingPrompt = ref(false);
+const compilerNotes = ref('');
 const referenceFiles = ref([]);
 const referenceRole = ref('character');
 const statusText = {
@@ -77,6 +79,24 @@ const generateImage = async () => {
 
 const chooseReferences = (event) => {
   referenceFiles.value = [...(event.target.files || [])];
+};
+
+const compileImagePrompt = async () => {
+  compilingPrompt.value = true;
+  try {
+    const result = await imageApi.compilePrompt(gameStore.sessionId, {
+      intent: imageIntent.value,
+      user_request: imagePrompt.value,
+      source_message_id: props.msg.id,
+      style_preference: configStore.globalSettings.imageStylePreference,
+      presentation_level: configStore.globalSettings.imagePresentationLevel
+    });
+    imagePrompt.value = result.positive;
+    if (result.negative) configStore.globalSettings.imageNegativePrompt = result.negative;
+    compilerNotes.value = result.notes;
+    uiStore.showToast('AI 已整理提示词，请确认后生成');
+  } catch (error) { uiStore.showToast(error.message, 'error'); }
+  finally { compilingPrompt.value = false; }
 };
 
 const doReroll = async () => {
@@ -163,6 +183,7 @@ const doReroll = async () => {
             <span class="text-[10px] text-slate-500 self-center">直接提示词模式，不调用 LLM</span>
           </div>
           <textarea v-model="imagePrompt" rows="3" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-xs text-slate-200 resize-y" placeholder="描述希望生成的画面……" />
+          <div class="flex items-center gap-2"><button @click="compileImagePrompt" :disabled="compilingPrompt" class="rounded bg-violet-900/70 px-2 py-1 text-[10px] text-violet-200 disabled:opacity-50">{{ compilingPrompt ? 'AI 整理中…' : '✨ 让 AI 根据正文整理提示词' }}</button><span v-if="compilerNotes" class="text-[10px] text-slate-500">{{ compilerNotes }}</span></div>
           <div class="flex gap-2 items-center">
             <select v-model="referenceRole" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200"><option value="character">角色参考图</option><option value="style">画风参考图</option></select>
             <label class="cursor-pointer rounded bg-slate-800 px-2 py-1 text-[10px] text-slate-300">选择参考图<input type="file" accept="image/png,image/jpeg,image/webp" multiple class="hidden" @change="chooseReferences" /></label>

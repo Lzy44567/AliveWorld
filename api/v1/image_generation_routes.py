@@ -10,6 +10,7 @@ from core.image_generation.service import ImageTaskError
 from core.image_generation.providers.comfyui import ComfyUIProvider
 from core.image_generation.runtime import get_image_runtime
 from core.image_generation.references import ReferenceImageError, ReferenceImageRepository
+from core.image_generation.prompt_compiler import ImagePromptCompiler, PromptCompilationError
 from core.image_generation.workflows import WorkflowError, WorkflowRepository
 from core.session_manager import active_sessions
 
@@ -33,6 +34,16 @@ class ReferenceImagePayload(BaseModel):
     filename: str
     role: str = "character"
     data_url: str
+
+
+class PromptCompilePayload(BaseModel):
+    intent: str = "scene_cg"
+    user_request: str = ""
+    source_message_id: str = ""
+    character_ids: list[str] = Field(default_factory=list)
+    character_context: str = ""
+    style_preference: str = ""
+    presentation_level: str = ""
 
 
 def _service(session_id: str) -> ImageGenerationService:
@@ -195,6 +206,32 @@ def generate_comfyui_test_image(session_id: str, payload: ComfyUIConfigPayload, 
     })
     runtime.runner.start(task.id)
     return _task_payload(session_id, task)
+
+
+@router.post("/{session_id}/images/prompts/compile")
+def compile_image_prompt(session_id: str, payload: PromptCompilePayload):
+    game = active_sessions.get(session_id)
+    if not game:
+        raise HTTPException(status_code=404, detail="会话失效")
+    story_text = ""
+    if payload.source_message_id:
+        message = next((item for item in game.history.get("chat_messages", []) if item.get("id") == payload.source_message_id), None)
+        if not message or message.get("role") != "ai":
+            raise HTTPException(status_code=404, detail="找不到对应的 AI 正文")
+        story_text = str(message.get("content", ""))
+    try:
+        active_world, _ = game.build_active_world_info(payload.user_request or story_text)
+        return ImagePromptCompiler(game.ai_engine).compile({
+            "intent": payload.intent,
+            "user_request": payload.user_request,
+            "story_text": story_text,
+            "character_context": payload.character_context,
+            "world_context": active_world,
+            "style_preference": payload.style_preference,
+            "presentation_level": payload.presentation_level,
+        })
+    except PromptCompilationError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
 @router.get("/{session_id}/images/tasks/{task_id}/files/{image_index}")
