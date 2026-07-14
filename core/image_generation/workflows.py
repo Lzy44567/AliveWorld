@@ -108,6 +108,10 @@ class WorkflowRepository:
         raise WorkflowError("生图工作流不存在")
 
     def import_definition(self, data: dict[str, Any]) -> WorkflowDefinition:
+        if "workflow" not in data and all(isinstance(value, dict) and "class_type" in value for value in data.values()):
+            data = {"id": "imported_workflow", "name": "导入的工作流", "workflow": data}
+        if not data.get("mapping") and isinstance(data.get("workflow"), dict):
+            data = {**data, "mapping": infer_standard_mapping(data["workflow"])}
         definition = WorkflowDefinition.from_dict(data, is_template=False)
         path = self.root / f"{definition.id}.json"
         if path.with_name(f"{definition.id}.template.json").exists():
@@ -129,3 +133,38 @@ class WorkflowRepository:
     def _load_path(path: Path) -> WorkflowDefinition:
         data = json.loads(path.read_text(encoding="utf-8"))
         return WorkflowDefinition.from_dict(data, is_template=path.name.endswith(".template.json"))
+
+
+def infer_standard_mapping(workflow: dict[str, Any]) -> dict[str, list[str]]:
+    """Infer only unambiguous mappings from common ComfyUI core nodes."""
+    by_type: dict[str, list[tuple[str, dict[str, Any]]]] = {}
+    for node_id, node in workflow.items():
+        if isinstance(node, dict):
+            by_type.setdefault(str(node.get("class_type", "")), []).append((str(node_id), node))
+
+    def unique(class_type: str, input_name: str) -> list[str]:
+        matches = [(node_id, node) for node_id, node in by_type.get(class_type, []) if input_name in node.get("inputs", {})]
+        if len(matches) != 1:
+            raise WorkflowError(f"无法唯一识别 {class_type}.{input_name}，请提供参数映射")
+        return [matches[0][0], input_name]
+
+    text_nodes = by_type.get("CLIPTextEncode", [])
+    positive = []
+    negative = []
+    for node_id, node in text_nodes:
+        title = str(node.get("_meta", {}).get("title", "")).lower()
+        if "positive" in title or "正面" in title:
+            positive.append([node_id, "text"])
+        if "negative" in title or "负面" in title:
+            negative.append([node_id, "text"])
+    if len(positive) != 1 or len(negative) != 1:
+        raise WorkflowError("无法从 CLIPTextEncode 标题唯一识别正面/负面提示词，请保留 Positive Prompt 和 Negative Prompt 节点标题")
+    return {
+        "checkpoint": unique("CheckpointLoaderSimple", "ckpt_name"),
+        "positive": positive[0],
+        "negative": negative[0],
+        "width": unique("EmptyLatentImage", "width"),
+        "height": unique("EmptyLatentImage", "height"),
+        "seed": unique("KSampler", "seed"),
+        "filename_prefix": unique("SaveImage", "filename_prefix"),
+    }

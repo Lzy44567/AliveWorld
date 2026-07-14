@@ -9,6 +9,7 @@ from core.image_generation import ImageGenerationService
 from core.image_generation.service import ImageTaskError
 from core.image_generation.providers.comfyui import ComfyUIProvider
 from core.image_generation.runtime import get_image_runtime
+from core.image_generation.references import ReferenceImageError, ReferenceImageRepository
 from core.image_generation.workflows import WorkflowError, WorkflowRepository
 from core.session_manager import active_sessions
 
@@ -26,6 +27,12 @@ class ComfyUIConfigPayload(BaseModel):
 
 class WorkflowPayload(BaseModel):
     data: Dict[str, Any] = Field(default_factory=dict)
+
+
+class ReferenceImagePayload(BaseModel):
+    filename: str
+    role: str = "character"
+    data_url: str
 
 
 def _service(session_id: str) -> ImageGenerationService:
@@ -119,6 +126,54 @@ def import_image_workflow(payload: WorkflowPayload):
         return WorkflowRepository().import_definition(payload.data).summary()
     except WorkflowError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/{session_id}/images/references")
+def list_reference_images(session_id: str):
+    game = active_sessions.get(session_id)
+    if not game:
+        raise HTTPException(status_code=404, detail="会话失效")
+    repository = ReferenceImageRepository(game.save_dir_path)
+    return [{**item.to_dict(), "url": f"/api/v1/game/{session_id}/images/references/{item.id}/file"} for item in repository.list()]
+
+
+@router.post("/{session_id}/images/references")
+def upload_reference_image(session_id: str, payload: ReferenceImagePayload):
+    game = active_sessions.get(session_id)
+    if not game:
+        raise HTTPException(status_code=404, detail="会话失效")
+    try:
+        item = ReferenceImageRepository(game.save_dir_path).add_data_url(payload.filename, payload.role, payload.data_url)
+    except ReferenceImageError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {**item.to_dict(), "url": f"/api/v1/game/{session_id}/images/references/{item.id}/file"}
+
+
+@router.get("/{session_id}/images/references/{reference_id}/file")
+def get_reference_image(session_id: str, reference_id: str):
+    game = active_sessions.get(session_id)
+    if not game:
+        raise HTTPException(status_code=404, detail="会话失效")
+    try:
+        path = ReferenceImageRepository(game.save_dir_path).file_path(reference_id)
+    except ReferenceImageError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return FileResponse(path)
+
+
+@router.delete("/{session_id}/images/references/{reference_id}")
+def delete_reference_image(session_id: str, reference_id: str):
+    game = active_sessions.get(session_id)
+    if not game:
+        raise HTTPException(status_code=404, detail="会话失效")
+    runtime = _runtime(session_id)
+    if any(reference.id == reference_id for task in runtime.service.list() for reference in task.prompt.references):
+        raise HTTPException(status_code=409, detail="参考图已被生图任务引用，不能删除")
+    try:
+        ReferenceImageRepository(game.save_dir_path).remove(reference_id)
+    except ReferenceImageError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return {"status": "success"}
 
 
 @router.post("/{session_id}/images/providers/comfyui/test")

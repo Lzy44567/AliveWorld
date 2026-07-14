@@ -54,6 +54,13 @@ class ComfyUIProviderTests(unittest.TestCase):
         with self.assertRaises(WorkflowError):
             WorkflowDefinition.from_dict({"id": "bad", "workflow": {"1": {"inputs": {}, "class_type": "Test"}}, "mapping": {}})
 
+    def test_import_raw_builtin_workflow_infers_mapping(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            source = Path(__file__).parents[1] / "data" / "image_workflows" / "basic_core.template.json"
+            raw = json.loads(source.read_text(encoding="utf-8"))["workflow"]
+            definition = WorkflowRepository(temp_dir).import_definition(raw)
+            self.assertEqual(definition.mapping["checkpoint"], ["4", "ckpt_name"])
+
     def test_check_reports_checkpoints(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             provider = FakeComfyUIProvider({
