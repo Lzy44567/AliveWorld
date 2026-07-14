@@ -13,6 +13,8 @@ import { normalizeEntityDisclosure, projectLocalEntity } from '../../utils/entit
 import { createEntityEditorForm } from '../../utils/entityForm';
 import { worldbookWorkshopApi } from '../../api/worldbookWorkshopApi';
 import { useDeleteConfirmation } from '../../composables/useDeleteConfirmation';
+import { imageStore } from '../../store/imageStore';
+import { imageApi } from '../../api/imageApi';
 
 const searchKeyword = ref("");
 const { confirmDeleteId, requestDelete, cancelDelete } = useDeleteConfirmation();
@@ -141,7 +143,8 @@ const pushToGlobal = async (item) => {
     const payload = JSON.parse(JSON.stringify(item));
     payload.name = newName;
     payload.tags = (payload.tags || []).filter(t => t !== '本局独有');
-    delete payload.is_active; 
+    delete payload.is_active;
+    delete payload.portrait;
     
     await assetApi.saveAsset(getApiType(), newName, "", payload, sameNameExists);
     await assetStore.fetchAssets();
@@ -173,6 +176,14 @@ const openPortraitGenerator = (item) => {
   if (!gameStore.sessionId) return uiStore.showToast('请先创建或载入存档', 'error');
   uiStore.imageGeneratorContext = { characterName: item.name, description: item.description || item.desc || item.content || '' };
   uiStore.modals.imageGenerator = true;
+};
+
+const portraitUrl = (item) => {
+  const taskId = item.portrait?.task_id;
+  const imageIndex = Number(item.portrait?.image_index || 0);
+  const task = imageStore.tasks.find(entry => entry.id === taskId);
+  const path = task?.output_images?.[imageIndex];
+  return path ? imageApi.absoluteImageUrl(path) : '';
 };
 
 const openWorldbookWorkshop = (name) => {
@@ -243,6 +254,7 @@ onBeforeUnmount(() => {
               </button>
             </h4>
          </div>
+         <img v-if="uiStore.rightTab==='character' && portraitUrl(item)" :src="portraitUrl(item)" class="h-28 w-full rounded-lg border border-fuchsia-900/50 bg-black object-contain" />
          
          <div class="flex flex-wrap gap-1">
            <span v-for="t in item.tags" :key="t" class="bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded text-[9px] border border-slate-700">{{ t }}</span>

@@ -29,6 +29,9 @@ export const imageApi = {
   retryTask(sessionId, taskId) {
     return request(`${API_URL}/${sessionId}/images/tasks/${taskId}/retry`, { method: 'POST' });
   },
+  setPortrait(sessionId, taskId, characterName, imageIndex = 0) {
+    return request(`${API_URL}/${sessionId}/images/tasks/${taskId}/set-portrait`, jsonOptions({ character_name: characterName, image_index: imageIndex }));
+  },
   checkComfyUI(baseUrl) {
     return request(`${API_URL}/images/providers/comfyui/check`, jsonOptions({ base_url: baseUrl }));
   },

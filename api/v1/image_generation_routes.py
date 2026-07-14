@@ -11,6 +11,7 @@ from core.image_generation.providers.comfyui import ComfyUIProvider
 from core.image_generation.runtime import get_image_runtime
 from core.image_generation.references import ReferenceImageError, ReferenceImageRepository
 from core.image_generation.prompt_compiler import ImagePromptCompiler, PromptCompilationError
+from core.image_generation.portrait import PortraitAssignmentError, assign_current_portrait
 from core.image_generation.workflows import WorkflowError, WorkflowRepository
 from core.session_manager import active_sessions
 
@@ -44,6 +45,11 @@ class PromptCompilePayload(BaseModel):
     character_context: str = ""
     style_preference: str = ""
     presentation_level: str = ""
+
+
+class PortraitAssignmentPayload(BaseModel):
+    character_name: str
+    image_index: int = 0
 
 
 def _service(session_id: str) -> ImageGenerationService:
@@ -232,6 +238,19 @@ def compile_image_prompt(session_id: str, payload: PromptCompilePayload):
         })
     except PromptCompilationError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@router.post("/{session_id}/images/tasks/{task_id}/set-portrait")
+def set_character_portrait(session_id: str, task_id: str, payload: PortraitAssignmentPayload):
+    game = active_sessions.get(session_id)
+    if not game:
+        raise HTTPException(status_code=404, detail="会话失效")
+    task = _handle(lambda: _service(session_id).get(task_id))
+    try:
+        character = assign_current_portrait(game.save_dir_path, payload.character_name, task, payload.image_index)
+    except PortraitAssignmentError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"status": "success", "character": character}
 
 
 @router.get("/{session_id}/images/tasks/{task_id}/files/{image_index}")
