@@ -39,6 +39,10 @@ export const gameStore = reactive({
     if (newState.buffs) this.buffs = { ...newState.buffs };
   },
 
+  setActionSuggestions(items) {
+    this.aiSuggestions = Array.isArray(items) ? items.filter(item => typeof item === 'string' && item.trim()).slice(0, 4) : [];
+  },
+
   reset() {
     this.sessionId = null;
     this.currentSaveName = null;
@@ -48,5 +52,6 @@ export const gameStore = reactive({
     this.npcs = {}; 
     this.buffs = {};
     this.companions = [];
+    this.aiSuggestions = [];
   }
 });

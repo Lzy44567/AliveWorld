@@ -5,6 +5,7 @@ from core.prompts import load_system_prompts
 from core.ai_engine import robust_json_parse
 from core.model_response import failure_message
 from core.future_candidates import candidate_probability, choose_candidate, normalize_candidates
+from core.action_suggestions import action_suggestion_instruction
 
 log = get_logger()
 
@@ -62,7 +63,9 @@ class DualTrackResolver(BaseResolutionStrategy):
         )
         
         # 2. 剧情结算
-        settle_p = pts.get('settlement_prompt', '').replace('{world_info}', active_world).replace('{character_info}', session.char_info).replace('{style_info}', session.style_info).replace('{word_limit}', str(session.word_limit))
+        visible_world, _ = session.build_visible_world_info(player_action)
+        settle_p = pts.get('settlement_prompt', '').replace('{world_info}', visible_world).replace('{character_info}', session.char_info).replace('{style_info}', session.style_info).replace('{word_limit}', str(session.word_limit))
+        settle_p += "\n\n【玩家行动建议要求】\n" + action_suggestion_instruction(session.story_settings.get("aiSuggestions", True))
         influence_instruction = "（本回合没有满足条件的暗流影响）"
         if triggered_influences:
             influence_instruction = "\n".join(

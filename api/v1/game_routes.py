@@ -88,7 +88,7 @@ def process_turn(session_id: str, payload: ActionRequest):
     if result and result.get('error'): raise HTTPException(status_code=502, detail=result.get("message", "推演失败，本回合未保存。"))
     
     save_game_data(game.save_dir_path, game.export_save_data())
-    return {"chat_messages": game.history["chat_messages"][history_len:], "state": game.state, "is_game_over": game.is_game_over}
+    return {"chat_messages": game.history["chat_messages"][history_len:], "state": game.state, "is_game_over": game.is_game_over, "action_suggestions": game.action_suggestions}
 
 @router.post("/{session_id}/undo")
 def undo_turn(session_id: str):
@@ -96,7 +96,7 @@ def undo_turn(session_id: str):
     if not game: raise HTTPException(status_code=404, detail="会话失效")
     if not game.rollback(): raise HTTPException(status_code=400, detail="无法撤回")
     save_game_data(game.save_dir_path, game.export_save_data())
-    return {"chat_messages": game.history["chat_messages"], "state": game.state}
+    return {"chat_messages": game.history["chat_messages"], "state": game.state, "action_suggestions": game.action_suggestions}
 
 @router.post("/{session_id}/retry")
 def retry_turn(session_id: str, payload: ActionRequest):
@@ -108,7 +108,7 @@ def retry_turn(session_id: str, payload: ActionRequest):
     result = game.process_turn(payload.action)
     if result and result.get('error'): raise HTTPException(status_code=502, detail=result.get("message", "推演失败，本回合未保存。"))
     save_game_data(game.save_dir_path, game.export_save_data())
-    return {"full_chat": game.history["chat_messages"], "state": game.state}
+    return {"full_chat": game.history["chat_messages"], "state": game.state, "action_suggestions": game.action_suggestions}
 
 # 🚀 核心：重掷未来专用接口
 @router.post("/{session_id}/reroll")
@@ -129,6 +129,8 @@ def update_story_config(session_id: str, payload: StoryConfigPayload):
     game.world_premise = payload.world_premise
     game.plot_compass = payload.plot_compass
     game.story_settings = normalize_story_settings(payload.story_settings)
+    if not game.story_settings["aiSuggestions"]:
+        game.action_suggestions = []
     save_game_data(game.save_dir_path, game.export_save_data())
     return _story_config_payload(game)
 
@@ -144,6 +146,7 @@ def _session_payload(session_id, game):
         "session_id": session_id,
         "chat_messages": game.history["chat_messages"],
         "state": game.state,
+        "action_suggestions": game.action_suggestions,
         "description": game.world_premise,
         **_story_config_payload(game),
     }

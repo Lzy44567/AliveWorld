@@ -18,6 +18,7 @@ class StorySettingsTests(unittest.TestCase):
             session = GameSession(None, "测试故事", temp_dir, {"entitiesEnabled": False})
             session.world_premise = "蒸汽都市中存在隐秘魔法"
             session.plot_compass = "近期调查失踪案，不要立刻揭晓凶手"
+            session.action_suggestions = ["调查钟楼", "询问守卫"]
 
             world_info, _ = session.build_active_world_info("调查钟楼")
             saved = session.export_save_data()
@@ -26,12 +27,23 @@ class StorySettingsTests(unittest.TestCase):
             self.assertEqual(saved["world_premise"], "蒸汽都市中存在隐秘魔法")
             self.assertEqual(saved["plot_compass"], "近期调查失踪案，不要立刻揭晓凶手")
             self.assertFalse(saved["story_settings"]["entitiesEnabled"])
+            self.assertEqual(saved["action_suggestions"], ["调查钟楼", "询问守卫"])
 
             restored = GameSession(None, save_dir_path=temp_dir)
             restored.load_save_data(saved)
             self.assertEqual(restored.world_premise, session.world_premise)
             self.assertEqual(restored.plot_compass, session.plot_compass)
             self.assertFalse(restored.story_settings["entitiesEnabled"])
+            self.assertEqual(restored.action_suggestions, ["调查钟楼", "询问守卫"])
+
+    def test_disabled_suggestions_do_not_restore_stale_save_values(self):
+        session = GameSession(None)
+        session.load_save_data({
+            "story_settings": {"aiSuggestions": False},
+            "action_suggestions": ["不应恢复"],
+            "history": {"chat_messages": [{"role": "ai", "content": "正文", "suggestions": ["也不应恢复"]}], "context_history": []},
+        })
+        self.assertEqual(session.action_suggestions, [])
 
     def test_legacy_description_migrates_to_world_premise(self):
         session = GameSession(None)

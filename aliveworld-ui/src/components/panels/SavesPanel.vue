@@ -29,6 +29,7 @@ const loadSave = async (saveName) => {
     gameStore.sessionId = data.session_id;
     gameStore.currentSaveName = saveName;
     gameStore.chatLog = data.chat_messages || [];
+    gameStore.setActionSuggestions(data.action_suggestions);
     gameStore.syncState(data.state);
     configStore.applyStoryConfig(data);
     

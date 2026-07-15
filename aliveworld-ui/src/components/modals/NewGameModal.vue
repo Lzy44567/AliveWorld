@@ -18,6 +18,7 @@ const startNewGame = async () => {
     gameStore.sessionId = data.session_id;
     gameStore.currentSaveName = assetStore.newSaveName;
     gameStore.chatLog = data.chat_messages;
+    gameStore.setActionSuggestions(data.action_suggestions);
     gameStore.syncState(data.state);
     configStore.applyStoryConfig(data);
     

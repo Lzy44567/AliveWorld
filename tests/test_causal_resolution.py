@@ -27,10 +27,12 @@ class FakeSession:
         self.char_info = "测试角色"
         self.style_info = "测试文风"
         self.word_limit = 200
+        self.story_settings = {"aiSuggestions": True}
 
     def get_context_text(self): return "玩家来到城门"
     def get_dynamic_state_for_ai(self): return {}
     def build_active_world_info(self, _action): return ("测试世界规则\n" + self.undercurrent.causal_ledger.context(), [])
+    def build_visible_world_info(self, _action): return ("测试世界规则", [])
 
 
 class CausalResolutionTests(unittest.TestCase):
@@ -55,7 +57,21 @@ class CausalResolutionTests(unittest.TestCase):
         self.assertIn("测试文风", ai.requests[1][0])
         self.assertIn("测试世界规则", ai.requests[1][0])
         self.assertIn("测试角色", ai.requests[1][0])
+        self.assertNotIn("隐藏的暗流因果", ai.requests[1][0])
+        self.assertIn("未触发陷阱", ai.requests[1][0])
         self.assertEqual(result["settlement"]["resolved_influences"][0]["id"], influence.id)
+
+    def test_settlement_suggestions_can_be_returned_with_same_request(self):
+        ledger = CausalLedger()
+        ai = SequenceAI([
+            '{"reactions":[{"id":1,"description":"抵达广场","weight":100}],"influence_checks":[]}',
+            '{"story_text":"玩家抵达广场。","resolved_influences":[],"action_suggestions":["观察广场","询问路人"]}',
+        ])
+        session = FakeSession(ai, ledger)
+        with patch("core.resolution_engine.load_system_prompts", return_value={"reaction_prompt": "{world_info}", "settlement_prompt": "{style_info}\n{world_info}\n{character_info}\n结算"}):
+            result = DualTrackResolver().resolve(session, "前往广场")
+        self.assertEqual(len(ai.requests), 2)
+        self.assertEqual(result["settlement"]["action_suggestions"], ["观察广场", "询问路人"])
 
     def test_non_matching_and_unknown_influences_are_not_passed(self):
         ledger = CausalLedger()

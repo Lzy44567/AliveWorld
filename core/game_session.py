@@ -12,6 +12,10 @@ from core.story_settings import normalize_story_settings
 from core.future_candidates import choose_candidate, normalize_candidates
 from core.worldbook_capture import WorldbookCaptureService, capture_requested
 from core.chat_messages import ensure_message_ids
+from core.action_suggestions import action_suggestion_instruction, normalize_action_suggestions
+from utils.sys_logger import get_logger
+
+log = get_logger()
 
 class GameSession:
     def __init__(self, ai_engine, save_name="", save_dir_path="", story_settings=None):
@@ -31,6 +35,7 @@ class GameSession:
         self.worldbook_capture = WorldbookCaptureService(self.ai_engine)
         
         self.history = {"chat_messages": [], "context_history": []}
+        self.action_suggestions = []
         self.snapshots = [] 
 
     @property
@@ -71,6 +76,13 @@ class GameSession:
         self.ctx_mgr.refresh_from_local(self.save_dir_path, self.world_premise)
         self.undercurrent.entities = self.entity_repository.load()
 
+    def _update_action_suggestions(self, settlement):
+        self.action_suggestions = normalize_action_suggestions(
+            settlement.get("action_suggestions", []), enabled=self.story_settings["aiSuggestions"]
+        )
+        log.info("玩家行动建议: count=%s items=%s", len(self.action_suggestions), self.action_suggestions)
+        return self.action_suggestions
+
     def process_turn(self, user_action: str):
         self._take_snapshot()
         self.undercurrent.causal_ledger.advance_turn()
@@ -94,7 +106,8 @@ class GameSession:
         if not story_text:
             self.rollback()
             return {"error": True, "message": failure_message(empty=True)}
-        self.history["chat_messages"].append({"role": "ai", "content": story_text})
+        self._update_action_suggestions(settlement)
+        self.history["chat_messages"].append({"role": "ai", "content": story_text, "suggestions": self.action_suggestions})
         resolution_by_id = {item.get("id"): item for item in resolutions if isinstance(item, dict)}
         for influence in resolved_items:
             resolution = resolution_by_id.get(influence.id, {})
@@ -151,7 +164,9 @@ class GameSession:
         
         from core.prompts import load_system_prompts
         pts = load_system_prompts()
-        settle_p = pts.get('settlement_prompt', '').replace('{world_info}', active_world).replace('{character_info}', self.ctx_mgr.char_info).replace('{style_info}', self.ctx_mgr.style_info)
+        visible_world, _ = self.build_visible_world_info(action)
+        settle_p = pts.get('settlement_prompt', '').replace('{world_info}', visible_world).replace('{character_info}', self.ctx_mgr.char_info).replace('{style_info}', self.ctx_mgr.style_info)
+        settle_p += "\n\n【玩家行动建议要求】\n" + action_suggestion_instruction(self.story_settings.get("aiSuggestions", True))
         influence_instruction = "\n".join(
             f"- [{item['id']}] {item['summary']}；必须体现的后果：{item['effect']}；依据：{item['reason']}"
             for item in triggered_influences
@@ -172,7 +187,8 @@ class GameSession:
         resolved_items = self.undercurrent.causal_ledger.resolve(resolutions, allowed_ids=triggered_ids)
             
         story_text = format_story_text(settlement.get('story_text', ''))
-        self.history["chat_messages"].append({"role": "ai", "content": story_text})
+        self._update_action_suggestions(settlement)
+        self.history["chat_messages"].append({"role": "ai", "content": story_text, "suggestions": self.action_suggestions})
         resolution_by_id = {item.get("id"): item for item in resolutions if isinstance(item, dict)}
         for influence in resolved_items:
             self.history["chat_messages"].append({"role": "influence", "content": {
@@ -191,12 +207,13 @@ class GameSession:
                 
         self.state_mgr.apply_updates(settlement)
         self.history["context_history"].append(f"玩家：{action}\n结果：{story_text}")
-        return {"chat_messages": self.history["chat_messages"], "state": self.state}
+        return {"chat_messages": self.history["chat_messages"], "state": self.state, "action_suggestions": self.action_suggestions}
     
     def _take_snapshot(self):
         self.snapshots.append({
             "state": copy.deepcopy(self.state), "chat_messages": copy.deepcopy(self.history["chat_messages"]), 
-            "context_history": copy.deepcopy(self.history["context_history"]), "undercurrent": self.undercurrent.export_state()
+            "context_history": copy.deepcopy(self.history["context_history"]), "undercurrent": self.undercurrent.export_state(),
+            "action_suggestions": copy.deepcopy(self.action_suggestions)
         })
         if len(self.snapshots) > 20: self.snapshots.pop(0)
 
@@ -207,6 +224,7 @@ class GameSession:
         self.history["chat_messages"] = snap["chat_messages"]
         self.history["context_history"] = snap["context_history"]
         self.undercurrent.load_state(snap.get("undercurrent", {}))
+        self.action_suggestions = snap.get("action_suggestions", [])
         self._sync_entities_to_local()
         return True
 
@@ -216,7 +234,8 @@ class GameSession:
             "save_name": self.save_name, "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "save_dir_path": self.save_dir_path, "description": self.world_premise, "world_premise": self.world_premise,
             "plot_compass": self.plot_compass, "story_settings": self.story_settings, "word_limit": self.word_limit,
-            "state": self.state, "history": self.history, "undercurrent": self.undercurrent.export_state(), "snapshots": self.snapshots
+            "state": self.state, "history": self.history, "undercurrent": self.undercurrent.export_state(), "snapshots": self.snapshots,
+            "action_suggestions": self.action_suggestions,
         }
 
     def load_save_data(self, data):
@@ -227,5 +246,15 @@ class GameSession:
         self.entity_repository = EntityRepository(self.save_dir_path)
         self.state_mgr.state, self.history = data.get('state', self.state), data.get('history', self.history)
         ensure_message_ids(self.history.get("chat_messages", []))
+        self.action_suggestions = normalize_action_suggestions(
+            data.get("action_suggestions", []), enabled=self.story_settings["aiSuggestions"]
+        )
+        if not self.action_suggestions:
+            for message in reversed(self.history.get("chat_messages", [])):
+                if message.get("role") == "ai":
+                    self.action_suggestions = normalize_action_suggestions(
+                        message.get("suggestions", []), enabled=self.story_settings["aiSuggestions"]
+                    )
+                    break
         self.undercurrent.load_state(data.get('undercurrent', {}))
         self.snapshots = data.get('snapshots', [])

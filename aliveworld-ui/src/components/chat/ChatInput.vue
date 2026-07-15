@@ -1,6 +1,6 @@
 <!-- src/components/chat/ChatInput.vue -->
 <script setup>
-import { ref } from 'vue';
+import { nextTick, ref, watch } from 'vue';
 import { gameStore } from '../../store/gameStore';
 import { configStore, effectiveStorySettings } from '../../store/configStore';
 import { gameApi } from '../../api/gameApi';
@@ -8,6 +8,16 @@ import { assetStore } from '../../store/assetStore';
 
 const userInput = ref("");
 const lastAction = ref("");
+const actionInput = ref(null);
+
+const chooseSuggestion = async (suggestion) => {
+  userInput.value = suggestion;
+  await nextTick();
+  actionInput.value?.focus();
+};
+watch(() => effectiveStorySettings.value.aiSuggestions, (enabled) => {
+  if (!enabled) gameStore.setActionSuggestions([]);
+});
 
 const submitAction = async (text = null) => {
   const finalAction = text || userInput.value.trim();
@@ -17,6 +27,7 @@ const submitAction = async (text = null) => {
   lastAction.value = finalAction;
   userInput.value = "";
   gameStore.isProcessing = true;
+  gameStore.setActionSuggestions([]);
   scrollToBottom();
   
   try {
@@ -28,8 +39,9 @@ const submitAction = async (text = null) => {
     const newMsgs = res.chat_messages.filter(m => m.role !== 'user');
     gameStore.chatLog.push(...newMsgs);
     gameStore.syncState(res.state);
+    gameStore.setActionSuggestions(res.action_suggestions);
   } catch (err) {
-    gameStore.chatLog.push({ role: "system", content: `⚠️ ${e.message || '推演失败，本回合未保存。'}` });
+    gameStore.chatLog.push({ role: "system", content: `⚠️ ${err.message || '推演失败，本回合未保存。'}` });
   } finally {
     gameStore.isProcessing = false;
     assetStore.fetchLocalAssets(gameStore.sessionId);
@@ -44,6 +56,7 @@ const undoTurn = async () => {
     const res = await gameApi.undoTurn(gameStore.sessionId);
     gameStore.chatLog = res.chat_messages;
     gameStore.syncState(res.state);
+    gameStore.setActionSuggestions(res.action_suggestions);
   } catch (err) {
     // 撤回失败静默处理
   } finally {
@@ -63,6 +76,7 @@ const retryTurn = async () => {
     });
     gameStore.chatLog = res.full_chat;
     gameStore.syncState(res.state);
+    gameStore.setActionSuggestions(res.action_suggestions);
   } catch (err) {
     alert("重试失败");
   } finally {
@@ -87,13 +101,13 @@ const scrollToBottom = () => {
     <div class="max-w-4xl mx-auto flex flex-col gap-2">
       
       <div class="flex gap-2 px-1 mb-1 overflow-x-auto custom-scrollbar" v-if="effectiveStorySettings.aiSuggestions && !gameStore.isProcessing && gameStore.sessionId && gameStore.aiSuggestions.length > 0">
-        <button v-for="(sug, idx) in gameStore.aiSuggestions" :key="idx" @click="submitAction(sug)" class="px-4 py-2 text-xs font-bold bg-slate-800/80 hover:bg-emerald-600/80 text-slate-300 hover:text-white border border-slate-600 hover:border-emerald-500 rounded-full transition whitespace-nowrap backdrop-blur shadow-lg">
+        <button v-for="(sug, idx) in gameStore.aiSuggestions" :key="`${idx}-${sug}`" @click="chooseSuggestion(sug)" class="px-4 py-2 text-xs font-bold bg-slate-800/80 hover:bg-emerald-600/80 text-slate-300 hover:text-white border border-slate-600 hover:border-emerald-500 rounded-full transition whitespace-nowrap backdrop-blur shadow-lg" title="填入输入框，可修改后发送">
           💡 {{ sug }}
         </button>
       </div>
 
       <div class="relative flex gap-3 drop-shadow-2xl">
-        <input v-model="userInput" @keyup.enter="submitAction()" :disabled="!gameStore.sessionId" class="flex-1 bg-slate-900 border border-slate-600 rounded-xl px-5 py-4 outline-none focus:border-indigo-500 text-slate-100 placeholder-slate-500 shadow-inner text-base" placeholder="描述你的行动..." />
+        <input ref="actionInput" v-model="userInput" @keyup.enter="submitAction()" :disabled="!gameStore.sessionId" class="flex-1 bg-slate-900 border border-slate-600 rounded-xl px-5 py-4 outline-none focus:border-indigo-500 text-slate-100 placeholder-slate-500 shadow-inner text-base" placeholder="描述你的行动..." />
         
         <div class="flex flex-col gap-1 justify-center">
            <button @click="undoTurn" :disabled="gameStore.isProcessing" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded text-[10px] border border-slate-700 transition disabled:opacity-50" title="撤回">⏪</button>

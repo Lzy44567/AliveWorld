@@ -30,6 +30,7 @@ const doReroll = async () => {
     });
     gameStore.chatLog = res.chat_messages;
     gameStore.syncState(res.state);
+    gameStore.setActionSuggestions(res.action_suggestions);
     
     // 自动滚动到底部
     setTimeout(() => {

@@ -35,6 +35,7 @@ const initWorldState = async () => {
     const newMsgs = res.chat_messages.filter(m => m.role !== 'user');
     gameStore.chatLog.push(...newMsgs);
     gameStore.syncState(res.state);
+    gameStore.setActionSuggestions(res.action_suggestions);
   } catch (err) { uiStore.showToast("初始化失败", "error");
   } finally { gameStore.isProcessing = false; }
 };
