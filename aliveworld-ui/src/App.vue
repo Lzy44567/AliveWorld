@@ -1,12 +1,12 @@
 <script setup>
 import { onMounted } from 'vue';
-import { uiStore } from './store/uiStore';
 import { assetStore } from './store/assetStore'; // 引入 assetStore
 import TopNav from './components/layout/TopNav.vue';
 import LeftRadar from './components/layout/LeftRadar.vue';
 import ChatBoard from './components/chat/ChatBoard.vue';
 import RightDrawer from './components/layout/RightDrawer.vue';
 import AllModals from './components/modals/AllModals.vue';
+import ToastNotice from './components/common/ToastNotice.vue';
 
 // [新增] 界面挂载时自动拉取数据
 onMounted(() => {
@@ -29,17 +29,7 @@ onMounted(() => {
 
     <AllModals />
     
-    <!-- 🚀 极其优雅的 Toast 飘字组件 -->
-    <div 
-      class="fixed top-16 left-1/2 -translate-x-1/2 px-6 py-3 rounded-full shadow-2xl font-bold text-sm transition-all duration-300 z-[100] flex items-center gap-2"
-      :class="[
-        uiStore.toast.show ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-10 pointer-events-none',
-        uiStore.toast.type === 'error' ? 'bg-rose-600 text-white' : 'bg-emerald-500 text-slate-950'
-      ]"
-    >
-      <span>{{ uiStore.toast.type === 'error' ? '⚠️' : '✨' }}</span>
-      {{ uiStore.toast.message }}
-    </div>
+    <ToastNotice />
   </div>
 </template>
 

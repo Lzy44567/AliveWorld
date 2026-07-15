@@ -3,6 +3,8 @@
 
 import { reactive } from 'vue';
 
+let toastTimer = null;
+
 export const uiStore = reactive({
   leftDrawerOpen: true,
   rightDrawerOpen: true,
@@ -35,9 +37,10 @@ export const uiStore = reactive({
   toast: { show: false, message: "", type: "success" },
   
   showToast(message, type = "success") {
+    if (toastTimer) clearTimeout(toastTimer);
     this.toast.message = message;
     this.toast.type = type;
     this.toast.show = true;
-    setTimeout(() => { this.toast.show = false; }, 3000);
+    toastTimer = setTimeout(() => { this.toast.show = false; toastTimer = null; }, 3000);
   }
 });
