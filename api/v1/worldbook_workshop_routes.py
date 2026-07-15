@@ -10,13 +10,12 @@ from core.worldbook_workshop import WorkshopError, WorldbookWorkshop
 from core.worldbook_workshop_agent import WorldbookWorkshopAgent
 from core.worldbook_embeddings import embedding_manager
 from core.worldbook import normalize_worldbook
+from core.worldbook_workshop_registry import WORKSHOP_DIR, active_workshops
 from utils.asset_catalog import resolve_asset_path
 from utils.file_io import DATA_DIR, WORLD_DIR
 
 
 router = APIRouter()
-WORKSHOP_DIR = Path(DATA_DIR) / "workshops"
-active_workshops: Dict[str, WorldbookWorkshop] = {}
 
 
 class StartWorkshopRequest(BaseModel):

@@ -87,5 +87,13 @@ export const gameApi = {
     const res = await fetch(`${API_URL}/${sessionId}/assets/${assetType}/${assetName}`, { method: 'DELETE' });
     if (!res.ok) throw new Error("删除失败");
     return res.json();
+  },
+  async lifecycleLocalAsset(sessionId, assetType, assetName, action, newName) {
+    const res = await fetch(`${API_URL}/${sessionId}/assets/${assetType}/${encodeURIComponent(assetName)}/${action}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ new_name: newName })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || `${action === 'clone' ? '克隆' : '重命名'}失败`);
+    return data;
   }
 };

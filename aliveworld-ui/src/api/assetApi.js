@@ -44,5 +44,23 @@ export const assetApi = {
     const res = await fetch(`${BASE_URL}/assets/${type}/${encodeURIComponent(name)}`, { method: 'DELETE' });
     if (!res.ok) throw new Error("删除资产失败");
     return await res.json();
+  },
+
+  async lifecycleSave(saveName, action, newName) {
+    const res = await fetch(`${BASE_URL}/saves/${encodeURIComponent(saveName)}/${action}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ new_name: newName })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || `${action === 'clone' ? '克隆' : '重命名'}存档失败`);
+    return data;
+  },
+
+  async lifecycleAsset(type, name, action, newName) {
+    const res = await fetch(`${BASE_URL}/assets/${type}/${encodeURIComponent(name)}/${action}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ new_name: newName })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || `${action === 'clone' ? '克隆' : '重命名'}失败`);
+    return data;
   }
 };

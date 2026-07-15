@@ -14,6 +14,8 @@ from core.worldbook import normalize_worldbook, save_worldbook_atomic
 from core.image_generation.runtime import get_image_runtime
 from core.image_generation.portrait import task_is_local_portrait
 from core.image_generation.service import ImageTaskError
+from core.asset_lifecycle import AssetLifecycleError, clone_yaml_asset, find_yaml_asset, normalize_asset_name, rename_yaml_asset
+from core.worldbook_workshop_registry import retarget_workshops
 
 router = APIRouter()
 
@@ -30,6 +32,9 @@ class PullAssetRequest(BaseModel):
 
 class LocalAssetUpdatePayload(BaseModel):
     parsed_data: Dict[str, Any]
+
+class LocalAssetLifecyclePayload(BaseModel):
+    new_name: str
 
 @router.get("/{session_id}/local_assets")
 def get_local_assets(session_id: str):
@@ -146,3 +151,50 @@ def delete_local_asset(session_id: str, asset_type: str, asset_name: str):
         except Exception as e:
             raise HTTPException(status_code=500, detail="无法删除本地副本")
     raise HTTPException(status_code=404, detail="本局专属库未找到此文件")
+
+def _refresh_after_lifecycle(game, asset_type, old_name="", new_name=""):
+    if asset_type == "entities":
+        if old_name and new_name:
+            for influence in game.undercurrent.causal_ledger.influences:
+                for link in influence.source_links:
+                    if link.get("entity") == old_name:
+                        link["entity"] = new_name
+        game.undercurrent.entities = game.entity_repository.load()
+        game.undercurrent.sync_influence_refs()
+        game.entity_repository.synchronize(game.undercurrent.entities)
+    save_game_data(game.save_dir_path, game.export_save_data())
+
+@router.post("/{session_id}/assets/{asset_type}/{asset_name}/clone")
+def clone_local_asset(session_id: str, asset_type: str, asset_name: str, payload: LocalAssetLifecyclePayload):
+    game = active_sessions.get(session_id)
+    if not game or not game.save_dir_path:
+        raise HTTPException(status_code=404, detail="会话失效")
+    if asset_type not in DIR_MAP:
+        raise HTTPException(status_code=400, detail="未知的资产类型")
+    local_dir = os.path.join(game.save_dir_path, asset_type)
+    try:
+        new_name = normalize_asset_name(payload.new_name)
+        target = clone_yaml_asset(local_dir, asset_name, new_name, worldbook=asset_type == "worldbooks")
+        _refresh_after_lifecycle(game, asset_type)
+        return {"status": "success", "name": new_name, "path": str(target)}
+    except AssetLifecycleError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+@router.post("/{session_id}/assets/{asset_type}/{asset_name}/rename")
+def rename_local_asset(session_id: str, asset_type: str, asset_name: str, payload: LocalAssetLifecyclePayload):
+    game = active_sessions.get(session_id)
+    if not game or not game.save_dir_path:
+        raise HTTPException(status_code=404, detail="会话失效")
+    if asset_type not in DIR_MAP:
+        raise HTTPException(status_code=400, detail="未知的资产类型")
+    local_dir = os.path.join(game.save_dir_path, asset_type)
+    try:
+        new_name = normalize_asset_name(payload.new_name)
+        source = find_yaml_asset(local_dir, asset_name)
+        target = rename_yaml_asset(local_dir, asset_name, new_name, worldbook=asset_type == "worldbooks")
+        if asset_type == "worldbooks" and source:
+            retarget_workshops(source, target)
+        _refresh_after_lifecycle(game, asset_type, asset_name, new_name)
+        return {"status": "success", "name": new_name, "path": str(target)}
+    except AssetLifecycleError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc

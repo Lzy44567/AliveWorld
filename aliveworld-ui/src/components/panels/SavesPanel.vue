@@ -10,9 +10,11 @@ import { gameApi } from '../../api/gameApi';
 import { assetApi } from '../../api/assetApi';
 import { configStore } from '../../store/configStore';
 import { useDeleteConfirmation } from '../../composables/useDeleteConfirmation';
+import AssetLifecycleModal from '../modals/AssetLifecycleModal.vue';
 
 const searchSaveKeyword = ref("");
 const { confirmDeleteId, requestDelete, cancelDelete } = useDeleteConfirmation();
+const lifecycle = ref({ open: false, action: 'clone', save: null });
 
 const filteredSaves = computed(() => {
   if (!searchSaveKeyword.value) return assetStore.saves;
@@ -65,6 +67,26 @@ const executeDelete = async (saveName) => {
     alert("档案粉碎失败，请检查后端运行状态。");
   }
 };
+
+const openLifecycle = (save, action) => {
+  lifecycle.value = { open: true, action, save };
+};
+
+const confirmLifecycle = async (newName) => {
+  const { save, action } = lifecycle.value;
+  if (!save) return;
+  try {
+    const result = await assetApi.lifecycleSave(save.name, action, newName);
+    if (action === 'rename' && gameStore.currentSaveName === save.name) {
+      gameStore.currentSaveName = result.name;
+    }
+    lifecycle.value = { open: false, action: 'clone', save: null };
+    await assetStore.fetchAssets();
+    uiStore.showToast(`${action === 'clone' ? '克隆' : '重命名'}存档完成：${result.name}`);
+  } catch (error) {
+    uiStore.showToast(error.message || '存档操作失败', 'error');
+  }
+};
 </script>
 
 <template>
@@ -100,6 +122,8 @@ const executeDelete = async (saveName) => {
         <!-- 操作按钮栏 -->
         <div class="flex gap-2 relative">
           <button @click="loadSave(save.name)" class="flex-1 bg-indigo-600/20 hover:bg-indigo-600 text-indigo-300 hover:text-white text-[10px] py-1.5 rounded font-bold transition">▶ 唤醒</button>
+          <button @click="openLifecycle(save, 'rename')" class="w-9 rounded border border-slate-700 bg-slate-800 text-[10px] text-slate-300 hover:bg-slate-700" title="重命名">✍️</button>
+          <button @click="openLifecycle(save, 'clone')" class="w-9 rounded border border-cyan-800/60 bg-cyan-950/40 text-[10px] text-cyan-300 hover:bg-cyan-800/70" title="克隆存档">⎘</button>
           
           <!-- 常规的垃圾桶按钮 -->
           <button v-if="confirmDeleteId !== save.name" @click="requestDelete(save.name)" class="w-10 bg-rose-900/30 hover:bg-rose-600 text-rose-400 hover:text-white rounded transition text-xs border border-rose-900/50 flex items-center justify-center">
@@ -116,5 +140,6 @@ const executeDelete = async (saveName) => {
       </div>
     </div>
     </div>
+    <AssetLifecycleModal :open="lifecycle.open" :action="lifecycle.action" :current-name="lifecycle.save?.name || ''" kind-label="存档" @cancel="lifecycle={ open:false, action:'clone', save:null }" @confirm="confirmLifecycle" />
   </div>
 </template>

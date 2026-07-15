@@ -4,6 +4,7 @@
 import os
 import yaml
 import shutil
+from pathlib import Path
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional, Dict, Any
@@ -12,6 +13,13 @@ from utils.asset_catalog import list_asset_names, list_asset_summaries, personal
 from utils.sys_logger import read_logs_parsed
 from core.prompts import PROMPT_FILE, load_system_prompts
 from core.worldbook import normalize_worldbook, save_worldbook_atomic
+from core.asset_lifecycle import AssetLifecycleError, clone_yaml_asset, normalize_asset_name, rename_yaml_asset
+from core.save_lifecycle import clone_save, rename_save
+from core.session_manager import active_sessions
+from core.entity_repository import EntityRepository
+from core.image_generation.models import TERMINAL_STATUSES
+from core.image_generation.repository import ImageTaskRepository
+from core.worldbook_workshop_registry import retarget_workshops
 
 router = APIRouter()
 
@@ -29,6 +37,9 @@ class AssetPayload(BaseModel):
 
 class SavePromptsPayload(BaseModel):
     prompts: Dict[str, str]
+
+class AssetLifecyclePayload(BaseModel):
+    new_name: str
 
 @router.get("/assets")
 async def get_lobby_assets():
@@ -107,6 +118,73 @@ async def delete_asset(asset_type: str, asset_name: str):
     if resolve_template_path(asset_type, asset_name):
         raise HTTPException(status_code=403, detail="受控模板不能从个人资产库删除")
     raise HTTPException(status_code=404, detail="无法删除")
+
+@router.post("/assets/{asset_type}/{asset_name}/clone")
+async def clone_asset(asset_type: str, asset_name: str, payload: AssetLifecyclePayload):
+    if asset_type not in DIR_MAP:
+        raise HTTPException(status_code=400, detail="未知的资产类型")
+    try:
+        new_name = normalize_asset_name(payload.new_name)
+        if resolve_asset_path(asset_type, new_name):
+            raise AssetLifecycleError(f"已存在同名资产“{new_name}”")
+        source = resolve_asset_path(asset_type, asset_name)
+        target = clone_yaml_asset(DIR_MAP[asset_type], asset_name, new_name, worldbook=asset_type == "worldbooks", source_path=source)
+        return {"status": "success", "name": new_name, "path": str(target)}
+    except AssetLifecycleError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+@router.post("/assets/{asset_type}/{asset_name}/rename")
+async def rename_asset(asset_type: str, asset_name: str, payload: AssetLifecyclePayload):
+    if asset_type not in DIR_MAP:
+        raise HTTPException(status_code=400, detail="未知的资产类型")
+    try:
+        new_name = normalize_asset_name(payload.new_name)
+        conflict = resolve_asset_path(asset_type, new_name)
+        source = resolve_asset_path(asset_type, asset_name)
+        if conflict and source and conflict.resolve() != source.resolve():
+            raise AssetLifecycleError(f"已存在同名资产“{new_name}”")
+        target = rename_yaml_asset(DIR_MAP[asset_type], asset_name, new_name, worldbook=asset_type == "worldbooks")
+        if asset_type == "worldbooks" and source:
+            retarget_workshops(source, target)
+        return {"status": "success", "name": new_name, "path": str(target)}
+    except AssetLifecycleError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+@router.post("/saves/{save_name}/clone")
+async def clone_save_route(save_name: str, payload: AssetLifecyclePayload):
+    saves = get_all_saves()
+    if save_name not in saves:
+        raise HTTPException(status_code=404, detail="存档不存在")
+    try:
+        new_name = normalize_asset_name(payload.new_name)
+        target = clone_save(saves[save_name]["_save_dir"], new_name)
+        return {"status": "success", "name": new_name, "path": str(target)}
+    except AssetLifecycleError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+@router.post("/saves/{save_name}/rename")
+async def rename_save_route(save_name: str, payload: AssetLifecyclePayload):
+    saves = get_all_saves()
+    if save_name not in saves:
+        raise HTTPException(status_code=404, detail="存档不存在")
+    source_dir = saves[save_name]["_save_dir"]
+    # Renaming while an image task is running would invalidate the runner's paths.
+    for game in active_sessions.values():
+        if Path(game.save_dir_path).resolve() == Path(source_dir).resolve():
+            if any(task.status not in TERMINAL_STATUSES for task in ImageTaskRepository(source_dir).list()):
+                raise HTTPException(status_code=409, detail="当前存档仍有生图任务运行，请完成或取消后重命名")
+    try:
+        new_name = normalize_asset_name(payload.new_name)
+        target = rename_save(source_dir, new_name)
+        retarget_workshops(source_dir, target, recursive=True)
+        for game in active_sessions.values():
+            if Path(game.save_dir_path).resolve() == Path(source_dir).resolve():
+                game.save_name = new_name
+                game.save_dir_path = str(target)
+                game.entity_repository = EntityRepository(target)
+        return {"status": "success", "name": new_name, "path": str(target)}
+    except AssetLifecycleError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 @router.get("/logs")
 async def get_system_logs():
