@@ -94,6 +94,9 @@ class WorldbookWorkshopTests(unittest.TestCase):
             loaded.publish()
             self.assertTrue(loaded.published)
             self.assertFalse(loaded.dirty)
+            loaded.apply_operations([{"op": "update_overview", "overview": "发布后的新草稿"}])
+            self.assertFalse(loaded.published)
+            self.assertTrue(loaded.dirty)
 
     def test_proposal_is_validated_persisted_and_does_not_modify_draft(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -107,6 +110,35 @@ class WorldbookWorkshopTests(unittest.TestCase):
             self.assertEqual(len(loaded.proposed), 1)
             loaded.clear_proposal()
             self.assertEqual(loaded.proposed, [])
+
+    def test_noop_header_autosave_does_not_create_dirty_draft(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workshop = self.make_workshop(temp_dir)
+            result = workshop.apply_operations([
+                {"op": "update_overview", "overview": workshop.draft.get("overview", "")},
+                {"op": "set_axioms", "axioms": workshop.draft.get("axioms", [])},
+            ], confirm_high_risk=True)
+            self.assertEqual(result["applied"], [])
+            self.assertFalse(workshop.dirty)
+            self.assertEqual(workshop.snapshots, [])
+
+    def test_source_revision_detects_external_editor_changes(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workshop = self.make_workshop(temp_dir)
+            self.assertTrue(workshop.is_based_on(workshop.draft))
+            edited = dict(workshop.draft)
+            edited["entries"] = [*workshop.draft["entries"], {"name": "编辑页新增", "content": "新内容"}]
+            self.assertFalse(workshop.is_based_on(edited))
+
+    def test_suggestions_and_source_revision_persist(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workshop = self.make_workshop(temp_dir)
+            workshop.suggested_actions = ["继续讨论学校"]
+            session_path = workshop.save_session(Path(temp_dir) / "sessions")
+            import json
+            loaded = WorldbookWorkshop.from_dict(json.loads(session_path.read_text(encoding="utf-8")))
+            self.assertEqual(loaded.suggested_actions, ["继续讨论学校"])
+            self.assertTrue(loaded.is_based_on(workshop.draft))
 
 
 if __name__ == "__main__":

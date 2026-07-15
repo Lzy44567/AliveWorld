@@ -6,7 +6,7 @@ import WorldbookEntryEditorModal from './WorldbookEntryEditorModal.vue';
 import InlineDeleteConfirm from '../common/InlineDeleteConfirm.vue';
 
 const props = defineProps({ draft: { type: Object, required: true }, editingEntry: { type: Object, default: null } });
-const emit = defineEmits(['addEntry', 'editEntry', 'cancelEdit', 'saveEntry', 'toggleEntry', 'deleteEntry', 'askAi']);
+const emit = defineEmits(['addEntry', 'editEntry', 'cancelEdit', 'saveEntry', 'toggleEntry', 'deleteEntry', 'askAi', 'askAiAxiom']);
 const overview = defineModel('overview', { type: String, default: '' });
 const axioms = defineModel('axioms', { type: String, default: '' });
 const tab = ref('overview');
@@ -35,7 +35,7 @@ const confirmDelete = (entry) => { emit('deleteEntry', entry); cancelDelete(); }
       <section v-else-if="tab === 'axioms'">
         <h3 class="font-bold text-amber-300">世界公理</h3><p class="mt-1 text-[10px] text-slate-500">每行一条，描述世界内部真实成立的底层规则。可以输入 1.、1、或项目符号，保存时会自动标准化。</p>
         <ExpandableTextarea v-model="axioms" label="工坊世界公理" textarea-class="mt-3 h-64 rounded border border-amber-900/60 bg-slate-900 p-3 text-xs text-slate-300" />
-        <div v-if="axiomPreview.length" class="mt-3 rounded-lg border border-amber-900/40 bg-amber-950/15 p-3"><div class="mb-2 text-[10px] font-bold text-amber-300">编号预览</div><ol class="list-decimal space-y-1 pl-5 text-xs leading-relaxed text-slate-300"><li v-for="item in axiomPreview" :key="item">{{ item }}</li></ol></div>
+        <div v-if="axiomPreview.length" class="mt-3 rounded-lg border border-amber-900/40 bg-amber-950/15 p-3"><div class="mb-2 text-[10px] font-bold text-amber-300">结构化公理</div><ol class="list-decimal space-y-2 pl-5 text-xs leading-relaxed text-slate-300"><li v-for="(item,index) in axiomPreview" :key="`${index}-${item}`"><div class="flex items-start justify-between gap-2"><span>{{ item }}</span><button @click="emit('askAiAxiom',item,index)" class="shrink-0 rounded bg-violet-900/60 px-2 py-0.5 text-[9px] text-violet-300">让AI讨论修改</button></div></li></ol></div>
         <p class="mt-3 text-[10px] text-emerald-400">停止输入后自动保存到工坊草稿</p>
       </section>
       <section v-else>

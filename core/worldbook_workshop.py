@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 import uuid
 from datetime import datetime, timezone
@@ -17,6 +18,13 @@ ALLOWED_OPERATIONS = {"add_entry", "update_entry", "deactivate_entry", "request_
 
 class WorkshopError(ValueError):
     pass
+
+
+def worldbook_revision(source: dict[str, Any]) -> str:
+    """Return a stable revision for comparing a workshop with its source file."""
+    normalized = normalize_worldbook(copy.deepcopy(source))
+    encoded = json.dumps(normalized, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
 
 
 def _find_entry(book: dict[str, Any], entry_id: str) -> tuple[int, dict[str, Any]]:
@@ -47,16 +55,20 @@ class WorldbookWorkshop:
         self.id = workshop_id
         self.target_path = Path(target_path)
         self.draft = normalize_worldbook(copy.deepcopy(source))
+        self.source_revision = worldbook_revision(source)
         self.snapshots: list[dict[str, Any]] = []
         self.pending: list[dict[str, Any]] = []
         self.proposed: list[dict[str, Any]] = []
         self.messages: list[dict[str, str]] = []
+        self.suggested_actions: list[str] = []
         self.dirty = False
         self.published = False
         self.updated_at = datetime.now(timezone.utc).isoformat()
 
     def touch(self, *, dirty: bool = True) -> None:
         self.dirty = self.dirty or dirty
+        if dirty:
+            self.published = False
         self.updated_at = datetime.now(timezone.utc).isoformat()
 
     def _snapshot(self) -> None:
@@ -91,6 +103,8 @@ class WorldbookWorkshop:
         validated = [self._validate(item) for item in operations]
         applied, pending = [], []
         for operation in validated:
+            if not self._would_change(operation):
+                continue
             if _is_high_risk(self.draft, operation) and not confirm_high_risk:
                 self.pending.append(operation)
                 pending.append(operation)
@@ -102,6 +116,30 @@ class WorldbookWorkshop:
         if applied or pending:
             self.touch()
         return {"applied": applied, "pending": pending, "draft": copy.deepcopy(self.draft)}
+
+    def _would_change(self, operation: dict[str, Any]) -> bool:
+        op = operation["op"]
+        if op == "update_overview":
+            return self.draft.get("overview", "") != operation["overview"]
+        if op == "set_axioms":
+            return self.draft.get("axioms", []) != normalize_axioms(operation["axioms"])
+        if op == "add_entry":
+            return True
+        _, current = _find_entry(self.draft, operation["entry_id"])
+        if op == "update_entry":
+            allowed = {"name", "keys", "content", "tags", "is_active"}
+            updated = dict(current)
+            updated.update({key: value for key, value in operation["changes"].items() if key in allowed})
+            updated["id"] = current["id"]
+            return normalize_entry(updated) != current
+        if op == "deactivate_entry":
+            return current.get("is_active", True) is not False
+        if op == "request_delete":
+            return current.get("is_active", True) is not False or "待删除" not in normalize_tags(current.get("tags", []))
+        return op == "delete_entry"
+
+    def is_based_on(self, source: dict[str, Any]) -> bool:
+        return self.source_revision == worldbook_revision(source)
 
     def propose_operations(self, operations: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Validate and persist an AI plan without mutating the worldbook draft."""
@@ -175,6 +213,7 @@ class WorldbookWorkshop:
     def publish(self, output_path: Path | None = None) -> Path:
         path = Path(output_path or self.target_path)
         save_worldbook_atomic(path, self.draft)
+        self.source_revision = worldbook_revision(self.draft)
         self.published = True
         self.dirty = False
         self.touch(dirty=False)
@@ -189,6 +228,8 @@ class WorldbookWorkshop:
             "pending": self.pending,
             "proposed": self.proposed,
             "messages": self.messages,
+            "suggested_actions": self.suggested_actions,
+            "source_revision": self.source_revision,
             "dirty": self.dirty,
             "published": self.published,
             "updated_at": self.updated_at,
@@ -207,6 +248,10 @@ class WorldbookWorkshop:
         workshop.pending = data.get("pending", [])
         workshop.proposed = data.get("proposed", [])
         workshop.messages = data.get("messages", [])
+        workshop.suggested_actions = data.get("suggested_actions", [])
+        # Legacy sessions did not record their source. Treat their saved draft as
+        # the old source so a newer edited file will not be silently shadowed.
+        workshop.source_revision = str(data.get("source_revision") or worldbook_revision(data.get("draft", {})))
         workshop.dirty = bool(data.get("dirty", False))
         workshop.published = bool(data.get("published", False))
         workshop.updated_at = str(data.get("updated_at") or workshop.updated_at)

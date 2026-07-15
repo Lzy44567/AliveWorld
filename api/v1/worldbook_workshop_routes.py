@@ -82,15 +82,12 @@ def _get(workshop_id: str) -> WorldbookWorkshop:
 
 
 def _payload(workshop: WorldbookWorkshop):
-    return {"workshop_id": workshop.id, "draft": workshop.draft, "pending": workshop.pending, "proposed": workshop.proposed, "messages": workshop.messages, "dirty": workshop.dirty, "published": workshop.published, "updated_at": workshop.updated_at}
+    return {"workshop_id": workshop.id, "draft": workshop.draft, "pending": workshop.pending, "proposed": workshop.proposed, "messages": workshop.messages, "suggested_actions": workshop.suggested_actions, "dirty": workshop.dirty, "published": workshop.published, "updated_at": workshop.updated_at}
 
 
-def _find_resumable(target_path: Path) -> WorldbookWorkshop | None:
+def _find_resumable(target_path: Path, current_book: dict[str, Any]) -> tuple[WorldbookWorkshop | None, int]:
     candidates = []
-    try:
-        current_book = normalize_worldbook(yaml.safe_load(target_path.read_text(encoding="utf-8")) or {})
-    except (OSError, yaml.YAMLError):
-        current_book = {}
+    stale_count = 0
     if WORKSHOP_DIR.exists():
         import json
         for path in WORKSHOP_DIR.glob("*.json"):
@@ -98,10 +95,13 @@ def _find_resumable(target_path: Path) -> WorldbookWorkshop | None:
                 item = WorldbookWorkshop.from_dict(json.loads(path.read_text(encoding="utf-8")))
                 has_unpublished_changes = item.dirty or normalize_worldbook(item.draft) != current_book
                 if item.target_path.resolve() == target_path.resolve() and not item.published and has_unpublished_changes:
-                    candidates.append(item)
+                    if item.is_based_on(current_book):
+                        candidates.append(item)
+                    else:
+                        stale_count += 1
             except (OSError, ValueError, KeyError):
                 continue
-    return max(candidates, key=lambda item: item.updated_at) if candidates else None
+    return (max(candidates, key=lambda item: item.updated_at) if candidates else None, stale_count)
 
 
 @router.post("/workshops/start")
@@ -123,15 +123,16 @@ def start_workshop(payload: StartWorkshopRequest):
         source_path = resolve_asset_path("worldbooks", payload.worldbook_name)
     if not source_path:
         raise HTTPException(status_code=404, detail="世界书不存在")
-    resumed = _find_resumable(source_path)
+    source = yaml.safe_load(source_path.read_text(encoding="utf-8")) or {}
+    current_book = normalize_worldbook(source)
+    resumed, stale_count = _find_resumable(source_path, current_book)
     if resumed:
         active_workshops[resumed.id] = resumed
-        return {**_payload(resumed), "resumed": True}
-    source = yaml.safe_load(source_path.read_text(encoding="utf-8")) or {}
+        return {**_payload(resumed), "resumed": True, "stale_drafts_preserved": stale_count}
     workshop = WorldbookWorkshop(str(uuid.uuid4()), source_path, source)
     active_workshops[workshop.id] = workshop
     workshop.save_session(WORKSHOP_DIR)
-    return {**_payload(workshop), "resumed": False}
+    return {**_payload(workshop), "resumed": False, "stale_drafts_preserved": stale_count}
 
 
 @router.get("/workshops/{workshop_id}")

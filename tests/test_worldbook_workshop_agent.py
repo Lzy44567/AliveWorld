@@ -44,6 +44,17 @@ class WorldbookWorkshopAgentTests(unittest.TestCase):
             self.assertEqual(result["proposed"][0]["entry"]["name"], "学校")
             self.assertIn("设计依据", result["message"])
             self.assertIn("只讨论与提案", ai.requests[0][1])
+            self.assertIn("连续对话", ai.requests[0][0])
+
+    def test_pure_discussion_can_return_without_operations(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workshop = WorldbookWorkshop("test", Path(temp_dir) / "book.yml", {"name": "世界", "entries": []})
+            ai = FakeAI('{"collaboration_stage":"design","understanding":"正在比较两种规则","design_notes":["尚未达成一致"],"message":"建议先确认代价边界","operations":[],"suggested_actions":["比较方案甲乙"]}')
+            result = WorldbookWorkshopAgent(ai).respond(workshop, "哪个方案更好", "evolve")
+            self.assertEqual(result["collaboration_stage"], "design")
+            self.assertEqual(result["proposed"], [])
+            self.assertEqual(workshop.draft["entries"], [])
+            self.assertEqual(workshop.suggested_actions, ["比较方案甲乙"])
 
 
 if __name__ == "__main__":
