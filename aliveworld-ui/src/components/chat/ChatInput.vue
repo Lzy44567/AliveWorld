@@ -1,6 +1,6 @@
 <!-- src/components/chat/ChatInput.vue -->
 <script setup>
-import { nextTick, ref, watch } from 'vue';
+import { ref, watch } from 'vue';
 import { gameStore } from '../../store/gameStore';
 import { configStore, effectiveStorySettings } from '../../store/configStore';
 import { gameApi } from '../../api/gameApi';
@@ -8,13 +8,6 @@ import { assetStore } from '../../store/assetStore';
 
 const userInput = ref("");
 const lastAction = ref("");
-const actionInput = ref(null);
-
-const chooseSuggestion = async (suggestion) => {
-  userInput.value = suggestion;
-  await nextTick();
-  actionInput.value?.focus();
-};
 watch(() => effectiveStorySettings.value.aiSuggestions, (enabled) => {
   if (!enabled) gameStore.setActionSuggestions([]);
 });
@@ -100,14 +93,14 @@ const scrollToBottom = () => {
   <div class="w-full p-4 md:p-6 bg-aw_bg border-t border-slate-700 z-20 shrink-0 shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
     <div class="max-w-4xl mx-auto flex flex-col gap-2">
       
-      <div class="flex gap-2 px-1 mb-1 overflow-x-auto custom-scrollbar" v-if="effectiveStorySettings.aiSuggestions && !gameStore.isProcessing && gameStore.sessionId && gameStore.aiSuggestions.length > 0">
-        <button v-for="(sug, idx) in gameStore.aiSuggestions" :key="`${idx}-${sug}`" @click="chooseSuggestion(sug)" class="px-4 py-2 text-xs font-bold bg-slate-800/80 hover:bg-emerald-600/80 text-slate-300 hover:text-white border border-slate-600 hover:border-emerald-500 rounded-full transition whitespace-nowrap backdrop-blur shadow-lg" title="填入输入框，可修改后发送">
-          💡 {{ sug }}
+      <div class="grid grid-cols-1 gap-2 px-1 mb-1 md:grid-cols-2" v-if="effectiveStorySettings.aiSuggestions && !gameStore.isProcessing && gameStore.sessionId && gameStore.aiSuggestions.length > 0">
+        <button v-for="(sug, idx) in gameStore.aiSuggestions" :key="`${idx}-${sug}`" @click="submitAction(sug)" class="flex min-w-0 items-start gap-2 rounded-xl border border-slate-600 bg-slate-800/80 px-3 py-2 text-left text-xs font-bold leading-relaxed text-slate-300 shadow-lg backdrop-blur transition hover:border-emerald-500 hover:bg-emerald-600/80 hover:text-white" :title="`点击直接执行选项 ${String.fromCharCode(65 + idx)}`">
+          <span class="shrink-0 rounded bg-indigo-900/80 px-1.5 py-0.5 text-indigo-200">{{ String.fromCharCode(65 + idx) }}</span><span>{{ sug }}</span>
         </button>
       </div>
 
       <div class="relative flex gap-3 drop-shadow-2xl">
-        <input ref="actionInput" v-model="userInput" @keyup.enter="submitAction()" :disabled="!gameStore.sessionId" class="flex-1 bg-slate-900 border border-slate-600 rounded-xl px-5 py-4 outline-none focus:border-indigo-500 text-slate-100 placeholder-slate-500 shadow-inner text-base" placeholder="描述你的行动..." />
+        <input v-model="userInput" @keyup.enter="submitAction()" :disabled="!gameStore.sessionId" class="flex-1 bg-slate-900 border border-slate-600 rounded-xl px-5 py-4 outline-none focus:border-indigo-500 text-slate-100 placeholder-slate-500 shadow-inner text-base" placeholder="描述你的行动，或输入 A / 1 并补充要求..." />
         
         <div class="flex flex-col gap-1 justify-center">
            <button @click="undoTurn" :disabled="gameStore.isProcessing" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded text-[10px] border border-slate-700 transition disabled:opacity-50" title="撤回">⏪</button>

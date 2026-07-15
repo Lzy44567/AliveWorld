@@ -39,7 +39,6 @@ settlement_prompt: |
   5. resolved_influences 只报告实际写入正文的影响 ID 和表现结果。没有要求兑现的影响时返回空数组。
   6. 正文按叙事结构换行：场景、时间、行动主体或叙事焦点明显变化时另起自然段；人物直接说话应独立成段，不与大段动作描写挤在一起；同一连续动作保持在同一段，禁止每句话机械换行。JSON 字符串内用 \n\n 表示段落间隔。
   7. worldbook_capture_needed 只判断本回合是否明确建立了值得长期约束多个未来场景的新世界设定。新的法律、制度、社会习俗、自然规律、通用技术或魔法规则可为 true；一次性事件、单件道具、角色行动、地点临时变化、已有设定的普通表现必须为 false。不要为了让世界书有所变化而返回 true。
-  8. action_suggestions 只根据本轮已经写出的正文、玩家可见状态和已知信息，给出 2-4 个实质不同、可立即采取的玩家行动。不得泄露隐藏暗流、未触发陷阱、幕后计划或未选中的未来候选；建议不是保证发生的剧情结果。
 
   【严格 JSON 格式】
   {
@@ -51,8 +50,7 @@ settlement_prompt: |
     "npc_states": {},
     "status_deletions": [],
     "resolved_influences": [{"id": "本回合被要求兑现的影响ID", "result": "该影响在正文中的实际表现"}],
-    "worldbook_capture_needed": false,
-    "action_suggestions": ["观察周围并寻找线索", "向眼前角色询问情况"]
+    "worldbook_capture_needed": false
   }
 world_architect_prompt: '创建世界观。输出JSON: {"name": "世界名称", "global_setting": "法则", "starting_scene":
   "开场", "entries": [ {"name": "势力", "keys": "词", "content": "设定"} ]}'

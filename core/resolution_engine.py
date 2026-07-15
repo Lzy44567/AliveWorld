@@ -65,7 +65,9 @@ class DualTrackResolver(BaseResolutionStrategy):
         # 2. 剧情结算
         visible_world, _ = session.build_visible_world_info(player_action)
         settle_p = pts.get('settlement_prompt', '').replace('{world_info}', visible_world).replace('{character_info}', session.char_info).replace('{style_info}', session.style_info).replace('{word_limit}', str(session.word_limit))
-        settle_p += "\n\n【玩家行动建议要求】\n" + action_suggestion_instruction(session.story_settings.get("aiSuggestions", True))
+        suggestion_prompt = action_suggestion_instruction(session.story_settings.get("aiSuggestions", True))
+        if suggestion_prompt:
+            settle_p += "\n\n【玩家行动建议要求】\n" + suggestion_prompt
         influence_instruction = "（本回合没有满足条件的暗流影响）"
         if triggered_influences:
             influence_instruction = "\n".join(

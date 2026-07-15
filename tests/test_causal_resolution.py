@@ -73,6 +73,19 @@ class CausalResolutionTests(unittest.TestCase):
         self.assertEqual(len(ai.requests), 2)
         self.assertEqual(result["settlement"]["action_suggestions"], ["观察广场", "询问路人"])
 
+    def test_disabled_suggestions_add_no_related_prompt_text(self):
+        ledger = CausalLedger()
+        ai = SequenceAI([
+            '{"reactions":[{"id":1,"description":"等待","weight":100}],"influence_checks":[]}',
+            '{"story_text":"时间经过。","resolved_influences":[]}',
+        ])
+        session = FakeSession(ai, ledger)
+        session.story_settings["aiSuggestions"] = False
+        with patch("core.resolution_engine.load_system_prompts", return_value={"reaction_prompt": "{world_info}", "settlement_prompt": "{style_info}\n{world_info}\n{character_info}\n结算"}):
+            DualTrackResolver().resolve(session, "等待")
+        self.assertNotIn("行动建议", ai.requests[1][0])
+        self.assertNotIn("action_suggestions", ai.requests[1][0])
+
     def test_non_matching_and_unknown_influences_are_not_passed(self):
         ledger = CausalLedger()
         influence = ledger.add({"summary": "远方陷阱", "condition": "进入森林", "effect": "陷阱触发"})

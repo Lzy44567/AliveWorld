@@ -12,7 +12,7 @@ from core.story_settings import normalize_story_settings
 from core.future_candidates import choose_candidate, normalize_candidates
 from core.worldbook_capture import WorldbookCaptureService, capture_requested
 from core.chat_messages import ensure_message_ids
-from core.action_suggestions import action_suggestion_instruction, normalize_action_suggestions
+from core.action_suggestions import action_suggestion_instruction, normalize_action_suggestions, resolve_action_reference
 from utils.sys_logger import get_logger
 
 log = get_logger()
@@ -87,9 +87,12 @@ class GameSession:
         self._take_snapshot()
         self.undercurrent.causal_ledger.advance_turn()
         self.history["chat_messages"].append({"role": "user", "content": user_action})
+        interpreted_action = resolve_action_reference(user_action, self.action_suggestions)
+        if interpreted_action != user_action:
+            log.info("玩家行动引用已展开: input=%s resolved=%s", user_action, interpreted_action)
         self._refresh_local_context()
         
-        result = self.resolver.resolve(self, user_action)
+        result = self.resolver.resolve(self, interpreted_action)
         if not result or result.get("error") or not result.get('settlement'):
             self.rollback()
             return result or {"error": True, "message": "推演未完成，本回合未保存。"}
@@ -117,8 +120,8 @@ class GameSession:
             })
         
         # 🚀 修复实体延迟1回合Bug：手动把当前回合刚发生的剧情喂给 Overseer
-        active_world, _ = self.build_active_world_info(user_action)
-        current_context = active_world + f"\n\n【本回合】\n玩家：{user_action}\n结果：{story_text}"
+        active_world, _ = self.build_active_world_info(interpreted_action)
+        current_context = active_world + f"\n\n【本回合】\n玩家：{interpreted_action}\n结果：{story_text}"
         world_time = str(settlement.get("status_updates", {}).get("当前时间") or self.state_mgr.state.get("properties", {}).get("当前时间", ""))
         events = self.undercurrent.tick(current_context, enabled=self.story_settings["entitiesEnabled"], world_time=world_time)
         
@@ -126,10 +129,10 @@ class GameSession:
         for ev in events: self.history["chat_messages"].append({"role": "undercurrent", "content": f"🌌 潜流涌动: {ev}"})
         
         self.state_mgr.apply_updates(settlement)
-        self.history["context_history"].append(f"玩家：{user_action}\n结果：{story_text}")
+        self.history["context_history"].append(f"玩家：{interpreted_action}\n结果：{story_text}")
         if self.story_settings["worldbookCaptureEnabled"] and capture_requested(settlement):
             self.worldbook_capture.schedule(
-                self.save_dir_path, user_action, story_text,
+                self.save_dir_path, interpreted_action, story_text,
                 review_all=self.story_settings["worldbookCaptureReview"],
             )
         return result
@@ -148,6 +151,7 @@ class GameSession:
         if not action or not reactions: return {"error": True}
         
         self.rollback()
+        interpreted_action = resolve_action_reference(action, self.action_suggestions)
         self._take_snapshot()
         self.undercurrent.causal_ledger.advance_turn()
         self.history["chat_messages"].append({"role": "user", "content": action})
@@ -160,18 +164,20 @@ class GameSession:
         self.history["chat_messages"].append({"role": "system", "content": f"命运变数: {chosen['description']}"})
         
         self._refresh_local_context()
-        active_world, _ = self.build_active_world_info(action)
+        active_world, _ = self.build_active_world_info(interpreted_action)
         
         from core.prompts import load_system_prompts
         pts = load_system_prompts()
-        visible_world, _ = self.build_visible_world_info(action)
+        visible_world, _ = self.build_visible_world_info(interpreted_action)
         settle_p = pts.get('settlement_prompt', '').replace('{world_info}', visible_world).replace('{character_info}', self.ctx_mgr.char_info).replace('{style_info}', self.ctx_mgr.style_info)
-        settle_p += "\n\n【玩家行动建议要求】\n" + action_suggestion_instruction(self.story_settings.get("aiSuggestions", True))
+        suggestion_prompt = action_suggestion_instruction(self.story_settings.get("aiSuggestions", True))
+        if suggestion_prompt:
+            settle_p += "\n\n【玩家行动建议要求】\n" + suggestion_prompt
         influence_instruction = "\n".join(
             f"- [{item['id']}] {item['summary']}；必须体现的后果：{item['effect']}；依据：{item['reason']}"
             for item in triggered_influences
         ) or "（本回合没有满足条件的暗流影响）"
-        usr_p2 = f"【情景】：\n{self.get_context_text()}\n【状态】：{json.dumps(self.state_mgr.get_dynamic_state(), ensure_ascii=False)}\n【行动】：{action}\n【裁定变数】：{chosen['description']}\n【本回合必须兑现的暗流影响】：\n{influence_instruction}"
+        usr_p2 = f"【情景】：\n{self.get_context_text()}\n【状态】：{json.dumps(self.state_mgr.get_dynamic_state(), ensure_ascii=False)}\n【行动】：{interpreted_action}\n【裁定变数】：{chosen['description']}\n【本回合必须兑现的暗流影响】：\n{influence_instruction}"
 
         raw_settle, err2 = self.ai_engine.chat_json(settle_p, usr_p2, temp=0.8, max_tokens=3000, trace_label="剧情重写")
         if err2 or not raw_settle:
@@ -197,8 +203,8 @@ class GameSession:
             }})
         
         # 🚀 修复实体延迟1回合Bug
-        active_world, _ = self.build_active_world_info(action)
-        current_context = active_world + f"\n\n【本回合】\n玩家：{action}\n结果：{story_text}"
+        active_world, _ = self.build_active_world_info(interpreted_action)
+        current_context = active_world + f"\n\n【本回合】\n玩家：{interpreted_action}\n结果：{story_text}"
         world_time = str(settlement.get("status_updates", {}).get("当前时间") or self.state_mgr.state.get("properties", {}).get("当前时间", ""))
         events = self.undercurrent.tick(current_context, enabled=self.story_settings["entitiesEnabled"], world_time=world_time)
         
@@ -206,7 +212,7 @@ class GameSession:
         for ev in events: self.history["chat_messages"].append({"role": "undercurrent", "content": f"🌌 潜流涌动: {ev}"})
                 
         self.state_mgr.apply_updates(settlement)
-        self.history["context_history"].append(f"玩家：{action}\n结果：{story_text}")
+        self.history["context_history"].append(f"玩家：{interpreted_action}\n结果：{story_text}")
         return {"chat_messages": self.history["chat_messages"], "state": self.state, "action_suggestions": self.action_suggestions}
     
     def _take_snapshot(self):
