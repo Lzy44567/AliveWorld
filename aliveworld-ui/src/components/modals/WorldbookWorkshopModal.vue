@@ -8,11 +8,13 @@ import WorkshopDraftPanel from '../worldbook/WorkshopDraftPanel.vue';
 const workshopId = ref('');
 const draft = ref({ overview: '', axioms: [], entries: [] });
 const pending = ref([]);
+const proposed = ref([]);
 const messages = ref([]);
 const suggestions = ref([]);
 const input = ref('');
 const mode = ref('expand');
 const busy = ref(false);
+const commitChanges = ref(false);
 const dirty = ref(false);
 const editingEntry = ref(null);
 const overviewDraft = ref('');
@@ -38,6 +40,7 @@ const sync = (data) => {
   workshopId.value = data.workshop_id || workshopId.value;
   draft.value = data.draft || draft.value;
   pending.value = data.pending || [];
+  proposed.value = data.proposed || [];
   dirty.value = Boolean(data.dirty);
   syncingHeader = true;
   overviewDraft.value = draft.value.overview || '';
@@ -68,7 +71,20 @@ const send = async (text = input.value) => {
   if (!message || busy.value) return;
   input.value = '';
   busy.value = true;
-  try { sync(await worldbookWorkshopApi.chat(workshopId.value, message, mode.value)); }
+  try { sync(await worldbookWorkshopApi.chat(workshopId.value, message, mode.value, commitChanges.value)); }
+  catch (e) { uiStore.showToast(e.message, 'error'); }
+  finally { busy.value = false; }
+};
+
+const operationLabel = (op) => ({
+  add_entry: '新增条目', update_entry: '修改条目', deactivate_entry: '关闭条目',
+  request_delete: '申请删除条目', delete_entry: '删除条目', update_overview: '修改世界概述', set_axioms: '重设世界公理',
+})[op.op] || op.op;
+const operationTarget = (op) => op.entry?.name || op.entry_id || (op.op === 'set_axioms' ? '世界公理' : op.op === 'update_overview' ? '世界概述' : '世界书');
+const submitProposal = async () => {
+  if (!proposed.value.length || busy.value) return;
+  busy.value = true;
+  try { sync(await worldbookWorkshopApi.operations(workshopId.value, proposed.value, false)); }
   catch (e) { uiStore.showToast(e.message, 'error'); }
   finally { busy.value = false; }
 };
@@ -156,10 +172,11 @@ const publish = async () => {
           <div class="border-b border-slate-800 p-3"><div class="flex gap-2"><button v-for="item in modes" :key="item.id" @click="mode=item.id" class="rounded px-3 py-1.5 text-xs" :class="mode===item.id?'bg-indigo-700 text-white':'bg-slate-900 text-slate-400'">{{ item.label }}</button></div><p class="mt-2 text-[10px] text-slate-500">{{ activeMode.description }}</p></div>
           <div class="flex-1 space-y-3 overflow-y-auto p-4">
             <div v-if="busy && !messages.length" class="text-sm text-slate-500">正在载入或恢复工坊草稿……</div>
-            <div v-for="(msg, index) in messages" :key="index" class="max-w-[85%] rounded-xl p-3 text-sm" :class="msg.role==='user'?'ml-auto bg-indigo-700 text-white':'bg-slate-800 text-slate-200'">{{ msg.content }}</div>
-            <div v-if="pending.length" class="rounded-xl border border-amber-700/60 bg-amber-950/30 p-3"><div class="mb-2 text-xs font-bold text-amber-300">需要确认的高影响修改</div><div v-for="op in pending" :key="op.operation_id" class="mb-2 rounded bg-black/30 p-2 text-xs text-slate-300"><div>{{ op.op }} · {{ op.entry?.name || op.entry_id || '世界公理' }}</div><div class="mt-2 flex gap-2"><button @click="decide(op.operation_id,true)" class="rounded bg-emerald-700 px-2 py-1">接受</button><button @click="decide(op.operation_id,false)" class="rounded bg-rose-800 px-2 py-1">拒绝</button></div></div></div>
+            <div v-for="(msg, index) in messages" :key="index" class="max-w-[85%] whitespace-pre-wrap rounded-xl p-3 text-sm leading-relaxed" :class="msg.role==='user'?'ml-auto bg-indigo-700 text-white':'bg-slate-800 text-slate-200'">{{ msg.content }}</div>
+            <div v-if="proposed.length" class="rounded-xl border border-cyan-700/60 bg-cyan-950/25 p-3"><div class="flex items-center justify-between gap-3"><div><div class="text-xs font-bold text-cyan-300">AI 拟议修改 · 尚未写入</div><p class="mt-1 text-[10px] text-slate-500">先审阅方案；提交后低风险修改进入草稿，高影响修改仍需逐项确认。</p></div><button @click="submitProposal" :disabled="busy" class="shrink-0 rounded bg-cyan-700 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50">提交此方案</button></div><div v-for="op in proposed" :key="op.operation_id" class="mt-2 rounded-lg border border-cyan-900/50 bg-black/25 p-3 text-xs text-slate-300"><div class="font-bold text-cyan-200">{{ operationLabel(op) }} · {{ operationTarget(op) }}</div><ol v-if="op.op==='set_axioms'" class="mt-2 list-decimal space-y-1 pl-5 text-slate-300"><li v-for="axiom in op.axioms" :key="axiom">{{ axiom }}</li></ol><p v-else-if="op.op==='update_overview'" class="mt-2 whitespace-pre-wrap text-slate-400">{{ op.overview }}</p><p v-else-if="op.op==='add_entry'" class="mt-2 whitespace-pre-wrap text-slate-400">{{ op.entry?.content }}</p><p v-else-if="op.op==='update_entry'" class="mt-2 whitespace-pre-wrap text-slate-400">{{ op.changes?.content || '将修改名称、触发词、标签或启用状态；可在右侧草稿中继续审阅。' }}</p></div></div>
+            <div v-if="pending.length" class="rounded-xl border border-amber-700/60 bg-amber-950/30 p-3"><div class="mb-2 text-xs font-bold text-amber-300">需要确认的高影响修改</div><div v-for="op in pending" :key="op.operation_id" class="mb-2 rounded bg-black/30 p-3 text-xs text-slate-300"><div class="font-bold">{{ operationLabel(op) }} · {{ operationTarget(op) }}</div><ol v-if="op.op==='set_axioms'" class="mt-2 list-decimal space-y-1 pl-5"><li v-for="axiom in op.axioms" :key="axiom">{{ axiom }}</li></ol><p v-else-if="op.entry?.content" class="mt-2 whitespace-pre-wrap text-slate-400">{{ op.entry.content }}</p><p v-else-if="op.changes?.content" class="mt-2 whitespace-pre-wrap text-slate-400">{{ op.changes.content }}</p><div class="mt-3 flex gap-2"><button @click="decide(op.operation_id,true)" class="rounded bg-emerald-700 px-3 py-1">接受并写入</button><button @click="decide(op.operation_id,false)" class="rounded bg-rose-800 px-3 py-1">拒绝</button></div></div></div>
           </div>
-          <div class="border-t border-slate-800 p-3"><div v-if="suggestions.length" class="mb-2 flex flex-wrap gap-1"><button v-for="item in suggestions" :key="item" @click="send(item)" class="rounded-full border border-indigo-800 px-2 py-1 text-[10px] text-indigo-300">{{ item }}</button></div><div class="flex gap-2"><textarea v-model="input" @keydown.ctrl.enter.prevent="send()" class="h-20 flex-1 rounded-lg border border-slate-700 bg-slate-900 p-3 text-sm text-slate-200" :placeholder="`${activeMode.description} Ctrl+Enter发送`"></textarea><button @click="send()" :disabled="busy" class="w-20 rounded-lg bg-indigo-700 text-sm font-bold text-white disabled:opacity-50">{{ busy ? '处理中' : '发送' }}</button></div></div>
+          <div class="border-t border-slate-800 p-3"><div class="mb-2 flex items-center justify-between gap-3"><div class="flex rounded-lg border border-slate-700 bg-slate-900 p-0.5 text-[10px]"><button @click="commitChanges=false" class="rounded px-2 py-1" :class="!commitChanges?'bg-cyan-800 text-white':'text-slate-500'">先讨论方案</button><button @click="commitChanges=true" class="rounded px-2 py-1" :class="commitChanges?'bg-emerald-800 text-white':'text-slate-500'">允许 AI 修改草稿</button></div><span class="text-[10px] text-slate-500">{{ commitChanges ? '低风险修改直接进入草稿；公理与删除仍需确认' : 'AI 只提出可审阅方案，不改变草稿' }}</span></div><div v-if="suggestions.length" class="mb-2 flex flex-wrap gap-1"><button v-for="item in suggestions" :key="item" @click="input=item" class="rounded-full border border-indigo-800 px-2 py-1 text-left text-[10px] text-indigo-300" title="填入输入框，可修改后发送">{{ item }}</button></div><div class="flex gap-2"><textarea v-model="input" @keydown.ctrl.enter.prevent="send()" class="h-20 flex-1 rounded-lg border border-slate-700 bg-slate-900 p-3 text-sm text-slate-200" :placeholder="`${activeMode.description} Ctrl+Enter发送`"></textarea><button @click="send()" :disabled="busy" class="w-20 rounded-lg bg-indigo-700 text-sm font-bold text-white disabled:opacity-50">{{ busy ? '处理中' : '发送' }}</button></div></div>
         </section>
 
         <WorkshopDraftPanel v-model:overview="overviewDraft" v-model:axioms="axiomsDraft" :draft="draft" :editing-entry="editingEntry" @add-entry="startAddEntry" @edit-entry="startEditEntry" @cancel-edit="cancelEditEntry" @save-entry="saveEntry" @toggle-entry="toggleEntry" @delete-entry="deleteEntry" @ask-ai="askAiToEdit" />

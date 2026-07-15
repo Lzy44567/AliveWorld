@@ -36,6 +36,7 @@ class PublishRequest(BaseModel):
 class WorkshopChatRequest(BaseModel):
     message: str
     mode: str = "expand"
+    commit_changes: bool = False
 
 
 class EmbeddingToggleRequest(BaseModel):
@@ -81,7 +82,7 @@ def _get(workshop_id: str) -> WorldbookWorkshop:
 
 
 def _payload(workshop: WorldbookWorkshop):
-    return {"workshop_id": workshop.id, "draft": workshop.draft, "pending": workshop.pending, "messages": workshop.messages, "dirty": workshop.dirty, "published": workshop.published, "updated_at": workshop.updated_at}
+    return {"workshop_id": workshop.id, "draft": workshop.draft, "pending": workshop.pending, "proposed": workshop.proposed, "messages": workshop.messages, "dirty": workshop.dirty, "published": workshop.published, "updated_at": workshop.updated_at}
 
 
 def _find_resumable(target_path: Path) -> WorldbookWorkshop | None:
@@ -143,6 +144,8 @@ def apply_operations(workshop_id: str, payload: ApplyOperationsRequest):
     workshop = _get(workshop_id)
     try:
         result = workshop.apply_operations(payload.operations, confirm_high_risk=payload.confirm_high_risk)
+        if not payload.confirm_high_risk:
+            workshop.clear_proposal()
         workshop.save_session(WORKSHOP_DIR)
         return {**_payload(workshop), "applied": result["applied"]}
     except WorkshopError as exc:
@@ -156,7 +159,7 @@ def chat_workshop(workshop_id: str, payload: WorkshopChatRequest):
     if not global_ai_engine:
         raise HTTPException(status_code=500, detail="未找到 config.yml，无法启动世界书工坊 AI")
     try:
-        result = WorldbookWorkshopAgent(global_ai_engine).respond(workshop, payload.message.strip(), payload.mode)
+        result = WorldbookWorkshopAgent(global_ai_engine).respond(workshop, payload.message.strip(), payload.mode, commit_changes=payload.commit_changes)
         workshop.save_session(WORKSHOP_DIR)
         return {**_payload(workshop), **result}
     except (WorkshopError, ValueError) as exc:

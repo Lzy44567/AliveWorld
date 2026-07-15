@@ -29,6 +29,12 @@ class ImagePromptCompilerTests(unittest.TestCase):
         self.assertIn("example.safetensors", ai.requests[0][1])
         self.assertIn("使用英文标签", ai.requests[0][1])
 
+    def test_narrative_style_is_separate_and_visual_translation_is_required(self):
+        ai = FakeAI('{"positive":"moody blue lighting","negative":"","content_focus":"general","notes":"转译阴郁氛围"}')
+        ImagePromptCompiler(ai).compile({"narrative_style_context": "第一人称；阴郁压抑；所有对话单独换行"})
+        self.assertIn("启用文风卡", ai.requests[0][1])
+        self.assertIn("忽略人称", ai.requests[0][0])
+
     def test_explicit_focus_is_preserved_as_model_classification(self):
         ai = FakeAI('{"positive":"adult scene","negative":"","content_focus":"explicit","notes":"按正文表现"}')
         result = ImagePromptCompiler(ai).compile({"story_text": "成人正文", "presentation_level": "露点"})

@@ -49,6 +49,7 @@ class WorldbookWorkshop:
         self.draft = normalize_worldbook(copy.deepcopy(source))
         self.snapshots: list[dict[str, Any]] = []
         self.pending: list[dict[str, Any]] = []
+        self.proposed: list[dict[str, Any]] = []
         self.messages: list[dict[str, str]] = []
         self.dirty = False
         self.published = False
@@ -101,6 +102,18 @@ class WorldbookWorkshop:
         if applied or pending:
             self.touch()
         return {"applied": applied, "pending": pending, "draft": copy.deepcopy(self.draft)}
+
+    def propose_operations(self, operations: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Validate and persist an AI plan without mutating the worldbook draft."""
+        self.proposed = [self._validate(item) for item in operations]
+        if self.proposed:
+            self.touch()
+        return copy.deepcopy(self.proposed)
+
+    def clear_proposal(self) -> None:
+        if self.proposed:
+            self.proposed = []
+            self.touch()
 
     def _apply(self, operation: dict[str, Any]) -> None:
         op = operation["op"]
@@ -174,6 +187,7 @@ class WorldbookWorkshop:
             "draft": self.draft,
             "snapshots": self.snapshots,
             "pending": self.pending,
+            "proposed": self.proposed,
             "messages": self.messages,
             "dirty": self.dirty,
             "published": self.published,
@@ -191,6 +205,7 @@ class WorldbookWorkshop:
         workshop = cls(str(data["id"]), Path(data["target_path"]), data.get("draft", {}))
         workshop.snapshots = data.get("snapshots", [])
         workshop.pending = data.get("pending", [])
+        workshop.proposed = data.get("proposed", [])
         workshop.messages = data.get("messages", [])
         workshop.dirty = bool(data.get("dirty", False))
         workshop.published = bool(data.get("published", False))

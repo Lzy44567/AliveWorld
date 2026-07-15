@@ -95,6 +95,19 @@ class WorldbookWorkshopTests(unittest.TestCase):
             self.assertTrue(loaded.published)
             self.assertFalse(loaded.dirty)
 
+    def test_proposal_is_validated_persisted_and_does_not_modify_draft(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workshop = self.make_workshop(temp_dir)
+            proposed = workshop.propose_operations([{"op": "set_axioms", "axioms": ["1. 时间不可逆", "2、死亡不可逆"]}])
+            self.assertEqual(proposed[0]["axioms"], ["1. 时间不可逆", "2、死亡不可逆"])
+            self.assertEqual(workshop.draft["axioms"], [])
+            session_path = workshop.save_session(Path(temp_dir) / "sessions")
+            import json
+            loaded = WorldbookWorkshop.from_dict(json.loads(session_path.read_text(encoding="utf-8")))
+            self.assertEqual(len(loaded.proposed), 1)
+            loaded.clear_proposal()
+            self.assertEqual(loaded.proposed, [])
+
 
 if __name__ == "__main__":
     unittest.main()

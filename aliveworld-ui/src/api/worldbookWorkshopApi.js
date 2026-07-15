@@ -16,8 +16,8 @@ export const worldbookWorkshopApi = {
   start(worldbookName, sessionId = null) {
     return request(`${BASE_URL}/start`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ worldbook_name: worldbookName, session_id: sessionId }) });
   },
-  chat(id, message, mode) {
-    return request(`${BASE_URL}/${id}/chat`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message, mode }) });
+  chat(id, message, mode, commitChanges = false) {
+    return request(`${BASE_URL}/${id}/chat`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message, mode, commit_changes: commitChanges }) });
   },
   operations(id, operations, confirmHighRisk = true) {
     return request(`${BASE_URL}/${id}/operations`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ operations, confirm_high_risk: confirmHighRisk }) });
