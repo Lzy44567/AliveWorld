@@ -12,10 +12,14 @@ import { useDeleteConfirmation } from '../../composables/useDeleteConfirmation';
 import FieldHelp from '../common/FieldHelp.vue';
 import WorldbookEntryEditorModal from '../worldbook/WorldbookEntryEditorModal.vue';
 import InlineDeleteConfirm from '../common/InlineDeleteConfirm.vue';
+import AssetLifecycleModal from './AssetLifecycleModal.vue';
 
 const form = computed(() => uiStore.editorData.form);
 const type = computed(() => uiStore.editorData.type);
 const closeEditor = () => { uiStore.modals.assetEditor = false; };
+const lifecycle = ref({ open: false, action: 'clone' });
+const kindLabel = computed(() => ({ worldbooks: '世界书', characters: '角色卡', styles: '文风卡', entities: '实体卡' })[type.value] || '资产');
+const isTemplate = computed(() => (form.value.tags || '').split(/[,，]/).map(tag => tag.trim()).includes('模板'));
 
 const worldEntryEditor = ref(null);
 const worldEntryEditorIndex = ref(-1);
@@ -62,15 +66,34 @@ const removeEntityTrigger = (idx) => { form.value.triggers.splice(idx, 1); };
 const addEntityRelationship = () => { form.value.relationships.push({ target: '', relation: '' }); };
 const removeEntityRelationship = (idx) => { form.value.relationships.splice(idx, 1); };
 
+const openLifecycle = (action) => { lifecycle.value = { open: true, action }; };
+const confirmLifecycle = async (newName) => {
+  const action = lifecycle.value.action;
+  const oldName = uiStore.editorData.name;
+  try {
+    const result = uiStore.assetScope === 'local'
+      ? await gameApi.lifecycleLocalAsset(gameStore.sessionId, type.value, oldName, action, newName)
+      : await assetApi.lifecycleAsset(type.value, oldName, action, newName);
+    if (uiStore.assetScope === 'local') await assetStore.fetchLocalAssets(gameStore.sessionId);
+    else await assetStore.fetchAssets();
+    uiStore.editorData.name = result.name;
+    uiStore.editorData.isNew = false;
+    form.value.name = result.name;
+    if (action === 'clone') {
+      const tags = typeof form.value.tags === 'string' ? form.value.tags.split(/[,，]/) : (form.value.tags || []);
+      form.value.tags = tags.map(tag => String(tag).trim()).filter(tag => tag && tag !== '模板').join(', ');
+    }
+    lifecycle.value = { open: false, action: 'clone' };
+    uiStore.showToast(`${action === 'clone' ? '已克隆并切换到副本' : '重命名完成'}：${result.name}`);
+  } catch (error) {
+    uiStore.showToast(error.message || '资产管理操作失败', 'error');
+  }
+};
+
 const saveContent = async () => {
   try {
     if(!form.value.name.trim()) return uiStore.showToast("资产名称不能为空", "error");
     
-    if (!uiStore.editorData.isNew && form.value.name !== uiStore.editorData.name) {
-      if (uiStore.assetScope === 'local') await gameApi.deleteLocalAsset(gameStore.sessionId, type.value, uiStore.editorData.name);
-      else await assetApi.deleteAsset(type.value, uiStore.editorData.name);
-    }
-
     let payload = { name: form.value.name };
     if (typeof form.value.tags === 'string' && form.value.tags) payload.tags = form.value.tags.split(/[,，]/).map(t => t.trim()).filter(t => t);
     else if (Array.isArray(form.value.tags)) payload.tags = form.value.tags;
@@ -115,8 +138,15 @@ const saveContent = async () => {
       </div>
       <div class="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
         <div class="grid grid-cols-2 gap-6">
-          <div><label class="text-xs text-slate-400 font-bold mb-1.5 block">资产名称 (Name)</label><input v-model="form.name" class="w-full bg-[#0d0d12] border border-slate-700 text-slate-200 px-4 py-2.5 rounded-lg text-sm" /></div>
+          <div><label class="text-xs text-slate-400 font-bold mb-1.5 block">资产名称 (Name)</label><input v-model="form.name" :readonly="!uiStore.editorData.isNew" :class="!uiStore.editorData.isNew ? 'cursor-default text-slate-400' : 'text-slate-200'" class="w-full bg-[#0d0d12] border border-slate-700 px-4 py-2.5 rounded-lg text-sm" /></div>
           <div><label class="text-xs text-slate-400 font-bold mb-1.5 block">{{ type === 'worldbooks' ? '世界书分类标签（仅用于玩家检索管理）' : '标签 (逗号分隔)' }}</label><input v-model="form.tags" class="w-full bg-[#0d0d12] border border-slate-700 text-slate-200 px-4 py-2.5 rounded-lg text-sm" /></div>
+        </div>
+        <div v-if="!uiStore.editorData.isNew" class="flex items-center justify-between gap-4 rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-3">
+          <div><div class="text-xs font-bold text-slate-300">资产管理</div><div class="mt-1 text-[10px] text-slate-500">克隆后会立即切换到独立副本；未保存的编辑可在切换后保存到副本。</div></div>
+          <div class="flex shrink-0 gap-2">
+            <button v-if="!isTemplate" type="button" @click="openLifecycle('rename')" class="rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-slate-700">✍️ 重命名</button>
+            <button type="button" @click="openLifecycle('clone')" class="rounded-lg border border-cyan-800/60 bg-cyan-950/40 px-3 py-2 text-xs font-bold text-cyan-300 hover:bg-cyan-800/70">⎘ 克隆副本</button>
+          </div>
         </div>
 
         <!-- 🚀 修复问题10：补回完整视图 -->
@@ -173,4 +203,5 @@ const saveContent = async () => {
     </div>
   </div>
   <WorldbookEntryEditorModal v-if="worldEntryEditor" :entry="worldEntryEditor" :title="worldEntryEditorIndex < 0 ? '新增世界书条目' : '编辑世界书条目'" @save="saveWorldEntryEdit" @cancel="cancelWorldEntryEdit" />
+  <AssetLifecycleModal :open="lifecycle.open" :action="lifecycle.action" :current-name="uiStore.editorData.name" :kind-label="kindLabel" @cancel="lifecycle={ open:false, action:'clone' }" @confirm="confirmLifecycle" />
 </template>

@@ -2,7 +2,7 @@
 <!-- 100% 完整底稿 (请直接覆盖原文件) -->
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onBeforeUnmount, onMounted } from 'vue';
 import { uiStore } from '../../store/uiStore';
 import { assetStore } from '../../store/assetStore';
 import { gameStore } from '../../store/gameStore';
@@ -15,6 +15,13 @@ import AssetLifecycleModal from '../modals/AssetLifecycleModal.vue';
 const searchSaveKeyword = ref("");
 const { confirmDeleteId, requestDelete, cancelDelete } = useDeleteConfirmation();
 const lifecycle = ref({ open: false, action: 'clone', save: null });
+const openMenuId = ref('');
+
+const closeMenuOnOutside = (event) => {
+  if (!event.target.closest('[data-save-actions]')) openMenuId.value = '';
+};
+onMounted(() => document.addEventListener('pointerdown', closeMenuOnOutside));
+onBeforeUnmount(() => document.removeEventListener('pointerdown', closeMenuOnOutside));
 
 const filteredSaves = computed(() => {
   if (!searchSaveKeyword.value) return assetStore.saves;
@@ -69,7 +76,13 @@ const executeDelete = async (saveName) => {
 };
 
 const openLifecycle = (save, action) => {
+  openMenuId.value = '';
   lifecycle.value = { open: true, action, save };
+};
+
+const requestSaveDelete = (saveName) => {
+  openMenuId.value = '';
+  requestDelete(saveName);
 };
 
 const confirmLifecycle = async (newName) => {
@@ -109,7 +122,7 @@ const confirmLifecycle = async (newName) => {
     
     <!-- 只滚动存档卡片，搜索、收藏、新局和计数固定 -->
     <div class="flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-1">
-    <div class="space-y-3 pb-8">
+    <div class="space-y-3 pb-32">
       <div v-for="save in filteredSaves" :key="save.id" class="bg-aw_panel border rounded-xl p-3 transition group shadow" :class="gameStore.currentSaveName===save.name?'border-emerald-500 ring-1 ring-emerald-500/30':'border-slate-700 hover:border-indigo-500'">
         
         <div class="flex justify-between items-start mb-2">
@@ -120,15 +133,16 @@ const confirmLifecycle = async (newName) => {
         <p class="text-xs text-slate-500 mb-3 line-clamp-1">{{ save.desc }}</p>
         
         <!-- 操作按钮栏 -->
-        <div class="flex gap-2 relative">
+        <div class="flex gap-2 relative" data-save-actions>
           <button @click="loadSave(save.name)" class="flex-1 bg-indigo-600/20 hover:bg-indigo-600 text-indigo-300 hover:text-white text-[10px] py-1.5 rounded font-bold transition">▶ 唤醒</button>
-          <button @click="openLifecycle(save, 'rename')" class="w-9 rounded border border-slate-700 bg-slate-800 text-[10px] text-slate-300 hover:bg-slate-700" title="重命名">✍️</button>
-          <button @click="openLifecycle(save, 'clone')" class="w-9 rounded border border-cyan-800/60 bg-cyan-950/40 text-[10px] text-cyan-300 hover:bg-cyan-800/70" title="克隆存档">⎘</button>
-          
-          <!-- 常规的垃圾桶按钮 -->
-          <button v-if="confirmDeleteId !== save.name" @click="requestDelete(save.name)" class="w-10 bg-rose-900/30 hover:bg-rose-600 text-rose-400 hover:text-white rounded transition text-xs border border-rose-900/50 flex items-center justify-center">
-            🗑
-          </button>
+          <div v-if="confirmDeleteId !== save.name" class="relative" data-save-actions>
+            <button @click.stop="openMenuId = openMenuId === save.name ? '' : save.name" class="h-full w-10 rounded border border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700" aria-label="存档管理" :aria-expanded="openMenuId === save.name">•••</button>
+            <div v-if="openMenuId === save.name" class="absolute right-0 top-full z-20 mt-2 w-32 overflow-hidden rounded-lg border border-slate-600 bg-slate-900 p-1 shadow-2xl">
+              <button @click="openLifecycle(save, 'rename')" class="w-full rounded px-3 py-2 text-left text-[10px] text-slate-300 hover:bg-slate-800">✍️ 重命名</button>
+              <button @click="openLifecycle(save, 'clone')" class="w-full rounded px-3 py-2 text-left text-[10px] text-cyan-300 hover:bg-slate-800">⎘ 克隆存档</button>
+              <button @click="requestSaveDelete(save.name)" class="w-full rounded px-3 py-2 text-left text-[10px] text-rose-400 hover:bg-rose-950/50">🗑 删除存档</button>
+            </div>
+          </div>
           
           <!-- 展开后的防误触确认区 -->
           <div v-else :data-delete-confirm-id="save.name" class="flex gap-1">

@@ -18,14 +18,12 @@ import { imageApi } from '../../api/imageApi';
 import CharacterAssetCard from '../assets/CharacterAssetCard.vue';
 import CharacterDeleteConfirmModal from '../modals/CharacterDeleteConfirmModal.vue';
 import { buildCharacterImageContext } from '../../utils/characterImageContext';
-import AssetLifecycleModal from '../modals/AssetLifecycleModal.vue';
 
 const searchKeyword = ref("");
 const { confirmDeleteId, requestDelete, cancelDelete } = useDeleteConfirmation();
 const embeddingStatus = ref({ state: 'disabled', downloaded: false, enabled: false });
 const selectedPortraitUrl = ref('');
 const pendingCharacterDelete = ref(null);
-const lifecycle = ref({ open: false, action: 'clone', item: null });
 const entityDisclosure = computed(() => normalizeEntityDisclosure(effectiveStorySettings.value));
 const canManageCurrentLocalAsset = computed(() =>
   uiStore.rightTab !== 'entity' || entityDisclosure.value.allowEditing
@@ -212,29 +210,6 @@ const openWorldbookWorkshop = (name) => {
   uiStore.modals.worldbookWorkshop = true;
 };
 
-const openLifecycle = (item, action) => {
-  lifecycle.value = { open: true, action, item };
-};
-
-const confirmLifecycle = async (newName) => {
-  const { item, action } = lifecycle.value;
-  if (!item) return;
-  try {
-    if (uiStore.assetScope === 'local') {
-      if (!gameStore.sessionId) throw new Error('请先创建或载入存档');
-      await gameApi.lifecycleLocalAsset(gameStore.sessionId, getApiType(), item.name, action, newName);
-      await assetStore.fetchLocalAssets(gameStore.sessionId);
-    } else {
-      await assetApi.lifecycleAsset(getApiType(), item.name, action, newName);
-      await assetStore.fetchAssets();
-    }
-    lifecycle.value = { open: false, action: 'clone', item: null };
-    uiStore.showToast(`${action === 'clone' ? '克隆' : '重命名'}完成：${newName}`);
-  } catch (error) {
-    uiStore.showToast(error.message || '操作失败', 'error');
-  }
-};
-
 const refreshEmbeddingStatus = async () => {
   if (uiStore.rightTab !== 'world') return;
   try {
@@ -284,7 +259,7 @@ onBeforeUnmount(() => {
 
       <div class="space-y-3 pb-8">
        <template v-for="item in currentList" :key="item.name">
-       <CharacterAssetCard v-if="uiStore.rightTab==='character'" :item="item" :scope="uiStore.assetScope" :portrait-url="portraitUrl(item)" :delete-confirm="confirmDeleteId===item.name" @toggle="toggleActive(item)" @edit="openEditAsset(item.name)" @portrait="openPortraitGenerator(item)" @pull="pullAssetToLocal(item.name)" @push="pushToGlobal(item)" @rename="openLifecycle(item, 'rename')" @clone="openLifecycle(item, 'clone')" @request-delete="requestAssetDelete(item)" @confirm-delete="executeDelete(item.name)" @cancel-delete="cancelDelete" @zoom="selectedPortraitUrl=$event" />
+       <CharacterAssetCard v-if="uiStore.rightTab==='character'" :item="item" :scope="uiStore.assetScope" :portrait-url="portraitUrl(item)" :delete-confirm="confirmDeleteId===item.name" @toggle="toggleActive(item)" @edit="openEditAsset(item.name)" @portrait="openPortraitGenerator(item)" @pull="pullAssetToLocal(item.name)" @push="pushToGlobal(item)" @request-delete="requestAssetDelete(item)" @confirm-delete="executeDelete(item.name)" @cancel-delete="cancelDelete" @zoom="selectedPortraitUrl=$event" />
        <div v-else class="bg-aw_panel border border-slate-700 p-3 rounded-xl hover:border-indigo-500 transition group shadow flex flex-col gap-2 relative overflow-hidden" :class="item.is_active === false ? 'opacity-60 grayscale' : ''">
          
          <div class="flex justify-between items-start">
@@ -321,9 +296,6 @@ onBeforeUnmount(() => {
            <button v-if="uiStore.rightTab==='character'" @click="openPortraitGenerator(item)" class="flex-1 bg-fuchsia-900/40 hover:bg-fuchsia-700 text-[10px] py-1.5 rounded font-bold text-fuchsia-300 hover:text-white border border-fuchsia-800/60">🎨 {{ uiStore.assetScope==='global' ? '全局立绘' : '立绘' }}</button>
            <button v-if="uiStore.assetScope==='global'" @click="pullAssetToLocal(item.name)" class="flex-1 bg-indigo-900/50 hover:bg-indigo-600 text-[10px] py-1.5 rounded font-bold text-indigo-300 hover:text-white border border-indigo-700/50">⬇️ 载入局内</button>
            <button v-if="uiStore.assetScope==='local' && canManageCurrentLocalAsset" @click="pushToGlobal(item)" class="flex-1 bg-emerald-900/50 hover:bg-emerald-600 text-[10px] py-1.5 rounded font-bold text-emerald-300 hover:text-white border border-emerald-700/50">⬆️ 推送全局</button>
-           <button v-if="(uiStore.assetScope === 'global' || canManageCurrentLocalAsset) && !item.is_template" @click="openLifecycle(item, 'rename')" class="px-2 rounded border border-slate-700 bg-slate-800 text-[10px] font-bold text-slate-300 hover:bg-slate-700" title="重命名">✍️</button>
-           <button v-if="uiStore.assetScope === 'global' || canManageCurrentLocalAsset" @click="openLifecycle(item, 'clone')" class="px-2 rounded border border-cyan-800/60 bg-cyan-950/40 text-[10px] font-bold text-cyan-300 hover:bg-cyan-800/70" title="克隆独立副本">⎘</button>
-
            <button v-if="(uiStore.assetScope === 'global' || canManageCurrentLocalAsset) && confirmDeleteId !== item.name" @click="requestDelete(item.name)" class="px-2 bg-rose-900/30 hover:bg-rose-600 text-rose-400 hover:text-white rounded text-xs border border-rose-900/50">🗑</button>
            <div v-else-if="uiStore.assetScope === 'global' || canManageCurrentLocalAsset" :data-delete-confirm-id="item.name" class="flex gap-1">
              <button @click="executeDelete(item.name)" class="px-2 bg-rose-700 hover:bg-rose-600 text-white rounded text-[10px] font-bold border border-rose-500">{{ uiStore.assetScope==='local' ? '移除' : '粉碎' }}</button>
@@ -335,7 +307,6 @@ onBeforeUnmount(() => {
       </div>
     </div>
     <CharacterDeleteConfirmModal v-if="pendingCharacterDelete" :character-name="pendingCharacterDelete.name" :portrait-scope="pendingCharacterDelete.portrait?.task_id ? 'local' : pendingCharacterDelete.portrait?.scope || 'none'" @cancel="pendingCharacterDelete=null" @confirm="executeDelete(pendingCharacterDelete.name)" />
-    <AssetLifecycleModal :open="lifecycle.open" :action="lifecycle.action" :current-name="lifecycle.item?.name || ''" :kind-label="uiStore.rightTab==='world' ? '世界书' : uiStore.rightTab==='character' ? '角色卡' : uiStore.rightTab==='style' ? '文风卡' : '实体卡'" @cancel="lifecycle={ open:false, action:'clone', item:null }" @confirm="confirmLifecycle" />
     <Teleport to="body"><div v-if="selectedPortraitUrl" @click="selectedPortraitUrl=''" class="fixed inset-0 z-[140] flex cursor-zoom-out items-center justify-center bg-black/90 p-6"><img :src="selectedPortraitUrl" class="max-h-full max-w-full rounded-lg object-contain"></div></Teleport>
   </div>
 </template>

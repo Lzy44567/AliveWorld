@@ -5,7 +5,7 @@ defineProps({
   portraitUrl: { type: String, default: '' },
   deleteConfirm: { type: Boolean, default: false },
 });
-defineEmits(['toggle', 'edit', 'portrait', 'pull', 'push', 'rename', 'clone', 'request-delete', 'confirm-delete', 'cancel-delete', 'zoom']);
+defineEmits(['toggle', 'edit', 'portrait', 'pull', 'push', 'request-delete', 'confirm-delete', 'cancel-delete', 'zoom']);
 </script>
 
 <template>
@@ -28,8 +28,6 @@ defineEmits(['toggle', 'edit', 'portrait', 'pull', 'push', 'rename', 'clone', 'r
           <button @click="$emit('portrait')" class="rounded border border-fuchsia-800/60 bg-fuchsia-900/40 py-1.5 text-fuchsia-300 hover:bg-fuchsia-700 hover:text-white">🎨 {{ scope === 'global' ? '全局立绘' : '立绘' }}</button>
           <button v-if="scope==='global'" @click="$emit('pull')" class="rounded border border-indigo-700/50 bg-indigo-900/50 py-1.5 text-indigo-300 hover:bg-indigo-600 hover:text-white">⬇️ 载入局内</button>
           <button v-if="scope==='local'" @click="$emit('push')" class="rounded border border-emerald-700/50 bg-emerald-900/50 py-1.5 text-emerald-300 hover:bg-emerald-600 hover:text-white">⬆️ 推送全局</button>
-          <button v-if="!item.is_template" @click="$emit('rename')" class="rounded border border-slate-700 bg-slate-800 py-1.5 text-slate-300 hover:bg-slate-700">✍️ 重命名</button>
-          <button @click="$emit('clone')" class="rounded border border-cyan-800/60 bg-cyan-950/40 py-1.5 text-cyan-300 hover:bg-cyan-800/70">⎘ 克隆</button>
           <div :data-delete-confirm-id="deleteConfirm ? item.name : null" class="flex min-w-0 gap-1">
             <template v-if="deleteConfirm"><button @click="$emit('confirm-delete')" class="min-w-0 flex-1 rounded border border-rose-500 bg-rose-700 py-1.5 text-white">确认</button><button @click="$emit('cancel-delete')" class="min-w-0 flex-1 rounded border border-slate-600 bg-slate-700 py-1.5 text-slate-300">取消</button></template>
             <button v-else @click="$emit('request-delete')" class="w-full rounded border border-rose-900/50 bg-rose-900/30 py-1.5 text-rose-400 hover:bg-rose-600 hover:text-white">🗑 删除</button>
