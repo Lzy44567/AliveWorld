@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue';
 import { configStore } from '../../store/configStore';
+import StoryMemoryStatus from './StoryMemoryStatus.vue';
 
 const settings = computed(() => configStore.story.settings);
 </script>
@@ -16,6 +17,13 @@ const settings = computed(() => configStore.story.settings);
         <label class="setting-row"><span>AI 行动建议</span><input type="checkbox" v-model="settings.aiSuggestions"></label>
         <label class="setting-row col-span-2"><span>启用暗流实体推演</span><input type="checkbox" v-model="settings.entitiesEnabled"></label>
       </div>
+    </section>
+
+    <section class="rounded-xl border border-slate-700 bg-slate-800/30 p-4">
+      <h3 class="mb-2 text-xs font-bold text-indigo-300">🧠 长篇故事记忆</h3>
+      <p class="mb-3 text-[10px] leading-relaxed text-slate-500">达到上下文水位后异步归档较早完整回合；永久保留原文，压缩失败不会影响正文。</p>
+      <label class="setting-row"><span>自动压缩故事记忆</span><input type="checkbox" v-model="settings.autoCompressMemory"></label>
+      <StoryMemoryStatus class="mt-3" />
     </section>
 
     <section class="rounded-xl border border-slate-700 bg-slate-800/30 p-4">

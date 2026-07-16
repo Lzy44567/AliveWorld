@@ -13,12 +13,13 @@ from core.future_candidates import choose_candidate, normalize_candidates
 from core.worldbook_capture import WorldbookCaptureService, capture_requested
 from core.chat_messages import ensure_message_ids
 from core.action_suggestions import action_suggestion_instruction, normalize_action_suggestions, resolve_action_reference
+from core.story_memory import StoryMemoryManager, normalize_story_turns
 from utils.sys_logger import get_logger
 
 log = get_logger()
 
 class GameSession:
-    def __init__(self, ai_engine, save_name="", save_dir_path="", story_settings=None):
+    def __init__(self, ai_engine, save_name="", save_dir_path="", story_settings=None, memory_ai_engine=None, memory_config=None):
         self.ai_engine = ai_engine
         self.session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.save_name, self.save_dir_path = save_name, save_dir_path
@@ -33,8 +34,14 @@ class GameSession:
         self.entity_repository = EntityRepository(self.save_dir_path)
         self.resolver = DualTrackResolver()
         self.worldbook_capture = WorldbookCaptureService(self.ai_engine)
+        memory_config = memory_config or {}
+        self.story_memory = StoryMemoryManager(
+            self.save_dir_path,
+            memory_ai_engine or self.ai_engine,
+            context_limit=memory_config.get("context_limit", 32768),
+        )
         
-        self.history = {"chat_messages": [], "context_history": []}
+        self.history = {"chat_messages": [], "context_history": [], "story_turns": []}
         self.action_suggestions = []
         self.snapshots = [] 
 
@@ -60,13 +67,23 @@ class GameSession:
         """Worldbook context for subsystems that must not see hidden entity state."""
         return self.ctx_mgr.build_visible_world_info(self.get_context_text(), action)
     def get_dynamic_state_for_ai(self): return self.state_mgr.get_dynamic_state()
-    def get_context_text(self): return "\n".join(self.history["context_history"][-3:])
+    def get_context_text(self):
+        return self.story_memory.build_context(
+            self.history.get("story_turns", []),
+            compression_enabled=self.story_settings.get("autoCompressMemory", False),
+        )
 
     def start_new_game(self, world_premise, opening):
         self.world_premise = world_premise
         self.history["chat_messages"] = [{"role": "ai", "content": opening}]
         ensure_message_ids(self.history["chat_messages"])
         self.history["context_history"] = [opening]
+        self.history["story_turns"] = [{
+            "turn_id": 0,
+            "player": "",
+            "story": opening,
+            "text": opening,
+        }]
 
     def _sync_entities_to_local(self):
         self.undercurrent.sync_influence_refs()
@@ -83,8 +100,23 @@ class GameSession:
         log.info("玩家行动建议: count=%s items=%s", len(self.action_suggestions), self.action_suggestions)
         return self.action_suggestions
 
+    def _latest_story_message_ids(self):
+        ensure_message_ids(self.history.get("chat_messages", []))
+        found = {}
+        for message in reversed(self.history.get("chat_messages", [])):
+            role = message.get("role")
+            if role in {"user", "ai"} and role not in found:
+                found[role] = message.get("id")
+            if len(found) == 2:
+                break
+        return [found[role] for role in ("user", "ai") if found.get(role)]
+
     def process_turn(self, user_action: str):
         self._take_snapshot()
+        self.story_memory.schedule(
+            self.history.get("story_turns", []),
+            enabled=self.story_settings.get("autoCompressMemory", False),
+        )
         self.undercurrent.causal_ledger.advance_turn()
         self.history["chat_messages"].append({"role": "user", "content": user_action})
         interpreted_action = resolve_action_reference(user_action, self.action_suggestions)
@@ -130,11 +162,19 @@ class GameSession:
         
         self.state_mgr.apply_updates(settlement)
         self.history["context_history"].append(f"玩家：{interpreted_action}\n结果：{story_text}")
+        self.story_memory.append_turn(
+            self.history.setdefault("story_turns", []), interpreted_action, story_text,
+            source_message_ids=self._latest_story_message_ids(),
+        )
         if self.story_settings["worldbookCaptureEnabled"] and capture_requested(settlement):
             self.worldbook_capture.schedule(
                 self.save_dir_path, interpreted_action, story_text,
                 review_all=self.story_settings["worldbookCaptureReview"],
             )
+        self.story_memory.schedule(
+            self.history.get("story_turns", []),
+            enabled=self.story_settings.get("autoCompressMemory", False),
+        )
         return result
 
     def reroll_turn(self):
@@ -213,12 +253,21 @@ class GameSession:
                 
         self.state_mgr.apply_updates(settlement)
         self.history["context_history"].append(f"玩家：{interpreted_action}\n结果：{story_text}")
+        self.story_memory.append_turn(
+            self.history.setdefault("story_turns", []), interpreted_action, story_text,
+            source_message_ids=self._latest_story_message_ids(),
+        )
+        self.story_memory.schedule(
+            self.history.get("story_turns", []),
+            enabled=self.story_settings.get("autoCompressMemory", False),
+        )
         return {"chat_messages": self.history["chat_messages"], "state": self.state, "action_suggestions": self.action_suggestions}
     
     def _take_snapshot(self):
         self.snapshots.append({
             "state": copy.deepcopy(self.state), "chat_messages": copy.deepcopy(self.history["chat_messages"]), 
             "context_history": copy.deepcopy(self.history["context_history"]), "undercurrent": self.undercurrent.export_state(),
+            "story_turns": copy.deepcopy(self.history.get("story_turns", [])),
             "action_suggestions": copy.deepcopy(self.action_suggestions)
         })
         if len(self.snapshots) > 20: self.snapshots.pop(0)
@@ -229,6 +278,7 @@ class GameSession:
         self.state_mgr.state = snap["state"]
         self.history["chat_messages"] = snap["chat_messages"]
         self.history["context_history"] = snap["context_history"]
+        self.history["story_turns"] = snap.get("story_turns") or normalize_story_turns(snap.get("context_history", []))
         self.undercurrent.load_state(snap.get("undercurrent", {}))
         self.action_suggestions = snap.get("action_suggestions", [])
         self._sync_entities_to_local()
@@ -242,6 +292,7 @@ class GameSession:
             "plot_compass": self.plot_compass, "story_settings": self.story_settings, "word_limit": self.word_limit,
             "state": self.state, "history": self.history, "undercurrent": self.undercurrent.export_state(), "snapshots": self.snapshots,
             "action_suggestions": self.action_suggestions,
+            "story_memory": self.story_memory.export_state(),
         }
 
     def load_save_data(self, data):
@@ -251,6 +302,13 @@ class GameSession:
         self.story_settings = normalize_story_settings(data.get('story_settings'))
         self.entity_repository = EntityRepository(self.save_dir_path)
         self.state_mgr.state, self.history = data.get('state', self.state), data.get('history', self.history)
+        self.history.setdefault("context_history", [])
+        if not self.history.get("story_turns"):
+            self.history["story_turns"] = normalize_story_turns(self.history.get("context_history", []))
+        else:
+            self.history["story_turns"] = normalize_story_turns(self.history.get("story_turns", []))
+        self.story_memory.set_runtime(save_dir=self.save_dir_path)
+        self.story_memory.import_fallback(data.get("story_memory"))
         ensure_message_ids(self.history.get("chat_messages", []))
         self.action_suggestions = normalize_action_suggestions(
             data.get("action_suggestions", []), enabled=self.story_settings["aiSuggestions"]

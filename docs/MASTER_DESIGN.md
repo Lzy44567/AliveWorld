@@ -16,6 +16,8 @@
 
 `v1.1` 至 `v1.3` 已完成实体领域、因果账本、单层动态未来与世界书工具链的可运行 MVP。`v1.4.0-dev.1` 已建立系统型“世界推演”与普通暗流实体的职责协议；没有真实日志证据前不继续增加固定频率、强度或独立世界状态。
 
+`v1.4.4-dev.1` 开始接入长篇故事分级记忆：完整原文永久保留，正文工作上下文改由 token 水位、完整回合前缀、章节脊柱、重点/核心记忆和低频故事事件共同组装。压缩模型不每回合运行；详细现状、实现常量、失败回退和可替换方案见 [`features/06_hierarchical_memory.md`](features/06_hierarchical_memory.md)。
+
 重新规划后的 **v1.4.0 主开发线是生图基础版**：以本地 ComfyUI、手动角色立绘/剧情 CG、持久化异步任务、正文原位占位与本局画廊构成玩家可见的完整闭环。详细设计见 [`features/05_image_generation.md`](features/05_image_generation.md)，切片安排见 [`VERSION_ROADMAP.md`](VERSION_ROADMAP.md)。
 
 ## 对象边界

@@ -4,3 +4,7 @@ api_key: "YOUR_API_KEY"
 base_url: "https://api.deepseek.com"
 model: "deepseek-chat"
 image_api_url: "http://127.0.0.1:8188"
+memory_api_key: ""
+memory_base_url: ""
+memory_model: ""
+memory_context_limit: 32768

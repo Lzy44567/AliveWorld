@@ -25,6 +25,20 @@ export const gameApi = {
     if (!res.ok) throw new Error("局内设置保存失败");
     return res.json();
   },
+  async getStoryMemory(sessionId) {
+    const res = await fetch(`${API_URL}/${sessionId}/story-memory`);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || "读取故事记忆状态失败");
+    return data;
+  },
+  async compactStoryMemory(sessionId, force = false) {
+    const res = await fetch(`${API_URL}/${sessionId}/story-memory/compact`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ force })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || "故事记忆压缩失败");
+    return data;
+  },
   async getCausalLedger(sessionId) {
     const res = await fetch(`${API_URL}/${sessionId}/causal-ledger`);
     if (!res.ok) throw new Error("读取暗流因果账本失败");

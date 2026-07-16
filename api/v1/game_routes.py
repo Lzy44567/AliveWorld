@@ -15,11 +15,39 @@ from utils.file_io import BASE_DIR, init_save_folder, get_all_saves, save_game_d
 router = APIRouter()
 
 config_path = os.path.join(BASE_DIR, 'config.yml')
-if os.path.exists(config_path):
-    with open(config_path, 'r', encoding='utf-8') as f:
-        global_ai_engine = AIEngine(yaml.safe_load(f))
-else:
-    global_ai_engine = None
+
+
+def _context_limit(value):
+    try:
+        return max(8192, int(value or 32768))
+    except (TypeError, ValueError):
+        return 32768
+
+
+def _read_system_config():
+    if not os.path.exists(config_path):
+        return {}
+    with open(config_path, 'r', encoding='utf-8') as file:
+        return yaml.safe_load(file) or {}
+
+
+def _memory_runtime(config, fallback_engine):
+    memory_config = {"context_limit": _context_limit(config.get("memory_context_limit", 32768))}
+    if not fallback_engine:
+        return None, memory_config
+    independent_base_url = str(config.get("memory_base_url") or "").strip()
+    merged = {
+        "api_key": config.get("memory_api_key") or ("not-required" if independent_base_url else config.get("api_key", "")),
+        "base_url": independent_base_url or config.get("base_url", ""),
+        "model": config.get("memory_model") or config.get("model", ""),
+    }
+    inherited = not any(config.get(key) for key in ("memory_api_key", "memory_base_url", "memory_model"))
+    return (fallback_engine if inherited else AIEngine(merged)), memory_config
+
+
+_system_config = _read_system_config()
+global_ai_engine = AIEngine(_system_config) if all(_system_config.get(key) for key in ("api_key", "base_url", "model")) else None
+global_memory_ai_engine, global_memory_config = _memory_runtime(_system_config, global_ai_engine)
 
 class StartRequest(BaseModel):
     save_name: str = "未命名冒险"
@@ -47,13 +75,21 @@ class SystemConfigPayload(BaseModel):
     apiBaseUrl: str = "https://api.openai.com/v1"
     model: str = "gpt-3.5-turbo"
     imageApiUrl: str = ""
+    memoryApiKey: str = ""
+    memoryApiBaseUrl: str = ""
+    memoryModel: str = ""
+    memoryContextLimit: Any = 32768
 
 @router.post("/start")
 def start_game(payload: StartRequest):
     if not global_ai_engine: raise HTTPException(status_code=500, detail="未找到 config.yml")
     session_id = str(uuid.uuid4())
     save_dir_path = init_save_folder(payload.save_name)
-    game = GameSession(global_ai_engine, payload.save_name, save_dir_path=save_dir_path, story_settings=payload.story_settings)
+    game = GameSession(
+        global_ai_engine, payload.save_name, save_dir_path=save_dir_path,
+        story_settings=payload.story_settings, memory_ai_engine=global_memory_ai_engine,
+        memory_config=global_memory_config,
+    )
     world_premise = payload.world_premise if payload.world_premise is not None else payload.description
     
     opening = "【时间线已建立】\n"
@@ -72,7 +108,10 @@ def load_game(payload: LoadRequest):
     save_data = saves[payload.save_name]
     session_id = str(uuid.uuid4())
     
-    game = GameSession(global_ai_engine, payload.save_name, save_dir_path=save_data.get('save_dir_path', ''))
+    game = GameSession(
+        global_ai_engine, payload.save_name, save_dir_path=save_data.get('save_dir_path', ''),
+        memory_ai_engine=global_memory_ai_engine, memory_config=global_memory_config,
+    )
     game.load_save_data(save_data)
     active_sessions[session_id] = game
     return _session_payload(session_id, game)
@@ -157,17 +196,33 @@ def get_system_config():
         try:
             with open(config_path, 'r', encoding='utf-8') as f:
                 data = yaml.safe_load(f) or {}
-                return { "apiKey": data.get("api_key", ""), "apiBaseUrl": data.get("base_url", ""), "model": data.get("model", "") }
+                return {
+                    "apiKey": data.get("api_key", ""), "apiBaseUrl": data.get("base_url", ""), "model": data.get("model", ""),
+                    "memoryApiKey": data.get("memory_api_key", ""), "memoryApiBaseUrl": data.get("memory_base_url", ""),
+                    "memoryModel": data.get("memory_model", ""),
+                    "memoryContextLimit": _context_limit(data.get("memory_context_limit", 32768)),
+                }
         except: pass
     return {}
 
 @router.post("/system_config")
 def update_system_config(payload: SystemConfigPayload):
-    config_data = { "api_key": payload.apiKey, "base_url": payload.apiBaseUrl, "model": payload.model, "image_api_url": payload.imageApiUrl }
+    config_data = _read_system_config()
+    config_data.update({
+        "api_key": payload.apiKey, "base_url": payload.apiBaseUrl, "model": payload.model,
+        "image_api_url": payload.imageApiUrl, "memory_api_key": payload.memoryApiKey,
+        "memory_base_url": payload.memoryApiBaseUrl, "memory_model": payload.memoryModel,
+        "memory_context_limit": _context_limit(payload.memoryContextLimit),
+    })
     with open(config_path, 'w', encoding='utf-8') as f:
         yaml.safe_dump(config_data, f, allow_unicode=True, sort_keys=False)
     
-    global global_ai_engine
+    global global_ai_engine, global_memory_ai_engine, global_memory_config
     global_ai_engine = AIEngine(config_data)
-    for session in active_sessions.values(): session.ai_engine = global_ai_engine
+    global_memory_ai_engine, global_memory_config = _memory_runtime(config_data, global_ai_engine)
+    for session in active_sessions.values():
+        session.ai_engine = global_ai_engine
+        session.undercurrent.ai_engine = global_ai_engine
+        session.worldbook_capture.ai_engine = global_ai_engine
+        session.story_memory.set_runtime(ai_engine=global_memory_ai_engine, context_limit=global_memory_config["context_limit"])
     return {"status": "success"}

@@ -10,6 +10,10 @@ export const configStore = reactive({
     apiKey: savedConfig.globalSettings?.apiKey || "", 
     apiBaseUrl: savedConfig.globalSettings?.apiBaseUrl || "https://api.openai.com/v1",
     model: savedConfig.globalSettings?.model || "gpt-3.5-turbo",
+    memoryApiKey: savedConfig.globalSettings?.memoryApiKey || "",
+    memoryApiBaseUrl: savedConfig.globalSettings?.memoryApiBaseUrl || "",
+    memoryModel: savedConfig.globalSettings?.memoryModel || "",
+    memoryContextLimit: savedConfig.globalSettings?.memoryContextLimit || 32768,
     imageApiUrl: savedConfig.globalSettings?.imageApiUrl || "http://127.0.0.1:8188",
     imageCheckpoint: savedConfig.globalSettings?.imageCheckpoint || "",
     imageCheckpoints: savedConfig.globalSettings?.imageCheckpoints || [],
@@ -83,6 +87,10 @@ export const configStore = reactive({
         if (data.apiKey) this.globalSettings.apiKey = data.apiKey;
         if (data.apiBaseUrl) this.globalSettings.apiBaseUrl = data.apiBaseUrl;
         if (data.model) this.globalSettings.model = data.model;
+        this.globalSettings.memoryApiKey = data.memoryApiKey ?? this.globalSettings.memoryApiKey;
+        this.globalSettings.memoryApiBaseUrl = data.memoryApiBaseUrl ?? this.globalSettings.memoryApiBaseUrl;
+        this.globalSettings.memoryModel = data.memoryModel ?? this.globalSettings.memoryModel;
+        this.globalSettings.memoryContextLimit = data.memoryContextLimit ?? this.globalSettings.memoryContextLimit;
       }
     } catch (e) { console.error("读取配置失败", e); }
   }

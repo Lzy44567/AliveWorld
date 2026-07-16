@@ -13,7 +13,7 @@ import EntityDisclosureSettings from './EntityDisclosureSettings.vue';
       <label class="flex items-center gap-3 text-sm text-slate-300 cursor-pointer"><input type="checkbox" v-model="configStore.settings.allowReroll" class="rounded bg-slate-800 border-slate-600 text-rose-500"><span>开启“重掷未来”允许反悔</span></label>
       <label class="flex items-center gap-3 text-sm text-slate-300 cursor-pointer"><input type="checkbox" v-model="configStore.settings.aiSuggestions" class="rounded bg-slate-800 border-slate-600 text-rose-500"><span>开启 AI 行动灵感建议</span></label>
       <label class="flex items-center gap-3 text-sm text-slate-300 cursor-pointer"><input type="checkbox" v-model="configStore.settings.showTime" class="rounded bg-slate-800 border-slate-600 text-cyan-500"><span>新故事默认显示世界时间</span></label>
-      <label class="flex items-center gap-3 text-sm text-slate-300 cursor-pointer"><input type="checkbox" v-model="configStore.settings.autoCompressMemory" class="rounded bg-slate-800 border-slate-600 text-indigo-500"><span>智能记忆压缩 (未实装)</span></label>
+      <label class="flex items-center gap-3 text-sm text-slate-300 cursor-pointer"><input type="checkbox" v-model="configStore.settings.autoCompressMemory" class="rounded bg-slate-800 border-slate-600 text-indigo-500"><span>自动压缩故事记忆</span></label>
       <EntityDisclosureSettings />
     </div>
   </section>
