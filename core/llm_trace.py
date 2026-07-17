@@ -4,6 +4,7 @@ The trace deliberately receives prompts and model metadata only. API keys and
 other connection credentials never enter this module.
 """
 
+import json
 from uuid import uuid4
 
 from utils.sys_logger import get_logger
@@ -26,8 +27,9 @@ def begin_llm_trace(label, model, system_prompt, user_prompt, response_mode):
     return trace_id
 
 
-def finish_llm_trace(label, trace_id, response="", error=None):
+def finish_llm_trace(label, trace_id, response="", error=None, metadata=None):
+    meta = f" metadata={json.dumps(metadata, ensure_ascii=False, separators=(',', ':'))}" if metadata else ""
     if error:
-        log.error("LLM 响应 [%s] id=%s error=%s", label or "unspecified", trace_id, error)
+        log.error("LLM 响应 [%s] id=%s error=%s%s", label or "unspecified", trace_id, error, meta)
         return
-    log.info("LLM 响应 [%s] id=%s\n%s", label or "unspecified", trace_id, response)
+    log.info("LLM 响应 [%s] id=%s%s\n%s", label or "unspecified", trace_id, meta, response)

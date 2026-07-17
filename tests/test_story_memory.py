@@ -77,6 +77,58 @@ class StoryMemoryTests(unittest.TestCase):
             self.assertIn("调查失踪商队", context)
             self.assertIn(f"【回合 {result['end_turn'] + 1}】", context)
 
+    def test_force_compaction_rejects_tiny_bootstrap_only_archive(self):
+        with tempfile.TemporaryDirectory() as temp:
+            ai = FakeMemoryAI()
+            manager = StoryMemoryManager(temp, ai, context_limit=8192)
+            source = [
+                {"turn_id": 0, "text": "【时间线已建立】世界尚未开始。"},
+                {"turn_id": 1, "text": "玩家：观察\n结果：街道安静。"},
+                {"turn_id": 2, "text": "玩家：等待\n结果：时间缓慢流逝。"},
+            ]
+
+            result = manager.compact_now(source, force=True)
+
+            self.assertFalse(result["started"])
+            self.assertEqual([], ai.calls)
+
+    def test_bridge_turns_cannot_become_event_sources(self):
+        with tempfile.TemporaryDirectory() as temp:
+            payload = FakeMemoryAI().payload
+            payload["story_events"][0]["source_turns"] = [0, 1, 6, 7, 99]
+            ai = FakeMemoryAI(payload=payload)
+            manager = StoryMemoryManager(temp, ai, context_limit=8192)
+
+            result = manager.compact_now(turns(), force=True)
+
+            self.assertTrue(result["completed"])
+            event = manager.export_state()["story_events"][0]
+            self.assertTrue(event["source_turns"])
+            self.assertTrue(all(result["start_turn"] <= turn <= result["end_turn"] for turn in event["source_turns"]))
+            self.assertIn("桥接上下文", ai.calls[0][1])
+            self.assertIn("严禁摘要", ai.calls[0][0])
+
+    def test_legacy_tiny_bootstrap_index_is_ignored(self):
+        with tempfile.TemporaryDirectory() as temp:
+            memory_dir = Path(temp) / "memory"
+            memory_dir.mkdir()
+            (memory_dir / "index.json").write_text(json.dumps({
+                "version": 1,
+                "archived_until_turn": 0,
+                "chapter_spine": "被桥接内容污染的摘要",
+                "segments": [{
+                    "start_turn": 0,
+                    "end_turn": 0,
+                    "source_token_estimate": 48,
+                    "summary": "不应继续注入",
+                }],
+            }, ensure_ascii=False), encoding="utf-8")
+
+            manager = StoryMemoryManager(temp, FakeMemoryAI(), context_limit=8192)
+
+            self.assertEqual(-1, manager.export_state()["archived_until_turn"])
+            self.assertEqual([], manager.export_state()["segments"])
+
     def test_failed_compaction_does_not_advance_index(self):
         with tempfile.TemporaryDirectory() as temp:
             manager = StoryMemoryManager(temp, FakeMemoryAI(error="connection failed"), context_limit=8192)

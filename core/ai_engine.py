@@ -6,6 +6,36 @@ from core.llm_trace import begin_llm_trace, finish_llm_trace
 
 log = get_logger()
 
+
+def _completion_metadata(response, attempt=1):
+    choice = response.choices[0]
+    usage = getattr(response, "usage", None)
+    if hasattr(usage, "model_dump"):
+        usage = usage.model_dump()
+    elif usage is not None and not isinstance(usage, dict):
+        usage = {
+            key: getattr(usage, key)
+            for key in ("prompt_tokens", "completion_tokens", "total_tokens")
+            if getattr(usage, key, None) is not None
+        }
+    return {
+        "response_id": str(getattr(response, "id", "") or ""),
+        "finish_reason": str(getattr(choice, "finish_reason", "") or ""),
+        "attempt": attempt,
+        "usage": usage or {},
+    }
+
+
+def _empty_response_error(metadata):
+    reason = metadata.get("finish_reason", "")
+    if reason == "content_filter":
+        return "content_filter: 模型服务商过滤了本次输出"
+    if reason == "length":
+        return "length: 模型达到输出或上下文长度限制，未返回有效内容"
+    if reason == "insufficient_system_resource":
+        return "insufficient_system_resource: 模型服务商推理资源不足"
+    return f"empty_response: 模型服务商返回空白内容（finish_reason={reason or 'unknown'}）"
+
 def intelligent_salvage(raw_str, error_msg):
     log.warning(f"启动智能打捞引擎... 原因: {error_msg}")
     story = raw_str.strip()
@@ -38,10 +68,25 @@ class AIEngine:
         try:
             kwargs = {"model": self.model, "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}], "temperature": temp, "response_format": {"type": "json_object"}}
             if max_tokens: kwargs["max_tokens"] = max_tokens
-            res = self.client.chat.completions.create(**kwargs)
-            content = res.choices[0].message.content or ""
-            finish_llm_trace(trace_label, trace_id, response=content)
-            return content, None
+            for attempt in (1, 2):
+                res = self.client.chat.completions.create(**kwargs)
+                content = res.choices[0].message.content or ""
+                metadata = _completion_metadata(res, attempt)
+                if content.strip():
+                    finish_llm_trace(trace_label, trace_id, response=content, metadata=metadata)
+                    return content, None
+                error = _empty_response_error(metadata)
+                if metadata["finish_reason"] == "content_filter" or attempt == 2:
+                    finish_llm_trace(trace_label, trace_id, error=error, metadata=metadata)
+                    return "", error
+                log.warning(
+                    "LLM JSON 空白响应，执行一次受控重试: label=%s id=%s finish_reason=%s",
+                    trace_label, trace_id, metadata["finish_reason"] or "unknown",
+                )
+                kwargs["messages"] = [*kwargs["messages"][:-1], {
+                    "role": "user",
+                    "content": user_prompt + "\n\n请立即只返回一个完整 JSON 对象，禁止只输出空白字符。",
+                }]
         except Exception as e:
             finish_llm_trace(trace_label, trace_id, error=str(e))
             return "", str(e)
@@ -56,7 +101,12 @@ class AIEngine:
                 temperature=temp
             )
             content = res.choices[0].message.content or ""
-            finish_llm_trace(trace_label, trace_id, response=content)
+            metadata = _completion_metadata(res)
+            if not content.strip():
+                error = _empty_response_error(metadata)
+                finish_llm_trace(trace_label, trace_id, error=error, metadata=metadata)
+                return "", error
+            finish_llm_trace(trace_label, trace_id, response=content, metadata=metadata)
             return content, None
         except Exception as e:
             finish_llm_trace(trace_label, trace_id, error=str(e))
