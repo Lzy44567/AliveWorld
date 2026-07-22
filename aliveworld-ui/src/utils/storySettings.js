@@ -6,7 +6,9 @@ export const STORY_SETTING_DEFAULTS = Object.freeze({
   showCausalLedger: false,
   autoCompressMemory: false,
   worldbookCaptureEnabled: true,
-  worldbookCaptureReview: false
+  worldbookCaptureReview: false,
+  learnUserPreferences: true,
+  useUserPreferences: true
 });
 
 export function normalizeStorySettings(settings = {}, defaults = STORY_SETTING_DEFAULTS) {

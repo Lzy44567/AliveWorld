@@ -6,6 +6,7 @@ from core.ai_engine import robust_json_parse
 from core.model_response import failure_message
 from core.future_candidates import candidate_probability, choose_candidate, normalize_candidates
 from core.action_suggestions import action_suggestion_instruction
+from core.preference_learning import preference_context_instruction, preference_learning_instruction
 
 log = get_logger()
 
@@ -65,6 +66,12 @@ class DualTrackResolver(BaseResolutionStrategy):
         # 2. 剧情结算
         visible_world, _ = session.build_visible_world_info(player_action)
         settle_p = pts.get('settlement_prompt', '').replace('{world_info}', visible_world).replace('{character_info}', session.char_info).replace('{style_info}', session.style_info).replace('{word_limit}', str(session.word_limit))
+        preference_context = getattr(session, "get_user_preference_context", lambda: "")()
+        preference_prompt = preference_context_instruction(preference_context)
+        if preference_prompt:
+            settle_p += "\n\n" + preference_prompt
+        if session.story_settings.get("learnUserPreferences", True):
+            settle_p += "\n\n" + preference_learning_instruction(preference_context)
         suggestion_prompt = action_suggestion_instruction(session.story_settings.get("aiSuggestions", True))
         if suggestion_prompt:
             settle_p += "\n\n【玩家行动建议要求】\n" + suggestion_prompt

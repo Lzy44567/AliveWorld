@@ -14,6 +14,8 @@ from core.worldbook_capture import WorldbookCaptureService, capture_requested
 from core.chat_messages import ensure_message_ids
 from core.action_suggestions import action_suggestion_instruction, normalize_action_suggestions, resolve_action_reference
 from core.story_memory import StoryMemoryManager, normalize_story_turns
+from core.user_preferences import UserPreferenceRepository
+from core.preference_learning import preference_observations
 from utils.sys_logger import get_logger
 
 log = get_logger()
@@ -34,6 +36,7 @@ class GameSession:
         self.entity_repository = EntityRepository(self.save_dir_path)
         self.resolver = DualTrackResolver()
         self.worldbook_capture = WorldbookCaptureService(self.ai_engine)
+        self.user_preferences = UserPreferenceRepository()
         memory_config = memory_config or {}
         self.story_memory = StoryMemoryManager(
             self.save_dir_path,
@@ -67,6 +70,10 @@ class GameSession:
         """Worldbook context for subsystems that must not see hidden entity state."""
         return self.ctx_mgr.build_visible_world_info(self.get_context_text(), action)
     def get_dynamic_state_for_ai(self): return self.state_mgr.get_dynamic_state()
+    def get_user_preference_context(self):
+        if not self.story_settings.get("useUserPreferences", True):
+            return ""
+        return self.user_preferences.context()
     def get_context_text(self):
         return self.story_memory.build_context(
             self.history.get("story_turns", []),
@@ -166,6 +173,21 @@ class GameSession:
             self.history.setdefault("story_turns", []), interpreted_action, story_text,
             source_message_ids=self._latest_story_message_ids(),
         )
+        changed_preferences = self.user_preferences.observe(
+            preference_observations(
+                settlement,
+                enabled=self.story_settings.get("learnUserPreferences", True),
+            ),
+            save_name=self.save_name,
+            turn_id=self.history["story_turns"][-1]["turn_id"],
+            player_action=interpreted_action,
+        )
+        for preference in changed_preferences:
+            log.info(
+                "玩家偏好观察: id=%s status=%s confidence=%s evidence_count=%s statement=%s",
+                preference.get("id"), preference.get("status"), preference.get("confidence"),
+                preference.get("evidence_count"), preference.get("statement"),
+            )
         if self.story_settings["worldbookCaptureEnabled"] and capture_requested(settlement):
             self.worldbook_capture.schedule(
                 self.save_dir_path, interpreted_action, story_text,
@@ -213,6 +235,13 @@ class GameSession:
         suggestion_prompt = action_suggestion_instruction(self.story_settings.get("aiSuggestions", True))
         if suggestion_prompt:
             settle_p += "\n\n【玩家行动建议要求】\n" + suggestion_prompt
+        from core.preference_learning import preference_context_instruction, preference_learning_instruction
+        preference_context = self.get_user_preference_context()
+        preference_prompt = preference_context_instruction(preference_context)
+        if preference_prompt:
+            settle_p += "\n\n" + preference_prompt
+        if self.story_settings.get("learnUserPreferences", True):
+            settle_p += "\n\n" + preference_learning_instruction(preference_context)
         influence_instruction = "\n".join(
             f"- [{item['id']}] {item['summary']}；必须体现的后果：{item['effect']}；依据：{item['reason']}"
             for item in triggered_influences
@@ -257,6 +286,20 @@ class GameSession:
             self.history.setdefault("story_turns", []), interpreted_action, story_text,
             source_message_ids=self._latest_story_message_ids(),
         )
+        changed_preferences = self.user_preferences.observe(
+            preference_observations(
+                settlement,
+                enabled=self.story_settings.get("learnUserPreferences", True),
+            ),
+            save_name=self.save_name,
+            turn_id=self.history["story_turns"][-1]["turn_id"],
+            player_action=interpreted_action,
+        )
+        for preference in changed_preferences:
+            log.info(
+                "玩家偏好观察(重掷): id=%s status=%s statement=%s",
+                preference.get("id"), preference.get("status"), preference.get("statement"),
+            )
         self.story_memory.schedule(
             self.history.get("story_turns", []),
             enabled=self.story_settings.get("autoCompressMemory", False),
@@ -268,13 +311,19 @@ class GameSession:
             "state": copy.deepcopy(self.state), "chat_messages": copy.deepcopy(self.history["chat_messages"]), 
             "context_history": copy.deepcopy(self.history["context_history"]), "undercurrent": self.undercurrent.export_state(),
             "story_turns": copy.deepcopy(self.history.get("story_turns", [])),
-            "action_suggestions": copy.deepcopy(self.action_suggestions)
+            "action_suggestions": copy.deepcopy(self.action_suggestions),
         })
         if len(self.snapshots) > 20: self.snapshots.pop(0)
 
     def rollback(self):
         if not self.snapshots: return False
         snap = self.snapshots.pop()
+        snapshot_turn_ids = {int(turn.get("turn_id", -1)) for turn in snap.get("story_turns", [])}
+        removed_turn_ids = {
+            int(turn.get("turn_id", -1)) for turn in self.history.get("story_turns", [])
+        } - snapshot_turn_ids
+        for turn_id in removed_turn_ids:
+            self.user_preferences.remove_turn_evidence(save_name=self.save_name, turn_id=turn_id)
         self.state_mgr.state = snap["state"]
         self.history["chat_messages"] = snap["chat_messages"]
         self.history["context_history"] = snap["context_history"]

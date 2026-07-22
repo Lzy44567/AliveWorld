@@ -14,6 +14,8 @@ import EntityDisclosureSettings from './EntityDisclosureSettings.vue';
       <label class="flex items-center gap-3 text-sm text-slate-300 cursor-pointer"><input type="checkbox" v-model="configStore.settings.aiSuggestions" class="rounded bg-slate-800 border-slate-600 text-rose-500"><span>开启 AI 行动灵感建议</span></label>
       <label class="flex items-center gap-3 text-sm text-slate-300 cursor-pointer"><input type="checkbox" v-model="configStore.settings.showTime" class="rounded bg-slate-800 border-slate-600 text-cyan-500"><span>新故事默认显示世界时间</span></label>
       <label class="flex items-center gap-3 text-sm text-slate-300 cursor-pointer"><input type="checkbox" v-model="configStore.settings.autoCompressMemory" class="rounded bg-slate-800 border-slate-600 text-indigo-500"><span>自动压缩故事记忆</span></label>
+      <label class="flex items-center gap-3 text-sm text-slate-300 cursor-pointer"><input type="checkbox" v-model="configStore.settings.learnUserPreferences" class="rounded bg-slate-800 border-slate-600 text-fuchsia-500"><span>随游玩学习用户偏好</span></label>
+      <label class="flex items-center gap-3 text-sm text-slate-300 cursor-pointer"><input type="checkbox" v-model="configStore.settings.useUserPreferences" class="rounded bg-slate-800 border-slate-600 text-fuchsia-500"><span>正文参考已确认偏好</span></label>
       <EntityDisclosureSettings />
     </div>
   </section>

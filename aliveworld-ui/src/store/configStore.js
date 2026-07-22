@@ -43,7 +43,9 @@ export const configStore = reactive({
     showEntityBubbles: savedConfig.settings?.showEntityBubbles ?? Boolean(savedConfig.settings?.showEntityDebug && legacyEntityVisibility !== 'hidden'),
     autoCompressMemory: savedConfig.settings?.autoCompressMemory ?? false,
     worldbookCaptureEnabled: savedConfig.settings?.worldbookCaptureEnabled ?? true,
-    worldbookCaptureReview: savedConfig.settings?.worldbookCaptureReview ?? false
+    worldbookCaptureReview: savedConfig.settings?.worldbookCaptureReview ?? false,
+    learnUserPreferences: savedConfig.settings?.learnUserPreferences ?? true,
+    useUserPreferences: savedConfig.settings?.useUserPreferences ?? true
   }),
   
   story: {

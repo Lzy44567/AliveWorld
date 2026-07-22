@@ -20,6 +20,15 @@ const settings = computed(() => configStore.story.settings);
     </section>
 
     <section class="rounded-xl border border-slate-700 bg-slate-800/30 p-4">
+      <h3 class="mb-2 text-xs font-bold text-fuchsia-300">🪞 用户偏好</h3>
+      <p class="mb-3 text-[10px] leading-relaxed text-slate-500">复用正文结算结果学习，不会额外发起一轮 AI 请求。候选偏好不会立刻影响故事。</p>
+      <div class="grid grid-cols-2 gap-3">
+        <label class="setting-row"><span>随游玩学习偏好</span><input type="checkbox" v-model="settings.learnUserPreferences"></label>
+        <label class="setting-row"><span>正文参考已确认偏好</span><input type="checkbox" v-model="settings.useUserPreferences"></label>
+      </div>
+    </section>
+
+    <section class="rounded-xl border border-slate-700 bg-slate-800/30 p-4">
       <h3 class="mb-2 text-xs font-bold text-indigo-300">🧠 长篇故事记忆</h3>
       <p class="mb-3 text-[10px] leading-relaxed text-slate-500">达到上下文水位后异步归档较早完整回合；永久保留原文，压缩失败不会影响正文。</p>
       <label class="setting-row"><span>自动压缩故事记忆</span><input type="checkbox" v-model="settings.autoCompressMemory"></label>

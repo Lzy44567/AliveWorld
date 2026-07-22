@@ -5,6 +5,7 @@ import InferenceSettings from '../settings/InferenceSettings.vue';
 import ApiSettings from '../settings/ApiSettings.vue';
 import ImageSettings from '../settings/ImageSettings.vue';
 import MemorySettings from '../settings/MemorySettings.vue';
+import PreferenceSettings from '../settings/PreferenceSettings.vue';
 
 const activeSection = ref('inference');
 const close = () => { uiStore.modals.settings = false; };
@@ -22,12 +23,14 @@ const close = () => { uiStore.modals.settings = false; };
           <button @click="activeSection = 'inference'" :class="activeSection === 'inference' ? 'bg-slate-800 text-rose-400' : 'text-slate-400 hover:bg-slate-800'" class="w-full text-left px-3 py-2 text-sm font-bold rounded transition">🎛️ 调试与推演</button>
           <button @click="activeSection = 'api'" :class="activeSection === 'api' ? 'bg-slate-800 text-emerald-400' : 'text-slate-400 hover:bg-slate-800'" class="w-full text-left px-3 py-2 text-sm font-bold rounded transition">🔌 API 配置</button>
           <button @click="activeSection = 'memory'" :class="activeSection === 'memory' ? 'bg-slate-800 text-indigo-300' : 'text-slate-400 hover:bg-slate-800'" class="w-full text-left px-3 py-2 text-sm font-bold rounded transition">🧠 记忆模型</button>
+          <button @click="activeSection = 'preferences'" :class="activeSection === 'preferences' ? 'bg-slate-800 text-fuchsia-300' : 'text-slate-400 hover:bg-slate-800'" class="w-full text-left px-3 py-2 text-sm font-bold rounded transition">🪞 用户偏好卡</button>
           <button @click="activeSection = 'image'" :class="activeSection === 'image' ? 'bg-slate-800 text-fuchsia-300' : 'text-slate-400 hover:bg-slate-800'" class="w-full text-left px-3 py-2 text-sm font-bold rounded transition">🎨 生图配置</button>
         </nav>
         <div class="flex-1 min-w-0 p-6 overflow-y-auto bg-slate-800/20 custom-scrollbar">
           <InferenceSettings v-if="activeSection === 'inference'" />
           <ApiSettings v-else-if="activeSection === 'api'" />
           <MemorySettings v-else-if="activeSection === 'memory'" />
+          <PreferenceSettings v-else-if="activeSection === 'preferences'" />
           <ImageSettings v-else />
         </div>
       </div>

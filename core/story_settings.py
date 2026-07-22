@@ -19,6 +19,8 @@ DEFAULT_STORY_SETTINGS = {
     "autoCompressMemory": False,
     "worldbookCaptureEnabled": True,
     "worldbookCaptureReview": False,
+    "learnUserPreferences": True,
+    "useUserPreferences": True,
 }
 
 
