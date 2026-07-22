@@ -19,6 +19,7 @@ export const uiStore = reactive({
   workshopSessionId: '',
   ledgerSourceFilter: '',
   imageGeneratorContext: { characterName: '', description: '' },
+  settingsSection: 'inference',
   
   editorData: { 
     type: '', name: '', content: '', isNew: false,

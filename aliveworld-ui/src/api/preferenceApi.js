@@ -19,5 +19,22 @@ export const preferenceApi = {
   },
   async remove(id) {
     return parse(await fetch(`${API_URL}/${encodeURIComponent(id)}`, { method: 'DELETE' }), '删除用户偏好失败');
+  },
+  async declare(text, sessionId = '', options = {}) {
+    return parse(await fetch(`${API_URL}/declare`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text, session_id: sessionId,
+        category: options.category || 'other',
+        polarity: options.polarity || 'prefer',
+        sensitive: Boolean(options.sensitive)
+      })
+    }), '记录用户偏好失败');
+  },
+  async analyze(sessionId, force = true) {
+    return parse(await fetch(`${API_URL}/analyze`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id: sessionId, force })
+    }), '分析用户偏好失败');
   }
 };

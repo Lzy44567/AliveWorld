@@ -8,7 +8,15 @@ export const STORY_SETTING_DEFAULTS = Object.freeze({
   worldbookCaptureEnabled: true,
   worldbookCaptureReview: false,
   learnUserPreferences: true,
-  useUserPreferences: true
+  useUserPreferences: true,
+  deepPreferenceAnalysis: true,
+  analyzeSensitivePreferences: false,
+  preferenceStoryEnabled: true,
+  preferenceAdultEnabled: true,
+  preferenceActionEnabled: true,
+  preferenceCharacterEnabled: true,
+  preferenceRelationshipEnabled: true,
+  preferenceVisualEnabled: true
 });
 
 export function normalizeStorySettings(settings = {}, defaults = STORY_SETTING_DEFAULTS) {

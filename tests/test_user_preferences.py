@@ -4,6 +4,7 @@ import unittest
 
 from core.preference_learning import (
     preference_context_instruction,
+    preference_evidence,
     preference_learning_instruction,
     preference_observations,
 )
@@ -84,13 +85,21 @@ class UserPreferenceRepositoryTests(unittest.TestCase):
 class PreferenceLearningContractTests(unittest.TestCase):
     def test_learning_prompt_rejects_roleplay_as_user_preference(self):
         prompt = preference_learning_instruction("")
-        self.assertIn("不是角色心理分析", prompt)
-        self.assertIn("必须返回空数组", prompt)
-        self.assertIn("不得自动删除", prompt)
+        self.assertIn("不要在这里推断玩家真正喜欢什么", prompt)
+        self.assertIn("角色台词", prompt)
+        self.assertIn("返回空数组", prompt)
+        self.assertIn("preference_evidence", prompt)
 
     def test_disabled_learning_ignores_model_output(self):
         settlement = {"preference_observations": [{"statement": "测试"}]}
         self.assertEqual(preference_observations(settlement, enabled=False), [])
+
+    def test_evidence_contract_reads_only_new_neutral_field(self):
+        settlement = {
+            "preference_observations": [{"statement": "旧推断"}],
+            "preference_evidence": [{"summary": "玩家连续选择观察群众反应"}],
+        }
+        self.assertEqual(preference_evidence(settlement, enabled=True)[0]["summary"], "玩家连续选择观察群众反应")
 
     def test_confirmed_context_has_narrative_boundary(self):
         prompt = preference_context_instruction("- [x] 偏好：慢节奏")

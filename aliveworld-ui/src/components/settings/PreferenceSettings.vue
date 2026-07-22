@@ -2,6 +2,8 @@
 import { computed, onMounted, ref } from 'vue';
 import { preferenceApi } from '../../api/preferenceApi';
 import { uiStore } from '../../store/uiStore';
+import { gameStore } from '../../store/gameStore';
+import { preferenceStore } from '../../store/preferenceStore';
 import InlineDeleteConfirm from '../common/InlineDeleteConfirm.vue';
 import { useDeleteConfirmation } from '../../composables/useDeleteConfirmation';
 
@@ -9,10 +11,15 @@ const loading = ref(false);
 const preferences = ref([]);
 const editingId = ref('');
 const editingText = ref('');
+const declarationText = ref('');
+const declarationCategory = ref('story');
+const declarationPolarity = ref('prefer');
+const declarationSensitive = ref(false);
+const analyzing = ref(false);
 const { confirmDeleteId, requestDelete, cancelDelete } = useDeleteConfirmation();
 const categoryLabels = {
-  narrative: '叙事', character: '角色', relationship: '关系', visual: '视觉',
-  content: '内容', boundary: '边界', other: '其他'
+  story: '剧情发展', narrative: '剧情发展', adult: '色情内容', action: '动作描写',
+  character: '角色偏好', relationship: '关系互动', visual: '视觉', content: '内容', boundary: '边界', other: '其他'
 };
 const active = computed(() => preferences.value.filter(item => item.status === 'active'));
 const candidates = computed(() => preferences.value.filter(item => item.status === 'candidate'));
@@ -21,12 +28,43 @@ const disabled = computed(() => preferences.value.filter(item => item.status ===
 async function refresh() {
   loading.value = true;
   try {
-    const data = await preferenceApi.list();
+    const data = await preferenceStore.refresh();
     preferences.value = data.preferences || [];
   } catch (error) {
     uiStore.showToast(error.message, 'error');
   } finally {
     loading.value = false;
+  }
+}
+
+async function declarePreference() {
+  const text = declarationText.value.trim();
+  if (!text) return;
+  try {
+    await preferenceApi.declare(text, gameStore.sessionId || '', {
+      category: declarationCategory.value,
+      polarity: declarationPolarity.value,
+      sensitive: declarationSensitive.value
+    });
+    declarationText.value = '';
+    await refresh();
+    uiStore.showToast('已作为高先验偏好保存，后续证据仍可完善它');
+  } catch (error) {
+    uiStore.showToast(error.message, 'error');
+  }
+}
+
+async function analyzeNow() {
+  if (!gameStore.sessionId) return uiStore.showToast('请先载入一个故事', 'error');
+  analyzing.value = true;
+  try {
+    const result = await preferenceApi.analyze(gameStore.sessionId, true);
+    await refresh();
+    uiStore.showToast(result.changed?.length ? `分析完成，更新 ${result.changed.length} 个假设` : (result.skipped || '分析完成'));
+  } catch (error) {
+    uiStore.showToast(error.message, 'error');
+  } finally {
+    analyzing.value = false;
   }
 }
 
@@ -68,6 +106,33 @@ onMounted(refresh);
         AliveWorld 会随游玩积累有依据的偏好信号。直接表达的偏好可立即生效；普通行为通常要重复出现才会激活。
         角色扮演行为不应被当成玩家本人偏好。
       </p>
+    </section>
+
+    <section class="rounded-xl border border-fuchsia-900/60 bg-fuchsia-950/20 p-3">
+      <label class="text-xs font-bold text-fuchsia-200">先随手写一点</label>
+      <p class="mt-1 text-[10px] text-slate-500">这会成为高先验方向，不是不可修改的绝对规则。</p>
+      <textarea v-model="declarationText" class="mt-2 h-20 w-full resize-none rounded-lg border border-slate-700 bg-slate-950 p-2 text-xs text-slate-200 outline-none focus:border-fuchsia-600" placeholder="例如：我喜欢角色展示力量后引起周围人的反应，但不希望每次都这样写。"></textarea>
+      <div class="mt-2 grid grid-cols-2 gap-2 md:grid-cols-3">
+        <select v-model="declarationCategory" class="edit-input">
+          <option v-for="(label, key) in categoryLabels" :key="key" :value="key">{{ label }}</option>
+        </select>
+        <select v-model="declarationPolarity" class="edit-input"><option value="prefer">希望出现</option><option value="avoid">希望回避</option></select>
+        <label class="flex items-center gap-2 rounded-lg border border-slate-700 px-2 text-[11px] text-slate-400"><input v-model="declarationSensitive" type="checkbox">敏感内容</label>
+      </div>
+      <div class="mt-2 flex items-center justify-between gap-2">
+        <span class="text-[10px] text-slate-500">待分析行为证据：{{ preferenceStore.pendingEvidenceCount }}</span>
+        <div class="flex gap-2">
+          <button class="mini-btn" :disabled="analyzing || !gameStore.sessionId" @click="analyzeNow">{{ analyzing ? '分析中…' : '重新分析证据' }}</button>
+          <button class="mini-btn text-fuchsia-200" @click="declarePreference">保存初始方向</button>
+        </div>
+      </div>
+    </section>
+
+    <section v-if="preferenceStore.analysis.coverage_note" class="rounded-lg border border-amber-900/50 bg-amber-950/10 p-3 text-[10px] leading-relaxed text-amber-100/80">
+      <strong>本轮分析边界：</strong>{{ preferenceStore.analysis.coverage_note }}
+      <ul v-if="preferenceStore.analysis.missing_possibilities?.length" class="mt-1 list-disc pl-4 text-slate-400">
+        <li v-for="item in preferenceStore.analysis.missing_possibilities" :key="item">{{ item }}</li>
+      </ul>
     </section>
 
     <p v-if="loading" class="text-xs text-slate-500">正在读取偏好卡……</p>

@@ -5,6 +5,10 @@ import { gameStore } from '../../store/gameStore';
 import { configStore, effectiveStorySettings } from '../../store/configStore';
 import { gameApi } from '../../api/gameApi';
 import { assetStore } from '../../store/assetStore';
+import { uiStore } from '../../store/uiStore';
+import { preferenceApi } from '../../api/preferenceApi';
+import { preferenceStore } from '../../store/preferenceStore';
+import { parsePreferenceMeta } from '../../utils/preferenceMeta';
 
 const userInput = ref("");
 const lastAction = ref("");
@@ -13,12 +17,27 @@ watch(() => effectiveStorySettings.value.aiSuggestions, (enabled) => {
 });
 
 const submitAction = async (text = null) => {
-  const finalAction = text || userInput.value.trim();
-  if (!finalAction || !gameStore.sessionId || gameStore.isProcessing) return;
+  const rawInput = text || userInput.value.trim();
+  if (!rawInput || !gameStore.sessionId || gameStore.isProcessing) return;
+  const { action: finalAction, declarations } = parsePreferenceMeta(rawInput);
+  if (!finalAction && !declarations.length) return;
+
+  for (const declaration of declarations) {
+    try {
+      await preferenceApi.declare(declaration, gameStore.sessionId);
+    } catch (error) {
+      uiStore.showToast(error.message, 'error');
+    }
+  }
+  if (declarations.length) {
+    preferenceStore.refresh().catch(() => {});
+    uiStore.showToast(finalAction ? '偏好已记录，继续执行本回合行动' : '偏好已记录，不消耗故事回合');
+  }
+  userInput.value = "";
+  if (!finalAction) return;
   
   gameStore.chatLog.push({ role: "user", content: finalAction });
   lastAction.value = finalAction;
-  userInput.value = "";
   gameStore.isProcessing = true;
   gameStore.setActionSuggestions([]);
   scrollToBottom();
@@ -38,6 +57,7 @@ const submitAction = async (text = null) => {
   } finally {
     gameStore.isProcessing = false;
     assetStore.fetchLocalAssets(gameStore.sessionId);
+    preferenceStore.refresh().catch(() => {});
     scrollToBottom();
   }
 };
@@ -87,6 +107,12 @@ const scrollToBottom = () => {
     }
   }, 100);
 };
+
+const insertPreference = () => {
+  userInput.value = userInput.value.trim()
+    ? `${userInput.value.trim()} [[偏好：]]`
+    : '/偏好 ';
+};
 </script>
 
 <template>
@@ -101,6 +127,8 @@ const scrollToBottom = () => {
 
       <div class="relative flex gap-3 drop-shadow-2xl">
         <input v-model="userInput" @keyup.enter="submitAction()" :disabled="!gameStore.sessionId" class="flex-1 bg-slate-900 border border-slate-600 rounded-xl px-5 py-4 outline-none focus:border-indigo-500 text-slate-100 placeholder-slate-500 shadow-inner text-base" placeholder="描述你的行动，或输入 A / 1 并补充要求..." />
+
+        <button @click="insertPreference" :disabled="!gameStore.sessionId || gameStore.isProcessing" class="px-3 py-2 rounded-xl border border-fuchsia-800/70 bg-fuchsia-950/40 text-xs text-fuchsia-200 hover:bg-fuchsia-900/50 disabled:opacity-40" title="插入玩家偏好说明；这部分不会成为角色台词">🪞 偏好</button>
         
         <div class="flex flex-col gap-1 justify-center">
            <button @click="undoTurn" :disabled="gameStore.isProcessing" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded text-[10px] border border-slate-700 transition disabled:opacity-50" title="撤回">⏪</button>

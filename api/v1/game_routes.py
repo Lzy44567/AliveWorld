@@ -45,9 +45,23 @@ def _memory_runtime(config, fallback_engine):
     return (fallback_engine if inherited else AIEngine(merged)), memory_config
 
 
+def _preference_runtime(config, fallback_engine):
+    if not fallback_engine:
+        return None
+    independent_base_url = str(config.get("preference_base_url") or "").strip()
+    merged = {
+        "api_key": config.get("preference_api_key") or ("not-required" if independent_base_url else config.get("api_key", "")),
+        "base_url": independent_base_url or config.get("base_url", ""),
+        "model": config.get("preference_model") or config.get("model", ""),
+    }
+    inherited = not any(config.get(key) for key in ("preference_api_key", "preference_base_url", "preference_model"))
+    return fallback_engine if inherited else AIEngine(merged)
+
+
 _system_config = _read_system_config()
 global_ai_engine = AIEngine(_system_config) if all(_system_config.get(key) for key in ("api_key", "base_url", "model")) else None
 global_memory_ai_engine, global_memory_config = _memory_runtime(_system_config, global_ai_engine)
+global_preference_ai_engine = _preference_runtime(_system_config, global_ai_engine)
 
 class StartRequest(BaseModel):
     save_name: str = "未命名冒险"
@@ -79,6 +93,9 @@ class SystemConfigPayload(BaseModel):
     memoryApiBaseUrl: str = ""
     memoryModel: str = ""
     memoryContextLimit: Any = 32768
+    preferenceApiKey: str = ""
+    preferenceApiBaseUrl: str = ""
+    preferenceModel: str = ""
 
 @router.post("/start")
 def start_game(payload: StartRequest):
@@ -89,6 +106,7 @@ def start_game(payload: StartRequest):
         global_ai_engine, payload.save_name, save_dir_path=save_dir_path,
         story_settings=payload.story_settings, memory_ai_engine=global_memory_ai_engine,
         memory_config=global_memory_config,
+        preference_ai_engine=global_preference_ai_engine,
     )
     world_premise = payload.world_premise if payload.world_premise is not None else payload.description
     
@@ -111,6 +129,7 @@ def load_game(payload: LoadRequest):
     game = GameSession(
         global_ai_engine, payload.save_name, save_dir_path=save_data.get('save_dir_path', ''),
         memory_ai_engine=global_memory_ai_engine, memory_config=global_memory_config,
+        preference_ai_engine=global_preference_ai_engine,
     )
     game.load_save_data(save_data)
     active_sessions[session_id] = game
@@ -201,6 +220,9 @@ def get_system_config():
                     "memoryApiKey": data.get("memory_api_key", ""), "memoryApiBaseUrl": data.get("memory_base_url", ""),
                     "memoryModel": data.get("memory_model", ""),
                     "memoryContextLimit": _context_limit(data.get("memory_context_limit", 32768)),
+                    "preferenceApiKey": data.get("preference_api_key", ""),
+                    "preferenceApiBaseUrl": data.get("preference_base_url", ""),
+                    "preferenceModel": data.get("preference_model", ""),
                 }
         except: pass
     return {}
@@ -213,16 +235,21 @@ def update_system_config(payload: SystemConfigPayload):
         "image_api_url": payload.imageApiUrl, "memory_api_key": payload.memoryApiKey,
         "memory_base_url": payload.memoryApiBaseUrl, "memory_model": payload.memoryModel,
         "memory_context_limit": _context_limit(payload.memoryContextLimit),
+        "preference_api_key": payload.preferenceApiKey,
+        "preference_base_url": payload.preferenceApiBaseUrl,
+        "preference_model": payload.preferenceModel,
     })
     with open(config_path, 'w', encoding='utf-8') as f:
         yaml.safe_dump(config_data, f, allow_unicode=True, sort_keys=False)
     
-    global global_ai_engine, global_memory_ai_engine, global_memory_config
+    global global_ai_engine, global_memory_ai_engine, global_memory_config, global_preference_ai_engine
     global_ai_engine = AIEngine(config_data)
     global_memory_ai_engine, global_memory_config = _memory_runtime(config_data, global_ai_engine)
+    global_preference_ai_engine = _preference_runtime(config_data, global_ai_engine)
     for session in active_sessions.values():
         session.ai_engine = global_ai_engine
         session.undercurrent.ai_engine = global_ai_engine
         session.worldbook_capture.ai_engine = global_ai_engine
         session.story_memory.set_runtime(ai_engine=global_memory_ai_engine, context_limit=global_memory_config["context_limit"])
+        session.preference_analysis.set_runtime(global_preference_ai_engine)
     return {"status": "success"}

@@ -14,6 +14,9 @@ export const configStore = reactive({
     memoryApiBaseUrl: savedConfig.globalSettings?.memoryApiBaseUrl || "",
     memoryModel: savedConfig.globalSettings?.memoryModel || "",
     memoryContextLimit: savedConfig.globalSettings?.memoryContextLimit || 32768,
+    preferenceApiKey: savedConfig.globalSettings?.preferenceApiKey || "",
+    preferenceApiBaseUrl: savedConfig.globalSettings?.preferenceApiBaseUrl || "",
+    preferenceModel: savedConfig.globalSettings?.preferenceModel || "",
     imageApiUrl: savedConfig.globalSettings?.imageApiUrl || "http://127.0.0.1:8188",
     imageCheckpoint: savedConfig.globalSettings?.imageCheckpoint || "",
     imageCheckpoints: savedConfig.globalSettings?.imageCheckpoints || [],
@@ -45,7 +48,15 @@ export const configStore = reactive({
     worldbookCaptureEnabled: savedConfig.settings?.worldbookCaptureEnabled ?? true,
     worldbookCaptureReview: savedConfig.settings?.worldbookCaptureReview ?? false,
     learnUserPreferences: savedConfig.settings?.learnUserPreferences ?? true,
-    useUserPreferences: savedConfig.settings?.useUserPreferences ?? true
+    useUserPreferences: savedConfig.settings?.useUserPreferences ?? true,
+    deepPreferenceAnalysis: savedConfig.settings?.deepPreferenceAnalysis ?? true,
+    analyzeSensitivePreferences: savedConfig.settings?.analyzeSensitivePreferences ?? false,
+    preferenceStoryEnabled: savedConfig.settings?.preferenceStoryEnabled ?? true,
+    preferenceAdultEnabled: savedConfig.settings?.preferenceAdultEnabled ?? true,
+    preferenceActionEnabled: savedConfig.settings?.preferenceActionEnabled ?? true,
+    preferenceCharacterEnabled: savedConfig.settings?.preferenceCharacterEnabled ?? true,
+    preferenceRelationshipEnabled: savedConfig.settings?.preferenceRelationshipEnabled ?? true,
+    preferenceVisualEnabled: savedConfig.settings?.preferenceVisualEnabled ?? true
   }),
   
   story: {
@@ -93,6 +104,9 @@ export const configStore = reactive({
         this.globalSettings.memoryApiBaseUrl = data.memoryApiBaseUrl ?? this.globalSettings.memoryApiBaseUrl;
         this.globalSettings.memoryModel = data.memoryModel ?? this.globalSettings.memoryModel;
         this.globalSettings.memoryContextLimit = data.memoryContextLimit ?? this.globalSettings.memoryContextLimit;
+        this.globalSettings.preferenceApiKey = data.preferenceApiKey ?? this.globalSettings.preferenceApiKey;
+        this.globalSettings.preferenceApiBaseUrl = data.preferenceApiBaseUrl ?? this.globalSettings.preferenceApiBaseUrl;
+        this.globalSettings.preferenceModel = data.preferenceModel ?? this.globalSettings.preferenceModel;
       }
     } catch (e) { console.error("读取配置失败", e); }
   }

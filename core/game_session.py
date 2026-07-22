@@ -15,13 +15,14 @@ from core.chat_messages import ensure_message_ids
 from core.action_suggestions import action_suggestion_instruction, normalize_action_suggestions, resolve_action_reference
 from core.story_memory import StoryMemoryManager, normalize_story_turns
 from core.user_preferences import UserPreferenceRepository
-from core.preference_learning import preference_observations
+from core.preference_learning import preference_evidence
+from core.preference_analysis import PreferenceAnalysisService
 from utils.sys_logger import get_logger
 
 log = get_logger()
 
 class GameSession:
-    def __init__(self, ai_engine, save_name="", save_dir_path="", story_settings=None, memory_ai_engine=None, memory_config=None):
+    def __init__(self, ai_engine, save_name="", save_dir_path="", story_settings=None, memory_ai_engine=None, memory_config=None, preference_ai_engine=None):
         self.ai_engine = ai_engine
         self.session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.save_name, self.save_dir_path = save_name, save_dir_path
@@ -37,6 +38,7 @@ class GameSession:
         self.resolver = DualTrackResolver()
         self.worldbook_capture = WorldbookCaptureService(self.ai_engine)
         self.user_preferences = UserPreferenceRepository()
+        self.preference_analysis = PreferenceAnalysisService(preference_ai_engine or self.ai_engine)
         memory_config = memory_config or {}
         self.story_memory = StoryMemoryManager(
             self.save_dir_path,
@@ -73,7 +75,29 @@ class GameSession:
     def get_user_preference_context(self):
         if not self.story_settings.get("useUserPreferences", True):
             return ""
-        return self.user_preferences.context()
+        category_settings = {
+            "story": "preferenceStoryEnabled", "narrative": "preferenceStoryEnabled",
+            "adult": "preferenceAdultEnabled", "action": "preferenceActionEnabled",
+            "character": "preferenceCharacterEnabled", "relationship": "preferenceRelationshipEnabled",
+            "visual": "preferenceVisualEnabled", "boundary": "preferenceStoryEnabled",
+            "content": "preferenceStoryEnabled", "other": "preferenceStoryEnabled",
+        }
+        enabled = {category for category, setting in category_settings.items() if self.story_settings.get(setting, True)}
+        return self.user_preferences.context(categories=enabled)
+
+    def _record_preference_evidence(self, settlement, turn_id):
+        added = self.user_preferences.record_evidence(
+            preference_evidence(settlement, enabled=self.story_settings.get("learnUserPreferences", True)),
+            save_name=self.save_name, turn_id=turn_id,
+        )
+        if added:
+            log.info("玩家偏好行为证据: count=%s ids=%s", len(added), [item.get("id") for item in added])
+            self.preference_analysis.schedule(
+                self.user_preferences,
+                enabled=self.story_settings.get("deepPreferenceAnalysis", True),
+                include_sensitive=self.story_settings.get("analyzeSensitivePreferences", False),
+            )
+        return added
     def get_context_text(self):
         return self.story_memory.build_context(
             self.history.get("story_turns", []),
@@ -173,21 +197,7 @@ class GameSession:
             self.history.setdefault("story_turns", []), interpreted_action, story_text,
             source_message_ids=self._latest_story_message_ids(),
         )
-        changed_preferences = self.user_preferences.observe(
-            preference_observations(
-                settlement,
-                enabled=self.story_settings.get("learnUserPreferences", True),
-            ),
-            save_name=self.save_name,
-            turn_id=self.history["story_turns"][-1]["turn_id"],
-            player_action=interpreted_action,
-        )
-        for preference in changed_preferences:
-            log.info(
-                "玩家偏好观察: id=%s status=%s confidence=%s evidence_count=%s statement=%s",
-                preference.get("id"), preference.get("status"), preference.get("confidence"),
-                preference.get("evidence_count"), preference.get("statement"),
-            )
+        self._record_preference_evidence(settlement, self.history["story_turns"][-1]["turn_id"])
         if self.story_settings["worldbookCaptureEnabled"] and capture_requested(settlement):
             self.worldbook_capture.schedule(
                 self.save_dir_path, interpreted_action, story_text,
@@ -286,20 +296,7 @@ class GameSession:
             self.history.setdefault("story_turns", []), interpreted_action, story_text,
             source_message_ids=self._latest_story_message_ids(),
         )
-        changed_preferences = self.user_preferences.observe(
-            preference_observations(
-                settlement,
-                enabled=self.story_settings.get("learnUserPreferences", True),
-            ),
-            save_name=self.save_name,
-            turn_id=self.history["story_turns"][-1]["turn_id"],
-            player_action=interpreted_action,
-        )
-        for preference in changed_preferences:
-            log.info(
-                "玩家偏好观察(重掷): id=%s status=%s statement=%s",
-                preference.get("id"), preference.get("status"), preference.get("statement"),
-            )
+        self._record_preference_evidence(settlement, self.history["story_turns"][-1]["turn_id"])
         self.story_memory.schedule(
             self.history.get("story_turns", []),
             enabled=self.story_settings.get("autoCompressMemory", False),

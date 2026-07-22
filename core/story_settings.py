@@ -21,6 +21,14 @@ DEFAULT_STORY_SETTINGS = {
     "worldbookCaptureReview": False,
     "learnUserPreferences": True,
     "useUserPreferences": True,
+    "deepPreferenceAnalysis": True,
+    "analyzeSensitivePreferences": False,
+    "preferenceStoryEnabled": True,
+    "preferenceAdultEnabled": True,
+    "preferenceActionEnabled": True,
+    "preferenceCharacterEnabled": True,
+    "preferenceRelationshipEnabled": True,
+    "preferenceVisualEnabled": True,
 }
 
 
