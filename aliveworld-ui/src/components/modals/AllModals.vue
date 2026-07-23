@@ -11,6 +11,7 @@ import InsertCharModal from './InsertCharModal.vue';
 import GalleryModal from './GalleryModal.vue';
 import ImageGeneratorModal from './ImageGeneratorModal.vue';
 import CausalLedgerModal from './CausalLedgerModal.vue';
+import PreferenceWorkshopModal from './PreferenceWorkshopModal.vue';
 </script>
 
 <template>
@@ -22,6 +23,7 @@ import CausalLedgerModal from './CausalLedgerModal.vue';
   <TerminalModal v-if="uiStore.modals.terminal" />
   <AssetEditorModal v-if="uiStore.modals.assetEditor" />
   <WorldbookWorkshopModal v-if="uiStore.modals.worldbookWorkshop" />
+  <PreferenceWorkshopModal v-if="uiStore.modals.preferenceWorkshop" />
   <EmbeddingModelModal v-if="uiStore.modals.embeddingModel" />
   <CausalLedgerModal v-if="uiStore.modals.causalLedger" />
 </template>

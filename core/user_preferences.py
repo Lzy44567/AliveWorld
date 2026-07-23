@@ -102,6 +102,14 @@ class UserPreferenceRepository:
     def restore_state(self, state: dict[str, Any]) -> None:
         self.save(deepcopy(state or {"version": 1, "preferences": []}))
 
+    def publish_preferences(self, preferences: list[dict[str, Any]]) -> dict[str, Any]:
+        """Replace only the editable preference card while preserving live evidence."""
+        with self._lock:
+            profile = self.load()
+            profile["preferences"] = deepcopy(preferences)[-120:]
+            self.save(profile)
+            return deepcopy(profile)
+
     def observe(
         self,
         observations: Any,

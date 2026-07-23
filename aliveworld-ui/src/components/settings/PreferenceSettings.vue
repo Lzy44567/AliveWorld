@@ -17,6 +17,10 @@ const declarationPolarity = ref('prefer');
 const declarationSensitive = ref(false);
 const analyzing = ref(false);
 const { confirmDeleteId, requestDelete, cancelDelete } = useDeleteConfirmation();
+const openWorkshop = () => {
+  uiStore.modals.settings = false;
+  uiStore.modals.preferenceWorkshop = true;
+};
 const categoryLabels = {
   story: '剧情发展', narrative: '剧情发展', adult: '色情内容', action: '动作描写',
   character: '角色偏好', relationship: '关系互动', visual: '视觉', content: '内容', boundary: '边界', other: '其他'
@@ -109,7 +113,10 @@ onMounted(refresh);
 <template>
   <div class="space-y-5">
     <section>
-      <h3 class="text-sm font-bold text-fuchsia-300">🪞 用户偏好卡</h3>
+      <div class="flex items-center justify-between gap-3">
+        <h3 class="text-sm font-bold text-fuchsia-300">🪞 用户偏好卡</h3>
+        <button class="rounded-lg border border-fuchsia-700/60 bg-fuchsia-950/40 px-3 py-1.5 text-xs font-bold text-fuchsia-200 hover:bg-fuchsia-900/50" @click="openWorkshop">进入偏好工坊</button>
+      </div>
       <p class="mt-1 text-[11px] leading-relaxed text-slate-400">
         AliveWorld 会随游玩积累有依据的偏好信号。直接表达的偏好可立即生效；普通行为通常要重复出现才会激活。
         角色扮演行为不应被当成玩家本人偏好。

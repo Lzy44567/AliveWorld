@@ -13,7 +13,8 @@ export const uiStore = reactive({
 
   modals: { 
     settings: false, gallery: false, terminal: false, newGame: false, insertChar: false,
-    assetEditor: false, worldbookWorkshop: false, embeddingModel: false, causalLedger: false, imageGenerator: false
+    assetEditor: false, worldbookWorkshop: false, preferenceWorkshop: false,
+    embeddingModel: false, causalLedger: false, imageGenerator: false
   },
   workshopWorldbookName: '',
   workshopSessionId: '',
