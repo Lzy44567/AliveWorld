@@ -13,6 +13,7 @@ import hashlib
 import os
 import re
 import threading
+from uuid import uuid4
 from typing import Any
 
 import yaml
@@ -247,6 +248,7 @@ class UserPreferenceRepository:
                     "id": evidence_id, "save_name": _clean_text(save_name, 100), "turn_id": int(turn_id),
                     "signal_type": signal_type, "summary": summary, "context": context,
                     "diagnosticity": diagnosticity, "sensitive": bool(raw.get("sensitive", False)),
+                    "source": "settlement", "reversible": True,
                     "analyzed": False, "created_at": _now(),
                 }
                 profile["evidence"].append(item)
@@ -256,6 +258,47 @@ class UserPreferenceRepository:
                 profile["evidence"] = profile["evidence"][-300:]
                 self.save(profile)
         return added
+
+    def record_interaction(
+        self,
+        *,
+        signal_type: str,
+        summary: str,
+        context: str,
+        save_name: str,
+        related_turn_id: int | None = None,
+        sensitive: bool = False,
+    ) -> dict[str, Any] | None:
+        """Record a factual player-interface event as weak, non-conclusive evidence.
+
+        Interaction events describe actions that really happened outside the story
+        transaction. They therefore survive story rollback; the optional related
+        turn only provides provenance for the analyst.
+        """
+        summary = _clean_text(summary, 300)
+        if not summary:
+            return None
+        item = {
+            "id": f"evidence_{uuid4().hex[:12]}",
+            "save_name": _clean_text(save_name, 100),
+            "turn_id": -1,
+            "related_turn_id": int(related_turn_id) if related_turn_id is not None else None,
+            "signal_type": _clean_text(signal_type, 40) or "other",
+            "summary": summary,
+            "context": _clean_text(context, 500),
+            "diagnosticity": "weak",
+            "sensitive": bool(sensitive),
+            "source": "interaction",
+            "reversible": False,
+            "analyzed": False,
+            "created_at": _now(),
+        }
+        with self._lock:
+            profile = self.load()
+            profile["evidence"].append(item)
+            profile["evidence"] = profile["evidence"][-300:]
+            self.save(profile)
+        return deepcopy(item)
 
     def pending_evidence(self, *, include_sensitive: bool, limit: int = 24) -> list[dict[str, Any]]:
         evidence = [item for item in self.load()["evidence"] if not item.get("analyzed")]
@@ -389,7 +432,9 @@ class UserPreferenceRepository:
             profile = self.load()
             removed_behavior_ids = {
                 str(entry.get("id")) for entry in profile["evidence"]
-                if entry.get("save_name") == save_name and int(entry.get("turn_id", -1)) == int(turn_id)
+                if entry.get("reversible", True)
+                and entry.get("save_name") == save_name
+                and int(entry.get("turn_id", -1)) == int(turn_id)
             }
             profile["evidence"] = [entry for entry in profile["evidence"] if str(entry.get("id")) not in removed_behavior_ids]
             changed_ids: list[str] = []

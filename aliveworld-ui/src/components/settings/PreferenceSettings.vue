@@ -24,6 +24,14 @@ const categoryLabels = {
 const active = computed(() => preferences.value.filter(item => item.status === 'active'));
 const candidates = computed(() => preferences.value.filter(item => item.status === 'candidate'));
 const disabled = computed(() => preferences.value.filter(item => item.status === 'disabled'));
+const recentEvidence = computed(() => [...preferenceStore.evidence].reverse().slice(0, 30));
+const evidenceById = computed(() => Object.fromEntries(preferenceStore.evidence.map(item => [item.id, item])));
+const signalLabels = {
+  choice: '故事选择', reroll: '重掷未来', retry: '重试回合', undo: '撤回回合',
+  generation: '生成/重生成图片', declaration: '明确声明', other: '其他'
+};
+const directionLabels = { support: '支持', against: '反对', neutral: '中性' };
+const strengthLabels = { weak: '弱', moderate: '中', strong: '强' };
 
 async function refresh() {
   loading.value = true;
@@ -135,6 +143,27 @@ onMounted(refresh);
       </ul>
     </section>
 
+    <details class="rounded-xl border border-slate-700 bg-slate-950/30">
+      <summary class="flex cursor-pointer list-none items-center justify-between px-3 py-2 text-xs font-bold text-sky-300">
+        <span>🔎 偏好证据时间线</span>
+        <span class="text-[10px] font-normal text-slate-500">最近 {{ recentEvidence.length }} 条</span>
+      </summary>
+      <div class="space-y-2 border-t border-slate-700 p-3">
+        <p class="text-[10px] leading-relaxed text-slate-500">这里显示系统实际记录了什么，不代表已经认定你的心理原因。重掷、撤回、重试和重新生图始终只是弱证据。</p>
+        <article v-for="item in recentEvidence" :key="item.id" class="rounded-lg border border-slate-800 bg-slate-950/70 p-2">
+          <div class="flex flex-wrap items-center gap-2 text-[9px] text-slate-500">
+            <span class="tag">{{ signalLabels[item.signal_type] || item.signal_type }}</span>
+            <span>{{ item.save_name || '全局' }}</span>
+            <span>{{ item.analyzed ? '已分析' : '待分析' }}</span>
+            <span>{{ item.source === 'interaction' ? '界面行为' : '正文证据' }}</span>
+          </div>
+          <p class="mt-1 text-[11px] leading-relaxed text-slate-300">{{ item.summary }}</p>
+          <details v-if="item.context" class="mt-1 text-[10px] text-slate-500"><summary class="cursor-pointer">查看最小情境</summary><p class="mt-1 whitespace-pre-wrap">{{ item.context }}</p></details>
+        </article>
+        <p v-if="!recentEvidence.length" class="py-3 text-center text-xs text-slate-600">还没有记录到偏好证据。</p>
+      </div>
+    </details>
+
     <p v-if="loading" class="text-xs text-slate-500">正在读取偏好卡……</p>
 
     <section v-if="active.length" class="space-y-2">
@@ -149,6 +178,17 @@ onMounted(refresh);
             </div>
             <input v-if="editingId === item.id" v-model="editingText" class="edit-input" @keyup.enter="update(item, { statement: editingText })">
             <p v-else class="text-xs leading-relaxed text-slate-200">{{ item.statement }}</p>
+            <details v-if="item.assessments?.length" class="mt-2 text-[10px] text-slate-500">
+              <summary class="cursor-pointer">查看 Python 后验依据</summary>
+              <div class="mt-1 space-y-1 border-l border-emerald-900/60 pl-2">
+                <p v-for="assessment in item.assessments" :key="`${item.id}:${assessment.evidence_id}`">
+                  {{ directionLabels[assessment.direction] || assessment.direction }} ·
+                  {{ strengthLabels[assessment.strength] || assessment.strength }}证据：
+                  {{ evidenceById[assessment.evidence_id]?.summary || assessment.evidence_id }}
+                  <span v-if="assessment.reason">（{{ assessment.reason }}）</span>
+                </p>
+              </div>
+            </details>
           </div>
           <div class="flex shrink-0 gap-1">
             <button v-if="editingId !== item.id" class="mini-btn" @click="beginEdit(item)">修正</button>
@@ -166,6 +206,14 @@ onMounted(refresh);
       <article v-for="item in candidates" :key="item.id" class="preference-card border-amber-900/60">
         <p class="text-xs text-slate-200">{{ item.statement }}</p>
         <p class="mt-1 text-[10px] text-slate-500">{{ categoryLabels[item.category] || '其他' }} · 证据 {{ item.evidence_count }} · {{ Math.round(item.confidence * 100) }}%</p>
+        <details v-if="item.assessments?.length" class="mt-2 text-[10px] text-slate-500">
+          <summary class="cursor-pointer">查看证据与强度</summary>
+          <p v-for="assessment in item.assessments" :key="`${item.id}:${assessment.evidence_id}`" class="mt-1">
+            {{ directionLabels[assessment.direction] || assessment.direction }} ·
+            {{ strengthLabels[assessment.strength] || assessment.strength }}：
+            {{ evidenceById[assessment.evidence_id]?.summary || assessment.evidence_id }}
+          </p>
+        </details>
         <div class="mt-2 flex gap-2">
           <button class="mini-btn text-emerald-300" @click="update(item, { status: 'active' }, '候选已确认')">确认偏好</button>
           <InlineDeleteConfirm compact :active="confirmDeleteId === item.id" :confirm-id="item.id" @request="requestDelete(item.id)" @cancel="cancelDelete" @confirm="remove(item)" />

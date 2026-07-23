@@ -5,7 +5,9 @@ import unittest
 import json
 
 from core.preference_analysis import PreferenceAnalysisService, update_probability
+from core.game_session import GameSession
 from core.user_preferences import UserPreferenceRepository
+from api.v1.game_routes import _interaction_context
 
 
 class PreferenceBayesianTests(unittest.TestCase):
@@ -112,6 +114,79 @@ class PreferenceAnalysisRepositoryTests(unittest.TestCase):
         )
         self.assertEqual(len(result["changed"]), 1)
         self.assertEqual(result["changed"][0]["status"], "candidate")
+
+    def test_interaction_evidence_is_weak_and_survives_story_rollback(self):
+        story_evidence = self.add_evidence("故事甲", 3, "正文记录的故事选择")
+        interaction = self.repository.record_interaction(
+            signal_type="reroll",
+            summary="玩家要求重新抽取未来结果",
+            context="原因未知，也可能只是希望获胜",
+            save_name="故事甲",
+            related_turn_id=3,
+        )
+        self.repository.remove_turn_evidence(save_name="故事甲", turn_id=3)
+        profile = self.repository.load()
+        ids = {item["id"] for item in profile["evidence"]}
+        self.assertNotIn(story_evidence["id"], ids)
+        self.assertIn(interaction["id"], ids)
+        self.assertEqual(interaction["diagnosticity"], "weak")
+        self.assertEqual(interaction["source"], "interaction")
+        self.assertFalse(interaction["reversible"])
+
+
+class PreferenceInteractionPolicyTests(unittest.TestCase):
+    def session(self, enabled=True):
+        session = GameSession.__new__(GameSession)
+        session.story_settings = {
+            "learnUserPreferences": enabled,
+            "deepPreferenceAnalysis": True,
+            "analyzeSensitivePreferences": False,
+        }
+        session.save_name = "测试故事"
+
+        class Repository:
+            def __init__(self):
+                self.calls = []
+
+            def record_interaction(self, **kwargs):
+                self.calls.append(kwargs)
+                return {"id": "evidence_ui"}
+
+        class Analysis:
+            def __init__(self):
+                self.calls = []
+
+            def schedule(self, *args, **kwargs):
+                self.calls.append((args, kwargs))
+
+        session.user_preferences = Repository()
+        session.preference_analysis = Analysis()
+        return session
+
+    def test_game_session_respects_learning_switch_for_ui_events(self):
+        session = self.session(enabled=False)
+        self.assertIsNone(session.record_preference_interaction("undo", "玩家撤回"))
+        self.assertEqual(session.user_preferences.calls, [])
+        self.assertEqual(session.preference_analysis.calls, [])
+
+    def test_game_session_records_and_schedules_ui_event(self):
+        session = self.session(enabled=True)
+        result = session.record_preference_interaction(
+            "reroll", "玩家重掷", "原因未知", related_turn_id=8
+        )
+        self.assertEqual(result["id"], "evidence_ui")
+        self.assertEqual(session.user_preferences.calls[0]["related_turn_id"], 8)
+        self.assertEqual(len(session.preference_analysis.calls), 1)
+
+    def test_ui_event_context_does_not_copy_story_or_player_text(self):
+        context = _interaction_context({
+            "turn_id": 8,
+            "player": "这里是敏感玩家行动",
+            "story": "这里是敏感故事正文",
+        })
+        self.assertIn("关联故事回合：8", context)
+        self.assertNotIn("敏感玩家行动", context)
+        self.assertNotIn("敏感故事正文", context)
 
 
 if __name__ == "__main__":

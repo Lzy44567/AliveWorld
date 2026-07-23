@@ -215,6 +215,11 @@ def create_image_task(session_id: str, payload: ImageTaskPayload):
     runtime = _runtime(session_id)
     task = _handle(lambda: runtime.service.create(game.save_name or session_id, payload.data))
     runtime.runner.start(task.id)
+    game.record_preference_interaction(
+        "generation",
+        "玩家主动为当前故事生成了一张图片。",
+        "仅记录生成行为；未把正文、图片提示词或潜在敏感内容写入偏好证据。",
+    )
     return _task_payload(session_id, task)
 
 
@@ -321,6 +326,11 @@ def compile_and_create_image_task(session_id: str, payload: CompileAndCreatePayl
         task.id,
         lambda: ImagePromptCompiler(game.ai_engine).compile(_compile_payload(game, payload.compile)),
     )
+    game.record_preference_interaction(
+        "generation",
+        "玩家主动为当前故事生成了一张图片。",
+        "仅记录生成行为；未把正文、图片提示词或潜在敏感内容写入偏好证据。",
+    )
     return _task_payload(session_id, runtime.service.get(task.id))
 
 
@@ -360,6 +370,13 @@ def regenerate_image_task(session_id: str, task_id: str):
         runtime.pipeline.compile_and_start(
             task.id,
             lambda: ImagePromptCompiler(game.ai_engine).compile(_compile_payload(game, compile_payload)),
+        )
+    game = active_sessions.get(session_id)
+    if game:
+        game.record_preference_interaction(
+            "generation",
+            "玩家要求重新生成一张故事图片；原因可能是画质、构图、角色一致性或内容不符合预期。",
+            "仅记录重新生成行为；未上传原图片或生图提示词。",
         )
     return _task_payload(session_id, runtime.service.get(task.id))
 

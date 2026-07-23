@@ -98,6 +98,29 @@ class GameSession:
                 include_sensitive=self.story_settings.get("analyzeSensitivePreferences", False),
             )
         return added
+
+    def record_preference_interaction(
+        self, signal_type, summary, context="", *, related_turn_id=None, sensitive=False
+    ):
+        """Persist a real UI interaction without interpreting the player's motive."""
+        if not self.story_settings.get("learnUserPreferences", True):
+            return None
+        evidence = self.user_preferences.record_interaction(
+            signal_type=signal_type,
+            summary=summary,
+            context=context,
+            save_name=self.save_name,
+            related_turn_id=related_turn_id,
+            sensitive=sensitive,
+        )
+        if evidence:
+            log.info("玩家偏好交互证据: type=%s id=%s", signal_type, evidence.get("id"))
+            self.preference_analysis.schedule(
+                self.user_preferences,
+                enabled=self.story_settings.get("deepPreferenceAnalysis", True),
+                include_sensitive=self.story_settings.get("analyzeSensitivePreferences", False),
+            )
+        return evidence
     def get_context_text(self):
         return self.story_memory.build_context(
             self.history.get("story_turns", []),

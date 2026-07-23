@@ -3,6 +3,7 @@ import { preferenceApi } from '../api/preferenceApi';
 
 export const preferenceStore = reactive({
   preferences: [],
+  evidence: [],
   analysis: {},
   pendingCount: 0,
   pendingEvidenceCount: 0,
@@ -12,6 +13,7 @@ export const preferenceStore = reactive({
     try {
       const data = await preferenceApi.list();
       this.preferences = data.preferences || [];
+      this.evidence = data.evidence || [];
       this.analysis = data.analysis || {};
       this.pendingCount = Number(data.pending_count || 0);
       this.pendingEvidenceCount = Number(data.pending_evidence_count || 0);

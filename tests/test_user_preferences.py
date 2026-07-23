@@ -81,6 +81,13 @@ class UserPreferenceRepositoryTests(unittest.TestCase):
         self.assertEqual(item["status"], "candidate")
         self.assertEqual(item["evidence"][0]["save_name"], "世界乙")
 
+    def test_interaction_evidence_accepts_no_related_story_turn(self):
+        item = self.repository.record_interaction(
+            signal_type="undo", summary="玩家撤回回合", context="原因未知", save_name="测试世界"
+        )
+        self.assertEqual(item["turn_id"], -1)
+        self.assertEqual(item["related_turn_id"], None)
+
 
 class PreferenceLearningContractTests(unittest.TestCase):
     def test_learning_prompt_rejects_roleplay_as_user_preference(self):

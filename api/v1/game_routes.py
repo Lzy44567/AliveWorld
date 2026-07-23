@@ -148,11 +148,31 @@ def process_turn(session_id: str, payload: ActionRequest):
     save_game_data(game.save_dir_path, game.export_save_data())
     return {"chat_messages": game.history["chat_messages"][history_len:], "state": game.state, "is_game_over": game.is_game_over, "action_suggestions": game.action_suggestions}
 
+
+def _latest_player_turn(game):
+    turns = game.history.get("story_turns", [])
+    return next((turn for turn in reversed(turns) if str(turn.get("player", "")).strip()), None)
+
+
+def _interaction_context(turn):
+    if not isinstance(turn, dict):
+        return ""
+    turn_id = turn.get("turn_id", "未知")
+    return f"关联故事回合：{turn_id}。为避免未标记的敏感正文进入偏好分析，此事件不复制玩家行动或故事内容。"
+
+
 @router.post("/{session_id}/undo")
 def undo_turn(session_id: str):
     game = active_sessions.get(session_id)
     if not game: raise HTTPException(status_code=404, detail="会话失效")
+    previous_turn = _latest_player_turn(game)
     if not game.rollback(): raise HTTPException(status_code=400, detail="无法撤回")
+    game.record_preference_interaction(
+        "undo",
+        "玩家撤回了刚完成的故事回合；仅能确定玩家不接受这次整体结果，具体原因未知。",
+        _interaction_context(previous_turn),
+        related_turn_id=previous_turn.get("turn_id") if previous_turn else None,
+    )
     save_game_data(game.save_dir_path, game.export_save_data())
     return {"chat_messages": game.history["chat_messages"], "state": game.state, "action_suggestions": game.action_suggestions}
 
@@ -160,11 +180,18 @@ def undo_turn(session_id: str):
 def retry_turn(session_id: str, payload: ActionRequest):
     game = active_sessions.get(session_id)
     if not game: raise HTTPException(status_code=404, detail="会话失效")
+    previous_turn = _latest_player_turn(game)
     if not game.rollback(): raise HTTPException(status_code=400, detail="无历史")
     if payload.plot_compass is not None: game.plot_compass = payload.plot_compass
         
     result = game.process_turn(payload.action)
     if result and result.get('error'): raise HTTPException(status_code=502, detail=result.get("message", "推演失败，本回合未保存。"))
+    game.record_preference_interaction(
+        "retry",
+        "玩家保留行动意图并要求重新生成该回合；原因可能是文风、内容、角色表现或单纯输出质量。",
+        _interaction_context(previous_turn),
+        related_turn_id=previous_turn.get("turn_id") if previous_turn else None,
+    )
     save_game_data(game.save_dir_path, game.export_save_data())
     return {"full_chat": game.history["chat_messages"], "state": game.state, "action_suggestions": game.action_suggestions}
 
@@ -173,10 +200,17 @@ def retry_turn(session_id: str, payload: ActionRequest):
 def reroll_turn(session_id: str, payload: EntityRuntimeRequest):
     game = active_sessions.get(session_id)
     if not game: raise HTTPException(status_code=404, detail="会话失效")
+    previous_turn = _latest_player_turn(game)
     if payload.entities_enabled is not None:
         game.story_settings["entitiesEnabled"] = payload.entities_enabled
     res = game.reroll_turn()
     if not res or res.get("error"): raise HTTPException(status_code=400, detail="无法重掷")
+    game.record_preference_interaction(
+        "reroll",
+        "玩家要求重新抽取未来结果；可能是不喜欢情节，也可能只是希望获得更有利的随机结果。",
+        _interaction_context(previous_turn),
+        related_turn_id=previous_turn.get("turn_id") if previous_turn else None,
+    )
     save_game_data(game.save_dir_path, game.export_save_data())
     return res
 
