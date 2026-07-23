@@ -17,19 +17,31 @@ export const WORKSHOP_TYPES = [
 
 const MODE_MAP = {
   worldbooks: [
-    { id: 'create', label: '从一句话创建' },
-    { id: 'expand', label: '拓展新领域' },
-    { id: 'evolve', label: '演化已有设定' },
+    {
+      id: 'create',
+      label: '从一句话创建',
+      description: '根据一句核心想法、题材与偏好，协作建立概述、公理和首批条目。',
+    },
+    {
+      id: 'expand',
+      label: '拓展新领域',
+      description: '横向补充尚未覆盖的地区、制度、文化、职业或生活细节。',
+    },
+    {
+      id: 'evolve',
+      label: '演化已有设定',
+      description: '从已有公理与规则推导逻辑后果，检查关联、缺口和冲突。',
+    },
   ],
   preferences: [
-    { id: 'discover', label: '探索偏好' },
-    { id: 'refine', label: '修正表述' },
-    { id: 'balance', label: '平衡去重复' },
+    { id: 'discover', label: '探索偏好', description: '讨论玩家行为背后的多种可能动机，形成可验证假设。' },
+    { id: 'refine', label: '修正表述', description: '修正已有偏好的边界、措辞和替代解释。' },
+    { id: 'balance', label: '平衡去重复', description: '合并重复项，避免某类偏好在故事中被机械重复。' },
   ],
   asset: [
-    { id: 'create', label: '从核心想法创建' },
-    { id: 'refine', label: '细化与修改' },
-    { id: 'review', label: '审阅去俗套' },
+    { id: 'create', label: '从核心想法创建', description: '从核心想法建立一份可以继续讨论和修改的初稿。' },
+    { id: 'refine', label: '细化与修改', description: '围绕指定字段继续补充细节、关系和表现方式。' },
+    { id: 'review', label: '审阅去俗套', description: '检查自相矛盾、模板化表达和缺少辨识度的问题。' },
   ],
 };
 
@@ -59,6 +71,10 @@ export const workshopStore = reactive({
 
   get modes() {
     return MODE_MAP[this.type] || MODE_MAP.asset;
+  },
+
+  get activeMode() {
+    return this.modes.find(item => item.id === this.mode) || this.modes[0];
   },
 
   get assets() {
@@ -238,5 +254,17 @@ export const workshopStore = reactive({
     }
     if (this.type === 'preferences') return false;
     return this.applyOperations([{ op: 'update_fields', changes, reason: '玩家在工坊左栏直接编辑' }], true);
+  },
+
+  prepareWorldbookEntryPrompt(entry) {
+    if (this.type !== 'worldbooks' || !entry) return;
+    this.mode = 'evolve';
+    this.input = `请和我讨论并修改指定条目“${entry.name}”（entry_id: ${entry.id}）。先说明它与世界概述、公理及其他条目的关系和修改取舍；未达成一致前不要写入。我的要求是：`;
+  },
+
+  prepareWorldbookAxiomPrompt(axiom, index) {
+    if (this.type !== 'worldbooks') return;
+    this.mode = 'evolve';
+    this.input = `请和我讨论并修改第 ${index + 1} 条世界公理“${axiom}”。先说明它与其他公理、概述及条目的关系和修改取舍；未达成一致前不要写入。我的要求是：`;
   },
 });

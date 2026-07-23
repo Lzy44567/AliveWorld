@@ -2,9 +2,9 @@
 import { computed, ref, watch } from 'vue';
 import { workshopStore } from '../../store/workshopStore';
 import { uiStore } from '../../store/uiStore';
+import WorldbookWorkshopDraft from './WorldbookWorkshopDraft.vue';
 
 const edit = ref({});
-const entryEditor = ref(null);
 const preferenceEditor = ref(null);
 watch(() => workshopStore.draft, value => {
   edit.value = JSON.parse(JSON.stringify(value || {}));
@@ -35,31 +35,6 @@ async function save() {
   for (const field of fields) changes[field] = edit.value[field];
   await workshopStore.saveFields(changes);
 }
-
-function startEntry(entry = null) {
-  entryEditor.value = entry
-    ? { ...JSON.parse(JSON.stringify(entry)), tagsText: (entry.tags || []).join(', ') }
-    : { id: '', name: '', keys: '', content: '', tagsText: '', is_active: true, isNew: true };
-}
-async function saveEntry() {
-  const item = entryEditor.value;
-  if (!item?.name?.trim() || !item?.content?.trim()) return;
-  const entry = {
-    name: item.name.trim(), keys: item.keys || '', content: item.content.trim(),
-    tags: item.tagsText.split(/[,，]/).map(value => value.trim()).filter(Boolean),
-    is_active: item.is_active !== false,
-  };
-  const operation = item.isNew
-    ? { op: 'add_entry', entry }
-    : { op: 'update_entry', entry_id: item.id, changes: entry };
-  if (await workshopStore.applyOperations([operation], true)) entryEditor.value = null;
-}
-const toggleEntry = entry => workshopStore.applyOperations([{
-  op: 'update_entry', entry_id: entry.id, changes: { is_active: entry.is_active === false }
-}], true);
-const deleteEntry = entry => workshopStore.applyOperations([{
-  op: 'delete_entry', entry_id: entry.id
-}], false);
 
 function startPreference(item = null) {
   preferenceEditor.value = item
@@ -94,17 +69,11 @@ const addRelationship = () => { (edit.value.relationships ||= []).push({ target:
     <div class="min-h-0 min-w-[340px] flex-1 overflow-y-auto p-4 custom-scrollbar">
       <p v-if="!workshopStore.draft" class="rounded-lg border border-dashed border-slate-700 p-6 text-center text-xs text-slate-500">从右侧选择资产后，这里显示草稿结构。</p>
       <template v-else>
-        <div class="mb-4 flex items-center justify-between"><div><div class="text-sm font-bold text-slate-200">{{ workshopStore.assetName || '用户偏好卡' }}</div><div class="mt-1 text-[10px]" :class="workshopStore.dirty?'text-amber-400':'text-emerald-500'">{{ workshopStore.dirty?'未发布修改已保存':'与正式资产一致' }}</div></div><button v-if="type!=='preferences'" class="rounded bg-cyan-800 px-2 py-1 text-[10px] text-white" @click="save">保存到草稿</button></div>
+        <div class="mb-4 flex items-center justify-between"><div><div class="text-sm font-bold text-slate-200">{{ workshopStore.assetName || '用户偏好卡' }}</div><div class="mt-1 text-[10px]" :class="workshopStore.dirty?'text-amber-400':'text-emerald-500'">{{ workshopStore.dirty?'未发布修改已保存':'与正式资产一致' }}</div></div><button v-if="!['preferences','worldbooks'].includes(type)" class="rounded bg-cyan-800 px-2 py-1 text-[10px] text-white" @click="save">保存到草稿</button></div>
         <label v-if="!['preferences','worldbooks'].includes(type)" class="block"><span class="field-label">标签</span><input v-model="tagsText" class="field"></label>
 
         <template v-if="type==='worldbooks'">
-          <label class="block"><span class="field-label">世界概述</span><textarea v-model="edit.overview" class="field h-32"></textarea></label>
-          <label class="mt-3 block"><span class="field-label">世界公理（每行一条）</span><textarea :value="lines('axioms')" class="field h-32" @input="setLines('axioms',$event.target.value)"></textarea></label>
-          <section class="mt-4">
-            <div class="flex items-center justify-between"><h3 class="text-xs font-bold text-amber-300">世界书条目 · {{ (edit.entries||[]).length }}</h3><button class="rounded bg-indigo-900 px-2 py-1 text-[9px] text-indigo-300" @click="startEntry()">＋ 新增</button></div>
-            <div v-if="entryEditor" class="mt-2 space-y-2 rounded-xl border border-indigo-700 bg-slate-950 p-2"><input v-model="entryEditor.name" class="field" placeholder="条目名称"><input v-model="entryEditor.keys" class="field" placeholder="触发词，逗号分隔"><textarea v-model="entryEditor.content" class="field h-32" placeholder="条目内容"></textarea><input v-model="entryEditor.tagsText" class="field" placeholder="标签，逗号分隔"><label class="flex items-center gap-2 text-[10px] text-slate-400"><input v-model="entryEditor.is_active" type="checkbox">启用条目</label><div class="flex justify-end gap-1"><button class="rounded bg-slate-800 px-2 py-1 text-[9px]" @click="entryEditor=null">取消</button><button class="rounded bg-indigo-700 px-2 py-1 text-[9px] text-white" @click="saveEntry">保存到草稿</button></div></div>
-            <article v-for="entry in edit.entries||[]" :key="entry.id" class="mt-2 rounded-lg border border-slate-700 bg-slate-900/60 p-2"><div class="flex items-center justify-between gap-2"><button class="min-w-0 truncate text-left text-xs font-bold text-slate-300 hover:text-indigo-300" @click="startEntry(entry)">{{ entry.name }}</button><button class="text-[9px]" :class="entry.is_active===false?'text-slate-600':'text-emerald-400'" @click="toggleEntry(entry)">{{ entry.is_active===false?'关闭':'启用' }}</button></div><p class="mt-1 line-clamp-3 text-[10px] leading-relaxed text-slate-500">{{ entry.content }}</p><div class="mt-2 flex justify-end"><button class="text-[9px] text-rose-400" @click="deleteEntry(entry)">删除</button></div></article>
-          </section>
+          <WorldbookWorkshopDraft />
         </template>
         <template v-else-if="type==='characters'">
           <label class="mb-3 flex items-center gap-2 rounded border border-slate-700 p-2 text-xs text-slate-300"><input v-model="edit.is_player" type="checkbox">玩家扮演角色</label>
