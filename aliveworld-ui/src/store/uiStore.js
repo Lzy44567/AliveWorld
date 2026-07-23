@@ -6,6 +6,7 @@ import { reactive } from 'vue';
 let toastTimer = null;
 
 export const uiStore = reactive({
+  appMode: 'game',
   leftDrawerOpen: true,
   rightDrawerOpen: true,
   rightTab: 'world', 
@@ -13,15 +14,9 @@ export const uiStore = reactive({
 
   modals: { 
     settings: false, gallery: false, terminal: false, newGame: false, insertChar: false,
-    assetEditor: false, workshopHub: false, assetWorkshop: false,
-    worldbookWorkshop: false, preferenceWorkshop: false,
+    assetEditor: false,
     embeddingModel: false, causalLedger: false, imageGenerator: false
   },
-  workshopWorldbookName: '',
-  workshopSessionId: '',
-  workshopAssetType: '',
-  workshopAssetName: '',
-  workshopAssetSessionId: '',
   ledgerSourceFilter: '',
   imageGeneratorContext: { characterName: '', description: '' },
   settingsSection: 'inference',

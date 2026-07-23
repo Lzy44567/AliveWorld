@@ -3,7 +3,6 @@
 import { uiStore } from '../../store/uiStore';
 import TerminalModal from './TerminalModal.vue';
 import AssetEditorModal from './AssetEditorModal.vue';
-import WorldbookWorkshopModal from './WorldbookWorkshopModal.vue';
 import EmbeddingModelModal from './EmbeddingModelModal.vue';
 import SettingsModal from './SettingsModal.vue';
 import NewGameModal from './NewGameModal.vue';
@@ -11,9 +10,6 @@ import InsertCharModal from './InsertCharModal.vue';
 import GalleryModal from './GalleryModal.vue';
 import ImageGeneratorModal from './ImageGeneratorModal.vue';
 import CausalLedgerModal from './CausalLedgerModal.vue';
-import PreferenceWorkshopModal from './PreferenceWorkshopModal.vue';
-import WorkshopHubModal from './WorkshopHubModal.vue';
-import AssetWorkshopModal from './AssetWorkshopModal.vue';
 </script>
 
 <template>
@@ -24,10 +20,6 @@ import AssetWorkshopModal from './AssetWorkshopModal.vue';
   <ImageGeneratorModal v-if="uiStore.modals.imageGenerator" />
   <TerminalModal v-if="uiStore.modals.terminal" />
   <AssetEditorModal v-if="uiStore.modals.assetEditor" />
-  <WorldbookWorkshopModal v-if="uiStore.modals.worldbookWorkshop" />
-  <PreferenceWorkshopModal v-if="uiStore.modals.preferenceWorkshop" />
-  <WorkshopHubModal v-if="uiStore.modals.workshopHub" />
-  <AssetWorkshopModal v-if="uiStore.modals.assetWorkshop" />
   <EmbeddingModelModal v-if="uiStore.modals.embeddingModel" />
   <CausalLedgerModal v-if="uiStore.modals.causalLedger" />
 </template>

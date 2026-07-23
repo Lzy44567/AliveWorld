@@ -4,6 +4,7 @@ import { preferenceApi } from '../../api/preferenceApi';
 import { uiStore } from '../../store/uiStore';
 import { gameStore } from '../../store/gameStore';
 import { preferenceStore } from '../../store/preferenceStore';
+import { workshopStore } from '../../store/workshopStore';
 import InlineDeleteConfirm from '../common/InlineDeleteConfirm.vue';
 import { useDeleteConfirmation } from '../../composables/useDeleteConfirmation';
 
@@ -17,9 +18,11 @@ const declarationPolarity = ref('prefer');
 const declarationSensitive = ref(false);
 const analyzing = ref(false);
 const { confirmDeleteId, requestDelete, cancelDelete } = useDeleteConfirmation();
-const openWorkshop = () => {
+const openWorkshop = async () => {
   uiStore.modals.settings = false;
-  uiStore.modals.preferenceWorkshop = true;
+  uiStore.appMode = 'workshop';
+  await workshopStore.selectType('preferences');
+  if (!workshopStore.workshopId) await workshopStore.start('', 'global');
 };
 const categoryLabels = {
   story: '剧情发展', narrative: '剧情发展', adult: '色情内容', action: '动作描写',

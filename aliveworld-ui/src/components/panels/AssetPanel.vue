@@ -18,6 +18,7 @@ import { imageApi } from '../../api/imageApi';
 import CharacterAssetCard from '../assets/CharacterAssetCard.vue';
 import CharacterDeleteConfirmModal from '../modals/CharacterDeleteConfirmModal.vue';
 import { buildCharacterImageContext } from '../../utils/characterImageContext';
+import { workshopStore } from '../../store/workshopStore';
 
 const searchKeyword = ref("");
 const { confirmDeleteId, requestDelete, cancelDelete } = useDeleteConfirmation();
@@ -205,9 +206,10 @@ const portraitUrl = (item) => {
 };
 
 const openWorldbookWorkshop = (name) => {
-  uiStore.workshopWorldbookName = name;
-  uiStore.workshopSessionId = uiStore.assetScope === 'local' ? gameStore.sessionId : '';
-  uiStore.modals.worldbookWorkshop = true;
+  uiStore.appMode = 'workshop';
+  workshopStore.type = 'worldbooks';
+  workshopStore.mode = 'expand';
+  workshopStore.start(name, uiStore.assetScope);
 };
 
 const refreshEmbeddingStatus = async () => {

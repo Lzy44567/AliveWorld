@@ -7,6 +7,8 @@ import ChatBoard from './components/chat/ChatBoard.vue';
 import RightDrawer from './components/layout/RightDrawer.vue';
 import AllModals from './components/modals/AllModals.vue';
 import ToastNotice from './components/common/ToastNotice.vue';
+import WorkshopWorkspace from './components/workshop/WorkshopWorkspace.vue';
+import { uiStore } from './store/uiStore';
 
 // [新增] 界面挂载时自动拉取数据
 onMounted(() => {
@@ -21,11 +23,12 @@ onMounted(() => {
     
     <TopNav />
 
-    <div class="flex-1 flex overflow-hidden relative">
+    <div v-if="uiStore.appMode === 'game'" class="flex-1 flex overflow-hidden relative">
       <LeftRadar />
       <ChatBoard />
       <RightDrawer />
     </div>
+    <WorkshopWorkspace v-else />
 
     <AllModals />
     

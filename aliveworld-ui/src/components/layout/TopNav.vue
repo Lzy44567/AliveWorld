@@ -29,12 +29,15 @@ onBeforeUnmount(() => {
       <span class="rounded border border-slate-700 bg-slate-800/80 px-1.5 py-0.5 text-[9px] font-bold tracking-normal text-slate-400">{{ APP_VERSION }}</span>
     </div>
 
-    <div v-if="gameStore.currentSaveName" class="absolute left-1/2 hidden max-w-[36vw] -translate-x-1/2 items-center gap-1.5 rounded-full border border-indigo-800/70 bg-indigo-950/40 px-3 py-1 text-xs text-indigo-200 md:flex" :title="`当前存档：${gameStore.currentSaveName}`"><span>📂</span><span class="truncate">{{ gameStore.currentSaveName }}</span><span v-if="gameStore.isProcessing" class="text-amber-400">推演中</span></div>
+    <div class="absolute left-1/2 hidden -translate-x-1/2 items-center gap-2 md:flex">
+      <div class="flex rounded-full border border-slate-700 bg-slate-950/80 p-0.5 text-xs shadow-inner">
+        <button class="rounded-full px-4 py-1 transition" :class="uiStore.appMode==='game'?'bg-emerald-700 text-white':'text-slate-500 hover:text-slate-300'" @click="uiStore.appMode='game'">🎮 游戏</button>
+        <button class="rounded-full px-4 py-1 transition" :class="uiStore.appMode==='workshop'?'bg-cyan-700 text-white':'text-slate-500 hover:text-slate-300'" @click="uiStore.appMode='workshop'">🧰 工坊</button>
+      </div>
+      <div v-if="gameStore.currentSaveName && uiStore.appMode==='game'" class="flex max-w-[22vw] items-center gap-1.5 rounded-full border border-indigo-800/70 bg-indigo-950/40 px-3 py-1 text-xs text-indigo-200" :title="`当前存档：${gameStore.currentSaveName}`"><span>📂</span><span class="truncate">{{ gameStore.currentSaveName }}</span><span v-if="gameStore.isProcessing" class="text-amber-400">推演中</span></div>
+    </div>
     
     <div class="flex items-center gap-3">
-      <button @click="uiStore.modals.workshopHub = true" class="text-slate-400 hover:text-cyan-300 flex items-center gap-1 text-sm font-bold transition" title="总工坊">
-        <span class="text-lg">🧰</span><span class="hidden xl:inline">工坊</span>
-      </button>
       <button @click="openPreferences" class="relative text-slate-400 hover:text-fuchsia-300 flex items-center gap-1 text-sm font-bold transition" title="用户偏好卡">
         <span class="text-lg">🪞</span><span class="hidden xl:inline">偏好</span>
         <span v-if="preferenceStore.pendingCount" class="absolute -right-2 -top-2 min-w-4 rounded-full bg-rose-500 px-1 text-[9px] leading-4 text-white">{{ Math.min(preferenceStore.pendingCount, 99) }}</span>

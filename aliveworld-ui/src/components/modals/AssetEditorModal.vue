@@ -13,6 +13,7 @@ import FieldHelp from '../common/FieldHelp.vue';
 import WorldbookEntryEditorModal from '../worldbook/WorldbookEntryEditorModal.vue';
 import InlineDeleteConfirm from '../common/InlineDeleteConfirm.vue';
 import AssetLifecycleModal from './AssetLifecycleModal.vue';
+import { workshopStore } from '../../store/workshopStore';
 
 const form = computed(() => uiStore.editorData.form);
 const type = computed(() => uiStore.editorData.type);
@@ -57,18 +58,11 @@ const entryKey = (entry, index) => entry.id || `index_${index}`;
 const openWorkshop = () => {
   if (uiStore.editorData.isNew) return uiStore.showToast('请先保存资产，再进入工坊', 'error');
   const sessionId = uiStore.assetScope === 'local' ? gameStore.sessionId : '';
-  if (type.value === 'worldbooks') {
-    uiStore.workshopWorldbookName = form.value.name;
-    uiStore.workshopSessionId = sessionId;
-    uiStore.modals.assetEditor = false;
-    uiStore.modals.worldbookWorkshop = true;
-    return;
-  }
-  uiStore.workshopAssetType = type.value;
-  uiStore.workshopAssetName = form.value.name;
-  uiStore.workshopAssetSessionId = sessionId;
   uiStore.modals.assetEditor = false;
-  uiStore.modals.assetWorkshop = true;
+  uiStore.appMode = 'workshop';
+  workshopStore.type = type.value;
+  workshopStore.mode = workshopStore.modes[0].id;
+  workshopStore.start(form.value.name, sessionId ? 'local' : 'global');
 };
 const addEntityTrigger = () => { form.value.triggers.push({ condition: '', result: '' }); };
 const removeEntityTrigger = (idx) => { form.value.triggers.splice(idx, 1); };
