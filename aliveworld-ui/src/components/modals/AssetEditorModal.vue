@@ -55,11 +55,20 @@ const filteredWorldEntries = computed(() => {
 });
 const entryKey = (entry, index) => entry.id || `index_${index}`;
 const openWorkshop = () => {
-  if (uiStore.editorData.isNew) return uiStore.showToast('请先保存世界书，再进入工坊', 'error');
-  uiStore.workshopWorldbookName = form.value.name;
-  uiStore.workshopSessionId = uiStore.assetScope === 'local' ? gameStore.sessionId : '';
+  if (uiStore.editorData.isNew) return uiStore.showToast('请先保存资产，再进入工坊', 'error');
+  const sessionId = uiStore.assetScope === 'local' ? gameStore.sessionId : '';
+  if (type.value === 'worldbooks') {
+    uiStore.workshopWorldbookName = form.value.name;
+    uiStore.workshopSessionId = sessionId;
+    uiStore.modals.assetEditor = false;
+    uiStore.modals.worldbookWorkshop = true;
+    return;
+  }
+  uiStore.workshopAssetType = type.value;
+  uiStore.workshopAssetName = form.value.name;
+  uiStore.workshopAssetSessionId = sessionId;
   uiStore.modals.assetEditor = false;
-  uiStore.modals.worldbookWorkshop = true;
+  uiStore.modals.assetWorkshop = true;
 };
 const addEntityTrigger = () => { form.value.triggers.push({ condition: '', result: '' }); };
 const removeEntityTrigger = (idx) => { form.value.triggers.splice(idx, 1); };
@@ -134,7 +143,7 @@ const saveContent = async () => {
     <div class="bg-[#1a1a1f] border border-slate-600 rounded-xl w-full max-w-4xl shadow-2xl flex flex-col slide-up overflow-hidden h-[85vh]">
       <div class="p-4 border-b border-slate-700 flex justify-between bg-slate-900/80">
         <h2 class="font-bold text-emerald-400 text-lg">✨ 编辑设定 <span class="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded">{{ type }}</span></h2>
-        <div class="flex gap-2"><button v-if="type==='worldbooks'" @click="openWorkshop" class="px-4 py-2 bg-violet-800 text-violet-100 text-sm font-bold rounded shadow">🧭 进入工坊</button><button @click="saveContent" class="px-5 py-2 bg-emerald-600 text-white text-sm font-bold rounded shadow">保存</button><button @click="closeEditor" class="px-4 py-2 bg-slate-700 text-white text-sm font-bold rounded">取消</button></div>
+        <div class="flex gap-2"><button @click="openWorkshop" class="px-4 py-2 bg-violet-800 text-violet-100 text-sm font-bold rounded shadow">🧭 进入工坊</button><button @click="saveContent" class="px-5 py-2 bg-emerald-600 text-white text-sm font-bold rounded shadow">保存</button><button @click="closeEditor" class="px-4 py-2 bg-slate-700 text-white text-sm font-bold rounded">取消</button></div>
       </div>
       <div class="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
         <div class="grid grid-cols-2 gap-6">

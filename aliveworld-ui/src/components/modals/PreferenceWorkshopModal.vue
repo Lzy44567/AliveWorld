@@ -148,6 +148,7 @@ async function publish() {
   finally { busy.value = false; }
 }
 const close = () => { uiStore.modals.preferenceWorkshop = false; };
+const back = () => { close(); uiStore.modals.workshopHub = true; };
 
 const operationLabel = operation => ({
   add_preference: '新增偏好', update_preference: '修改偏好',
@@ -164,7 +165,7 @@ const operationText = operation =>
     <div class="flex h-[92vh] w-full max-w-7xl flex-col overflow-hidden rounded-2xl border border-fuchsia-700/60 bg-slate-950 shadow-2xl">
       <header class="flex items-center justify-between border-b border-slate-800 px-5 py-3">
         <div>
-          <div class="flex items-center gap-2"><h2 class="font-bold text-fuchsia-300">🪞 用户偏好工坊</h2><span v-if="dirty" class="text-[10px] text-amber-400">未发布草稿已保存</span></div>
+          <div class="flex items-center gap-2"><button class="toolbar-btn" @click="back">← 总工坊</button><h2 class="font-bold text-fuchsia-300">🪞 用户偏好工坊</h2><span v-if="dirty" class="text-[10px] text-amber-400">未发布草稿已保存</span></div>
           <p class="text-[10px] text-slate-500">对话与草稿自动保存，不推进故事；AI 不能修改后验概率和证据</p>
         </div>
         <div class="flex gap-2">

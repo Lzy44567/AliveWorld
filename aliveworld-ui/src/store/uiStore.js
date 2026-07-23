@@ -13,11 +13,15 @@ export const uiStore = reactive({
 
   modals: { 
     settings: false, gallery: false, terminal: false, newGame: false, insertChar: false,
-    assetEditor: false, worldbookWorkshop: false, preferenceWorkshop: false,
+    assetEditor: false, workshopHub: false, assetWorkshop: false,
+    worldbookWorkshop: false, preferenceWorkshop: false,
     embeddingModel: false, causalLedger: false, imageGenerator: false
   },
   workshopWorldbookName: '',
   workshopSessionId: '',
+  workshopAssetType: '',
+  workshopAssetName: '',
+  workshopAssetSessionId: '',
   ledgerSourceFilter: '',
   imageGeneratorContext: { characterName: '', description: '' },
   settingsSection: 'inference',

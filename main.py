@@ -10,6 +10,7 @@ from api.v1.image_generation_routes import router as image_generation_router
 from api.v1.story_memory_routes import router as story_memory_router
 from api.v1.user_preference_routes import router as user_preference_router
 from api.v1.preference_workshop_routes import router as preference_workshop_router
+from api.v1.asset_workshop_routes import router as asset_workshop_router
 from utils.sys_logger import init_logger
 import os, datetime
 
@@ -36,6 +37,7 @@ app.include_router(image_generation_router, prefix="/api/v1/game", tags=["Game �
 app.include_router(story_memory_router, prefix="/api/v1/game", tags=["Game 分级故事记忆"])
 app.include_router(user_preference_router, prefix="/api/v1/preferences", tags=["用户偏好卡"])
 app.include_router(preference_workshop_router, prefix="/api/v1/preferences/workshops", tags=["用户偏好工坊"])
+app.include_router(asset_workshop_router, prefix="/api/v1/asset-workshops", tags=["角色文风实体工坊"])
 
 @app.get("/")
 def read_root(): return {"message": "AliveWorld V2 Engine is running."}

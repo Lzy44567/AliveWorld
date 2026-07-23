@@ -16,6 +16,7 @@ from core.image_generation.portrait import task_is_local_portrait
 from core.image_generation.service import ImageTaskError
 from core.asset_lifecycle import AssetLifecycleError, clone_yaml_asset, find_yaml_asset, normalize_asset_name, rename_yaml_asset
 from core.worldbook_workshop_registry import retarget_workshops
+from core.asset_workshop_registry import retarget_asset_workshops
 
 router = APIRouter()
 
@@ -194,6 +195,8 @@ def rename_local_asset(session_id: str, asset_type: str, asset_name: str, payloa
         target = rename_yaml_asset(local_dir, asset_name, new_name, worldbook=asset_type == "worldbooks")
         if asset_type == "worldbooks" and source:
             retarget_workshops(source, target)
+        elif source:
+            retarget_asset_workshops(source, target)
         _refresh_after_lifecycle(game, asset_type, asset_name, new_name)
         return {"status": "success", "name": new_name, "path": str(target)}
     except AssetLifecycleError as exc:

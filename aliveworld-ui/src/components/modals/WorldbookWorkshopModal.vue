@@ -37,6 +37,11 @@ const close = async () => {
   if (await saveBookHeader() === false) return;
   uiStore.modals.worldbookWorkshop = false;
 };
+const back = async () => {
+  if (await saveBookHeader() === false) return;
+  uiStore.modals.worldbookWorkshop = false;
+  uiStore.modals.workshopHub = true;
+};
 const sync = (data) => {
   workshopId.value = data.workshop_id || workshopId.value;
   draft.value = data.draft || draft.value;
@@ -182,7 +187,7 @@ const publish = async () => {
   <div class="fixed inset-0 z-[90] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
     <div class="flex h-[90vh] w-full max-w-7xl flex-col overflow-hidden rounded-2xl border border-indigo-700/60 bg-slate-950 shadow-2xl">
       <header class="flex items-center justify-between border-b border-slate-800 px-5 py-3">
-        <div class="flex items-center gap-3"><div><h2 class="font-bold text-indigo-300">🧭 世界书工坊</h2><p class="text-[10px] text-slate-500">草稿每轮自动保存，关闭后可恢复；不推进故事时间</p></div><select :value="uiStore.workshopWorldbookName" @change="loadWorldbook($event.target.value)" class="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-200"><option v-for="name in worldbookNames" :key="name" :value="name">{{ name }}</option></select><span v-if="dirty" class="text-[10px] text-amber-400">未发布草稿已保存</span></div>
+        <div class="flex items-center gap-3"><button class="rounded bg-slate-800 px-2 py-1 text-xs text-slate-300" @click="back">← 总工坊</button><div><h2 class="font-bold text-indigo-300">🧭 世界书工坊</h2><p class="text-[10px] text-slate-500">草稿每轮自动保存，关闭后可恢复；不推进故事时间</p></div><select :value="uiStore.workshopWorldbookName" @change="loadWorldbook($event.target.value)" class="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-200"><option v-for="name in worldbookNames" :key="name" :value="name">{{ name }}</option></select><span v-if="dirty" class="text-[10px] text-amber-400">未发布草稿已保存</span></div>
         <div class="flex gap-2"><button @click="undo" class="rounded bg-slate-800 px-3 py-1.5 text-xs text-slate-300">撤销</button><button @click="publish" class="rounded bg-emerald-700 px-3 py-1.5 text-xs font-bold text-white">发布草稿</button><button @click="close" class="px-2 text-slate-400">✕</button></div>
       </header>
       <div class="grid min-h-0 flex-1 grid-cols-[1fr_420px]">

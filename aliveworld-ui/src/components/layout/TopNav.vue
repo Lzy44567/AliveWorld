@@ -32,6 +32,9 @@ onBeforeUnmount(() => {
     <div v-if="gameStore.currentSaveName" class="absolute left-1/2 hidden max-w-[36vw] -translate-x-1/2 items-center gap-1.5 rounded-full border border-indigo-800/70 bg-indigo-950/40 px-3 py-1 text-xs text-indigo-200 md:flex" :title="`当前存档：${gameStore.currentSaveName}`"><span>📂</span><span class="truncate">{{ gameStore.currentSaveName }}</span><span v-if="gameStore.isProcessing" class="text-amber-400">推演中</span></div>
     
     <div class="flex items-center gap-3">
+      <button @click="uiStore.modals.workshopHub = true" class="text-slate-400 hover:text-cyan-300 flex items-center gap-1 text-sm font-bold transition" title="总工坊">
+        <span class="text-lg">🧰</span><span class="hidden xl:inline">工坊</span>
+      </button>
       <button @click="openPreferences" class="relative text-slate-400 hover:text-fuchsia-300 flex items-center gap-1 text-sm font-bold transition" title="用户偏好卡">
         <span class="text-lg">🪞</span><span class="hidden xl:inline">偏好</span>
         <span v-if="preferenceStore.pendingCount" class="absolute -right-2 -top-2 min-w-4 rounded-full bg-rose-500 px-1 text-[9px] leading-4 text-white">{{ Math.min(preferenceStore.pendingCount, 99) }}</span>

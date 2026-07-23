@@ -1,5 +1,6 @@
 <script setup>
 import { configStore } from '../../store/configStore';
+import MemorySettings from './MemorySettings.vue';
 </script>
 
 <template>
@@ -18,6 +19,11 @@ import { configStore } from '../../store/configStore';
         <div><label class="text-xs text-slate-400 block mb-1">API Key</label><input type="password" v-model="configStore.globalSettings.preferenceApiKey" placeholder="留空继承正文 API Key" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-slate-200 outline-none" /></div>
         <div><label class="text-xs text-slate-400 block mb-1">模型</label><input v-model="configStore.globalSettings.preferenceModel" placeholder="留空继承正文模型" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-slate-200 outline-none" /></div>
       </div>
+    </details>
+    <details class="mt-4 rounded-xl border border-indigo-900/60 bg-indigo-950/15 p-3">
+      <summary class="cursor-pointer text-xs font-bold text-indigo-300">🧠 记忆压缩模型（可选）</summary>
+      <p class="mt-2 text-[10px] leading-relaxed text-slate-500">故事记忆压缩属于模型接口配置。默认继承正文 API；只有需要独立低成本模型时才展开填写。</p>
+      <div class="mt-3"><MemorySettings /></div>
     </details>
   </section>
 </template>
