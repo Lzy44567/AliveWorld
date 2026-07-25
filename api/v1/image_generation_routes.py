@@ -278,7 +278,7 @@ def compile_and_create_global_character_portrait(payload: CompileAndCreatePayloa
     from api.v1.game_routes import global_ai_engine
 
     if not global_ai_engine:
-        raise HTTPException(status_code=500, detail="未找到 config.yml")
+        raise HTTPException(status_code=500, detail="请先在设置中配置可用的大语言模型 API")
     character_name = str((payload.task.get("context_snapshot") or {}).get("character_name", "")).strip()
     if not character_name:
         raise HTTPException(status_code=400, detail="缺少全局角色名称")

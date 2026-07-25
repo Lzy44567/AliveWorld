@@ -157,7 +157,7 @@ def chat_workshop(workshop_id: str, payload: WorkshopChatRequest):
     workshop = _get(workshop_id)
     from api.v1.game_routes import global_ai_engine
     if not global_ai_engine:
-        raise HTTPException(status_code=500, detail="未找到 config.yml，无法启动世界书工坊 AI")
+        raise HTTPException(status_code=500, detail="请先在设置中配置可用的大语言模型 API")
     try:
         result = WorldbookWorkshopAgent(global_ai_engine).respond(workshop, payload.message.strip(), payload.mode, commit_changes=payload.commit_changes)
         workshop.save_session(WORKSHOP_DIR)

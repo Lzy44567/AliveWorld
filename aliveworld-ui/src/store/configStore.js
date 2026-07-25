@@ -4,17 +4,29 @@ import { normalizeStorySettings } from '../utils/storySettings';
 
 const savedConfig = JSON.parse(localStorage.getItem('aw_config')) || {};
 const legacyEntityVisibility = savedConfig.settings?.entityVisibility;
+const SYSTEM_CONFIG_URL = '/api/v1/game/system_config';
+
+function persistableConfig(globalSettings, settings) {
+  const safeGlobalSettings = { ...globalSettings };
+  delete safeGlobalSettings.apiKey;
+  delete safeGlobalSettings.memoryApiKey;
+  delete safeGlobalSettings.preferenceApiKey;
+  return { globalSettings: safeGlobalSettings, settings };
+}
 
 export const configStore = reactive({
   globalSettings: {
     apiKey: savedConfig.globalSettings?.apiKey || "", 
+    apiKeyConfigured: false,
     apiBaseUrl: savedConfig.globalSettings?.apiBaseUrl || "https://api.openai.com/v1",
     model: savedConfig.globalSettings?.model || "gpt-3.5-turbo",
     memoryApiKey: savedConfig.globalSettings?.memoryApiKey || "",
+    memoryApiKeyConfigured: false,
     memoryApiBaseUrl: savedConfig.globalSettings?.memoryApiBaseUrl || "",
     memoryModel: savedConfig.globalSettings?.memoryModel || "",
     memoryContextLimit: savedConfig.globalSettings?.memoryContextLimit || 32768,
     preferenceApiKey: savedConfig.globalSettings?.preferenceApiKey || "",
+    preferenceApiKeyConfigured: false,
     preferenceApiBaseUrl: savedConfig.globalSettings?.preferenceApiBaseUrl || "",
     preferenceModel: savedConfig.globalSettings?.preferenceModel || "",
     imageApiUrl: savedConfig.globalSettings?.imageApiUrl || "http://127.0.0.1:8188",
@@ -84,7 +96,7 @@ export const configStore = reactive({
 
   async syncToBackend() {
     try {
-      await fetch('http://127.0.0.1:8000/api/v1/game/system_config', {
+      await fetch(SYSTEM_CONFIG_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(this.globalSettings)
@@ -94,19 +106,23 @@ export const configStore = reactive({
 
   async fetchFromBackend() {
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/v1/game/system_config');
+      const res = await fetch(SYSTEM_CONFIG_URL);
       if (res.ok) {
         const data = await res.json();
         if (data.apiKey) this.globalSettings.apiKey = data.apiKey;
+        this.globalSettings.apiKeyConfigured = Boolean(data.apiKeyConfigured || this.globalSettings.apiKey);
         if (data.apiBaseUrl) this.globalSettings.apiBaseUrl = data.apiBaseUrl;
         if (data.model) this.globalSettings.model = data.model;
-        this.globalSettings.memoryApiKey = data.memoryApiKey ?? this.globalSettings.memoryApiKey;
+        if (data.memoryApiKey) this.globalSettings.memoryApiKey = data.memoryApiKey;
+        this.globalSettings.memoryApiKeyConfigured = Boolean(data.memoryApiKeyConfigured || this.globalSettings.memoryApiKey);
         this.globalSettings.memoryApiBaseUrl = data.memoryApiBaseUrl ?? this.globalSettings.memoryApiBaseUrl;
         this.globalSettings.memoryModel = data.memoryModel ?? this.globalSettings.memoryModel;
         this.globalSettings.memoryContextLimit = data.memoryContextLimit ?? this.globalSettings.memoryContextLimit;
-        this.globalSettings.preferenceApiKey = data.preferenceApiKey ?? this.globalSettings.preferenceApiKey;
+        if (data.preferenceApiKey) this.globalSettings.preferenceApiKey = data.preferenceApiKey;
+        this.globalSettings.preferenceApiKeyConfigured = Boolean(data.preferenceApiKeyConfigured || this.globalSettings.preferenceApiKey);
         this.globalSettings.preferenceApiBaseUrl = data.preferenceApiBaseUrl ?? this.globalSettings.preferenceApiBaseUrl;
         this.globalSettings.preferenceModel = data.preferenceModel ?? this.globalSettings.preferenceModel;
+        this.globalSettings.imageApiUrl = data.imageApiUrl ?? this.globalSettings.imageApiUrl;
       }
     } catch (e) { console.error("读取配置失败", e); }
   }
@@ -120,10 +136,10 @@ export const effectiveStorySettings = computed(() =>
 configStore.fetchFromBackend();
 
 watch(() => configStore.globalSettings, () => {
-  localStorage.setItem('aw_config', JSON.stringify({ globalSettings: configStore.globalSettings, settings: configStore.settings }));
+  localStorage.setItem('aw_config', JSON.stringify(persistableConfig(configStore.globalSettings, configStore.settings)));
   configStore.syncToBackend(); // ✨ 实时将修改的 API Key 等拍入后端 config.yml
 }, { deep: true });
 
 watch(() => configStore.settings, () => {
-  localStorage.setItem('aw_config', JSON.stringify({ globalSettings: configStore.globalSettings, settings: configStore.settings }));
+  localStorage.setItem('aw_config', JSON.stringify(persistableConfig(configStore.globalSettings, configStore.settings)));
 }, { deep: true });

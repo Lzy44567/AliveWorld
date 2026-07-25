@@ -1,4 +1,4 @@
-const API_URL = 'http://127.0.0.1:8000/api/v1/preferences';
+const API_URL = '/api/v1/preferences';
 
 async function parse(res, fallback) {
   const data = await res.json().catch(() => ({}));

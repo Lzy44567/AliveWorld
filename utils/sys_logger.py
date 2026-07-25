@@ -1,9 +1,9 @@
 # utils/sys_logger.py
 import logging, os, re, glob
 from datetime import datetime
+from utils.runtime_paths import PATHS
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-LOG_DIR = os.path.join(BASE_DIR, 'logs')
+LOG_DIR = str(PATHS.log_dir)
 os.makedirs(LOG_DIR, exist_ok=True)
 
 _current_log_file = None
@@ -21,6 +21,7 @@ class CustomFormatter(logging.Formatter):
 def init_logger(log_filename):
     global _current_log_file
     _current_log_file = log_filename
+    os.makedirs(os.path.dirname(os.path.abspath(log_filename)), exist_ok=True)
     logger = logging.getLogger("AliveWorld")
     logger.setLevel(logging.INFO)
     logger.handlers.clear()

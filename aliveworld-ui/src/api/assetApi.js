@@ -1,5 +1,5 @@
 // src/api/assetApi.js
-const BASE_URL = "http://127.0.0.1:8000/api/v1/lobby";
+const BASE_URL = "/api/v1/lobby";
 
 export const assetApi = {
   async getAssets() {

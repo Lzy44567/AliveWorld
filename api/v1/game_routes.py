@@ -10,11 +10,12 @@ from core.game_session import GameSession
 from core.ai_engine import AIEngine
 from core.session_manager import active_sessions
 from core.story_settings import normalize_story_settings
-from utils.file_io import BASE_DIR, init_save_folder, get_all_saves, save_game_data
+from utils.file_io import init_save_folder, get_all_saves, save_game_data
+from utils.runtime_paths import PATHS
 
 router = APIRouter()
 
-config_path = os.path.join(BASE_DIR, 'config.yml')
+config_path = str(PATHS.config_file)
 
 
 def _context_limit(value):
@@ -85,21 +86,22 @@ class LoadRequest(BaseModel):
     save_name: str
 
 class SystemConfigPayload(BaseModel):
-    apiKey: str = ""
+    apiKey: Optional[str] = None
     apiBaseUrl: str = "https://api.openai.com/v1"
     model: str = "gpt-3.5-turbo"
     imageApiUrl: str = ""
-    memoryApiKey: str = ""
+    memoryApiKey: Optional[str] = None
     memoryApiBaseUrl: str = ""
     memoryModel: str = ""
     memoryContextLimit: Any = 32768
-    preferenceApiKey: str = ""
+    preferenceApiKey: Optional[str] = None
     preferenceApiBaseUrl: str = ""
     preferenceModel: str = ""
 
 @router.post("/start")
 def start_game(payload: StartRequest):
-    if not global_ai_engine: raise HTTPException(status_code=500, detail="未找到 config.yml")
+    if not global_ai_engine:
+        raise HTTPException(status_code=500, detail="请先在设置中配置可用的大语言模型 API")
     session_id = str(uuid.uuid4())
     save_dir_path = init_save_folder(payload.save_name)
     game = GameSession(
@@ -250,13 +252,16 @@ def get_system_config():
             with open(config_path, 'r', encoding='utf-8') as f:
                 data = yaml.safe_load(f) or {}
                 return {
-                    "apiKey": data.get("api_key", ""), "apiBaseUrl": data.get("base_url", ""), "model": data.get("model", ""),
-                    "memoryApiKey": data.get("memory_api_key", ""), "memoryApiBaseUrl": data.get("memory_base_url", ""),
+                    "apiKey": "", "apiKeyConfigured": bool(data.get("api_key")),
+                    "apiBaseUrl": data.get("base_url", ""), "model": data.get("model", ""),
+                    "memoryApiKey": "", "memoryApiKeyConfigured": bool(data.get("memory_api_key")),
+                    "memoryApiBaseUrl": data.get("memory_base_url", ""),
                     "memoryModel": data.get("memory_model", ""),
                     "memoryContextLimit": _context_limit(data.get("memory_context_limit", 32768)),
-                    "preferenceApiKey": data.get("preference_api_key", ""),
+                    "preferenceApiKey": "", "preferenceApiKeyConfigured": bool(data.get("preference_api_key")),
                     "preferenceApiBaseUrl": data.get("preference_base_url", ""),
                     "preferenceModel": data.get("preference_model", ""),
+                    "imageApiUrl": data.get("image_api_url", "http://127.0.0.1:8188"),
                 }
         except: pass
     return {}
@@ -265,19 +270,31 @@ def get_system_config():
 def update_system_config(payload: SystemConfigPayload):
     config_data = _read_system_config()
     config_data.update({
-        "api_key": payload.apiKey, "base_url": payload.apiBaseUrl, "model": payload.model,
-        "image_api_url": payload.imageApiUrl, "memory_api_key": payload.memoryApiKey,
+        "base_url": payload.apiBaseUrl, "model": payload.model,
+        "image_api_url": payload.imageApiUrl,
         "memory_base_url": payload.memoryApiBaseUrl, "memory_model": payload.memoryModel,
         "memory_context_limit": _context_limit(payload.memoryContextLimit),
-        "preference_api_key": payload.preferenceApiKey,
         "preference_base_url": payload.preferenceApiBaseUrl,
         "preference_model": payload.preferenceModel,
     })
+    for payload_value, config_key in (
+        (payload.apiKey, "api_key"),
+        (payload.memoryApiKey, "memory_api_key"),
+        (payload.preferenceApiKey, "preference_api_key"),
+    ):
+        # A blank field means “keep the secret already stored on disk”.
+        # Secrets are never returned by GET and therefore cannot be round-tripped by the browser.
+        if payload_value is not None and str(payload_value).strip():
+            config_data[config_key] = str(payload_value).strip()
     with open(config_path, 'w', encoding='utf-8') as f:
         yaml.safe_dump(config_data, f, allow_unicode=True, sort_keys=False)
     
     global global_ai_engine, global_memory_ai_engine, global_memory_config, global_preference_ai_engine
-    global_ai_engine = AIEngine(config_data)
+    global_ai_engine = (
+        AIEngine(config_data)
+        if all(config_data.get(key) for key in ("api_key", "base_url", "model"))
+        else None
+    )
     global_memory_ai_engine, global_memory_config = _memory_runtime(config_data, global_ai_engine)
     global_preference_ai_engine = _preference_runtime(config_data, global_ai_engine)
     for session in active_sessions.values():

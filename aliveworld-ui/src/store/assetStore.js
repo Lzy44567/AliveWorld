@@ -67,7 +67,7 @@ export const assetStore = reactive({
       return;
     }
     try {
-      const res = await fetch(`http://127.0.0.1:8000/api/v1/game/${sessionId}/local_assets`);
+      const res = await fetch(`/api/v1/game/${sessionId}/local_assets`);
       if (res.ok) {
         const data = await res.json();
         this.worlds.local = data.worldbooks || [];

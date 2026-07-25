@@ -7,10 +7,10 @@ import yaml
 import glob
 import shutil
 from datetime import datetime
+from utils.runtime_paths import PATHS
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-DATA_DIR = os.path.join(BASE_DIR, 'data')
+BASE_DIR = str(PATHS.resource_root)
+DATA_DIR = str(PATHS.data_dir)
 CHAR_DIR = os.path.join(DATA_DIR, 'characters')
 STYLE_DIR = os.path.join(DATA_DIR, 'styles')
 SAVE_DIR = os.path.join(DATA_DIR, 'saves')

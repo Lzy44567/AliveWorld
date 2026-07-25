@@ -1,5 +1,5 @@
-const API_ROOT = 'http://127.0.0.1:8000';
-const API_URL = `${API_ROOT}/api/v1/game`;
+const API_ROOT = '';
+const API_URL = '/api/v1/game';
 
 async function request(url, options = {}) {
   const response = await fetch(url, options);

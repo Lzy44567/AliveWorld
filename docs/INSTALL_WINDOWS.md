@@ -1,5 +1,7 @@
 # AliveWorld Windows 安装指南
 
+> 本页描述当前源码开发版。无需安装 Python/Node 的 Windows 便携版仍在制作中，请不要把源码 ZIP 当作傻瓜安装包宣传。
+
 ## 当前源码版需要什么
 
 - Windows 10/11 64位。
@@ -47,7 +49,7 @@
 
 ### 提示没有config.yml
 
-将 `config.example.yml` 复制为 `config.yml`，填写自己的API配置。
+重新启动后端会自动从安全示例建立 `config.yml`；也可以手动复制 `config.example.yml`。随后在游戏设置中填写自己的 API 配置。
 
 ### 后端窗口显示401或鉴权失败
 

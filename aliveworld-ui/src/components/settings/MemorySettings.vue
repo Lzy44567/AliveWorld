@@ -2,7 +2,7 @@
 import { computed } from 'vue';
 import { configStore } from '../../store/configStore';
 
-const inheritsMain = computed(() => !configStore.globalSettings.memoryApiKey && !configStore.globalSettings.memoryApiBaseUrl && !configStore.globalSettings.memoryModel);
+const inheritsMain = computed(() => !configStore.globalSettings.memoryApiKeyConfigured && !configStore.globalSettings.memoryApiKey && !configStore.globalSettings.memoryApiBaseUrl && !configStore.globalSettings.memoryModel);
 </script>
 
 <template>
@@ -13,7 +13,7 @@ const inheritsMain = computed(() => !configStore.globalSettings.memoryApiKey && 
     </div>
     <div v-if="inheritsMain" class="rounded-lg border border-indigo-500/30 bg-indigo-950/20 px-3 py-2 text-xs text-indigo-200">当前继承正文模型</div>
     <label class="block"><span class="field-label">压缩 API Base URL（可空）</span><input v-model="configStore.globalSettings.memoryApiBaseUrl" class="field-input" placeholder="留空继承正文 API" /></label>
-    <label class="block"><span class="field-label">压缩 API Key（可空）</span><input type="password" v-model="configStore.globalSettings.memoryApiKey" class="field-input" placeholder="留空继承正文 API" /></label>
+    <label class="block"><span class="field-label">压缩 API Key（可空）</span><input type="password" v-model="configStore.globalSettings.memoryApiKey" class="field-input" :placeholder="configStore.globalSettings.memoryApiKeyConfigured ? '已安全保存；留空保持原密钥' : '留空继承正文 API'" /></label>
     <label class="block"><span class="field-label">压缩模型（可空）</span><input v-model="configStore.globalSettings.memoryModel" class="field-input" placeholder="留空继承正文模型" /></label>
     <label class="block">
       <span class="field-label">模型上下文上限</span>
