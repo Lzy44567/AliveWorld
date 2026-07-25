@@ -129,5 +129,6 @@ npm run build
 - [版本路线图](docs/VERSION_ROADMAP.md)
 - [生图功能设计](docs/features/05_image_generation.md)
 - [发行与打包方向](docs/DISTRIBUTION.md)
+- [v1.5 发布候选审计（2026-07-25）](docs/RELEASE_READINESS_2026-07-25.md)
 
 AliveWorld 当前源码版使用 FastAPI、Python、Vue 3 与 Vite。未来便携版计划将运行时和前端静态文件一起打包，让普通玩家不必手动准备开发环境。
