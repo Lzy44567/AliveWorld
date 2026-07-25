@@ -6,7 +6,7 @@
 
 AliveWorld 不只是让大模型接着写一段小说。玩家的行动会经过动态未来候选、物理随机、世界规则、角色状态与暗流因果共同结算；重要幕后力量可以在玩家视野之外持续行动，并在未来留下真正可触发的后果。
 
-当前版本为可游玩的开发版。源码运行仍适合愿意自行配置环境并参与早期反馈的玩家；无需 Python/Node 的 Windows 便携版正在制作中，尚未正式发布。
+当前版本为可游玩的开发版。源码运行仍适合愿意自行配置环境并参与早期反馈的玩家；无需 Python/Node 的 Windows 便携版已进入 dev.9 人工验收，尚未正式发布。
 
 ## 游戏特色
 
@@ -100,7 +100,7 @@ AliveWorld 不只是让大模型接着写一段小说。玩家的行动会经过
 - 主世界书/参考世界书协议
 - 将参考图真正接入对应的 ComfyUI 图生图工作流
 - 云端生图服务商、角色差分和真实采样进度
-- Windows 便携版、干净电脑安装验收与正式 Release
+- Windows 便携版的无开发环境验收与正式 Release
 
 项目尚处于早期阶段。欢迎通过 [Issues](https://github.com/Lzy44567/AliveWorld/issues) 提交可复现问题、界面反馈和游玩体验；请勿上传 API Key、私人日志、个人存档或未处理的敏感截图。
 
@@ -132,4 +132,4 @@ npm run build
 - [发行与打包方向](docs/DISTRIBUTION.md)
 - [v1.5 发布候选审计（2026-07-25）](docs/RELEASE_READINESS_2026-07-25.md)
 
-AliveWorld 当前源码版使用 FastAPI、Python、Vue 3 与 Vite。`v1.5.0-dev.8` 已完成同源静态服务和独立用户数据目录；下一切片将打包 Python 运行时与前端静态文件，让普通玩家不必手动准备开发环境。
+AliveWorld 当前源码版使用 FastAPI、Python、Vue 3 与 Vite。`v1.5.0-dev.9` 已建立 Windows `onedir` 便携包：Python 运行时与前端静态文件一起分发，个人数据保存在 EXE 同目录 `UserData/`；正式 Release 前仍需完成无开发环境验收。

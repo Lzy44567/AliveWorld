@@ -16,7 +16,10 @@ class CustomFormatter(logging.Formatter):
         elif record.levelno == logging.DEBUG: icon = "✅"
         time_str = datetime.fromtimestamp(record.created).strftime('%H:%M:%S.%f')[:-3]
         module_name = getattr(record, 'module_name', record.module) 
-        return f"[{time_str}] {icon} [{module_name}] {record.getMessage()}"
+        message = f"[{time_str}] {icon} [{module_name}] {record.getMessage()}"
+        if record.exc_info:
+            message += "\n" + self.formatException(record.exc_info)
+        return message
 
 def init_logger(log_filename):
     global _current_log_file

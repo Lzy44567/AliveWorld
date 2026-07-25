@@ -17,23 +17,26 @@ class RuntimePathsTests(unittest.TestCase):
             self.assertEqual(paths.data_dir, (project / "data").resolve())
             self.assertFalse(paths.frozen)
 
-    def test_frozen_mode_uses_local_appdata_for_private_user_data(self):
+    def test_frozen_mode_uses_portable_userdata_next_to_executable(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             resource = root / "bundle"
-            local_appdata = root / "LocalAppData"
+            executable = root / "portable" / "AliveWorld.exe"
             paths = resolve_runtime_paths(
                 environ={
                     "ALIVEWORLD_RESOURCE_DIR": str(resource),
-                    "LOCALAPPDATA": str(local_appdata),
                 },
                 frozen=True,
                 module_file=resource / "utils" / "runtime_paths.py",
+                executable_file=executable,
             )
 
             self.assertEqual(paths.resource_root, resource.resolve())
-            self.assertEqual(paths.user_root, (local_appdata / "AliveWorld").resolve())
-            self.assertEqual(paths.config_file, (local_appdata / "AliveWorld" / "config.yml").resolve())
+            self.assertEqual(paths.user_root, (root / "portable" / "UserData").resolve())
+            self.assertEqual(
+                paths.config_file,
+                (root / "portable" / "UserData" / "config.yml").resolve(),
+            )
             self.assertTrue(paths.frozen)
 
     def test_prepare_layout_copies_only_templates_and_does_not_overwrite(self):

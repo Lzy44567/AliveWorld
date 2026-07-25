@@ -8,6 +8,9 @@ venv/
 # Node & Vue
 node_modules/
 dist/
+build/
+release/
+assets/*.ico
 .npm/
 
 # AliveWorld 个人资产、游玩产物与敏感配置

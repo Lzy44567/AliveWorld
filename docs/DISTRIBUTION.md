@@ -27,11 +27,32 @@
 
 - 前端生产构建可由 FastAPI 同源托管，玩家端不需要 Node.js。
 - 所有浏览器 API 请求使用相对路径。
-- 源码模式继续使用仓库内现有 `data/`；打包模式使用 `%LOCALAPPDATA%\AliveWorld`。
+- 源码模式继续使用仓库内现有 `data/`；ZIP 便携版使用 `AliveWorld.exe` 同目录的 `UserData/`。
 - 首次运行自动建立个人目录，只复制模板和安全配置示例，不覆盖个人数据。
 - 默认关闭跨域访问，配置读取不再回传密钥。
 
-`v1.5.0-dev.9` 将完成 Windows 启动器、PyInstaller `onedir`、便携 ZIP、构建清单和本机打包冒烟测试。真正的 `v1.5.0-beta.1` 仍要求在没有 Python 与 Node 的干净 Windows 10/11 环境验收。
+`v1.5.0-dev.9` 已加入 Windows 启动器、PyInstaller `onedir` 规格、便携 ZIP 构建脚本和校验值生成。启动器不显示命令行，会自动选择端口、等待健康检查并使用 WebView2 打开完整游戏窗口；关闭游戏窗口会同时退出后台。WebView2 不可用时才降级为系统浏览器与轻量退出控制窗。
+
+dev.9 已使用 PyInstaller 6.21.0 完成真实 `onedir` 构建，并生成版本化 ZIP 与 SHA-256。压缩包文件清单检查未发现 `config.yml`、个人存档、日志或非模板资产。当前还需人工双击 EXE 完成首次启动冒烟；真正的 `v1.5.0-beta.1` 仍要求在没有 Python 与 Node 的干净 Windows 10/11 环境验收。
+
+### 启动与旧数据迁移
+
+- WebView2 窗口必须先显示本地加载页，再异步导入后端并切换到游戏，不能让玩家在模型和路由导入期间面对无反馈桌面。
+- 源码版继续使用仓库 `data/`；便携版使用程序同目录的 `UserData/`。升级时只替换程序文件并保留 `UserData/`。
+- 当便携包位于旧源码仓库的 `release/` 下，或检测到早期预览版 `%LOCALAPPDATA%\AliveWorld` 数据时，首次启动会在主界面显示后请求确认。
+- 迁移采用复制而不是移动：只复制存档、角色、实体、世界书、文风、图片、偏好和工坊草稿；不删除旧目录，不覆盖新目录同名冲突，不复制缓存、模型下载和日志。
+- 对于放在其他位置的旧版本，Beta 后需要在设置中提供“从旧版目录导入”入口，不能依赖硬编码电脑路径。
+- 便携包必须解压到用户可写目录（例如非系统盘的游戏目录），不要放进 `Program Files`。未来若制作标准安装版，再切换到每用户数据目录。
+
+## 多平台发行边界
+
+共享层继续使用 Python 领域逻辑、FastAPI API 和 Vue 前端；发行壳按平台分别构建：
+
+- Windows：PyInstaller `onedir` + WebView2。
+- Linux：在 Linux CI/构建机上生成独立包，使用 GTK/QT WebView；Windows EXE 不能直接复用。
+- Android：需要 Android WebView 壳、应用沙箱路径、文件选择、后台任务与权限适配；不能由 PyInstaller EXE 转换得到。
+
+因此“源码跨平台”与“一个安装包跨平台”是两回事。首个 Beta 先验证 Windows，不在同一轮同时承担 Android/Linux 的打包风险。
 
 ## Steam/商业桌面版
 

@@ -26,6 +26,7 @@ def resolve_runtime_paths(
     environ: Mapping[str, str] | None = None,
     frozen: bool | None = None,
     module_file: str | Path | None = None,
+    executable_file: str | Path | None = None,
 ) -> RuntimePaths:
     env = dict(os.environ if environ is None else environ)
     source_root = Path(module_file or __file__).resolve().parents[1]
@@ -36,12 +37,10 @@ def resolve_runtime_paths(
     if env.get("ALIVEWORLD_USER_DIR"):
         user_root = Path(env["ALIVEWORLD_USER_DIR"]).expanduser().resolve()
     elif is_frozen:
-        local_appdata = env.get("LOCALAPPDATA")
-        user_root = (
-            Path(local_appdata) / "AliveWorld"
-            if local_appdata
-            else Path.home() / "AppData" / "Local" / "AliveWorld"
-        ).resolve()
+        # The ZIP distribution is deliberately portable: programs and personal
+        # data remain together, while upgrades replace only the program files.
+        executable_path = Path(executable_file or sys.executable).resolve()
+        user_root = (executable_path.parent / "UserData").resolve()
     else:
         # Source development keeps the confirmed repository layout and existing data.
         user_root = source_root

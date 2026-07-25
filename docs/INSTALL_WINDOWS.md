@@ -1,6 +1,14 @@
 # AliveWorld Windows 安装指南
 
-> 本页描述当前源码开发版。无需安装 Python/Node 的 Windows 便携版仍在制作中，请不要把源码 ZIP 当作傻瓜安装包宣传。
+> 无需安装 Python/Node 的 Windows 便携版已进入 dev.9 人工验收阶段，尚未作为稳定 Release 发布。源码 ZIP 仍不是傻瓜安装包。
+
+## dev.9 便携版测试
+
+1. 完整解压版本化 ZIP 到可写目录，建议放在非系统盘；不要只把 EXE 单独拿出来。
+2. 双击 `AliveWorld.exe`。启动页会依次显示加载游戏核心、启动本地服务和打开世界。
+3. 个人配置、存档、资产、图片与日志都位于 EXE 同目录的 `UserData/`。
+4. 更新时关闭游戏，替换程序文件，保留原来的 `UserData/`。测试版之间升级前仍建议备份该目录。
+5. 便携包已包含 Python 解释器、Python 依赖和前端生产文件；玩家不需要安装 Python 或 Node.js。文本模型 API 和可选 ComfyUI 仍由玩家自行配置。
 
 ## 当前源码版需要什么
 
