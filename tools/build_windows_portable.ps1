@@ -55,3 +55,5 @@ Set-Content -LiteralPath "$ZipPath.sha256" -Encoding ascii -Value "$Hash  $Porta
 
 Write-Host "Created: $ZipPath"
 Write-Host "SHA256: $Hash"
+Write-Host "Build output for local smoke test: $(Join-Path $Project 'dist\AliveWorld\AliveWorld.exe')"
+Write-Host "Distribute the ZIP above; the release directory does not keep a second unpacked copy."

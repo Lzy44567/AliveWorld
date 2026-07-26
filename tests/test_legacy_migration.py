@@ -21,19 +21,19 @@ class LegacyMigrationTests(unittest.TestCase):
             discovered = discover_legacy_root(executable=executable, environ={})
             self.assertEqual(discovered, root.resolve())
 
-    def test_discovers_previous_local_appdata_package(self):
+    def test_does_not_scan_unrelated_user_data_locations(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            legacy = root / "LocalAppData" / "AliveWorld"
+            legacy = root / "UnrelatedUserData" / "AliveWorld"
             save = legacy / "data" / "saves" / "Save_Test" / "session_state.json"
             save.parent.mkdir(parents=True)
             save.write_text("{}", encoding="utf-8")
 
             discovered = discover_legacy_root(
                 executable=root / "portable" / "AliveWorld.exe",
-                environ={"LOCALAPPDATA": str(root / "LocalAppData")},
+                environ={"LOCALAPPDATA": str(root / "UnrelatedUserData")},
             )
-            self.assertEqual(discovered, legacy.resolve())
+            self.assertIsNone(discovered)
 
     def test_copies_personal_data_without_overwriting_or_copying_cache(self):
         with tempfile.TemporaryDirectory() as temporary:

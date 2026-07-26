@@ -67,12 +67,6 @@ def discover_legacy_root(
     if env.get("ALIVEWORLD_LEGACY_DIR"):
         candidates.append(Path(env["ALIVEWORLD_LEGACY_DIR"]).expanduser())
 
-    # dev.8/dev.9 preview packages stored data here. Keep this candidate so the
-    # first truly portable build can offer a non-destructive one-time import.
-    local_appdata = env.get("LOCALAPPDATA")
-    if local_appdata:
-        candidates.append(Path(local_appdata) / "AliveWorld")
-
     executable_path = Path(executable or sys.executable).resolve()
     candidates.extend(executable_path.parents)
     seen: set[Path] = set()

@@ -192,10 +192,17 @@ def offer_legacy_migration_after_load(window, url: str) -> None:
         return
     report = prompt_legacy_migration(source_root)
     if report is not None:
-        # Reload only after copying has completed so all panels query the newly
-        # imported assets. The already-loaded main UI stays usable while the
-        # native confirmation dialog is open.
-        window.load_url(url)
+        # A cache-busting navigation remounts the Vue application and forces all
+        # asset stores to query the backend again after files have been copied.
+        migrated_url = f"{url}?legacy_import={int(time.time())}"
+        window.load_url(migrated_url)
+
+
+def offer_browser_migration_after_load(url: str) -> None:
+    time.sleep(2.0)
+    report = prompt_legacy_migration(discover_legacy_root())
+    if report is not None and os.environ.get("ALIVEWORLD_NO_BROWSER") != "1":
+        webbrowser.open(f"{url}?legacy_import={int(time.time())}", new=1)
 
 
 def run_browser_fallback(url: str, port: int) -> None:
@@ -209,8 +216,8 @@ def run_browser_fallback(url: str, port: int) -> None:
     if os.environ.get("ALIVEWORLD_NO_BROWSER") != "1":
         webbrowser.open(url, new=1)
     threading.Thread(
-        target=prompt_legacy_migration,
-        args=(discover_legacy_root(),),
+        target=offer_browser_migration_after_load,
+        args=(url,),
         name="aliveworld-legacy-migration",
         daemon=True,
     ).start()
