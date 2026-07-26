@@ -10,6 +10,7 @@ from core.game_session import GameSession
 from core.ai_engine import AIEngine
 from core.session_manager import active_sessions
 from core.story_settings import normalize_story_settings
+from core.asset_lifecycle import AssetLifecycleError, normalize_asset_name
 from utils.file_io import init_save_folder, get_all_saves, save_game_data
 from utils.runtime_paths import PATHS
 
@@ -102,10 +103,20 @@ class SystemConfigPayload(BaseModel):
 def start_game(payload: StartRequest):
     if not global_ai_engine:
         raise HTTPException(status_code=500, detail="请先在设置中配置可用的大语言模型 API")
+    try:
+        save_name = normalize_asset_name(payload.save_name)
+        save_dir_path = init_save_folder(save_name)
+    except FileExistsError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=f"已存在同名存档“{payload.save_name.strip()}”，请更换名称",
+        ) from exc
+    except AssetLifecycleError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     session_id = str(uuid.uuid4())
-    save_dir_path = init_save_folder(payload.save_name)
     game = GameSession(
-        global_ai_engine, payload.save_name, save_dir_path=save_dir_path,
+        global_ai_engine, save_name, save_dir_path=save_dir_path,
         story_settings=payload.story_settings, memory_ai_engine=global_memory_ai_engine,
         memory_config=global_memory_config,
         preference_ai_engine=global_preference_ai_engine,

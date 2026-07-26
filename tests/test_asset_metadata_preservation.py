@@ -6,6 +6,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import yaml
+from fastapi import HTTPException
 
 from api.v1.local_asset_routes import LocalAssetUpdatePayload, update_local_asset
 from api.v1.lobby_routes import AssetPayload, save_asset
@@ -13,6 +14,28 @@ from core.session_manager import active_sessions
 
 
 class AssetMetadataPreservationTests(unittest.TestCase):
+    def test_new_local_asset_rejects_duplicate_name(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            characters = Path(temp_dir) / "characters"
+            characters.mkdir()
+            (characters / "角色甲.yml").write_text("name: 角色甲\n", encoding="utf-8")
+            active_sessions["duplicate_test"] = SimpleNamespace(save_dir_path=temp_dir)
+            try:
+                with self.assertRaises(HTTPException) as raised:
+                    update_local_asset(
+                        "duplicate_test",
+                        "characters",
+                        "角色甲",
+                        LocalAssetUpdatePayload(
+                            parsed_data={"name": "角色甲"},
+                            overwrite=False,
+                        ),
+                    )
+            finally:
+                active_sessions.pop("duplicate_test", None)
+            self.assertEqual(raised.exception.status_code, 409)
+            self.assertIn("已存在同名资产", raised.exception.detail)
+
     def test_local_character_edit_preserves_portrait_metadata(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             characters = Path(temp_dir) / "characters"

@@ -4,7 +4,10 @@ const API_URL = "/api/v1/game";
 export const gameApi = {
   async startGame(payload) {
     const res = await fetch(`${API_URL}/start`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-    if (!res.ok) throw new Error("启动失败");
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.detail || "启动失败");
+    }
     return res.json();
   },
   async loadGame(saveName) {
@@ -92,9 +95,12 @@ export const gameApi = {
     if (!res.ok) throw new Error("拉取失败");
     return res.json();
   },
-  async updateLocalAsset(sessionId, assetType, assetName, payload) {
-    const res = await fetch(`${API_URL}/${sessionId}/assets/${assetType}/${assetName}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ parsed_data: payload }) });
-    if (!res.ok) throw new Error("更新失败");
+  async updateLocalAsset(sessionId, assetType, assetName, payload, overwrite = true) {
+    const res = await fetch(`${API_URL}/${sessionId}/assets/${assetType}/${encodeURIComponent(assetName)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ parsed_data: payload, overwrite }) });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.detail || "更新失败");
+    }
     return res.json();
   },
   async deleteLocalAsset(sessionId, assetType, assetName) {

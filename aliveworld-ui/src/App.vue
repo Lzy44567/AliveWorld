@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted } from 'vue';
+import { onBeforeUnmount, onMounted } from 'vue';
 import { assetStore } from './store/assetStore'; // 引入 assetStore
 import TopNav from './components/layout/TopNav.vue';
 import LeftRadar from './components/layout/LeftRadar.vue';
@@ -11,8 +11,14 @@ import WorkshopWorkspace from './components/workshop/WorkshopWorkspace.vue';
 import { uiStore } from './store/uiStore';
 
 // [新增] 界面挂载时自动拉取数据
+let assetRefreshTimer = null;
 onMounted(() => {
   assetStore.fetchAssets();
+  // Assets may also arrive through migration or external file management.
+  assetRefreshTimer = window.setInterval(() => assetStore.fetchAssets(), 5000);
+});
+onBeforeUnmount(() => {
+  if (assetRefreshTimer) window.clearInterval(assetRefreshTimer);
 });
 </script>
 <!-- 模板部分完全不用动 -->

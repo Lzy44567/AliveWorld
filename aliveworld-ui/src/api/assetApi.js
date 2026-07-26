@@ -1,16 +1,22 @@
 // src/api/assetApi.js
 const BASE_URL = "/api/v1/lobby";
 
+async function requireOk(res, fallback) {
+  if (res.ok) return res;
+  const data = await res.json().catch(() => ({}));
+  throw new Error(data.detail || fallback);
+}
+
 export const assetApi = {
   async getAssets() {
     const res = await fetch(`${BASE_URL}/assets`);
-    if (!res.ok) throw new Error("拉取资产失败");
+    await requireOk(res, "拉取资产失败");
     return await res.json();
   },
 
   async deleteSave(saveName) {
     const res = await fetch(`${BASE_URL}/saves/${encodeURIComponent(saveName)}`, { method: 'DELETE' });
-    if (!res.ok) throw new Error("档案删除失败");
+    await requireOk(res, "档案删除失败");
     return await res.json();
   },
 
@@ -24,7 +30,7 @@ export const assetApi = {
 
   async getAssetDetail(type, name) {
     const res = await fetch(`${BASE_URL}/assets/${type}/${encodeURIComponent(name)}`);
-    if (!res.ok) throw new Error("获取资产详情失败");
+    await requireOk(res, "获取资产详情失败");
     return await res.json();
   },
 
@@ -36,13 +42,13 @@ export const assetApi = {
       // 同时把原代码和解析后的表单对象传过去
       body: JSON.stringify({ content: yamlContent, parsed_data: parsedData, overwrite })
     });
-    if (!res.ok) throw new Error("保存资产失败");
+    await requireOk(res, "保存资产失败");
     return await res.json();
   },
 
   async deleteAsset(type, name) {
     const res = await fetch(`${BASE_URL}/assets/${type}/${encodeURIComponent(name)}`, { method: 'DELETE' });
-    if (!res.ok) throw new Error("删除资产失败");
+    await requireOk(res, "删除资产失败");
     return await res.json();
   },
 

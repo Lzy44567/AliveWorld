@@ -28,7 +28,7 @@ const startNewGame = async () => {
     newSaveDesc.value = "";
     uiStore.showToast("新世界已降临");
   } catch (err) {
-    uiStore.showToast("创世失败", "error");
+    uiStore.showToast(err.message || "创世失败", "error");
   } finally { gameStore.isProcessing = false; }
 };
 </script>

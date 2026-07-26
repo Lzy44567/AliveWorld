@@ -33,6 +33,7 @@ class PullAssetRequest(BaseModel):
 
 class LocalAssetUpdatePayload(BaseModel):
     parsed_data: Dict[str, Any]
+    overwrite: bool = True
 
 class LocalAssetLifecyclePayload(BaseModel):
     new_name: str
@@ -92,6 +93,11 @@ def update_local_asset(session_id: str, asset_type: str, asset_name: str, payloa
     local_dir = os.path.join(game.save_dir_path, asset_type)
     os.makedirs(local_dir, exist_ok=True)
     local_file = os.path.join(local_dir, f"{asset_name}.yml")
+    if os.path.exists(local_file) and not payload.overwrite:
+        raise HTTPException(
+            status_code=409,
+            detail=f"本局已存在同名资产“{asset_name}”，请更换名称",
+        )
     
     try:
         existing_data = {}

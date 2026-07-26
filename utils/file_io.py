@@ -57,8 +57,15 @@ def init_save_folder(save_name: str):
     local_char_dir = os.path.join(save_dir_path, 'characters')
     local_entity_dir = os.path.join(save_dir_path, 'entities')
     
-    for d in [save_dir_path, local_world_dir, local_style_dir, local_char_dir, local_entity_dir]:
-        os.makedirs(d, exist_ok=True)
+    # Never reopen an existing directory as a "new" story. Doing so could mix
+    # the new opening state into an old save with the same normalized name.
+    os.makedirs(save_dir_path, exist_ok=False)
+    try:
+        for directory in [local_world_dir, local_style_dir, local_char_dir, local_entity_dir]:
+            os.makedirs(directory, exist_ok=False)
+    except Exception:
+        shutil.rmtree(save_dir_path, ignore_errors=True)
+        raise
             
     return save_dir_path
 

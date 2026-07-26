@@ -120,7 +120,13 @@ const saveContent = async () => {
 
     if (uiStore.assetScope === 'local') {
       payload.is_active = form.value.is_active; 
-      await gameApi.updateLocalAsset(gameStore.sessionId, type.value, form.value.name, payload);
+      await gameApi.updateLocalAsset(
+        gameStore.sessionId,
+        type.value,
+        form.value.name,
+        payload,
+        !uiStore.editorData.isNew,
+      );
       await assetStore.fetchLocalAssets(gameStore.sessionId);
     } else {
       await assetApi.saveAsset(type.value, form.value.name, "", payload, !uiStore.editorData.isNew);
