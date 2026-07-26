@@ -25,12 +25,28 @@ if (-not $PackageOnly) {
     & $Python (Join-Path $Project "tools\build_windows_icon.py")
     if ($LASTEXITCODE -ne 0) { throw "Windows icon generation failed." }
 
+    $SmokeUserData = Join-Path $Project "dist\AliveWorld\UserData"
+    $UserDataBackupRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("AliveWorld-userdata-" + [guid]::NewGuid().ToString("N"))
+    $HasSmokeUserData = Test-Path -LiteralPath $SmokeUserData -PathType Container
+    if ($HasSmokeUserData) {
+        New-Item -ItemType Directory -Force -Path $UserDataBackupRoot | Out-Null
+        Copy-Item -LiteralPath $SmokeUserData -Destination (Join-Path $UserDataBackupRoot "UserData") -Recurse
+        Write-Host "Temporarily backed up local smoke-test UserData."
+    }
+
     Push-Location $Project
     try {
         & $Python -m PyInstaller --noconfirm --clean "AliveWorld.spec"
         if ($LASTEXITCODE -ne 0) { throw "PyInstaller failed." }
     } finally {
         Pop-Location
+        if ($HasSmokeUserData) {
+            $RestoredUserData = Join-Path $UserDataBackupRoot "UserData"
+            New-Item -ItemType Directory -Force -Path (Split-Path -Parent $SmokeUserData) | Out-Null
+            Copy-Item -LiteralPath $RestoredUserData -Destination $SmokeUserData -Recurse -Force
+            Remove-Item -LiteralPath $UserDataBackupRoot -Recurse -Force -ErrorAction SilentlyContinue
+            Write-Host "Restored local smoke-test UserData after compilation."
+        }
     }
 }
 elseif (-not (Test-Path -LiteralPath (Join-Path $Project "dist\AliveWorld\AliveWorld.exe"))) {
@@ -42,8 +58,10 @@ Remove-Item -LiteralPath $ZipPath -Force -ErrorAction SilentlyContinue
 $TempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("AliveWorld-package-" + [guid]::NewGuid().ToString("N"))
 $Staging = Join-Path $TempRoot $PortableName
 try {
-    New-Item -ItemType Directory -Force -Path $TempRoot | Out-Null
-    Copy-Item -LiteralPath (Join-Path $Project "dist\AliveWorld") -Destination $Staging -Recurse
+    New-Item -ItemType Directory -Force -Path $Staging | Out-Null
+    Get-ChildItem -LiteralPath (Join-Path $Project "dist\AliveWorld") -Force |
+        Where-Object { $_.Name -ne "UserData" } |
+        ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination $Staging -Recurse }
     Copy-Item -LiteralPath (Join-Path $Project "README.md") -Destination $Staging
     Copy-Item -LiteralPath (Join-Path $Project "docs\INSTALL_WINDOWS.md") -Destination (Join-Path $Staging "INSTALL_WINDOWS.md")
     Compress-Archive -LiteralPath $Staging -DestinationPath $ZipPath -CompressionLevel Optimal
@@ -56,4 +74,5 @@ Set-Content -LiteralPath "$ZipPath.sha256" -Encoding ascii -Value "$Hash  $Porta
 Write-Host "Created: $ZipPath"
 Write-Host "SHA256: $Hash"
 Write-Host "Build output for local smoke test: $(Join-Path $Project 'dist\AliveWorld\AliveWorld.exe')"
+Write-Host "Local smoke-test UserData is preserved across builds and excluded from the ZIP."
 Write-Host "Distribute the ZIP above; the release directory does not keep a second unpacked copy."

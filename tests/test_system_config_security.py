@@ -9,6 +9,27 @@ from api.v1 import game_routes
 
 
 class SystemConfigSecurityTests(unittest.TestCase):
+    def test_secret_requires_explicit_reveal_endpoint(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            config_file = Path(temporary) / "config.yml"
+            config_file.write_text("api_key: main-secret\n", encoding="utf-8")
+            with patch.object(game_routes, "config_path", str(config_file)):
+                hidden = game_routes.get_system_config()
+                revealed = game_routes.reveal_system_config_secret(
+                    game_routes.SecretRevealPayload(field="apiKey")
+                )
+
+            self.assertEqual(hidden["apiKey"], "")
+            self.assertTrue(hidden["apiKeyConfigured"])
+            self.assertEqual(revealed["value"], "main-secret")
+
+    def test_secret_reveal_rejects_unknown_fields(self):
+        with self.assertRaises(Exception) as raised:
+            game_routes.reveal_system_config_secret(
+                game_routes.SecretRevealPayload(field="arbitrary")
+            )
+        self.assertEqual(raised.exception.status_code, 400)
+
     def test_get_hides_secrets_and_blank_update_preserves_them(self):
         with tempfile.TemporaryDirectory() as temporary:
             config_file = Path(temporary) / "config.yml"

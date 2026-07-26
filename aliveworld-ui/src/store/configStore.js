@@ -96,11 +96,16 @@ export const configStore = reactive({
 
   async syncToBackend() {
     try {
-      await fetch(SYSTEM_CONFIG_URL, {
+      const response = await fetch(SYSTEM_CONFIG_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(this.globalSettings)
       });
+      if (response.ok) {
+        if (this.globalSettings.apiKey.trim()) this.globalSettings.apiKeyConfigured = true;
+        if (this.globalSettings.memoryApiKey.trim()) this.globalSettings.memoryApiKeyConfigured = true;
+        if (this.globalSettings.preferenceApiKey.trim()) this.globalSettings.preferenceApiKeyConfigured = true;
+      }
     } catch (e) { console.error("同步配置失败", e); }
   },
 

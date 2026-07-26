@@ -7,6 +7,7 @@ import json
 import os
 import shutil
 import sys
+import yaml
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -108,14 +109,19 @@ def migrate_legacy_data(source_root: Path, paths: RuntimePaths = PATHS) -> Migra
         )
 
     source_config = source_root / "config.yml"
-    example_config = paths.resource_root / "config.example.yml"
     target_config = paths.config_file
-    target_is_example = (
-        target_config.is_file()
-        and example_config.is_file()
-        and filecmp.cmp(target_config, example_config, shallow=False)
-    )
-    if source_config.is_file() and (not target_config.exists() or target_is_example):
+    target_has_key = False
+    if target_config.is_file():
+        try:
+            target_data = yaml.safe_load(target_config.read_text(encoding="utf-8")) or {}
+            target_has_key = bool(
+                isinstance(target_data, dict) and str(target_data.get("api_key") or "").strip()
+            )
+        except (OSError, yaml.YAMLError):
+            # An unreadable existing config is treated as user-owned and is not
+            # overwritten automatically.
+            target_has_key = True
+    if source_config.is_file() and (not target_config.exists() or not target_has_key):
         target_config.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source_config, target_config)
         report.copied_config = True

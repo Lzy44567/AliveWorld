@@ -99,6 +99,9 @@ class SystemConfigPayload(BaseModel):
     preferenceApiBaseUrl: str = ""
     preferenceModel: str = ""
 
+class SecretRevealPayload(BaseModel):
+    field: str
+
 @router.post("/start")
 def start_game(payload: StartRequest):
     if not global_ai_engine:
@@ -276,6 +279,19 @@ def get_system_config():
                 }
         except: pass
     return {}
+
+@router.post("/system_config/reveal-secret")
+def reveal_system_config_secret(payload: SecretRevealPayload):
+    field_map = {
+        "apiKey": "api_key",
+        "memoryApiKey": "memory_api_key",
+        "preferenceApiKey": "preference_api_key",
+    }
+    config_key = field_map.get(payload.field)
+    if not config_key:
+        raise HTTPException(status_code=400, detail="不支持读取该配置字段")
+    config_data = _read_system_config()
+    return {"value": str(config_data.get(config_key) or "")}
 
 @router.post("/system_config")
 def update_system_config(payload: SystemConfigPayload):

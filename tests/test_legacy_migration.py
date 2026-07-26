@@ -2,6 +2,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import yaml
+
 from utils.legacy_migration import (
     discover_legacy_root,
     migrate_legacy_data,
@@ -78,6 +80,67 @@ class LegacyMigrationTests(unittest.TestCase):
             self.assertEqual(report.copied_files, 1)
             self.assertEqual(report.skipped_conflicts, 1)
             self.assertTrue(report.copied_config)
+
+    def test_reformatted_but_unconfigured_target_accepts_legacy_config(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "legacy"
+            resource = root / "bundle"
+            user = root / "user"
+            resource.mkdir()
+            user.mkdir()
+            (resource / "config.example.yml").write_text("api_key: ''\n", encoding="utf-8")
+            (source / "config.yml").parent.mkdir(parents=True)
+            (source / "config.yml").write_text(
+                "api_key: inherited-secret\nmodel: inherited-model\n",
+                encoding="utf-8",
+            )
+            paths = resolve_runtime_paths(
+                environ={
+                    "ALIVEWORLD_RESOURCE_DIR": str(resource),
+                    "ALIVEWORLD_USER_DIR": str(user),
+                },
+                frozen=True,
+                module_file=resource / "utils" / "runtime_paths.py",
+            )
+            paths.config_file.write_text(
+                "api_key: ''\nmodel: reformatted-default\nmemory_context_limit: 32768\n",
+                encoding="utf-8",
+            )
+
+            report = migrate_legacy_data(source, paths)
+
+            self.assertTrue(report.copied_config)
+            self.assertIn("inherited-model", paths.config_file.read_text(encoding="utf-8"))
+
+    def test_configured_target_secret_is_never_overwritten(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "legacy"
+            resource = root / "bundle"
+            user = root / "user"
+            resource.mkdir()
+            user.mkdir()
+            (resource / "config.example.yml").write_text("api_key: ''\n", encoding="utf-8")
+            (source / "config.yml").parent.mkdir(parents=True)
+            (source / "config.yml").write_text("api_key: old-secret\n", encoding="utf-8")
+            paths = resolve_runtime_paths(
+                environ={
+                    "ALIVEWORLD_RESOURCE_DIR": str(resource),
+                    "ALIVEWORLD_USER_DIR": str(user),
+                },
+                frozen=True,
+                module_file=resource / "utils" / "runtime_paths.py",
+            )
+            paths.config_file.write_text("api_key: new-secret\n", encoding="utf-8")
+
+            report = migrate_legacy_data(source, paths)
+
+            self.assertFalse(report.copied_config)
+            self.assertEqual(
+                yaml.safe_load(paths.config_file.read_text(encoding="utf-8"))["api_key"],
+                "new-secret",
+            )
 
 
 if __name__ == "__main__":
