@@ -20,6 +20,7 @@ from api.v1.local_asset_routes import router as local_asset_router
 from api.v1.preference_workshop_routes import router as preference_workshop_router
 from api.v1.story_memory_routes import router as story_memory_router
 from api.v1.user_preference_routes import router as user_preference_router
+from api.v1.update_routes import router as update_router
 from api.v1.worldbook_workshop_routes import router as worldbook_workshop_router
 from utils.runtime_paths import PATHS
 from utils.sys_logger import init_logger
@@ -65,6 +66,7 @@ def create_app(
         prefix="/api/v1/asset-workshops",
         tags=["角色文风实体工坊"],
     )
+    application.include_router(update_router, prefix="/api/v1/updates", tags=["版本更新"])
 
     @application.get("/api/health", tags=["运行状态"])
     def health():

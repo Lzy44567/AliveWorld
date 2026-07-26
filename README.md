@@ -2,11 +2,9 @@
 
 > 一个以“动态未来、活的世界、可协作创作的世界书与异步生图”为核心的开源 AI 故事游戏。
 
-![AliveWorld 主界面](docs/screenshots/aliveworld-home.png)
-
 AliveWorld 不只是让大模型接着写一段小说。玩家的行动会经过动态未来候选、物理随机、世界规则、角色状态与暗流因果共同结算；重要幕后力量可以在玩家视野之外持续行动，并在未来留下真正可触发的后果。
 
-当前版本为可游玩的开发版。源码运行仍适合愿意自行配置环境并参与早期反馈的玩家；无需 Python/Node 的 Windows 便携版已进入 dev.9 人工验收，尚未正式发布。
+当前版本为可游玩的开发版。无需 Python/Node 的 Windows 便携版已经在另一台普通玩家电脑上成功启动，正在收束 `v1.5.0-beta.1`；源码运行方式继续面向开发者。
 
 ## 游戏特色
 
@@ -25,16 +23,12 @@ AliveWorld 不只是让大模型接着写一段小说。玩家的行动会经过
 - 公理、绝对规则和删除属于高影响操作，必须显示具体内容并由玩家确认。
 - 草稿自动保存、可撤销、可切换世界书，未发布内容不会覆盖原资产。
 
-![世界书工坊](docs/screenshots/worldbook-workshop.png)
-
 ### 角色、文风与个人资产
 
 - 支持全局与本局角色卡、世界书、文风卡和暗流实体卡。
 - 全局资产载入故事后形成局内副本，游玩变化不会污染原始资产。
 - 每张卡片可独立启用或封存；日志可以检查实际发送给模型的上下文。
 - 角色立绘支持全局或本局生成、自动挂载、放大和统一画廊管理。
-
-![世界书编辑器](docs/screenshots/worldbook-editor.png)
 
 ### 本地 ComfyUI 生图
 
@@ -46,37 +40,23 @@ AliveWorld 不只是让大模型接着写一段小说。玩家的行动会经过
 
 ## Windows 快速开始
 
-### 需要准备
+### 普通玩家：便携版
 
-- Windows 10/11 64 位
-- [Python 3.12](https://www.python.org/downloads/)
-- [Node.js 20 LTS 或更高版本](https://nodejs.org/)
-- 一个兼容 OpenAI Chat Completions 接口的文本模型 API
-- 可选：[ComfyUI](https://github.com/comfyanonymous/ComfyUI) 与本地生图模型
+1. 下载版本化的 Windows ZIP，并完整解压到非系统盘的可写目录。
+2. 双击 `AliveWorld.exe`；不要单独移动 EXE 或删除 `_internal/`。
+3. 在“设置 → API 配置”填写自己的 Base URL、API Key 和模型名，点击“保存并测试连接”。
+4. 个人数据位于 EXE 同目录的 `UserData/`。更新前关闭游戏，把新版覆盖解压到原来的 `AliveWorld/`，保留该目录。
 
-### 安装与启动
+便携包已经包含 Python 运行时和前端生产文件，不要求玩家安装 Python 或 Node.js。详细流程见 [玩家指南](docs/USER_GUIDE.md) 和 [Windows 安装指南](docs/INSTALL_WINDOWS.md)。
 
-1. 从 GitHub 下载源码压缩包并解压，或运行：
+### 开发者：源码运行
 
-   ```powershell
-   git clone https://github.com/Lzy44567/AliveWorld.git
-   cd AliveWorld
-   ```
+源码方式需要 Windows 10/11、Python 3.12 和 Node.js 20+：
 
-2. 双击 `install_windows.bat`。脚本会在项目内创建 `.venv`、安装基础 Python 依赖和前端依赖；基础安装不会安装 PyTorch。
-3. 打开自动生成的 `config.yml`，填写自己的 API 配置：
-
-   ```yaml
-   api_key: "YOUR_API_KEY"
-   base_url: "https://api.deepseek.com"
-   model: "deepseek-chat"
-   image_api_url: "http://127.0.0.1:8188"
-   ```
-
-4. 双击 `start_dev.bat`。后端与前端就绪后会自动打开浏览器。
-5. 关闭两个运行窗口，或双击 `stop_dev.bat` 停止游戏。
-
-更详细的安装、语义模型和故障排查说明见 [Windows 安装指南](docs/INSTALL_WINDOWS.md)。
+1. 下载或克隆源码。
+2. 双击 `install_windows.bat`。
+3. 在游戏设置中配置并测试 API。
+4. 双击 `start_dev.bat`；使用 `stop_dev.bat` 停止。
 
 ## 可选：启用本地语义检索
 
@@ -86,7 +66,7 @@ AliveWorld 不只是让大模型接着写一段小说。玩家的行动会经过
 2. 在游戏的世界书区域打开“语义模型管理”。
 3. 下载约 486 MB 的本地嵌入模型；下载支持停止并保留断点、继续和卸载。
 
-模型、向量缓存和个人设置都保存在 `data/`，不会上传到仓库。
+源码版模型与缓存位于 `data/`；便携版位于 `UserData/data/`。它们不会上传到仓库或进入公开 ZIP。
 
 ## 当前版本边界
 
@@ -100,7 +80,7 @@ AliveWorld 不只是让大模型接着写一段小说。玩家的行动会经过
 - 主世界书/参考世界书协议
 - 将参考图真正接入对应的 ComfyUI 图生图工作流
 - 云端生图服务商、角色差分和真实采样进度
-- Windows 便携版的无开发环境验收与正式 Release
+- Windows 便携版的完整外部游戏循环、覆盖升级与正式 Release
 
 项目尚处于早期阶段。欢迎通过 [Issues](https://github.com/Lzy44567/AliveWorld/issues) 提交可复现问题、界面反馈和游玩体验；请勿上传 API Key、私人日志、个人存档或未处理的敏感截图。
 
@@ -130,6 +110,8 @@ npm run build
 - [版本路线图](docs/VERSION_ROADMAP.md)
 - [生图功能设计](docs/features/05_image_generation.md)
 - [发行与打包方向](docs/DISTRIBUTION.md)
+- [更新与新手引导设计](docs/features/09_updates_and_onboarding.md)
+- [玩家完整指南](docs/USER_GUIDE.md)
 - [v1.5 发布候选审计（2026-07-25）](docs/RELEASE_READINESS_2026-07-25.md)
 
-AliveWorld 当前源码版使用 FastAPI、Python、Vue 3 与 Vite。`v1.5.0-dev.11` 已建立 Windows `onedir` 便携包：Python 运行时与前端静态文件一起分发，个人数据保存在 EXE 同目录 `UserData/`；正式 Release 前仍需完成无开发环境验收。
+AliveWorld 当前源码版使用 FastAPI、Python、Vue 3 与 Vite。`v1.5.0-dev.12` 已建立 Windows `onedir` 便携包和覆盖升级验证：Python 运行时与前端静态文件一起分发，个人数据保存在 EXE 同目录 `UserData/`；正式 Release 前仍需完成另一台电脑的完整正文闭环验收。
