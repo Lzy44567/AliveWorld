@@ -21,6 +21,8 @@ from core.image_generation.models import TERMINAL_STATUSES
 from core.image_generation.repository import ImageTaskRepository
 from core.worldbook_workshop_registry import retarget_workshops
 from core.asset_workshop_registry import retarget_asset_workshops
+from utils.legacy_migration import discover_legacy_root, has_personal_data, migrate_legacy_data
+from utils.runtime_paths import PATHS
 
 router = APIRouter()
 
@@ -42,6 +44,10 @@ class SavePromptsPayload(BaseModel):
 class AssetLifecyclePayload(BaseModel):
     new_name: str
 
+class LegacyMigrationPayload(BaseModel):
+    source_root: Optional[str] = None
+    overwrite_config: bool = False
+
 @router.get("/assets")
 async def get_lobby_assets():
     asset_meta = {asset_type: list_asset_summaries(asset_type) for asset_type in DIR_MAP}
@@ -53,6 +59,44 @@ async def get_lobby_assets():
         "asset_meta": asset_meta,
         "saves": list(get_all_saves().keys())
     }
+
+@router.post("/migration/legacy")
+async def import_legacy_data(payload: LegacyMigrationPayload):
+    source = (
+        Path(payload.source_root).expanduser().resolve()
+        if str(payload.source_root or "").strip()
+        else discover_legacy_root()
+    )
+    if source is None:
+        raise HTTPException(
+            status_code=404,
+            detail="未自动发现旧版 AliveWorld；可展开高级选项并填写旧项目根目录。",
+        )
+    if source in {PATHS.user_root.resolve(), PATHS.resource_root.resolve()}:
+        raise HTTPException(status_code=400, detail="所选目录是当前数据目录，无需重复同步")
+    if not (source / "data").is_dir():
+        raise HTTPException(status_code=400, detail="所选目录中没有 data 文件夹")
+    if not has_personal_data(source) and not (source / "config.yml").is_file():
+        raise HTTPException(status_code=400, detail="所选目录中没有可同步的个人资产或配置")
+    try:
+        report = migrate_legacy_data(
+            source,
+            overwrite_config=payload.overwrite_config,
+        )
+        if report.copied_config:
+            # Importing configuration from Settings must become effective now,
+            # rather than waiting for the next application restart.
+            from api.v1.game_routes import reload_system_config_runtime
+            reload_system_config_runtime()
+        return {
+            "status": "success",
+            "source_root": report.source_root,
+            "copied_files": report.copied_files,
+            "skipped_conflicts": report.skipped_conflicts,
+            "copied_config": report.copied_config,
+        }
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"同步旧资产失败：{exc}") from exc
 
 @router.post("/assets/{asset_type}/{asset_name}")
 async def save_asset(asset_type: str, asset_name: str, payload: AssetPayload):

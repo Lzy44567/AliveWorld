@@ -9,6 +9,18 @@ from api.v1 import game_routes
 
 
 class SystemConfigSecurityTests(unittest.TestCase):
+    def test_deepseek_defaults_use_current_model(self):
+        payload = game_routes.SystemConfigPayload()
+        self.assertEqual(payload.apiBaseUrl, "https://api.deepseek.com")
+        self.assertEqual(payload.model, "deepseek-v4-flash")
+
+    def test_model_error_is_explained(self):
+        message = game_routes._connection_error_message(
+            "Error code: 400 supported API model names deepseek-v4-flash"
+        )
+        self.assertIn("模型名称", message)
+        self.assertIn("deepseek-v4-flash", message)
+
     def test_secret_requires_explicit_reveal_endpoint(self):
         with tempfile.TemporaryDirectory() as temporary:
             config_file = Path(temporary) / "config.yml"

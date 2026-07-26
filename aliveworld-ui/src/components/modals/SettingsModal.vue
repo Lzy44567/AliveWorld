@@ -5,6 +5,7 @@ import InferenceSettings from '../settings/InferenceSettings.vue';
 import ApiSettings from '../settings/ApiSettings.vue';
 import ImageSettings from '../settings/ImageSettings.vue';
 import PreferenceSettings from '../settings/PreferenceSettings.vue';
+import DataMigrationSettings from '../settings/DataMigrationSettings.vue';
 
 const activeSection = ref(uiStore.settingsSection === 'memory' ? 'api' : (uiStore.settingsSection || 'inference'));
 const close = () => { uiStore.modals.settings = false; };
@@ -24,12 +25,14 @@ const selectSection = section => { activeSection.value = section; uiStore.settin
           <button @click="selectSection('api')" :class="activeSection === 'api' ? 'bg-slate-800 text-emerald-400' : 'text-slate-400 hover:bg-slate-800'" class="w-full text-left px-3 py-2 text-sm font-bold rounded transition">🔌 API 配置</button>
           <button @click="selectSection('preferences')" :class="activeSection === 'preferences' ? 'bg-slate-800 text-fuchsia-300' : 'text-slate-400 hover:bg-slate-800'" class="w-full text-left px-3 py-2 text-sm font-bold rounded transition">🪞 用户偏好卡</button>
           <button @click="selectSection('image')" :class="activeSection === 'image' ? 'bg-slate-800 text-fuchsia-300' : 'text-slate-400 hover:bg-slate-800'" class="w-full text-left px-3 py-2 text-sm font-bold rounded transition">🎨 生图配置</button>
+          <button @click="selectSection('data')" :class="activeSection === 'data' ? 'bg-slate-800 text-cyan-300' : 'text-slate-400 hover:bg-slate-800'" class="w-full text-left px-3 py-2 text-sm font-bold rounded transition">📦 数据与迁移</button>
         </nav>
         <div class="flex-1 min-w-0 p-6 overflow-y-auto bg-slate-800/20 custom-scrollbar">
           <InferenceSettings v-if="activeSection === 'inference'" />
           <ApiSettings v-else-if="activeSection === 'api'" />
           <PreferenceSettings v-else-if="activeSection === 'preferences'" />
-          <ImageSettings v-else />
+          <ImageSettings v-else-if="activeSection === 'image'" />
+          <DataMigrationSettings v-else />
         </div>
       </div>
     </div>

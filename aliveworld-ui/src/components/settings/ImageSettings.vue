@@ -97,7 +97,6 @@ onMounted(async () => {
     latestTest.value = library.find(task => task.scope_id === 'global' && task.context_snapshot?.test_task) || null;
     if (latestTest.value) startTestPolling(latestTest.value);
   } catch (_) { /* 后端未启动时保持降级 */ }
-  if (!checkpoints.value.length) checkConnection();
 });
 onBeforeUnmount(() => { if (testPollHandle) window.clearInterval(testPollHandle); });
 </script>

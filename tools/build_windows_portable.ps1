@@ -1,5 +1,7 @@
 param(
-    [switch]$PackageOnly
+    [switch]$PackageOnly,
+    [switch]$SkipFrontendBuild,
+    [switch]$SkipDependencyInstall
 )
 
 $ErrorActionPreference = "Stop"
@@ -11,16 +13,20 @@ $PortableName = "AliveWorld-$Version-windows-x64"
 $ZipPath = Join-Path $ReleaseDir "$PortableName.zip"
 
 if (-not $PackageOnly) {
-    Push-Location (Join-Path $Project "aliveworld-ui")
-    try {
-        npm run build
-        if ($LASTEXITCODE -ne 0) { throw "Frontend build failed." }
-    } finally {
-        Pop-Location
+    if (-not $SkipFrontendBuild) {
+        Push-Location (Join-Path $Project "aliveworld-ui")
+        try {
+            npm run build
+            if ($LASTEXITCODE -ne 0) { throw "Frontend build failed." }
+        } finally {
+            Pop-Location
+        }
     }
 
-    & $Python -m pip install -r (Join-Path $Project "requirements-build.txt")
-    if ($LASTEXITCODE -ne 0) { throw "Build dependency installation failed." }
+    if (-not $SkipDependencyInstall) {
+        & $Python -m pip install -r (Join-Path $Project "requirements-build.txt")
+        if ($LASTEXITCODE -ne 0) { throw "Build dependency installation failed." }
+    }
 
     & $Python (Join-Path $Project "tools\build_windows_icon.py")
     if ($LASTEXITCODE -ne 0) { throw "Windows icon generation failed." }

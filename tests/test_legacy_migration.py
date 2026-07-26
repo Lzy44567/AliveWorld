@@ -142,6 +142,37 @@ class LegacyMigrationTests(unittest.TestCase):
                 "new-secret",
             )
 
+    def test_explicit_config_overwrite_is_supported(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "legacy"
+            resource = root / "bundle"
+            user = root / "user"
+            resource.mkdir()
+            user.mkdir()
+            (resource / "config.example.yml").write_text("api_key: ''\n", encoding="utf-8")
+            (source / "config.yml").parent.mkdir(parents=True)
+            (source / "config.yml").write_text(
+                "api_key: old-secret\nmodel: deepseek-v4-flash\n",
+                encoding="utf-8",
+            )
+            paths = resolve_runtime_paths(
+                environ={
+                    "ALIVEWORLD_RESOURCE_DIR": str(resource),
+                    "ALIVEWORLD_USER_DIR": str(user),
+                },
+                frozen=True,
+                module_file=resource / "utils" / "runtime_paths.py",
+            )
+            paths.config_file.write_text("api_key: current-secret\nmodel: other\n", encoding="utf-8")
+
+            report = migrate_legacy_data(source, paths, overwrite_config=True)
+
+            self.assertTrue(report.copied_config)
+            stored = yaml.safe_load(paths.config_file.read_text(encoding="utf-8"))
+            self.assertEqual(stored["api_key"], "old-secret")
+            self.assertEqual(stored["model"], "deepseek-v4-flash")
+
 
 if __name__ == "__main__":
     unittest.main()

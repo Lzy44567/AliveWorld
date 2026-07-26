@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import shutil
 import sys
+import yaml
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping
@@ -81,6 +82,7 @@ def prepare_runtime_layout(paths: RuntimePaths) -> None:
     example_config = paths.resource_root / "config.example.yml"
     if not paths.config_file.exists() and example_config.is_file():
         shutil.copy2(example_config, paths.config_file)
+    upgrade_retired_config_defaults(paths.config_file)
 
     bundled_data = paths.resource_root / "data"
     if bundled_data.resolve() == paths.data_dir.resolve() or not bundled_data.is_dir():
@@ -91,6 +93,32 @@ def prepare_runtime_layout(paths: RuntimePaths) -> None:
             if not target.exists():
                 target.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(source, target)
+
+
+def upgrade_retired_config_defaults(config_file: Path) -> None:
+    """Repair defaults shipped by older portable builds without touching custom providers."""
+    if not config_file.is_file():
+        return
+    try:
+        data = yaml.safe_load(config_file.read_text(encoding="utf-8")) or {}
+    except (OSError, yaml.YAMLError):
+        return
+    if not isinstance(data, dict):
+        return
+    changed = False
+    if str(data.get("api_key") or "").strip() == "YOUR_API_KEY":
+        data["api_key"] = ""
+        changed = True
+    base_url = str(data.get("base_url") or "").strip().rstrip("/")
+    if base_url in {"https://api.deepseek.com", "https://api.deepseek.com/v1"}:
+        if str(data.get("model") or "").strip() == "deepseek-chat":
+            data["model"] = "deepseek-v4-flash"
+            changed = True
+    if changed:
+        config_file.write_text(
+            yaml.safe_dump(data, allow_unicode=True, sort_keys=False),
+            encoding="utf-8",
+        )
 
 
 PATHS = resolve_runtime_paths()

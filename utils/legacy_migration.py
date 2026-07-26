@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable
 
-from utils.runtime_paths import PATHS, RuntimePaths
+from utils.runtime_paths import PATHS, RuntimePaths, upgrade_retired_config_defaults
 
 
 MIGRATED_DIRECTORIES = (
@@ -98,7 +98,12 @@ def _copy_missing_tree(source: Path, target: Path, report: MigrationReport) -> N
         report.copied_files += 1
 
 
-def migrate_legacy_data(source_root: Path, paths: RuntimePaths = PATHS) -> MigrationReport:
+def migrate_legacy_data(
+    source_root: Path,
+    paths: RuntimePaths = PATHS,
+    *,
+    overwrite_config: bool = False,
+) -> MigrationReport:
     source_root = source_root.resolve()
     report = MigrationReport(source_root=str(source_root))
     for directory_name in MIGRATED_DIRECTORIES:
@@ -121,9 +126,12 @@ def migrate_legacy_data(source_root: Path, paths: RuntimePaths = PATHS) -> Migra
             # An unreadable existing config is treated as user-owned and is not
             # overwritten automatically.
             target_has_key = True
-    if source_config.is_file() and (not target_config.exists() or not target_has_key):
+    if source_config.is_file() and (
+        overwrite_config or not target_config.exists() or not target_has_key
+    ):
         target_config.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source_config, target_config)
+        upgrade_retired_config_defaults(target_config)
         report.copied_config = True
 
     marker = paths.user_root / "legacy_migration.json"

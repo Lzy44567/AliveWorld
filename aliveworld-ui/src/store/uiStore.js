@@ -9,7 +9,7 @@ export const uiStore = reactive({
   appMode: 'game',
   leftDrawerOpen: true,
   rightDrawerOpen: true,
-  rightTab: 'world', 
+  rightTab: 'saves',
   assetScope: 'global', 
 
   modals: { 

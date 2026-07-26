@@ -18,8 +18,8 @@ export const configStore = reactive({
   globalSettings: {
     apiKey: savedConfig.globalSettings?.apiKey || "", 
     apiKeyConfigured: false,
-    apiBaseUrl: savedConfig.globalSettings?.apiBaseUrl || "https://api.openai.com/v1",
-    model: savedConfig.globalSettings?.model || "gpt-3.5-turbo",
+    apiBaseUrl: savedConfig.globalSettings?.apiBaseUrl || "https://api.deepseek.com",
+    model: savedConfig.globalSettings?.model || "deepseek-v4-flash",
     memoryApiKey: savedConfig.globalSettings?.memoryApiKey || "",
     memoryApiKeyConfigured: false,
     memoryApiBaseUrl: savedConfig.globalSettings?.memoryApiBaseUrl || "",
@@ -105,8 +105,14 @@ export const configStore = reactive({
         if (this.globalSettings.apiKey.trim()) this.globalSettings.apiKeyConfigured = true;
         if (this.globalSettings.memoryApiKey.trim()) this.globalSettings.memoryApiKeyConfigured = true;
         if (this.globalSettings.preferenceApiKey.trim()) this.globalSettings.preferenceApiKeyConfigured = true;
+        return true;
       }
-    } catch (e) { console.error("同步配置失败", e); }
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.detail || '保存 API 配置失败');
+    } catch (e) {
+      console.error("同步配置失败", e);
+      throw e;
+    }
   },
 
   async fetchFromBackend() {
@@ -142,7 +148,7 @@ configStore.fetchFromBackend();
 
 watch(() => configStore.globalSettings, () => {
   localStorage.setItem('aw_config', JSON.stringify(persistableConfig(configStore.globalSettings, configStore.settings)));
-  configStore.syncToBackend(); // ✨ 实时将修改的 API Key 等拍入后端 config.yml
+  configStore.syncToBackend().catch(error => console.error("自动保存配置失败", error));
 }, { deep: true });
 
 watch(() => configStore.settings, () => {

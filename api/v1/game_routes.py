@@ -88,8 +88,8 @@ class LoadRequest(BaseModel):
 
 class SystemConfigPayload(BaseModel):
     apiKey: Optional[str] = None
-    apiBaseUrl: str = "https://api.openai.com/v1"
-    model: str = "gpt-3.5-turbo"
+    apiBaseUrl: str = "https://api.deepseek.com"
+    model: str = "deepseek-v4-flash"
     imageApiUrl: str = ""
     memoryApiKey: Optional[str] = None
     memoryApiBaseUrl: str = ""
@@ -101,6 +101,42 @@ class SystemConfigPayload(BaseModel):
 
 class SecretRevealPayload(BaseModel):
     field: str
+
+
+def reload_system_config_runtime():
+    """Reload persisted model configuration for existing and future sessions."""
+    global global_ai_engine, global_memory_ai_engine, global_memory_config, global_preference_ai_engine
+    config_data = _read_system_config()
+    global_ai_engine = (
+        AIEngine(config_data)
+        if all(config_data.get(key) for key in ("api_key", "base_url", "model"))
+        else None
+    )
+    global_memory_ai_engine, global_memory_config = _memory_runtime(config_data, global_ai_engine)
+    global_preference_ai_engine = _preference_runtime(config_data, global_ai_engine)
+    for session in active_sessions.values():
+        session.ai_engine = global_ai_engine
+        session.undercurrent.ai_engine = global_ai_engine
+        session.worldbook_capture.ai_engine = global_ai_engine
+        session.story_memory.set_runtime(
+            ai_engine=global_memory_ai_engine,
+            context_limit=global_memory_config["context_limit"],
+        )
+        session.preference_analysis.set_runtime(global_preference_ai_engine)
+    return config_data
+
+
+def _connection_error_message(error: str) -> str:
+    lowered = str(error or "").lower()
+    if "supported api model names" in lowered or ("400" in lowered and "model" in lowered):
+        return "模型名称不受当前 API 服务支持，请核对模型名。DeepSeek 官方接口请使用 deepseek-v4-flash 或 deepseek-v4-pro。"
+    if "401" in lowered or "authentication" in lowered or "invalid api key" in lowered:
+        return "API Key 无效或没有访问权限。"
+    if "429" in lowered or "insufficient_balance" in lowered:
+        return "API 额度不足或请求过于频繁。"
+    if "connection" in lowered or "timeout" in lowered or "dns" in lowered:
+        return "无法连接模型服务，请检查网络、代理/VPN、DNS 与 API 地址。"
+    return f"模型测试失败：{str(error or '未知错误')[:300]}"
 
 @router.post("/start")
 def start_game(payload: StartRequest):
@@ -316,18 +352,35 @@ def update_system_config(payload: SystemConfigPayload):
     with open(config_path, 'w', encoding='utf-8') as f:
         yaml.safe_dump(config_data, f, allow_unicode=True, sort_keys=False)
     
-    global global_ai_engine, global_memory_ai_engine, global_memory_config, global_preference_ai_engine
-    global_ai_engine = (
-        AIEngine(config_data)
-        if all(config_data.get(key) for key in ("api_key", "base_url", "model"))
-        else None
-    )
-    global_memory_ai_engine, global_memory_config = _memory_runtime(config_data, global_ai_engine)
-    global_preference_ai_engine = _preference_runtime(config_data, global_ai_engine)
-    for session in active_sessions.values():
-        session.ai_engine = global_ai_engine
-        session.undercurrent.ai_engine = global_ai_engine
-        session.worldbook_capture.ai_engine = global_ai_engine
-        session.story_memory.set_runtime(ai_engine=global_memory_ai_engine, context_limit=global_memory_config["context_limit"])
-        session.preference_analysis.set_runtime(global_preference_ai_engine)
+    reload_system_config_runtime()
     return {"status": "success"}
+
+
+@router.post("/system_config/test")
+def test_system_config():
+    config_data = _read_system_config()
+    missing = [
+        label for key, label in (
+            ("api_key", "API Key"),
+            ("base_url", "API Base URL"),
+            ("model", "模型名称"),
+        )
+        if not str(config_data.get(key) or "").strip()
+    ]
+    if missing:
+        raise HTTPException(status_code=400, detail=f"请先填写并保存：{'、'.join(missing)}")
+    engine = AIEngine(config_data)
+    content, error = engine.chat_text(
+        "你是 API 连通性测试助手。",
+        "只回复“连接成功”四个字。",
+        temp=0,
+        trace_label="API连通性测试",
+    )
+    if error:
+        raise HTTPException(status_code=502, detail=_connection_error_message(error))
+    return {
+        "connected": True,
+        "message": "模型连接正常",
+        "model": config_data.get("model", ""),
+        "response": content.strip()[:50],
+    }
