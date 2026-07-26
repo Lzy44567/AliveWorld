@@ -176,15 +176,21 @@ def load_game(payload: LoadRequest):
     saves = get_all_saves()
     if payload.save_name not in saves: raise HTTPException(status_code=404, detail="存档已损坏或不存在")
     save_data = saves[payload.save_name]
+    runtime_save_dir = str(save_data.get("_save_dir") or "")
+    if not runtime_save_dir:
+        raise HTTPException(status_code=500, detail="无法确定当前存档目录")
     session_id = str(uuid.uuid4())
     
     game = GameSession(
-        global_ai_engine, payload.save_name, save_dir_path=save_data.get('save_dir_path', ''),
+        global_ai_engine, payload.save_name, save_dir_path=runtime_save_dir,
         memory_ai_engine=global_memory_ai_engine, memory_config=global_memory_config,
         preference_ai_engine=global_preference_ai_engine,
     )
-    game.load_save_data(save_data)
+    game.load_save_data(save_data, save_dir_path=runtime_save_dir)
     active_sessions[session_id] = game
+    # Repair the stale path before the next turn, even if the player only loads
+    # and immediately closes the application.
+    save_game_data(game.save_dir_path, game.export_save_data())
     return _session_payload(session_id, game)
 
 @router.post("/{session_id}/action")

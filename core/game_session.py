@@ -364,8 +364,11 @@ class GameSession:
             "story_memory": self.story_memory.export_state(),
         }
 
-    def load_save_data(self, data):
-        self.save_name, self.save_dir_path = data.get('save_name', ''), data.get('save_dir_path', '')
+    def load_save_data(self, data, *, save_dir_path=None):
+        # The current runtime directory is authoritative. Persisted absolute
+        # paths become stale after migration, ZIP extraction, cloning or moves.
+        runtime_save_dir = str(save_dir_path or self.save_dir_path or data.get('save_dir_path', ''))
+        self.save_name, self.save_dir_path = data.get('save_name', ''), runtime_save_dir
         self.world_premise = data.get('world_premise', data.get('description', ''))
         self.plot_compass = data.get('plot_compass', '')
         self.story_settings = normalize_story_settings(data.get('story_settings'))
