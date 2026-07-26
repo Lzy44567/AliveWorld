@@ -98,6 +98,18 @@ async def import_legacy_data(payload: LegacyMigrationPayload):
     except OSError as exc:
         raise HTTPException(status_code=500, detail=f"同步旧资产失败：{exc}") from exc
 
+@router.get("/migration/legacy/status")
+async def legacy_migration_status():
+    marker = PATHS.user_root / "legacy_migration.json"
+    if marker.is_file():
+        return {"should_prompt": False, "completed": True, "source_root": None}
+    source = discover_legacy_root()
+    return {
+        "should_prompt": source is not None,
+        "completed": False,
+        "source_root": str(source) if source else None,
+    }
+
 @router.post("/assets/{asset_type}/{asset_name}")
 async def save_asset(asset_type: str, asset_name: str, payload: AssetPayload):
     if asset_type not in DIR_MAP: raise HTTPException(status_code=400, detail="未知的资产类型")

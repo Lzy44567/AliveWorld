@@ -13,7 +13,6 @@ import urllib.request
 import webbrowser
 
 from desktop_shell import show_desktop_window
-from utils.legacy_migration import discover_legacy_root, migrate_legacy_data
 from utils.runtime_paths import PATHS
 from utils.sys_logger import get_logger
 from utils.version import APP_VERSION
@@ -142,36 +141,6 @@ def create_server(app, port: int):
     return uvicorn.Server(config)
 
 
-def prompt_legacy_migration(source_root):
-    marker = PATHS.user_root / "legacy_migration.json"
-    if marker.exists() or not source_root:
-        return None
-    message = (
-        "检测到旧版 AliveWorld 个人数据：\n\n"
-        f"{source_root}\n\n"
-        "是否复制旧存档、角色卡、世界书、文风、实体、图片和工坊草稿到新版？\n"
-        "旧文件不会被移动或删除；新版已有同名文件不会被覆盖。"
-    )
-    accepted = True
-    if os.name == "nt":
-        accepted = ctypes.windll.user32.MessageBoxW(
-            None,
-            message,
-            "AliveWorld - 导入旧数据",
-            0x00000004 | 0x00000040,
-        ) == 6
-    if accepted:
-        report = migrate_legacy_data(source_root)
-        get_logger().info(
-            "旧数据迁移完成：复制 %s 个文件，跳过 %s 个冲突，配置=%s",
-            report.copied_files,
-            report.skipped_conflicts,
-            report.copied_config,
-        )
-        return report
-    return None
-
-
 def set_loading_status(window, message: str) -> None:
     try:
         window.evaluate_js(
@@ -180,29 +149,6 @@ def set_loading_status(window, message: str) -> None:
     except Exception:
         # Loading status is cosmetic and must never prevent the backend startup.
         pass
-
-
-def offer_legacy_migration_after_load(window, url: str) -> None:
-    # load_url schedules navigation. Give the frontend a short head start before
-    # showing the independent native prompt so the dialog never becomes the
-    # first thing the player sees.
-    time.sleep(2.0)
-    source_root = discover_legacy_root()
-    if not source_root:
-        return
-    report = prompt_legacy_migration(source_root)
-    if report is not None:
-        # A cache-busting navigation remounts the Vue application and forces all
-        # asset stores to query the backend again after files have been copied.
-        migrated_url = f"{url}?legacy_import={int(time.time())}"
-        window.load_url(migrated_url)
-
-
-def offer_browser_migration_after_load(url: str) -> None:
-    time.sleep(2.0)
-    report = prompt_legacy_migration(discover_legacy_root())
-    if report is not None and os.environ.get("ALIVEWORLD_NO_BROWSER") != "1":
-        webbrowser.open(f"{url}?legacy_import={int(time.time())}", new=1)
 
 
 def run_browser_fallback(url: str, port: int) -> None:
@@ -215,12 +161,6 @@ def run_browser_fallback(url: str, port: int) -> None:
         raise RuntimeError("本地服务未能完成健康检查")
     if os.environ.get("ALIVEWORLD_NO_BROWSER") != "1":
         webbrowser.open(url, new=1)
-    threading.Thread(
-        target=offer_browser_migration_after_load,
-        args=(url,),
-        name="aliveworld-legacy-migration",
-        daemon=True,
-    ).start()
     show_control_window(url, server, server_thread)
     server.should_exit = True
     server_thread.join(timeout=10)
@@ -271,12 +211,6 @@ def run() -> int:
                     raise RuntimeError("本地服务未能完成健康检查")
                 set_loading_status(window, "世界已经就绪，正在打开……")
                 window.load_url(url)
-                threading.Thread(
-                    target=offer_legacy_migration_after_load,
-                    args=(window, url),
-                    name="aliveworld-legacy-migration",
-                    daemon=True,
-                ).start()
             except Exception as exc:
                 get_logger().error(
                     "桌面后端启动失败：%s: %s",

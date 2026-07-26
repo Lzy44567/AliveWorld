@@ -12,8 +12,18 @@ import { uiStore } from './store/uiStore';
 
 // [新增] 界面挂载时自动拉取数据
 let assetRefreshTimer = null;
-onMounted(() => {
+onMounted(async () => {
   assetStore.fetchAssets();
+  try {
+    const response = await fetch('/api/v1/lobby/migration/legacy/status');
+    if (response.ok) {
+      const status = await response.json();
+      if (status.should_prompt) {
+        uiStore.legacyMigrationSource = status.source_root || '';
+        uiStore.modals.legacyMigration = true;
+      }
+    }
+  } catch (_) { /* 迁移提示不能阻止游戏主界面加载 */ }
   // Assets may also arrive through migration or external file management.
   assetRefreshTimer = window.setInterval(() => assetStore.fetchAssets(), 5000);
 });

@@ -10,6 +10,7 @@ import InsertCharModal from './InsertCharModal.vue';
 import GalleryModal from './GalleryModal.vue';
 import ImageGeneratorModal from './ImageGeneratorModal.vue';
 import CausalLedgerModal from './CausalLedgerModal.vue';
+import LegacyMigrationModal from './LegacyMigrationModal.vue';
 </script>
 
 <template>
@@ -22,4 +23,5 @@ import CausalLedgerModal from './CausalLedgerModal.vue';
   <AssetEditorModal v-if="uiStore.modals.assetEditor" />
   <EmbeddingModelModal v-if="uiStore.modals.embeddingModel" />
   <CausalLedgerModal v-if="uiStore.modals.causalLedger" />
+  <LegacyMigrationModal v-if="uiStore.modals.legacyMigration" />
 </template>

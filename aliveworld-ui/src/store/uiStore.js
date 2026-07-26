@@ -15,8 +15,9 @@ export const uiStore = reactive({
   modals: { 
     settings: false, gallery: false, terminal: false, newGame: false, insertChar: false,
     assetEditor: false,
-    embeddingModel: false, causalLedger: false, imageGenerator: false
+    embeddingModel: false, causalLedger: false, imageGenerator: false, legacyMigration: false
   },
+  legacyMigrationSource: '',
   ledgerSourceFilter: '',
   imageGeneratorContext: { characterName: '', description: '' },
   settingsSection: 'inference',

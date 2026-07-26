@@ -132,4 +132,4 @@ npm run build
 - [发行与打包方向](docs/DISTRIBUTION.md)
 - [v1.5 发布候选审计（2026-07-25）](docs/RELEASE_READINESS_2026-07-25.md)
 
-AliveWorld 当前源码版使用 FastAPI、Python、Vue 3 与 Vite。`v1.5.0-dev.9` 已建立 Windows `onedir` 便携包：Python 运行时与前端静态文件一起分发，个人数据保存在 EXE 同目录 `UserData/`；正式 Release 前仍需完成无开发环境验收。
+AliveWorld 当前源码版使用 FastAPI、Python、Vue 3 与 Vite。`v1.5.0-dev.10` 已建立 Windows `onedir` 便携包：Python 运行时与前端静态文件一起分发，个人数据保存在 EXE 同目录 `UserData/`；正式 Release 前仍需完成无开发环境验收。

@@ -1,6 +1,6 @@
 import socket
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import desktop_launcher
 
@@ -26,24 +26,6 @@ class DesktopLauncherTests(unittest.TestCase):
         self.assertIsNone(server.config.log_config)
         self.assertFalse(server.config.access_log)
         self.assertEqual(server.config.port, 8765)
-
-    def test_migration_refreshes_frontend_with_cache_busting_url(self):
-        window = Mock()
-        with (
-            patch.object(desktop_launcher.time, "sleep"),
-            patch.object(desktop_launcher, "discover_legacy_root", return_value="legacy"),
-            patch.object(desktop_launcher, "prompt_legacy_migration", return_value=object()),
-            patch.object(desktop_launcher.time, "time", return_value=1234),
-        ):
-            desktop_launcher.offer_legacy_migration_after_load(
-                window,
-                "http://127.0.0.1:8000/",
-            )
-
-        window.load_url.assert_called_once_with(
-            "http://127.0.0.1:8000/?legacy_import=1234"
-        )
-
 
 if __name__ == "__main__":
     unittest.main()
