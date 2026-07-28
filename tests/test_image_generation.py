@@ -7,6 +7,7 @@ from core.image_generation.models import ImageIntent, ImageTaskStatus
 from core.image_generation.service import ImageTaskError
 from core.image_generation.executor import ImageTaskRunner
 from core.image_generation.pipeline import ImageGenerationPipeline
+from core.image_generation.prompt_compiler import PromptCompilationError
 from core.image_generation.providers.base import ProviderJob
 
 
@@ -103,6 +104,42 @@ class ImageGenerationTests(unittest.TestCase):
             completed = service.get(task.id)
             self.assertEqual(completed.prompt.positive, "compiled prompt")
             self.assertEqual(completed.status, ImageTaskStatus.SUCCEEDED)
+
+    def test_pipeline_persists_prompt_stage_failure_code(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            service = ImageGenerationService(ImageTaskRepository(temp_dir))
+            runner = ImageTaskRunner(service, lambda _task: None)
+            task = service.create("测试存档", {"intent": "scene_cg"})
+            pipeline = ImageGenerationPipeline(service, runner)
+
+            def rejected():
+                raise PromptCompilationError("模型服务商过滤了本次输出", "prompt_content_rejected")
+
+            pipeline.compile_and_start(task.id, rejected)
+            for _ in range(100):
+                if service.get(task.id).status == ImageTaskStatus.FAILED:
+                    break
+                __import__("time").sleep(0.005)
+            failed = service.get(task.id)
+            self.assertEqual(failed.error_code, "prompt_content_rejected")
+
+    def test_runner_persists_provider_submit_stage_failure(self):
+        class RejectedProvider:
+            id = "fake"
+            def submit(self, task): raise RuntimeError("ComfyUI unreachable")
+            def query(self, provider_job_id): raise AssertionError("query must not run")
+            def cancel(self, provider_job_id): return True
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            service = ImageGenerationService(ImageTaskRepository(temp_dir))
+            task = service.create("测试存档", {"intent": "scene_cg", "prompt": {"positive": "test"}})
+            runner = ImageTaskRunner(service, lambda _task: RejectedProvider())
+            runner.start(task.id)
+            for _ in range(100):
+                if service.get(task.id).status == ImageTaskStatus.FAILED:
+                    break
+                __import__("time").sleep(0.005)
+            self.assertEqual(service.get(task.id).error_code, "provider_submit_error")
 
     def test_background_runner_persists_success(self):
         class ImmediateProvider:

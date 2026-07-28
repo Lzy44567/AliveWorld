@@ -7,6 +7,7 @@ from collections.abc import Callable
 from typing import Any
 
 from core.image_generation.executor import ImageTaskRunner
+from core.image_generation.prompt_compiler import PromptCompilationError
 from core.image_generation.service import ImageGenerationService
 
 
@@ -29,5 +30,7 @@ class ImageGenerationPipeline:
         try:
             self.service.apply_compiled_prompt(task_id, compile_prompt())
             self.runner.start(task_id)
+        except PromptCompilationError as exc:
+            self.service.fail(task_id, exc.code, str(exc))
         except Exception as exc:
             self.service.fail(task_id, "prompt_compilation_error", str(exc))

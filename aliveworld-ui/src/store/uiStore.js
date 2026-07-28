@@ -14,10 +14,13 @@ export const uiStore = reactive({
 
   modals: { 
     settings: false, gallery: false, terminal: false, newGame: false, insertChar: false,
-    assetEditor: false,
+    assetEditor: false, quickStart: false,
     embeddingModel: false, causalLedger: false, imageGenerator: false, legacyMigration: false
   },
   legacyMigrationSource: '',
+  pendingLegacyMigration: false,
+  apiSetupRequired: false,
+  newGamePrefill: { name: '', worldPremise: '', fromOnboarding: false },
   ledgerSourceFilter: '',
   imageGeneratorContext: { characterName: '', description: '' },
   settingsSection: 'inference',

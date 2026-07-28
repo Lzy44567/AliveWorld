@@ -134,8 +134,10 @@ export const configStore = reactive({
         this.globalSettings.preferenceApiBaseUrl = data.preferenceApiBaseUrl ?? this.globalSettings.preferenceApiBaseUrl;
         this.globalSettings.preferenceModel = data.preferenceModel ?? this.globalSettings.preferenceModel;
         this.globalSettings.imageApiUrl = data.imageApiUrl ?? this.globalSettings.imageApiUrl;
+        return true;
       }
     } catch (e) { console.error("读取配置失败", e); }
+    return false;
   }
 });
 
@@ -143,8 +145,17 @@ export const effectiveStorySettings = computed(() =>
   configStore.story.active ? configStore.story.settings : configStore.settings
 );
 
-// 网页启动时从后端拉取一次最新配置（以防后端是被其他人改动的）
-configStore.fetchFromBackend();
+// 启动流程等待后端配置返回后，再判断是否需要首次 API 引导。
+export const configReady = configStore.fetchFromBackend();
+
+export async function waitForSystemConfig({ attempts = 8, delayMs = 500 } = {}) {
+  let loaded = await configReady;
+  for (let attempt = 1; !loaded && attempt < attempts; attempt += 1) {
+    await new Promise(resolve => window.setTimeout(resolve, delayMs));
+    loaded = await configStore.fetchFromBackend();
+  }
+  return loaded;
+}
 
 watch(() => configStore.globalSettings, () => {
   localStorage.setItem('aw_config', JSON.stringify(persistableConfig(configStore.globalSettings, configStore.settings)));

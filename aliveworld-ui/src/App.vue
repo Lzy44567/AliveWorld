@@ -9,21 +9,36 @@ import AllModals from './components/modals/AllModals.vue';
 import ToastNotice from './components/common/ToastNotice.vue';
 import WorkshopWorkspace from './components/workshop/WorkshopWorkspace.vue';
 import { uiStore } from './store/uiStore';
+import { configStore, waitForSystemConfig } from './store/configStore';
+import { onboardingStore } from './store/onboardingStore';
 
 // [新增] 界面挂载时自动拉取数据
 let assetRefreshTimer = null;
 onMounted(async () => {
-  assetStore.fetchAssets();
+  await assetStore.fetchAssets();
+  const configLoaded = await waitForSystemConfig();
+  if (configLoaded && !configStore.globalSettings.apiKeyConfigured) {
+    uiStore.apiSetupRequired = true;
+    uiStore.settingsSection = 'api';
+    uiStore.modals.settings = true;
+  }
+  let migrationPrompted = false;
   try {
     const response = await fetch('/api/v1/lobby/migration/legacy/status');
     if (response.ok) {
       const status = await response.json();
       if (status.should_prompt) {
         uiStore.legacyMigrationSource = status.source_root || '';
-        uiStore.modals.legacyMigration = true;
+        if (uiStore.apiSetupRequired) {
+          uiStore.pendingLegacyMigration = true;
+        } else {
+          uiStore.modals.legacyMigration = true;
+        }
+        migrationPrompted = true;
       }
     }
   } catch (_) { /* 迁移提示不能阻止游戏主界面加载 */ }
+  if (configLoaded && !uiStore.apiSetupRequired && !migrationPrompted) onboardingStore.offerStory();
   // Assets may also arrive through migration or external file management.
   assetRefreshTimer = window.setInterval(() => assetStore.fetchAssets(), 5000);
 });

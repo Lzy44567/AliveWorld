@@ -6,6 +6,7 @@ import { imageStore } from '../../store/imageStore';
 import { uiStore } from '../../store/uiStore';
 import { fileToDataUrl, imageApi } from '../../api/imageApi';
 import ImageGenerationOptions from '../image/ImageGenerationOptions.vue';
+import { imageFailureDetail } from '../../utils/imageErrors';
 
 const props = defineProps({ message: { type: Object, required: true } });
 const tasks = computed(() => imageStore.forMessage(props.message.id));
@@ -98,7 +99,7 @@ const removeTask = async task => {
     <div v-for="task in tasks" :key="task.id" class="mt-2 rounded-xl border border-fuchsia-900/60 bg-slate-950/80 p-3">
       <div class="flex items-center justify-between text-xs"><span class="text-fuchsia-300">🖼️ {{ statusText[task.status]||task.status }}</span><span class="font-mono text-[9px] text-slate-600">{{ task.id }}</span></div>
       <div v-if="['queued','compiling_prompt','ready','submitted','running'].includes(task.status)" class="mt-2"><div class="h-1.5 overflow-hidden rounded bg-slate-800"><div class="h-full w-1/3 animate-pulse rounded bg-fuchsia-500" /></div><p class="mt-1 text-[9px] text-slate-600">这是运行状态动画，不是生成百分比；当前 ComfyUI 核心 HTTP 接口未提供采样进度。</p><button @click="imageStore.cancel(task.id)" class="mt-2 text-[10px] text-slate-400 hover:text-rose-300">取消任务</button></div>
-      <div v-else-if="task.status==='failed'" class="mt-2 text-xs text-rose-300">{{ task.error_message||'未知错误' }} <button @click="imageStore.retry(task.id)" class="ml-2 underline">重试</button></div>
+      <div v-else-if="task.status==='failed'" class="mt-2 rounded-lg border border-rose-900/60 bg-rose-950/20 p-2 text-xs text-rose-200"><strong>{{ imageFailureDetail(task).stage }}失败</strong><p class="mt-1 leading-relaxed">{{ imageFailureDetail(task).message }}</p><details v-if="task.error_message" class="mt-1 text-[10px] text-rose-300/70"><summary class="cursor-pointer">技术信息</summary>{{ task.error_message }}</details><button @click="imageStore.retry(task.id)" class="mt-2 underline">重试</button></div>
       <div v-else-if="task.status==='cancelled'" class="mt-2 text-xs text-slate-500">任务已取消 <button @click="imageStore.retry(task.id)" class="ml-2 underline">重新运行</button></div>
       <div v-else-if="task.status==='succeeded'" class="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
         <img v-for="url in task.output_images" :key="url" :src="imageApi.absoluteImageUrl(url)" @click="selectedUrl=imageApi.absoluteImageUrl(url)" class="h-40 w-full cursor-zoom-in rounded-lg border border-slate-700 bg-black object-contain sm:h-52" />

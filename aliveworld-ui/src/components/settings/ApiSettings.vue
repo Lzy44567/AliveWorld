@@ -17,6 +17,7 @@ const saveAndTest = async () => {
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.detail || '模型测试失败');
     testResult.value = data;
+    if (data.connected) uiStore.apiSetupRequired = false;
     uiStore.showToast(`${data.message}：${data.model}`);
   } catch (error) {
     testResult.value = { connected: false, message: error.message };
@@ -30,6 +31,10 @@ const saveAndTest = async () => {
 <template>
   <section>
     <h3 class="text-sm font-bold text-emerald-400 mb-3 border-b border-slate-700 pb-2">大语言模型配置（实时生效）</h3>
+    <div v-if="uiStore.apiSetupRequired" class="mb-4 rounded-xl border border-amber-500/70 bg-amber-950/30 p-4 text-xs leading-relaxed text-amber-100">
+      <div class="font-bold">👋 首次使用需要配置大语言模型</div>
+      <p class="mt-1 text-amber-200/80">填写服务商地址、API Key 和模型名，再点击“保存并测试连接”。密钥只保存在本机 UserData 中，不会进入故事存档。</p>
+    </div>
     <div class="space-y-3">
       <div><label class="text-xs text-slate-400 block mb-1">API Base URL</label><input v-model="configStore.globalSettings.apiBaseUrl" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-slate-200 outline-none" /></div>
       <SecretField v-model="configStore.globalSettings.apiKey" :configured="configStore.globalSettings.apiKeyConfigured" field="apiKey" label="API Key（密钥）" />

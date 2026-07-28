@@ -11,6 +11,7 @@ import GalleryModal from './GalleryModal.vue';
 import ImageGeneratorModal from './ImageGeneratorModal.vue';
 import CausalLedgerModal from './CausalLedgerModal.vue';
 import LegacyMigrationModal from './LegacyMigrationModal.vue';
+import QuickStartModal from './QuickStartModal.vue';
 </script>
 
 <template>
@@ -24,4 +25,5 @@ import LegacyMigrationModal from './LegacyMigrationModal.vue';
   <EmbeddingModelModal v-if="uiStore.modals.embeddingModel" />
   <CausalLedgerModal v-if="uiStore.modals.causalLedger" />
   <LegacyMigrationModal v-if="uiStore.modals.legacyMigration" />
+  <QuickStartModal v-if="uiStore.modals.quickStart" />
 </template>

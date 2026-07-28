@@ -64,6 +64,7 @@ export const workshopStore = reactive({
   mode: 'expand',
   search: '',
   initialized: false,
+  localSessionId: '',
 
   get typeInfo() {
     return WORKSHOP_TYPES.find(item => item.id === this.type) || WORKSHOP_TYPES[0];
@@ -90,6 +91,10 @@ export const workshopStore = reactive({
     return Boolean(gameStore.sessionId);
   },
 
+  get localScopeLabel() {
+    return gameStore.currentSaveName || gameStore.sessionId || '未载入故事';
+  },
+
   sync(data) {
     this.workshopId = data.workshop_id || this.workshopId;
     this.draft = data.draft ?? this.draft;
@@ -102,10 +107,21 @@ export const workshopStore = reactive({
   },
 
   async initialize() {
-    if (this.initialized) return;
-    await assetStore.fetchAssets();
-    if (gameStore.sessionId) await assetStore.fetchLocalAssets(gameStore.sessionId);
+    if (!this.initialized) await assetStore.fetchAssets();
+    await this.syncStoryScope();
     this.initialized = true;
+  },
+
+  async syncStoryScope() {
+    const sessionId = gameStore.sessionId || '';
+    if (sessionId === this.localSessionId) return;
+    this.localSessionId = sessionId;
+    if (this.scope === 'local') {
+      this.assetName = '';
+      this.resetSession();
+    }
+    await assetStore.fetchLocalAssets(sessionId);
+    if (!sessionId && this.scope === 'local') this.scope = 'global';
   },
 
   async selectType(type) {
@@ -123,7 +139,10 @@ export const workshopStore = reactive({
     this.scope = scope;
     this.assetName = '';
     this.resetSession();
-    if (scope === 'local') await assetStore.fetchLocalAssets(gameStore.sessionId);
+    if (scope === 'local') {
+      this.localSessionId = gameStore.sessionId;
+      await assetStore.fetchLocalAssets(gameStore.sessionId);
+    }
   },
 
   resetSession() {

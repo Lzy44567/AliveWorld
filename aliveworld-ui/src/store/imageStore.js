@@ -2,6 +2,7 @@ import { reactive } from 'vue';
 import { imageApi } from '../api/imageApi';
 import { uiStore } from './uiStore';
 import { assetStore } from './assetStore';
+import { imageFailureDetail } from '../utils/imageErrors';
 
 const ACTIVE = new Set(['queued', 'compiling_prompt', 'ready', 'submitted', 'running']);
 
@@ -41,7 +42,7 @@ export const imageStore = reactive({
         }
         if (task.status === 'failed' && previous.get(task.id) !== 'failed' && !this.notified.has(task.id)) {
           this.notified.add(task.id);
-          uiStore.showToast(`生图失败：${task.error_message || '未知错误'}`, 'error');
+          uiStore.showToast(imageFailureDetail(task).full, 'error');
         }
       }
     }
@@ -91,7 +92,7 @@ export const imageStore = reactive({
               uiStore.showToast('全局图片已生成，可在画廊查看', 'success');
             }
           } else if (task.status === 'failed') {
-            uiStore.showToast(`生图失败：${task.error_message || '未知错误'}`, 'error');
+            uiStore.showToast(imageFailureDetail(task).full, 'error');
           }
         }
       } catch (_) { /* 临时网络错误留待下一轮轮询 */ }
@@ -110,9 +111,17 @@ export const imageStore = reactive({
 
   async retry(taskId) {
     this.notified.delete(taskId);
+    const source = this.tasks.find(item => item.id === taskId);
+    if (source?.error_code?.startsWith('prompt_')) {
+      const task = await imageApi.regenerateTask(this.sessionId, taskId);
+      this.upsert(task);
+      this.syncPolling();
+      return task;
+    }
     const task = await imageApi.retryTask(this.sessionId, taskId);
     this.upsert(task);
     this.syncPolling();
+    return task;
   },
 
   async regenerate(taskId) {

@@ -63,7 +63,11 @@ class ImageTaskRunner:
             with self._lock:
                 self._providers[task_id] = provider
             if not task.provider_job_id:
-                job = provider.submit(task)
+                try:
+                    job = provider.submit(task)
+                except Exception as exc:
+                    self.service.fail(task_id, "provider_submit_error", str(exc))
+                    return
                 task = self.service.mark_submitted(task_id, job.id)
             while True:
                 latest = self.service.get(task_id)
@@ -71,7 +75,11 @@ class ImageTaskRunner:
                     if latest.provider_job_id:
                         provider.cancel(latest.provider_job_id)
                     return
-                job = provider.query(latest.provider_job_id)
+                try:
+                    job = provider.query(latest.provider_job_id)
+                except Exception as exc:
+                    self.service.fail(task_id, "provider_execution_error", str(exc))
+                    return
                 latest = self.service.apply_provider_job(task_id, job)
                 if latest.status in TERMINAL_STATUSES:
                     if latest.status == ImageTaskStatus.SUCCEEDED and self.completion_handler:

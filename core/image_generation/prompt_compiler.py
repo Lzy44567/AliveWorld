@@ -34,7 +34,28 @@ PROMPT_COMPILER_SYSTEM = """你是 AliveWorld 的生图提示词编译器。你�
 
 
 class PromptCompilationError(ValueError):
-    pass
+    """A prompt-stage failure with a stable code for player-facing diagnosis."""
+
+    def __init__(self, message: str, code: str = "prompt_compilation_error"):
+        super().__init__(message)
+        self.code = code
+
+
+def _prompt_error_code(message: str) -> str:
+    normalized = str(message or "").casefold()
+    if any(marker in normalized for marker in (
+        "content_filter", "content policy", "moderation", "safety",
+        "内容审核", "内容过滤", "安全策略", "模型服务商过滤", "拒绝",
+    )):
+        return "prompt_content_rejected"
+    if any(marker in normalized for marker in (
+        "connection", "timeout", "timed out", "network", "dns",
+        "连接", "超时", "网络",
+    )):
+        return "prompt_connection_error"
+    if any(marker in normalized for marker in ("返回为空", "空返回", "empty response")):
+        return "prompt_empty_response"
+    return "prompt_compilation_error"
 
 
 class ImagePromptCompiler:
@@ -63,14 +84,18 @@ class ImagePromptCompiler:
             trace_label="生图提示词编译",
         )
         if error or not raw:
-            raise PromptCompilationError(error or "提示词模型返回为空")
+            message = error or "提示词模型返回为空"
+            raise PromptCompilationError(message, _prompt_error_code(message))
         try:
             result = robust_json_parse(raw)
         except ValueError as exc:
-            raise PromptCompilationError(f"提示词模型返回的 JSON 无效: {exc}") from exc
+            raise PromptCompilationError(
+                f"提示词模型返回的 JSON 无效: {exc}",
+                "prompt_format_error",
+            ) from exc
         positive = str(result.get("positive", "")).strip()
         if not positive:
-            raise PromptCompilationError("提示词模型没有返回正面提示词")
+            raise PromptCompilationError("提示词模型没有返回正面提示词", "prompt_empty_response")
         focus = str(result.get("content_focus", "general")).strip()
         if focus not in {"general", "sensual", "explicit"}:
             focus = "general"

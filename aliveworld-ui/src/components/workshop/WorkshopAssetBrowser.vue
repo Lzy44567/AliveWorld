@@ -1,10 +1,12 @@
 <script setup>
-import { onMounted } from 'vue';
+import { onMounted, watch } from 'vue';
 import { createEntityEditorForm } from '../../utils/entityForm';
 import { WORKSHOP_TYPES, workshopStore } from '../../store/workshopStore';
 import { uiStore } from '../../store/uiStore';
+import { gameStore } from '../../store/gameStore';
 
 onMounted(() => workshopStore.initialize());
+watch(() => gameStore.sessionId, () => workshopStore.syncStoryScope());
 
 function createAsset() {
   if (workshopStore.scope !== 'global' || workshopStore.type === 'preferences') return;
@@ -44,12 +46,17 @@ function createAsset() {
       <template v-else>
         <div class="mb-3 flex rounded-lg border border-slate-700 bg-slate-900 p-1 text-xs">
           <button class="flex-1 rounded py-1.5" :class="workshopStore.scope==='global'?'bg-cyan-800 text-white':'text-slate-500'" @click="workshopStore.setScope('global')">全局资产</button>
-          <button class="flex-1 rounded py-1.5 disabled:opacity-30" :disabled="!workshopStore.hasSession" :class="workshopStore.scope==='local'?'bg-cyan-800 text-white':'text-slate-500'" @click="workshopStore.setScope('local')">本局专属</button>
+          <button class="flex-1 rounded py-1.5 disabled:opacity-30" :disabled="!workshopStore.hasSession" :class="workshopStore.scope==='local'?'bg-cyan-800 text-white':'text-slate-500'" :title="workshopStore.hasSession ? `只编辑故事线“${workshopStore.localScopeLabel}”的资产副本` : '请先载入故事线'" @click="workshopStore.setScope('local')">当前故事</button>
+        </div>
+        <div v-if="workshopStore.scope==='local'" class="mb-3 rounded-lg border border-cyan-900/60 bg-cyan-950/20 px-3 py-2 text-[10px] text-cyan-200">
+          故事线：<strong>{{ workshopStore.localScopeLabel }}</strong>
+          <span class="ml-1 text-slate-500">· 下列资产只属于这条故事线</span>
         </div>
         <input v-model="workshopStore.search" class="mb-3 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-200" placeholder="搜索名称或标签……" />
         <div class="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1 custom-scrollbar">
           <button v-for="item in workshopStore.assets" :key="item.name" class="w-full rounded-xl border p-3 text-left transition" :class="workshopStore.assetName===item.name?'border-cyan-600 bg-cyan-950/30':'border-slate-700 bg-slate-900/55 hover:border-cyan-900'" @click="workshopStore.start(item.name)">
             <div class="truncate text-xs font-bold text-slate-200">{{ item.name }}</div>
+            <div v-if="workshopStore.scope==='local'" class="mt-1 text-[9px] text-cyan-400/80">📂 {{ workshopStore.localScopeLabel }}</div>
             <div class="mt-2 flex flex-wrap gap-1"><span v-for="tag in item.tags" :key="tag" class="rounded bg-slate-800 px-1 text-[9px] text-slate-500">{{ tag }}</span></div>
             <p class="mt-2 line-clamp-2 text-[10px] text-slate-500">{{ item.desc }}</p>
           </button>

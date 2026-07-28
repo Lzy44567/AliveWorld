@@ -6,9 +6,18 @@ import { assetStore } from '../../store/assetStore';
 import { gameStore } from '../../store/gameStore';
 import { gameApi } from '../../api/gameApi';
 import { configStore } from '../../store/configStore';
+import { onboardingStore } from '../../store/onboardingStore';
 
-const newSaveDesc = ref("");
-const close = () => { uiStore.modals.newGame = false; };
+const prefill = uiStore.newGamePrefill || {};
+if (prefill.name) assetStore.newSaveName = prefill.name;
+const newSaveDesc = ref(prefill.worldPremise || "");
+const resetPrefill = () => {
+  uiStore.newGamePrefill = { name: '', worldPremise: '', fromOnboarding: false };
+};
+const close = () => {
+  uiStore.modals.newGame = false;
+  resetPrefill();
+};
 
 const startNewGame = async () => {
   if (!assetStore.newSaveName.trim()) return uiStore.showToast("存档名不能为空！", "error"); 
@@ -25,6 +34,8 @@ const startNewGame = async () => {
     close();
     await assetStore.fetchAssets();
     await assetStore.fetchLocalAssets(data.session_id);
+    onboardingStore.complete();
+    assetStore.newSaveName = "";
     newSaveDesc.value = "";
     uiStore.showToast("新世界已降临");
   } catch (err) {

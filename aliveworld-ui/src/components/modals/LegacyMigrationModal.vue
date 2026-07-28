@@ -3,12 +3,14 @@ import { ref } from 'vue';
 import { assetStore } from '../../store/assetStore';
 import { configStore } from '../../store/configStore';
 import { uiStore } from '../../store/uiStore';
+import { onboardingStore } from '../../store/onboardingStore';
 
 const syncing = ref(false);
 const errorMessage = ref('');
 
 const close = () => {
   uiStore.modals.legacyMigration = false;
+  window.setTimeout(() => onboardingStore.offerStory(), 0);
 };
 
 const syncNow = async () => {

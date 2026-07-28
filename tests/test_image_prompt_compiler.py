@@ -46,6 +46,18 @@ class ImagePromptCompilerTests(unittest.TestCase):
         with self.assertRaises(PromptCompilationError):
             ImagePromptCompiler(FakeAI('', "Connection error")).compile({})
 
+    def test_failure_codes_distinguish_moderation_network_and_format(self):
+        cases = [
+            (FakeAI('', "content_filter: 模型服务商过滤了本次输出"), "prompt_content_rejected"),
+            (FakeAI('', "Connection error"), "prompt_connection_error"),
+            (FakeAI('', None), "prompt_empty_response"),
+            (FakeAI('not json'), "prompt_format_error"),
+        ]
+        for ai, expected in cases:
+            with self.subTest(expected=expected), self.assertRaises(PromptCompilationError) as raised:
+                ImagePromptCompiler(ai).compile({})
+            self.assertEqual(raised.exception.code, expected)
+
 
 if __name__ == "__main__":
     unittest.main()

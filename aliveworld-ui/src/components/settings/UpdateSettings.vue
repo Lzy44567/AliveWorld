@@ -1,5 +1,7 @@
 <script setup>
 import { ref } from 'vue';
+import { onboardingStore } from '../../store/onboardingStore';
+import { uiStore } from '../../store/uiStore';
 
 const checking = ref(false);
 const result = ref(null);
@@ -21,6 +23,11 @@ async function checkUpdate() {
   } finally {
     checking.value = false;
   }
+}
+
+async function restartGuide() {
+  uiStore.modals.settings = false;
+  await onboardingStore.restart();
 }
 </script>
 
@@ -78,6 +85,12 @@ async function checkUpdate() {
       <p class="font-bold text-indigo-200">当前更新方式</p>
       <p>关闭 AliveWorld，备份旧 <code>UserData</code>，再把新版覆盖解压到原来的 <code>AliveWorld</code> 目录。</p>
       <p class="mt-1 text-slate-400">自动下载与安装将在具备 SHA-256 校验、备份和失败回滚后再开放。</p>
+    </div>
+
+    <div class="rounded-xl border border-emerald-900/60 bg-emerald-950/15 p-4 text-sm leading-6 text-slate-300">
+      <p class="font-bold text-emerald-200">快速开始</p>
+      <p class="text-slate-400">重新打开首次使用说明和入门故事入口。该操作不会修改现有存档、资产或配置。</p>
+      <button type="button" class="mt-3 rounded-lg border border-emerald-700 px-3 py-1.5 text-xs font-bold text-emerald-300 hover:bg-emerald-950/40" @click="restartGuide">重新开始新手引导</button>
     </div>
   </section>
 </template>

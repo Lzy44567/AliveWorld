@@ -7,9 +7,23 @@ import ImageSettings from '../settings/ImageSettings.vue';
 import PreferenceSettings from '../settings/PreferenceSettings.vue';
 import DataMigrationSettings from '../settings/DataMigrationSettings.vue';
 import UpdateSettings from '../settings/UpdateSettings.vue';
+import { configStore } from '../../store/configStore';
+import { onboardingStore } from '../../store/onboardingStore';
 
 const activeSection = ref(uiStore.settingsSection === 'memory' ? 'api' : (uiStore.settingsSection || 'inference'));
-const close = () => { uiStore.modals.settings = false; };
+const close = () => {
+  uiStore.modals.settings = false;
+  if (configStore.globalSettings.apiKeyConfigured) {
+    window.setTimeout(() => {
+      if (uiStore.pendingLegacyMigration) {
+        uiStore.pendingLegacyMigration = false;
+        uiStore.modals.legacyMigration = true;
+      } else {
+        onboardingStore.offerStory();
+      }
+    }, 0);
+  }
+};
 const selectSection = section => { activeSection.value = section; uiStore.settingsSection = section; };
 </script>
 
