@@ -18,6 +18,7 @@ export const configStore = reactive({
   globalSettings: {
     apiKey: savedConfig.globalSettings?.apiKey || "", 
     apiKeyConfigured: false,
+    apiReady: false,
     apiBaseUrl: savedConfig.globalSettings?.apiBaseUrl || "https://api.deepseek.com",
     model: savedConfig.globalSettings?.model || "deepseek-v4-flash",
     memoryApiKey: savedConfig.globalSettings?.memoryApiKey || "",
@@ -103,6 +104,9 @@ export const configStore = reactive({
       });
       if (response.ok) {
         if (this.globalSettings.apiKey.trim()) this.globalSettings.apiKeyConfigured = true;
+        if (this.globalSettings.apiBaseUrl.trim() && this.globalSettings.model.trim()) {
+          this.globalSettings.apiReady = true;
+        }
         if (this.globalSettings.memoryApiKey.trim()) this.globalSettings.memoryApiKeyConfigured = true;
         if (this.globalSettings.preferenceApiKey.trim()) this.globalSettings.preferenceApiKeyConfigured = true;
         return true;
@@ -122,6 +126,7 @@ export const configStore = reactive({
         const data = await res.json();
         if (data.apiKey) this.globalSettings.apiKey = data.apiKey;
         this.globalSettings.apiKeyConfigured = Boolean(data.apiKeyConfigured || this.globalSettings.apiKey);
+        this.globalSettings.apiReady = Boolean(data.apiReady ?? this.globalSettings.apiKeyConfigured);
         if (data.apiBaseUrl) this.globalSettings.apiBaseUrl = data.apiBaseUrl;
         if (data.model) this.globalSettings.model = data.model;
         if (data.memoryApiKey) this.globalSettings.memoryApiKey = data.memoryApiKey;
@@ -159,7 +164,6 @@ export async function waitForSystemConfig({ attempts = 8, delayMs = 500 } = {}) 
 
 watch(() => configStore.globalSettings, () => {
   localStorage.setItem('aw_config', JSON.stringify(persistableConfig(configStore.globalSettings, configStore.settings)));
-  configStore.syncToBackend().catch(error => console.error("自动保存配置失败", error));
 }, { deep: true });
 
 watch(() => configStore.settings, () => {

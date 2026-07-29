@@ -22,7 +22,18 @@ from utils.sys_logger import get_logger
 log = get_logger()
 
 class GameSession:
-    def __init__(self, ai_engine, save_name="", save_dir_path="", story_settings=None, memory_ai_engine=None, memory_config=None, preference_ai_engine=None):
+    def __init__(
+        self,
+        ai_engine,
+        save_name="",
+        save_dir_path="",
+        story_settings=None,
+        memory_ai_engine=None,
+        memory_config=None,
+        preference_ai_engine=None,
+        overseer_ai_engine=None,
+        worldbook_capture_ai_engine=None,
+    ):
         self.ai_engine = ai_engine
         self.session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.save_name, self.save_dir_path = save_name, save_dir_path
@@ -33,10 +44,10 @@ class GameSession:
         
         self.state_mgr = StateManager()
         self.ctx_mgr = ContextManager()
-        self.undercurrent = UndercurrentEngine(self.ai_engine)
+        self.undercurrent = UndercurrentEngine(overseer_ai_engine or self.ai_engine)
         self.entity_repository = EntityRepository(self.save_dir_path)
         self.resolver = DualTrackResolver()
-        self.worldbook_capture = WorldbookCaptureService(self.ai_engine)
+        self.worldbook_capture = WorldbookCaptureService(worldbook_capture_ai_engine or self.ai_engine)
         self.user_preferences = UserPreferenceRepository()
         self.preference_analysis = PreferenceAnalysisService(preference_ai_engine or self.ai_engine)
         memory_config = memory_config or {}

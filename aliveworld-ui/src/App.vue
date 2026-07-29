@@ -17,7 +17,7 @@ let assetRefreshTimer = null;
 onMounted(async () => {
   await assetStore.fetchAssets();
   const configLoaded = await waitForSystemConfig();
-  if (configLoaded && !configStore.globalSettings.apiKeyConfigured) {
+  if (configLoaded && !configStore.globalSettings.apiReady) {
     uiStore.apiSetupRequired = true;
     uiStore.settingsSection = 'api';
     uiStore.modals.settings = true;

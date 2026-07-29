@@ -275,9 +275,9 @@ def create_global_character_portrait(payload: ImageTaskPayload):
 
 @router.post("/images/library/global/character-portraits/compile-and-start")
 def compile_and_create_global_character_portrait(payload: CompileAndCreatePayload):
-    from api.v1.game_routes import global_ai_engine
-
-    if not global_ai_engine:
+    from core.model_connections.runtime import get_task_engine
+    prompt_engine = get_task_engine("image_prompt")
+    if not prompt_engine:
         raise HTTPException(status_code=500, detail="请先在设置中配置可用的大语言模型 API")
     character_name = str((payload.task.get("context_snapshot") or {}).get("character_name", "")).strip()
     if not character_name:
@@ -305,7 +305,7 @@ def compile_and_create_global_character_portrait(payload: CompileAndCreatePayloa
         "model_name": payload.compile.model_name,
         "model_profile": payload.compile.model_profile,
     }
-    runtime.pipeline.compile_and_start(task.id, lambda: ImagePromptCompiler(global_ai_engine).compile(compile_data))
+    runtime.pipeline.compile_and_start(task.id, lambda: ImagePromptCompiler(prompt_engine).compile(compile_data))
     return _library_task_payload(scope, runtime.service.get(task.id))
 
 
@@ -322,9 +322,11 @@ def compile_and_create_image_task(session_id: str, payload: CompileAndCreatePayl
         "prompt_compile_request": payload.compile.model_dump(),
     }
     task = _handle(lambda: runtime.service.create(game.save_name or session_id, task_data))
+    from core.model_connections.runtime import get_task_engine
+    prompt_engine = get_task_engine("image_prompt") or game.ai_engine
     runtime.pipeline.compile_and_start(
         task.id,
-        lambda: ImagePromptCompiler(game.ai_engine).compile(_compile_payload(game, payload.compile)),
+        lambda: ImagePromptCompiler(prompt_engine).compile(_compile_payload(game, payload.compile)),
     )
     game.record_preference_interaction(
         "generation",
@@ -367,9 +369,11 @@ def regenerate_image_task(session_id: str, task_id: str):
         if not game:
             raise HTTPException(status_code=404, detail="会话失效")
         compile_payload = PromptCompilePayload(**compile_request)
+        from core.model_connections.runtime import get_task_engine
+        prompt_engine = get_task_engine("image_prompt") or game.ai_engine
         runtime.pipeline.compile_and_start(
             task.id,
-            lambda: ImagePromptCompiler(game.ai_engine).compile(_compile_payload(game, compile_payload)),
+            lambda: ImagePromptCompiler(prompt_engine).compile(_compile_payload(game, compile_payload)),
         )
     game = active_sessions.get(session_id)
     if game:
@@ -492,7 +496,9 @@ def compile_image_prompt(session_id: str, payload: PromptCompilePayload):
     if not game:
         raise HTTPException(status_code=404, detail="会话失效")
     try:
-        return ImagePromptCompiler(game.ai_engine).compile(_compile_payload(game, payload))
+        from core.model_connections.runtime import get_task_engine
+        prompt_engine = get_task_engine("image_prompt") or game.ai_engine
+        return ImagePromptCompiler(prompt_engine).compile(_compile_payload(game, payload))
     except PromptCompilationError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 

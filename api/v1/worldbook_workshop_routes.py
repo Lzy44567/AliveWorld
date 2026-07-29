@@ -155,11 +155,12 @@ def apply_operations(workshop_id: str, payload: ApplyOperationsRequest):
 @router.post("/workshops/{workshop_id}/chat")
 def chat_workshop(workshop_id: str, payload: WorkshopChatRequest):
     workshop = _get(workshop_id)
-    from api.v1.game_routes import global_ai_engine
-    if not global_ai_engine:
+    from core.model_connections.runtime import get_task_engine
+    engine = get_task_engine("workshop")
+    if not engine:
         raise HTTPException(status_code=500, detail="请先在设置中配置可用的大语言模型 API")
     try:
-        result = WorldbookWorkshopAgent(global_ai_engine).respond(workshop, payload.message.strip(), payload.mode, commit_changes=payload.commit_changes)
+        result = WorldbookWorkshopAgent(engine).respond(workshop, payload.message.strip(), payload.mode, commit_changes=payload.commit_changes)
         workshop.save_session(WORKSHOP_DIR)
         return {**_payload(workshop), **result}
     except (WorkshopError, ValueError) as exc:

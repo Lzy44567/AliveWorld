@@ -20,7 +20,7 @@
 
 重新规划后的 **v1.4.0 主开发线是生图基础版**：以本地 ComfyUI、手动角色立绘/剧情 CG、持久化异步任务、正文原位占位与本局画廊构成玩家可见的完整闭环。详细设计见 [`features/05_image_generation.md`](features/05_image_generation.md)，切片安排见 [`VERSION_ROADMAP.md`](VERSION_ROADMAP.md)。
 
-`v1.5.0-dev.15` 计划把平铺的正文/记忆/偏好 API 字段升级为“连接配置中心 + 任务路由”。普通玩家只配置主文本接口，其他任务默认继承；高级玩家才逐项覆盖。连接、协议、密钥仓储、任务用途和服务商特有工作流分层，避免每增加一个 AI 功能就在设置和 `game_routes.py` 复制一组字段。详细设计见 [`features/10_api_profiles_and_routing.md`](features/10_api_profiles_and_routing.md)。
+`v1.5.0-dev.15` 已把平铺的正文/记忆/偏好 API 字段升级为“连接配置中心 + 任务路由”。普通玩家只配置主文本接口，其他任务默认继承；高级玩家才逐项覆盖。连接、协议、密钥仓储、任务用途和服务商特有工作流已分层，避免每增加一个 AI 功能就在设置和 `game_routes.py` 复制一组字段。详细设计和未完成边界见 [`features/10_api_profiles_and_routing.md`](features/10_api_profiles_and_routing.md)。
 
 ## 对象边界
 

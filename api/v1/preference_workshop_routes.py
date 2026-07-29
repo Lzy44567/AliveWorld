@@ -55,8 +55,8 @@ def _get(workshop_id: str) -> PreferenceWorkshop:
 
 
 def _engine():
-    from api.v1.game_routes import global_preference_ai_engine, global_ai_engine
-    return global_preference_ai_engine or global_ai_engine
+    from core.model_connections.runtime import get_task_engine
+    return get_task_engine("workshop")
 
 
 @router.post("/start")

@@ -75,8 +75,8 @@ def _target(payload: StartPayload) -> Path:
 
 
 def _engine():
-    from api.v1.game_routes import global_ai_engine
-    return global_ai_engine
+    from core.model_connections.runtime import get_task_engine
+    return get_task_engine("workshop")
 
 
 @router.post("/start")

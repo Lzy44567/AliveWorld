@@ -17,6 +17,7 @@ from api.v1.game_routes import router as game_router
 from api.v1.image_generation_routes import router as image_generation_router
 from api.v1.lobby_routes import router as lobby_router
 from api.v1.local_asset_routes import router as local_asset_router
+from api.v1.model_connection_routes import router as model_connection_router
 from api.v1.preference_workshop_routes import router as preference_workshop_router
 from api.v1.story_memory_routes import router as story_memory_router
 from api.v1.user_preference_routes import router as user_preference_router
@@ -67,6 +68,11 @@ def create_app(
         tags=["角色文风实体工坊"],
     )
     application.include_router(update_router, prefix="/api/v1/updates", tags=["版本更新"])
+    application.include_router(
+        model_connection_router,
+        prefix="/api/v1/model-connections",
+        tags=["接口配置与功能用途"],
+    )
 
     @application.get("/api/health", tags=["运行状态"])
     def health():

@@ -15,9 +15,11 @@ assets/*.ico
 
 # AliveWorld 个人资产、游玩产物与敏感配置
 config.yml
+config.pre-model-connections.yml
 settings.json
 ChangeLog.md
 logs/
+.demo_*.log
 
 # 临时文件与 OS 文件
 #*

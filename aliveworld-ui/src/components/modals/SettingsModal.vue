@@ -13,7 +13,7 @@ import { onboardingStore } from '../../store/onboardingStore';
 const activeSection = ref(uiStore.settingsSection === 'memory' ? 'api' : (uiStore.settingsSection || 'inference'));
 const close = () => {
   uiStore.modals.settings = false;
-  if (configStore.globalSettings.apiKeyConfigured) {
+  if (configStore.globalSettings.apiReady) {
     window.setTimeout(() => {
       if (uiStore.pendingLegacyMigration) {
         uiStore.pendingLegacyMigration = false;
@@ -37,7 +37,7 @@ const selectSection = section => { activeSection.value = section; uiStore.settin
       <div class="flex flex-1 min-h-0 overflow-hidden">
         <nav class="w-48 shrink-0 bg-slate-900/50 border-r border-slate-700 p-3 space-y-1">
           <button @click="selectSection('inference')" :class="activeSection === 'inference' ? 'bg-slate-800 text-rose-400' : 'text-slate-400 hover:bg-slate-800'" class="w-full text-left px-3 py-2 text-sm font-bold rounded transition">🎛️ 体验设置</button>
-          <button @click="selectSection('api')" :class="activeSection === 'api' ? 'bg-slate-800 text-emerald-400' : 'text-slate-400 hover:bg-slate-800'" class="w-full text-left px-3 py-2 text-sm font-bold rounded transition">🔌 API 配置</button>
+          <button @click="selectSection('api')" :class="activeSection === 'api' ? 'bg-slate-800 text-emerald-400' : 'text-slate-400 hover:bg-slate-800'" class="w-full text-left px-3 py-2 text-sm font-bold rounded transition">🔌 接口与模型</button>
           <button @click="selectSection('preferences')" :class="activeSection === 'preferences' ? 'bg-slate-800 text-fuchsia-300' : 'text-slate-400 hover:bg-slate-800'" class="w-full text-left px-3 py-2 text-sm font-bold rounded transition">🪞 用户偏好卡</button>
           <button @click="selectSection('image')" :class="activeSection === 'image' ? 'bg-slate-800 text-fuchsia-300' : 'text-slate-400 hover:bg-slate-800'" class="w-full text-left px-3 py-2 text-sm font-bold rounded transition">🎨 生图配置</button>
           <button @click="selectSection('data')" :class="activeSection === 'data' ? 'bg-slate-800 text-cyan-300' : 'text-slate-400 hover:bg-slate-800'" class="w-full text-left px-3 py-2 text-sm font-bold rounded transition">📦 数据与迁移</button>

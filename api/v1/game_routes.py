@@ -1,6 +1,4 @@
 # api/v1/game_routes.py
-import os
-import yaml
 import uuid
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
@@ -8,6 +6,8 @@ from typing import Optional, Dict, Any
 
 from core.game_session import GameSession
 from core.ai_engine import AIEngine
+from core.model_connections.repository import ConnectionRepository
+from core.model_connections.runtime import model_runtime
 from core.session_manager import active_sessions
 from core.story_settings import normalize_story_settings
 from core.asset_lifecycle import AssetLifecycleError, normalize_asset_name
@@ -27,43 +27,38 @@ def _context_limit(value):
 
 
 def _read_system_config():
-    if not os.path.exists(config_path):
-        return {}
-    with open(config_path, 'r', encoding='utf-8') as file:
-        return yaml.safe_load(file) or {}
+    return ConnectionRepository(config_path).read_raw()
 
 
-def _memory_runtime(config, fallback_engine):
-    memory_config = {"context_limit": _context_limit(config.get("memory_context_limit", 32768))}
-    if not fallback_engine:
-        return None, memory_config
-    independent_base_url = str(config.get("memory_base_url") or "").strip()
-    merged = {
-        "api_key": config.get("memory_api_key") or ("not-required" if independent_base_url else config.get("api_key", "")),
-        "base_url": independent_base_url or config.get("base_url", ""),
-        "model": config.get("memory_model") or config.get("model", ""),
+def _bind_runtime_repository() -> None:
+    expected = ConnectionRepository(config_path)
+    if model_runtime.repository.path != expected.path:
+        model_runtime.repository = expected
+        model_runtime.snapshot = None
+
+
+def _runtime_engines(*, persist_migration: bool = False):
+    _bind_runtime_repository()
+    model_runtime.reload(persist_migration=persist_migration)
+    return {
+        "story": model_runtime.engine("story"),
+        "overseer": model_runtime.engine("overseer"),
+        "worldbook_capture": model_runtime.engine("worldbook_capture"),
+        "memory": model_runtime.engine("memory"),
+        "preference": model_runtime.engine("preference"),
+        "image_prompt": model_runtime.engine("image_prompt"),
+        "memory_config": model_runtime.memory_config(),
     }
-    inherited = not any(config.get(key) for key in ("memory_api_key", "memory_base_url", "memory_model"))
-    return (fallback_engine if inherited else AIEngine(merged)), memory_config
 
 
-def _preference_runtime(config, fallback_engine):
-    if not fallback_engine:
-        return None
-    independent_base_url = str(config.get("preference_base_url") or "").strip()
-    merged = {
-        "api_key": config.get("preference_api_key") or ("not-required" if independent_base_url else config.get("api_key", "")),
-        "base_url": independent_base_url or config.get("base_url", ""),
-        "model": config.get("preference_model") or config.get("model", ""),
-    }
-    inherited = not any(config.get(key) for key in ("preference_api_key", "preference_base_url", "preference_model"))
-    return fallback_engine if inherited else AIEngine(merged)
-
-
-_system_config = _read_system_config()
-global_ai_engine = AIEngine(_system_config) if all(_system_config.get(key) for key in ("api_key", "base_url", "model")) else None
-global_memory_ai_engine, global_memory_config = _memory_runtime(_system_config, global_ai_engine)
-global_preference_ai_engine = _preference_runtime(_system_config, global_ai_engine)
+_engines = _runtime_engines()
+global_ai_engine = _engines["story"]
+global_overseer_ai_engine = _engines["overseer"]
+global_worldbook_capture_ai_engine = _engines["worldbook_capture"]
+global_memory_ai_engine = _engines["memory"]
+global_preference_ai_engine = _engines["preference"]
+global_image_prompt_ai_engine = _engines["image_prompt"]
+global_memory_config = _engines["memory_config"]
 
 class StartRequest(BaseModel):
     save_name: str = "未命名冒险"
@@ -105,25 +100,27 @@ class SecretRevealPayload(BaseModel):
 
 def reload_system_config_runtime():
     """Reload persisted model configuration for existing and future sessions."""
-    global global_ai_engine, global_memory_ai_engine, global_memory_config, global_preference_ai_engine
-    config_data = _read_system_config()
-    global_ai_engine = (
-        AIEngine(config_data)
-        if all(config_data.get(key) for key in ("api_key", "base_url", "model"))
-        else None
-    )
-    global_memory_ai_engine, global_memory_config = _memory_runtime(config_data, global_ai_engine)
-    global_preference_ai_engine = _preference_runtime(config_data, global_ai_engine)
+    global global_ai_engine, global_overseer_ai_engine, global_worldbook_capture_ai_engine
+    global global_memory_ai_engine, global_memory_config, global_preference_ai_engine
+    global global_image_prompt_ai_engine
+    engines = _runtime_engines(persist_migration=True)
+    global_ai_engine = engines["story"]
+    global_overseer_ai_engine = engines["overseer"]
+    global_worldbook_capture_ai_engine = engines["worldbook_capture"]
+    global_memory_ai_engine = engines["memory"]
+    global_preference_ai_engine = engines["preference"]
+    global_image_prompt_ai_engine = engines["image_prompt"]
+    global_memory_config = engines["memory_config"]
     for session in active_sessions.values():
         session.ai_engine = global_ai_engine
-        session.undercurrent.ai_engine = global_ai_engine
-        session.worldbook_capture.ai_engine = global_ai_engine
+        session.undercurrent.ai_engine = global_overseer_ai_engine or global_ai_engine
+        session.worldbook_capture.ai_engine = global_worldbook_capture_ai_engine or global_ai_engine
         session.story_memory.set_runtime(
-            ai_engine=global_memory_ai_engine,
+            ai_engine=global_memory_ai_engine or global_ai_engine,
             context_limit=global_memory_config["context_limit"],
         )
-        session.preference_analysis.set_runtime(global_preference_ai_engine)
-    return config_data
+        session.preference_analysis.set_runtime(global_preference_ai_engine or global_ai_engine)
+    return _read_system_config()
 
 
 def _connection_error_message(error: str) -> str:
@@ -159,6 +156,8 @@ def start_game(payload: StartRequest):
         story_settings=payload.story_settings, memory_ai_engine=global_memory_ai_engine,
         memory_config=global_memory_config,
         preference_ai_engine=global_preference_ai_engine,
+        overseer_ai_engine=global_overseer_ai_engine,
+        worldbook_capture_ai_engine=global_worldbook_capture_ai_engine,
     )
     world_premise = payload.world_premise if payload.world_premise is not None else payload.description
     
@@ -185,6 +184,8 @@ def load_game(payload: LoadRequest):
         global_ai_engine, payload.save_name, save_dir_path=runtime_save_dir,
         memory_ai_engine=global_memory_ai_engine, memory_config=global_memory_config,
         preference_ai_engine=global_preference_ai_engine,
+        overseer_ai_engine=global_overseer_ai_engine,
+        worldbook_capture_ai_engine=global_worldbook_capture_ai_engine,
     )
     game.load_save_data(save_data, save_dir_path=runtime_save_dir)
     active_sessions[session_id] = game
@@ -303,68 +304,41 @@ def _session_payload(session_id, game):
 
 @router.get("/system_config")
 def get_system_config():
-    if os.path.exists(config_path):
-        try:
-            with open(config_path, 'r', encoding='utf-8') as f:
-                data = yaml.safe_load(f) or {}
-                return {
-                    "apiKey": "", "apiKeyConfigured": bool(data.get("api_key")),
-                    "apiBaseUrl": data.get("base_url", ""), "model": data.get("model", ""),
-                    "memoryApiKey": "", "memoryApiKeyConfigured": bool(data.get("memory_api_key")),
-                    "memoryApiBaseUrl": data.get("memory_base_url", ""),
-                    "memoryModel": data.get("memory_model", ""),
-                    "memoryContextLimit": _context_limit(data.get("memory_context_limit", 32768)),
-                    "preferenceApiKey": "", "preferenceApiKeyConfigured": bool(data.get("preference_api_key")),
-                    "preferenceApiBaseUrl": data.get("preference_base_url", ""),
-                    "preferenceModel": data.get("preference_model", ""),
-                    "imageApiUrl": data.get("image_api_url", "http://127.0.0.1:8188"),
-                }
-        except: pass
-    return {}
+    return ConnectionRepository(config_path).legacy_public_config()
 
 @router.post("/system_config/reveal-secret")
 def reveal_system_config_secret(payload: SecretRevealPayload):
-    field_map = {
-        "apiKey": "api_key",
-        "memoryApiKey": "memory_api_key",
-        "preferenceApiKey": "preference_api_key",
-    }
-    config_key = field_map.get(payload.field)
-    if not config_key:
+    try:
+        value = ConnectionRepository(config_path).reveal_legacy_secret(payload.field)
+    except KeyError:
         raise HTTPException(status_code=400, detail="不支持读取该配置字段")
-    config_data = _read_system_config()
-    return {"value": str(config_data.get(config_key) or "")}
+    return {"value": value}
 
 @router.post("/system_config")
 def update_system_config(payload: SystemConfigPayload):
-    config_data = _read_system_config()
-    config_data.update({
-        "base_url": payload.apiBaseUrl, "model": payload.model,
-        "image_api_url": payload.imageApiUrl,
-        "memory_base_url": payload.memoryApiBaseUrl, "memory_model": payload.memoryModel,
-        "memory_context_limit": _context_limit(payload.memoryContextLimit),
-        "preference_base_url": payload.preferenceApiBaseUrl,
-        "preference_model": payload.preferenceModel,
-    })
-    for payload_value, config_key in (
-        (payload.apiKey, "api_key"),
-        (payload.memoryApiKey, "memory_api_key"),
-        (payload.preferenceApiKey, "preference_api_key"),
-    ):
-        # A blank field means “keep the secret already stored on disk”.
-        # Secrets are never returned by GET and therefore cannot be round-tripped by the browser.
-        if payload_value is not None and str(payload_value).strip():
-            config_data[config_key] = str(payload_value).strip()
-    with open(config_path, 'w', encoding='utf-8') as f:
-        yaml.safe_dump(config_data, f, allow_unicode=True, sort_keys=False)
-    
+    ConnectionRepository(config_path).update_legacy(
+        api_key=payload.apiKey,
+        base_url=payload.apiBaseUrl,
+        model=payload.model,
+        image_api_url=payload.imageApiUrl,
+        memory_api_key=payload.memoryApiKey,
+        memory_base_url=payload.memoryApiBaseUrl,
+        memory_model=payload.memoryModel,
+        memory_context_limit=payload.memoryContextLimit,
+        preference_api_key=payload.preferenceApiKey,
+        preference_base_url=payload.preferenceApiBaseUrl,
+        preference_model=payload.preferenceModel,
+    )
     reload_system_config_runtime()
     return {"status": "success"}
 
 
 @router.post("/system_config/test")
 def test_system_config():
-    config_data = _read_system_config()
+    repository = ConnectionRepository(config_path)
+    snapshot = repository.ensure_migrated()
+    resolved = repository.resolve(snapshot, "story")
+    config_data = resolved.ai_config() if resolved else {}
     missing = [
         label for key, label in (
             ("api_key", "API Key"),
