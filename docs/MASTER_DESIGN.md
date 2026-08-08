@@ -24,6 +24,8 @@
 
 下一切片先稳定 dev.15 暴露的数据所有权与交互问题，再扩展 ComfyUI 工作流：接口中心成为地址/鉴权/模型路由唯一来源；设置按全局默认、局内覆盖和工作流默认明确分层。工作流默认采用自身模型与参数，允许可控覆盖，并把未识别参数分为可降级警告和阻断错误。详见 [`features/05_image_generation.md`](features/05_image_generation.md) 与 [`features/11_settings_information_architecture.md`](features/11_settings_information_architecture.md)。
 
+发行前自动验收采用“现有正式 API + 隔离假模型服务 + 浏览器端到端 + 少量真实服务人工验收”四层结构。不会在发行版加入可任意操纵文件和存档的万能测试后门；日志逐步升级为按正文、工坊、暗流、记忆、偏好和生图分类的可折叠结构。详见 [`features/12_automated_acceptance_testing.md`](features/12_automated_acceptance_testing.md)。
+
 ## 对象边界
 
 | 对象 | 职责 | 是否进入暗流推演 |
