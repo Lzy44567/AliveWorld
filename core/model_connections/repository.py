@@ -106,7 +106,7 @@ class ConnectionRepository:
         preference_api_key: str | None,
         preference_base_url: str,
         preference_model: str,
-        image_api_url: str,
+        image_api_url: str | None,
         memory_context_limit: Any,
     ) -> ConnectionSnapshot:
         raw = self.read_raw()
@@ -132,9 +132,10 @@ class ConnectionRepository:
                 "memory_context_limit": _context_limit(memory_context_limit),
                 "preference_base_url": str(preference_base_url or "").strip(),
                 "preference_model": str(preference_model or "").strip(),
-                "image_api_url": str(image_api_url or "").strip(),
             }
         )
+        if image_api_url is not None:
+            raw["image_api_url"] = str(image_api_url or "").strip()
         story = self.resolve(snapshot, "story")
         if story:
             story.profile.base_url = raw["base_url"]
@@ -158,7 +159,7 @@ class ConnectionRepository:
             prefix="preference",
         )
         image = self.resolve(snapshot, "image_generation")
-        if image and raw["image_api_url"]:
+        if image and image_api_url is not None and raw.get("image_api_url"):
             image.profile.base_url = raw["image_api_url"].rstrip("/")
         self._validate_snapshot(snapshot)
         self.save_snapshot(snapshot, base=raw)
@@ -262,6 +263,15 @@ class ConnectionRepository:
         snapshot.profiles[clone_id] = clone
         self.save_snapshot(snapshot)
         return clone
+
+    def set_profile_enabled(self, profile_id: str, enabled: bool) -> ConnectionProfile:
+        snapshot = self.ensure_migrated()
+        profile = snapshot.profiles.get(profile_id)
+        if not profile:
+            raise KeyError(profile_id)
+        profile.enabled = bool(enabled)
+        self.save_snapshot(snapshot)
+        return profile
 
     def delete_profile(self, profile_id: str) -> None:
         snapshot = self.ensure_migrated()

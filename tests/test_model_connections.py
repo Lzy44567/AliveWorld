@@ -7,6 +7,7 @@ import yaml
 from fastapi.testclient import TestClient
 
 from api.v1 import model_connection_routes
+from core.model_connections.discovery import ModelDiscoveryResult
 from core.model_connections.models import TaskRoute
 from core.model_connections.repository import (
     MAIN_PROFILE_ID,
@@ -178,6 +179,23 @@ class ConnectionRepositoryTests(unittest.TestCase):
             self.assertIs(workshop, story)
             self.assertEqual(len(created), 2)
 
+    def test_runtime_reload_keeps_unchanged_engine_and_profile_can_be_disabled(self):
+        with tempfile.TemporaryDirectory() as temp:
+            repository = self._repository(
+                Path(temp),
+                "api_key: secret\nbase_url: https://example.test/v1\nmodel: story-model\n",
+            )
+            created = []
+            runtime = ModelConnectionRuntime(repository, engine_factory=lambda config: created.append(config) or object())
+            first = runtime.engine("story")
+            runtime.reload()
+            self.assertIs(runtime.engine("story"), first)
+            story_id = repository.resolve(repository.load(), "story").profile.id
+            repository.set_profile_enabled(story_id, False)
+            runtime.reload()
+            self.assertIsNone(runtime.engine("story"))
+            self.assertEqual(len(created), 1)
+
 
 class ConnectionRouteTests(unittest.TestCase):
     def test_api_lists_masked_profiles_and_blocks_deleting_active_profile(self):
@@ -269,6 +287,22 @@ class ConnectionRouteTests(unittest.TestCase):
                 self.assertEqual(updated.status_code, 200)
                 self.assertTrue(updated.json()["api_key_configured"])
                 self.assertEqual(repository.reveal_profile_secret(profile_id), "workshop-secret")
+
+                with patch.object(
+                    model_connection_routes.model_discovery,
+                    "discover",
+                    return_value=ModelDiscoveryResult(True, ("workshop-v2", "workshop-v3"), "已读取"),
+                ):
+                    models = client.get(f"/api/v1/model-connections/profiles/{profile_id}/models")
+                self.assertEqual(models.status_code, 200)
+                self.assertEqual(models.json()["models"], ["workshop-v2", "workshop-v3"])
+
+                disabled = client.post(
+                    f"/api/v1/model-connections/profiles/{profile_id}/enabled",
+                    json={"enabled": False},
+                )
+                self.assertEqual(disabled.status_code, 200)
+                self.assertFalse(disabled.json()["enabled"])
 
 
 if __name__ == "__main__":

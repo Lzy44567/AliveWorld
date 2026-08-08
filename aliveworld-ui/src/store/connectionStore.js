@@ -51,6 +51,24 @@ export const connectionStore = reactive({
     return result;
   },
 
+  async setEnabled(id, enabled) {
+    const index = this.profiles.findIndex(item => item.id === id);
+    const previous = index >= 0 ? this.profiles[index].enabled : undefined;
+    if (index >= 0) this.profiles[index].enabled = enabled;
+    try {
+      const profile = await connectionApi.setEnabled(id, enabled);
+      if (index >= 0) this.profiles[index] = profile;
+      return profile;
+    } catch (error) {
+      if (index >= 0) this.profiles[index].enabled = previous;
+      throw error;
+    }
+  },
+
+  async discoverModels(id, refresh = false) {
+    return connectionApi.discoverModels(id, refresh);
+  },
+
   async reveal(id) {
     return connectionApi.reveal(id);
   },

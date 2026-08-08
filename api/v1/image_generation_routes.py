@@ -25,10 +25,6 @@ class ImageTaskPayload(BaseModel):
     data: Dict[str, Any] = Field(default_factory=dict)
 
 
-class ComfyUIConfigPayload(BaseModel):
-    base_url: str = "http://127.0.0.1:8188"
-
-
 class WorkflowPayload(BaseModel):
     data: Dict[str, Any] = Field(default_factory=dict)
 
@@ -83,6 +79,29 @@ def _handle(call):
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+def _comfyui_connection():
+    from core.model_connections.runtime import get_task_connection
+
+    resolved = get_task_connection("image_generation")
+    if not resolved or resolved.profile.protocol != "comfyui" or not resolved.profile.base_url:
+        raise HTTPException(status_code=503, detail="请先在“接口与模型 → 生图”中启用并选择 ComfyUI 接口")
+    return resolved.profile
+
+
+def _route_image_task(data: dict[str, Any]) -> dict[str, Any]:
+    """Make the backend task route authoritative over browser-supplied provider addresses."""
+    profile = _comfyui_connection()
+    routed = dict(data or {})
+    routed["provider_id"] = "comfyui"
+    routed["provider_options"] = {
+        **dict(routed.get("provider_options") or {}),
+        "base_url": profile.base_url,
+        "connection_id": profile.id,
+        "connection_name": profile.name,
+    }
+    return routed
 
 
 def _task_payload(session_id: str, task):
@@ -182,10 +201,10 @@ def get_library_generated_image(scope_id: str, task_id: str, image_index: int):
 
 
 @router.post("/images/library/test")
-def generate_global_comfyui_test_image(payload: ComfyUIConfigPayload, checkpoint: str, workflow_id: str = "builtin_basic"):
+def generate_global_comfyui_test_image(checkpoint: str, workflow_id: str = "builtin_basic"):
     scope = resolve_library_scope("global")
     runtime = get_image_runtime(scope.root)
-    task = runtime.service.create("global", {
+    task = runtime.service.create("global", _route_image_task({
         "intent": "scene_cg",
         "provider_id": "comfyui",
         "workflow_id": workflow_id,
@@ -196,8 +215,8 @@ def generate_global_comfyui_test_image(payload: ComfyUIConfigPayload, checkpoint
             "height": 512,
         },
         "context_snapshot": {"test_task": True, "library_scope": "global"},
-        "provider_options": {"base_url": payload.base_url, "checkpoint": checkpoint},
-    })
+        "provider_options": {"checkpoint": checkpoint},
+    }))
     runtime.runner.start(task.id)
     return _library_task_payload(scope, task)
 
@@ -213,7 +232,7 @@ def create_image_task(session_id: str, payload: ImageTaskPayload):
     if not game:
         raise HTTPException(status_code=404, detail="会话失效")
     runtime = _runtime(session_id)
-    task = _handle(lambda: runtime.service.create(game.save_name or session_id, payload.data))
+    task = _handle(lambda: runtime.service.create(game.save_name or session_id, _route_image_task(payload.data)))
     runtime.runner.start(task.id)
     game.record_preference_interaction(
         "generation",
@@ -268,7 +287,7 @@ def create_global_character_portrait(payload: ImageTaskPayload):
         raise HTTPException(status_code=404, detail="全局角色卡不存在")
     scope = resolve_library_scope("global")
     runtime = get_image_runtime(scope.root)
-    task = _handle(lambda: runtime.service.create("global", _global_portrait_task_data(payload.data, character_name)))
+    task = _handle(lambda: runtime.service.create("global", _route_image_task(_global_portrait_task_data(payload.data, character_name))))
     runtime.runner.start(task.id)
     return _library_task_payload(scope, task)
 
@@ -286,7 +305,7 @@ def compile_and_create_global_character_portrait(payload: CompileAndCreatePayloa
         raise HTTPException(status_code=404, detail="全局角色卡不存在")
     scope = resolve_library_scope("global")
     runtime = get_image_runtime(scope.root)
-    task_data = _global_portrait_task_data(payload.task, character_name)
+    task_data = _route_image_task(_global_portrait_task_data(payload.task, character_name))
     task_data["prompt"] = {**dict(task_data.get("prompt") or {}), "positive": ""}
     task_data["context_snapshot"] = {
         **dict(task_data.get("context_snapshot") or {}),
@@ -315,7 +334,7 @@ def compile_and_create_image_task(session_id: str, payload: CompileAndCreatePayl
     if not game:
         raise HTTPException(status_code=404, detail="会话失效")
     runtime = _runtime(session_id)
-    task_data = dict(payload.task)
+    task_data = _route_image_task(payload.task)
     task_data["prompt"] = {**dict(task_data.get("prompt") or {}), "positive": ""}
     task_data["context_snapshot"] = {
         **dict(task_data.get("context_snapshot") or {}),
@@ -395,13 +414,13 @@ def delete_image_task(session_id: str, task_id: str):
 
 
 @router.post("/images/providers/comfyui/check")
-def check_comfyui(payload: ComfyUIConfigPayload):
-    return ComfyUIProvider(payload.base_url).check().__dict__
+def check_comfyui():
+    return ComfyUIProvider(_comfyui_connection().base_url).check().__dict__
 
 
 @router.post("/images/providers/comfyui/checkpoints")
-def list_comfyui_checkpoints(payload: ComfyUIConfigPayload):
-    provider = ComfyUIProvider(payload.base_url)
+def list_comfyui_checkpoints():
+    provider = ComfyUIProvider(_comfyui_connection().base_url)
     capabilities = provider.check()
     if not capabilities.connected:
         raise HTTPException(status_code=503, detail=capabilities.message)
@@ -470,10 +489,10 @@ def delete_reference_image(session_id: str, reference_id: str):
 
 
 @router.post("/{session_id}/images/providers/comfyui/test")
-def generate_comfyui_test_image(session_id: str, payload: ComfyUIConfigPayload, checkpoint: str, workflow_id: str = "builtin_basic"):
+def generate_comfyui_test_image(session_id: str, checkpoint: str, workflow_id: str = "builtin_basic"):
     runtime = _runtime(session_id)
     game = active_sessions[session_id]
-    task = runtime.service.create(game.save_name or session_id, {
+    task = runtime.service.create(game.save_name or session_id, _route_image_task({
         "intent": "scene_cg",
         "provider_id": "comfyui",
         "workflow_id": workflow_id,
@@ -484,8 +503,8 @@ def generate_comfyui_test_image(session_id: str, payload: ComfyUIConfigPayload, 
             "height": 512,
         },
         "context_snapshot": {"test_task": True},
-        "provider_options": {"base_url": payload.base_url, "checkpoint": checkpoint},
-    })
+        "provider_options": {"checkpoint": checkpoint},
+    }))
     runtime.runner.start(task.id)
     return _task_payload(session_id, task)
 

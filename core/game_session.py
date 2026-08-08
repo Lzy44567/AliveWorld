@@ -9,6 +9,7 @@ from core.ai_engine import robust_json_parse
 from core.model_response import failure_message, format_story_text
 from core.entity_repository import EntityRepository
 from core.story_settings import normalize_story_settings
+from core.story_length import normalize_target_story_length, story_length_instruction
 from core.future_candidates import choose_candidate, normalize_candidates
 from core.worldbook_capture import WorldbookCaptureService, capture_requested
 from core.chat_messages import ensure_message_ids
@@ -40,7 +41,7 @@ class GameSession:
         self.world_premise, self.plot_compass = "", ""
         self.story_settings = normalize_story_settings(story_settings)
         self.is_game_over = False
-        self.word_limit = 500
+        self.word_limit = self.story_settings["targetStoryLength"]
         
         self.state_mgr = StateManager()
         self.ctx_mgr = ContextManager()
@@ -276,6 +277,7 @@ class GameSession:
         pts = load_system_prompts()
         visible_world, _ = self.build_visible_world_info(interpreted_action)
         settle_p = pts.get('settlement_prompt', '').replace('{world_info}', visible_world).replace('{character_info}', self.ctx_mgr.char_info).replace('{style_info}', self.ctx_mgr.style_info)
+        settle_p += "\n\n" + story_length_instruction(self.story_settings.get("targetStoryLength"))
         suggestion_prompt = action_suggestion_instruction(self.story_settings.get("aiSuggestions", True))
         if suggestion_prompt:
             settle_p += "\n\n【玩家行动建议要求】\n" + suggestion_prompt
@@ -382,7 +384,11 @@ class GameSession:
         self.save_name, self.save_dir_path = data.get('save_name', ''), runtime_save_dir
         self.world_premise = data.get('world_premise', data.get('description', ''))
         self.plot_compass = data.get('plot_compass', '')
-        self.story_settings = normalize_story_settings(data.get('story_settings'))
+        legacy_settings = dict(data.get('story_settings') or {})
+        if "targetStoryLength" not in legacy_settings and data.get("word_limit") is not None:
+            legacy_settings["targetStoryLength"] = data.get("word_limit")
+        self.story_settings = normalize_story_settings(legacy_settings)
+        self.word_limit = normalize_target_story_length(self.story_settings["targetStoryLength"])
         self.entity_repository = EntityRepository(self.save_dir_path)
         self.state_mgr.state, self.history = data.get('state', self.state), data.get('history', self.history)
         self.history.setdefault("context_history", [])

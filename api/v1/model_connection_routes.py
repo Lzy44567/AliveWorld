@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 from core.ai_engine import AIEngine
 from core.image_generation.providers.comfyui import ComfyUIProvider
+from core.model_connections.discovery import ModelDiscoveryService
 from core.model_connections.models import TASK_SPECS, TaskRoute
 from core.model_connections.repository import ConnectionRepository
 from utils.runtime_paths import PATHS
@@ -17,6 +18,7 @@ from utils.runtime_paths import PATHS
 
 router = APIRouter()
 repository = ConnectionRepository(PATHS.config_file)
+model_discovery = ModelDiscoveryService()
 
 
 class ProfilePayload(BaseModel):
@@ -40,6 +42,10 @@ class RoutePayload(BaseModel):
     connectionId: str = ""
     inheritFrom: str = ""
     modelOverride: str = ""
+
+
+class EnabledPayload(BaseModel):
+    enabled: bool
 
 
 def _profile_data(payload: ProfilePayload) -> dict[str, Any]:
@@ -91,12 +97,31 @@ def update_profile(profile_id: str, payload: ProfilePayload):
             api_key=payload.apiKey,
             clear_api_key=payload.clearApiKey,
         )
+        model_discovery.invalidate(profile_id)
         _refresh_runtime()
         return profile.public_dict()
     except KeyError:
         raise HTTPException(status_code=404, detail="接口配置不存在")
     except ValueError as exc:
         raise _error(exc)
+
+
+@router.post("/profiles/{profile_id}/enabled")
+def set_profile_enabled(profile_id: str, payload: EnabledPayload):
+    try:
+        profile = repository.set_profile_enabled(profile_id, payload.enabled)
+        _refresh_runtime()
+        return profile.public_dict()
+    except KeyError:
+        raise HTTPException(status_code=404, detail="接口配置不存在")
+
+
+@router.get("/profiles/{profile_id}/models")
+def discover_profile_models(profile_id: str, refresh: bool = False):
+    profile = repository.ensure_migrated().profiles.get(profile_id)
+    if not profile:
+        raise HTTPException(status_code=404, detail="接口配置不存在")
+    return model_discovery.discover(profile, refresh=refresh).public_dict()
 
 
 @router.post("/profiles/{profile_id}/clone")

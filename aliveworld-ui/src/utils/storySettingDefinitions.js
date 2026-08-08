@@ -2,6 +2,7 @@ export const STORY_SETTING_GROUPS = [
   {
     id: 'gameplay', title: '🎲 基础玩法', advanced: false, open: true,
     items: [
+      { key: 'targetStoryLength', label: '正文目标长度', help: '每回合 story_text 的目标中文字符数，允许按场景完整性上下浮动；不会硬切断关键动作。', type: 'number', min: 200, max: 3000, step: 100, suffix: '字' },
       ['showFutures', '显示未来可能性', '显示正文生成前参与物理抽取的近期未来候选。关闭只隐藏界面，不停止未来推演。'],
       ['showDice', '显示未来投掷结果', '显示本回合从有效未来候选中抽取到的结果。'],
       ['allowReroll', '允许重掷未来', '允许保留玩家行动并重新抽取另一个未来；会回溯本回合状态和偏好证据。'],
@@ -56,5 +57,7 @@ export const STORY_SETTING_GROUPS = [
   }
 ].map(group => ({
   ...group,
-  items: group.items.map(([key, label, help]) => ({ key, label, help }))
+  items: group.items.map(item => Array.isArray(item)
+    ? { key: item[0], label: item[1], help: item[2], type: 'boolean' }
+    : item)
 }));

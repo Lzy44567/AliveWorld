@@ -24,13 +24,31 @@ class ModelConnectionRuntime:
 
     def reload(self, *, persist_migration: bool = False) -> ConnectionSnapshot:
         self.snapshot = self.repository.load(persist_migration=persist_migration)
-        self._engines.clear()
+        self._prune_engines()
         return self.snapshot
 
     def ensure_migrated(self) -> ConnectionSnapshot:
         self.snapshot = self.repository.ensure_migrated()
-        self._engines.clear()
+        self._prune_engines()
         return self.snapshot
+
+    def _prune_engines(self) -> None:
+        """Keep reusable clients and discard only configurations no longer reachable."""
+        if not self.snapshot:
+            self._engines.clear()
+            return
+        live_keys = set()
+        for task in self.snapshot.routes:
+            try:
+                resolved = self.repository.resolve(self.snapshot, task)
+            except ValueError:
+                continue
+            if not resolved or resolved.profile.category != "text":
+                continue
+            config = resolved.ai_config()
+            if all(config.get(key) for key in ("api_key", "base_url", "model")):
+                live_keys.add((resolved.profile.id, config["base_url"], config["api_key"], config["model"]))
+        self._engines = {key: engine for key, engine in self._engines.items() if key in live_keys}
 
     def resolved(self, task: str) -> ResolvedConnection | None:
         snapshot = self.snapshot or self.reload()
@@ -67,3 +85,7 @@ model_runtime = ModelConnectionRuntime(ConnectionRepository(PATHS.config_file))
 
 def get_task_engine(task: str):
     return model_runtime.engine(task)
+
+
+def get_task_connection(task: str) -> ResolvedConnection | None:
+    return model_runtime.resolved(task)

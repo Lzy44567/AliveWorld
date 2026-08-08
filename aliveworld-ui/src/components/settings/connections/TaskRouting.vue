@@ -1,6 +1,7 @@
 <script setup>
 import { computed, reactive, watch } from 'vue';
 import FieldHelp from '../../common/FieldHelp.vue';
+import ModelCombobox from './ModelCombobox.vue';
 import { connectionStore } from '../../../store/connectionStore';
 import { configStore } from '../../../store/configStore';
 import { uiStore } from '../../../store/uiStore';
@@ -45,6 +46,12 @@ async function saveMemoryLimit() {
     uiStore.showToast(error.message, 'error');
   }
 }
+
+function routeProfileId(task) {
+  const selection = localRoutes[task]?.selection;
+  if (selection && selection !== 'inherit') return selection;
+  return connectionStore.routes.story?.connection_id || '';
+}
 </script>
 
 <template>
@@ -62,7 +69,7 @@ async function saveMemoryLimit() {
             <option value="inherit">继承主文本接口</option>
             <option v-for="profile in textProfiles" :key="profile.id" :value="profile.id">{{ profile.name }}{{ profile.enabled?'':'（已停用）' }}</option>
           </select>
-          <input v-model="localRoutes[task].modelOverride" class="route-field" placeholder="模型覆盖（可空）" @change="save(task)">
+          <ModelCombobox v-model="localRoutes[task].modelOverride" :profile-id="routeProfileId(task)" />
           <button class="rounded-lg bg-slate-700 px-3 py-2 text-[10px] text-slate-200" @click="save(task)">应用</button>
         </div>
       </div>

@@ -1,6 +1,7 @@
 <script setup>
 import { computed, reactive, ref, watch } from 'vue';
 import FieldHelp from '../../common/FieldHelp.vue';
+import ModelCombobox from './ModelCombobox.vue';
 import { connectionStore } from '../../../store/connectionStore';
 import { configStore } from '../../../store/configStore';
 import { uiStore } from '../../../store/uiStore';
@@ -147,15 +148,12 @@ async function save(testAfter = false) {
 
           <label v-if="isText" class="block">
             <span class="mb-1 flex items-center text-xs font-bold text-slate-300">默认模型<FieldHelp text="这条接口默认调用的模型。高级功能分配仍可让某个功能临时覆盖模型名，而不重复保存 API Key。" /></span>
-            <input v-model="form.defaultModel" class="connection-field" placeholder="例如 deepseek-v4-flash">
+            <ModelCombobox v-model="form.defaultModel" :profile-id="profile?.id || ''" />
           </label>
 
           <details class="rounded-xl border border-slate-700 bg-slate-950/40 p-3">
             <summary class="cursor-pointer text-xs font-bold text-slate-400">高级状态</summary>
-            <label class="mt-3 flex items-center justify-between rounded-lg bg-slate-900 px-3 py-2 text-xs text-slate-300">
-              <span>启用这条接口</span><input v-model="form.enabled" type="checkbox">
-            </label>
-            <p class="mt-2 text-[10px] text-slate-500">停用后保留配置，但使用它的功能会暂停调用；系统会提示你重新分配。</p>
+            <p class="mt-2 text-[10px] text-slate-500">接口启停已移到连接卡片；这里保留其他服务商高级参数的后续扩展位置。</p>
           </details>
         </div>
 

@@ -99,6 +99,7 @@ test('前端创建和载入全类资产，正文上下文启停可由假模型�
   expect(settlement.system).toContain('测试世界书条目');
   expect(settlement.system).toContain('测试角色卡');
   expect(settlement.system).toContain('测试文风');
+  expect(settlement.system).toContain('目标约 500 个中文字符');
   expect(overseer.system).toContain('测试实体');
 
   await setLocalAssetEnabled(page, 'characters', '测试角色卡', false);
@@ -126,4 +127,23 @@ test('高级设置默认隐藏并可由总开关统一显示', async ({ page }) 
   await expect(page.getByText('故事记忆（高级）')).toBeVisible();
   await page.getByTestId('advanced-settings-toggle').uncheck();
   await expect(page.getByText('用户偏好（高级）')).toHaveCount(0);
+});
+
+
+test('接口可从卡片直接启停并发现模型列表', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /设置/ }).click();
+  await page.getByRole('button', { name: '🔌 接口与模型' }).click();
+  const card = page.locator('article').filter({ hasText: 'fake-story' });
+  await expect(card).toBeVisible();
+  const toggle = card.getByRole('switch');
+  await toggle.uncheck();
+  await expect(card.getByText('已停用', { exact: true }).last()).toBeVisible();
+  await toggle.check();
+  await expect(card.getByText('已启用', { exact: true })).toBeVisible();
+  await card.getByRole('button', { name: '⋮' }).click();
+  await page.getByRole('button', { name: '编辑', exact: true }).click();
+  await page.getByRole('button', { name: '读取模型' }).click();
+  await expect(page.getByText('已读取可用模型')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'fake-story', exact: true })).toBeVisible();
 });

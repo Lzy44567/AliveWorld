@@ -85,7 +85,7 @@ class SystemConfigPayload(BaseModel):
     apiKey: Optional[str] = None
     apiBaseUrl: str = "https://api.deepseek.com"
     model: str = "deepseek-v4-flash"
-    imageApiUrl: str = ""
+    imageApiUrl: Optional[str] = None
     memoryApiKey: Optional[str] = None
     memoryApiBaseUrl: str = ""
     memoryModel: str = ""
@@ -280,6 +280,7 @@ def update_story_config(session_id: str, payload: StoryConfigPayload):
     game.world_premise = payload.world_premise
     game.plot_compass = payload.plot_compass
     game.story_settings = normalize_story_settings(payload.story_settings)
+    game.word_limit = game.story_settings["targetStoryLength"]
     if not game.story_settings["aiSuggestions"]:
         game.action_suggestions = []
     save_game_data(game.save_dir_path, game.export_save_data())

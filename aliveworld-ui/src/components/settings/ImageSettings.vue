@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { configStore } from '../../store/configStore';
 import { uiStore } from '../../store/uiStore';
 import { imageApi } from '../../api/imageApi';
+import { connectionStore } from '../../store/connectionStore';
 
 const checking = ref(false);
 const testing = ref(false);
@@ -22,6 +23,10 @@ const currentModelProfile = computed({
   }
 });
 const testStatusText = { ready:'准备提交', submitted:'已提交', running:'生成中', succeeded:'测试成功', failed:'测试失败', cancelled:'已取消' };
+const imageProfile = computed(() => {
+  const id = connectionStore.routes.image_generation?.connection_id;
+  return connectionStore.profiles.find(item => item.id === id) || null;
+});
 
 const loadWorkflows = async () => {
   try { workflows.value = await imageApi.listWorkflows(); }
@@ -32,7 +37,7 @@ const checkConnection = async () => {
   checking.value = true;
   connection.value = null;
   try {
-    connection.value = await imageApi.checkComfyUI(configStore.globalSettings.imageApiUrl);
+    connection.value = await imageApi.checkComfyUI();
     checkpoints.value = connection.value.checkpoints || [];
     configStore.globalSettings.imageCheckpoints = checkpoints.value;
     if (connection.value.connected) uiStore.showToast('ComfyUI 连接正常');
@@ -46,7 +51,6 @@ const generateTest = async () => {
   testing.value = true;
   try {
     const task = await imageApi.testComfyUI({
-      baseUrl: configStore.globalSettings.imageApiUrl,
       checkpoint: configStore.globalSettings.imageCheckpoint,
       workflowId: configStore.globalSettings.imageWorkflowId
     });
@@ -91,6 +95,9 @@ const importWorkflow = async (event) => {
 };
 
 onMounted(async () => {
+  if (!connectionStore.loaded) {
+    try { await connectionStore.refresh(); } catch (_) { /* 页面下方会显示未配置状态 */ }
+  }
   await loadWorkflows();
   try {
     const library = await imageApi.listLibrary();
@@ -107,9 +114,17 @@ onBeforeUnmount(() => { if (testPollHandle) window.clearInterval(testPollHandle)
       <h3 class="text-sm font-bold text-fuchsia-300 mb-2 border-b border-slate-700 pb-2">🎨 本地 ComfyUI</h3>
       <p class="text-[11px] text-slate-400 leading-relaxed">AliveWorld 不会安装或启动 ComfyUI。请先自行启动 ComfyUI，再检查连接。默认地址通常为 http://127.0.0.1:8188。</p>
     </div>
-    <label class="block"><span class="field-label">ComfyUI 地址</span><input v-model="configStore.globalSettings.imageApiUrl" class="field-input" /></label>
+    <div class="rounded-xl border border-slate-700 bg-slate-950/50 p-3">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <div class="text-xs font-bold" :class="imageProfile?.enabled?'text-emerald-300':'text-amber-300'">{{ imageProfile?.name || '尚未选择生图接口' }}</div>
+          <div class="mt-1 text-[10px] text-slate-500">{{ imageProfile?.base_url || '请前往“接口与模型 → 生图”配置 ComfyUI 地址' }}</div>
+        </div>
+        <span class="rounded bg-slate-800 px-2 py-1 text-[9px] text-slate-400">地址由接口中心管理</span>
+      </div>
+    </div>
     <div class="flex gap-2">
-      <button @click="checkConnection" :disabled="checking" class="action secondary">{{ checking ? '检查中…' : '检查连接与模型' }}</button>
+      <button @click="checkConnection" :disabled="checking || !imageProfile?.enabled" class="action secondary">{{ checking ? '检查中…' : '检查连接与模型' }}</button>
       <span v-if="connection" class="self-center text-xs" :class="connection.connected ? 'text-emerald-400' : 'text-rose-400'">{{ connection.message }}</span>
     </div>
     <label class="block"><span class="field-label">生图模型 <span class="text-slate-600">（ComfyUI Checkpoint 文件）</span></span>

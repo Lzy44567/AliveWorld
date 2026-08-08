@@ -33,7 +33,6 @@ export const configStore = reactive({
     preferenceApiKeyConfigured: false,
     preferenceApiBaseUrl: savedConfig.globalSettings?.preferenceApiBaseUrl || "",
     preferenceModel: savedConfig.globalSettings?.preferenceModel || "",
-    imageApiUrl: savedConfig.globalSettings?.imageApiUrl || "http://127.0.0.1:8188",
     imageCheckpoint: savedConfig.globalSettings?.imageCheckpoint || "",
     imageCheckpoints: savedConfig.globalSettings?.imageCheckpoints || [],
     imageModelProfiles: savedConfig.globalSettings?.imageModelProfiles || {},
@@ -72,7 +71,8 @@ export const configStore = reactive({
     preferenceActionEnabled: savedConfig.settings?.preferenceActionEnabled ?? true,
     preferenceCharacterEnabled: savedConfig.settings?.preferenceCharacterEnabled ?? true,
     preferenceRelationshipEnabled: savedConfig.settings?.preferenceRelationshipEnabled ?? true,
-    preferenceVisualEnabled: savedConfig.settings?.preferenceVisualEnabled ?? true
+    preferenceVisualEnabled: savedConfig.settings?.preferenceVisualEnabled ?? true,
+    targetStoryLength: savedConfig.settings?.targetStoryLength ?? 500
   }),
   
   story: {
@@ -141,7 +141,6 @@ export const configStore = reactive({
         this.globalSettings.preferenceApiKeyConfigured = Boolean(data.preferenceApiKeyConfigured || this.globalSettings.preferenceApiKey);
         this.globalSettings.preferenceApiBaseUrl = data.preferenceApiBaseUrl ?? this.globalSettings.preferenceApiBaseUrl;
         this.globalSettings.preferenceModel = data.preferenceModel ?? this.globalSettings.preferenceModel;
-        this.globalSettings.imageApiUrl = data.imageApiUrl ?? this.globalSettings.imageApiUrl;
         return true;
       }
     } catch (e) { console.error("读取配置失败", e); }

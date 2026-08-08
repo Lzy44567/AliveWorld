@@ -13,6 +13,8 @@ const openMenuId = ref('');
 const deleteTarget = ref(null);
 const cloneTarget = ref(null);
 const cloneName = ref('');
+const pendingPrimaryId = ref('');
+const pendingEnabled = ref(new Set());
 
 const visibleProfiles = computed(() => connectionStore.profiles.filter(item => item.category === tab.value));
 const storyProfileId = computed(() => connectionStore.routes.story?.connection_id || '');
@@ -32,6 +34,7 @@ function isPrimary(profile) {
 
 async function makePrimary(profile) {
   const task = profile.category === 'text' ? 'story' : 'image_generation';
+  pendingPrimaryId.value = profile.id;
   try {
     await connectionStore.setRoute(task, { connectionId: profile.id, inheritFrom: '', modelOverride: '' });
     await configStore.fetchFromBackend();
@@ -39,6 +42,23 @@ async function makePrimary(profile) {
     uiStore.showToast(`已设为${profile.category === 'text' ? '主文本' : '图片生成'}接口`);
   } catch (error) {
     uiStore.showToast(error.message, 'error');
+  } finally {
+    pendingPrimaryId.value = '';
+  }
+}
+
+async function toggleProfile(profile) {
+  const next = !profile.enabled;
+  pendingEnabled.value = new Set([...pendingEnabled.value, profile.id]);
+  try {
+    await connectionStore.setEnabled(profile.id, next);
+    await configStore.fetchFromBackend();
+    uiStore.apiSetupRequired = !configStore.globalSettings.apiReady;
+    uiStore.showToast(`接口已${next ? '启用' : '停用'}`);
+  } catch (error) {
+    uiStore.showToast(error.message, 'error');
+  } finally {
+    const values = new Set(pendingEnabled.value); values.delete(profile.id); pendingEnabled.value = values;
   }
 }
 
@@ -120,8 +140,12 @@ async function confirmDelete() {
           </div>
           <button class="rounded-lg px-3 py-1 text-lg text-slate-400 hover:bg-slate-800 hover:text-white" @click="openMenuId=openMenuId===profile.id?'':profile.id">⋮</button>
         </div>
-        <div class="mt-3 flex justify-end">
-          <button v-if="!isPrimary(profile)" class="rounded-lg border border-cyan-800 px-3 py-1.5 text-[10px] text-cyan-300 hover:bg-cyan-950" @click="makePrimary(profile)">设为{{ profile.category==='text'?'主文本':'图片生成' }}接口</button>
+        <div class="mt-3 flex items-center justify-between gap-3">
+          <label class="flex cursor-pointer items-center gap-2 text-[10px]" :class="profile.enabled?'text-emerald-300':'text-slate-500'">
+            <input type="checkbox" role="switch" :checked="profile.enabled" :disabled="pendingEnabled.has(profile.id)" class="accent-emerald-500" @change="toggleProfile(profile)">
+            {{ pendingEnabled.has(profile.id) ? '处理中…' : (profile.enabled ? '已启用' : '已停用') }}
+          </label>
+          <button v-if="!isPrimary(profile)" class="rounded-lg border border-cyan-800 px-3 py-1.5 text-[10px] text-cyan-300 hover:bg-cyan-950 disabled:opacity-50" :disabled="pendingPrimaryId===profile.id || !profile.enabled" @click="makePrimary(profile)">{{ pendingPrimaryId===profile.id?'切换中…':`设为${profile.category==='text'?'主文本':'图片生成'}接口` }}</button>
         </div>
         <div v-if="openMenuId===profile.id" class="absolute right-3 top-12 z-10 w-32 overflow-hidden rounded-xl border border-slate-600 bg-slate-950 py-1 text-xs shadow-2xl">
           <button class="menu-item" @click="editor={ category:profile.category, profile };openMenuId=''">编辑</button>

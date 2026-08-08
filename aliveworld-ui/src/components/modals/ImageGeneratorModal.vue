@@ -33,7 +33,7 @@ const submit = async (direct = false) => {
       intent: 'character_portrait', character_ids: [context.characterName], provider_id: 'comfyui', workflow_id: settings.imageWorkflowId,
       prompt: { positive: direct ? prompt.value.trim() : '', negative: settings.imageNegativePrompt, style_preference: settings.imageStylePreference, presentation_level: settings.imagePresentationLevel, ...options, references },
       context_snapshot: { character_name: context.characterName, character_description: context.description, portrait_scope: isGlobal ? 'global' : 'local', auto_assign_portrait: true },
-      provider_options: { base_url: settings.imageApiUrl, checkpoint: settings.imageCheckpoint }
+      provider_options: { checkpoint: settings.imageCheckpoint }
     };
     const compile = {
       intent:'character_portrait', user_request:prompt.value, character_ids:[context.characterName], character_context:`${context.characterName}\n${context.description || ''}`,

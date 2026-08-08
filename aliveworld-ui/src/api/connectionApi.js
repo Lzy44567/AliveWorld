@@ -21,5 +21,7 @@ export const connectionApi = {
   remove: id => request(`/profiles/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   reveal: id => request(`/profiles/${encodeURIComponent(id)}/reveal-secret`, { method: 'POST' }),
   test: id => request(`/profiles/${encodeURIComponent(id)}/test`, { method: 'POST' }),
+  setEnabled: (id, enabled) => request(`/profiles/${encodeURIComponent(id)}/enabled`, jsonOptions('POST', { enabled })),
+  discoverModels: (id, refresh = false) => request(`/profiles/${encodeURIComponent(id)}/models?refresh=${refresh ? 'true' : 'false'}`),
   setRoute: (task, payload) => request(`/routes/${encodeURIComponent(task)}`, jsonOptions('POST', payload)),
 };

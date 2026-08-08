@@ -22,7 +22,7 @@
 
 `v1.5.0-dev.15` 已把平铺的正文/记忆/偏好 API 字段升级为“连接配置中心 + 任务路由”。普通玩家只配置主文本接口，其他任务默认继承；高级玩家才逐项覆盖。连接、协议、密钥仓储、任务用途和服务商特有工作流已分层，避免每增加一个 AI 功能就在设置和 `game_routes.py` 复制一组字段。详细设计和未完成边界见 [`features/10_api_profiles_and_routing.md`](features/10_api_profiles_and_routing.md)。
 
-下一切片先稳定 dev.15 暴露的数据所有权与交互问题，再扩展 ComfyUI 工作流：接口中心成为地址/鉴权/模型路由唯一来源；设置按全局默认、局内覆盖和工作流默认明确分层。工作流默认采用自身模型与参数，允许可控覆盖，并把未识别参数分为可降级警告和阻断错误。详见 [`features/05_image_generation.md`](features/05_image_generation.md) 与 [`features/11_settings_information_architecture.md`](features/11_settings_information_architecture.md)。
+`v1.5.0-dev.16` 已完成接口稳定、正文目标长度、ComfyUI 地址单一来源、高级设置总开关与真实浏览器自动验收。下一切片进入 ComfyUI 工作流配置档案：工作流默认采用自身模型与参数，允许可控覆盖，并把未识别参数分为可降级警告和阻断错误。详见 [`features/05_image_generation.md`](features/05_image_generation.md) 与 [`features/11_settings_information_architecture.md`](features/11_settings_information_architecture.md)。
 
 发行前自动验收采用“现有正式 API + 隔离假模型服务 + 浏览器端到端 + 少量真实服务人工验收”四层结构。不会在发行版加入可任意操纵文件和存档的万能测试后门；日志逐步升级为按正文、工坊、暗流、记忆、偏好和生图分类的可折叠结构。详见 [`features/12_automated_acceptance_testing.md`](features/12_automated_acceptance_testing.md)。
 
@@ -83,7 +83,7 @@
 15. v1.5.0-dev.9：Windows ZIP 便携版以 `AliveWorld.exe` 同目录的 `UserData/` 保存配置、资产、存档、图片、日志和工坊草稿。启动器与 PyInstaller `onedir` 只负责进程、端口、健康检查、窗口/浏览器、迁移提示和打包，不复制游戏领域逻辑。正式版仍必须经过无 Python/Node 的干净系统验收。
 16. v1.5.0-dev.12：发行 ZIP 的文件名带版本号，内部根目录固定为 `AliveWorld/`；构建必须证明包中没有个人数据，并模拟覆盖升级确认 `UserData/` 不被删除。检查更新与自动安装分阶段实现，详见 [`features/09_updates_and_onboarding.md`](features/09_updates_and_onboarding.md)。
 17. v1.5.0-dev.14 只实现首次配置后的快速创世入口，不等同完整教程；聚焦式基础引导仍未实现。
-18. v1.5.0-dev.15 已完成接口配置中心基础；下一核心切片是稳定任务路由、消除 ComfyUI 地址双写、补齐正文长度和模型发现，再进入工作流配置档案。
+18. v1.5.0-dev.16 已完成稳定任务路由、ComfyUI 地址单一来源、正文长度、模型发现和自动验收基础；下一核心切片是工作流配置档案。
 
 双轨中的“条件判断”不是新增模型阶段：现有变数推演读取完整暗流因果账本并返回条件是否满足；剧情结算只接收其中已经触发的影响并负责写成正文。撤回必须恢复整个暗流快照，包括账单状态、触发/尝试次数与因果回合计数。
 

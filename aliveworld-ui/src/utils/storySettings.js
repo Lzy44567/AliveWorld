@@ -16,11 +16,17 @@ export const STORY_SETTING_DEFAULTS = Object.freeze({
   preferenceActionEnabled: true,
   preferenceCharacterEnabled: true,
   preferenceRelationshipEnabled: true,
-  preferenceVisualEnabled: true
+  preferenceVisualEnabled: true,
+  targetStoryLength: 500
 });
 
 export function normalizeStorySettings(settings = {}, defaults = STORY_SETTING_DEFAULTS) {
-  return Object.fromEntries(Object.keys(STORY_SETTING_DEFAULTS).map(key => [
-    key, Boolean(settings[key] ?? defaults[key] ?? STORY_SETTING_DEFAULTS[key])
-  ]));
+  return Object.fromEntries(Object.keys(STORY_SETTING_DEFAULTS).map(key => {
+    const value = settings[key] ?? defaults[key] ?? STORY_SETTING_DEFAULTS[key];
+    if (key === 'targetStoryLength') {
+      const parsed = Number.parseInt(value, 10);
+      return [key, Math.max(200, Math.min(3000, Number.isFinite(parsed) ? parsed : 500))];
+    }
+    return [key, Boolean(value)];
+  }));
 }

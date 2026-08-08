@@ -62,8 +62,8 @@ export const imageApi = {
   setPortrait(sessionId, taskId, characterName, imageIndex = 0, scope = 'local') {
     return request(`${API_URL}/${sessionId}/images/tasks/${taskId}/set-portrait`, jsonOptions({ character_name: characterName, image_index: imageIndex, scope }));
   },
-  checkComfyUI(baseUrl) {
-    return request(`${API_URL}/images/providers/comfyui/check`, jsonOptions({ base_url: baseUrl }));
+  checkComfyUI() {
+    return request(`${API_URL}/images/providers/comfyui/check`, { method: 'POST' });
   },
   listWorkflows() {
     return request(`${API_URL}/images/workflows`);
@@ -80,9 +80,9 @@ export const imageApi = {
   deleteReference(sessionId, referenceId) {
     return request(`${API_URL}/${sessionId}/images/references/${referenceId}`, { method: 'DELETE' });
   },
-  testComfyUI({ baseUrl, checkpoint, workflowId }) {
+  testComfyUI({ checkpoint, workflowId }) {
     const query = new URLSearchParams({ checkpoint, workflow_id: workflowId });
-    return request(`${API_URL}/images/library/test?${query}`, jsonOptions({ base_url: baseUrl }));
+    return request(`${API_URL}/images/library/test?${query}`, { method: 'POST' });
   },
   absoluteImageUrl(path) {
     return path?.startsWith('http') ? path : `${API_ROOT}${path || ''}`;

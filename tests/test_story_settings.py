@@ -3,6 +3,7 @@ import unittest
 
 from core.game_session import GameSession
 from core.story_settings import DEFAULT_STORY_SETTINGS, normalize_story_settings
+from core.story_length import story_length_instruction
 
 
 class StorySettingsTests(unittest.TestCase):
@@ -50,6 +51,16 @@ class StorySettingsTests(unittest.TestCase):
         session.load_save_data({"description": "旧版宇宙简述"})
         self.assertEqual(session.world_premise, "旧版宇宙简述")
         self.assertEqual(session.plot_compass, "")
+
+    def test_story_length_is_numeric_clamped_and_restored(self):
+        self.assertEqual(normalize_story_settings({"targetStoryLength": "900"})["targetStoryLength"], 900)
+        self.assertEqual(normalize_story_settings({"targetStoryLength": 50})["targetStoryLength"], 200)
+        self.assertEqual(normalize_story_settings({"targetStoryLength": 99999})["targetStoryLength"], 3000)
+        session = GameSession(None)
+        session.load_save_data({"word_limit": 760})
+        self.assertEqual(session.story_settings["targetStoryLength"], 760)
+        self.assertEqual(session.word_limit, 760)
+        self.assertIn("约 760 个中文字符", story_length_instruction(760))
 
 
 if __name__ == "__main__":

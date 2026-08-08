@@ -44,7 +44,7 @@ const baseTask = async (positive = '') => {
   return {
     intent:intent.value, source_message_id:props.message.id, provider_id:'comfyui', workflow_id:settings.imageWorkflowId,
     prompt:{ positive, negative:settings.imageNegativePrompt, style_preference:settings.imageStylePreference, presentation_level:settings.imagePresentationLevel, ...options, references:await uploadReferences() },
-    context_snapshot:{ story_text:props.message.content }, provider_options:{ base_url:settings.imageApiUrl, checkpoint:settings.imageCheckpoint }
+      context_snapshot:{ story_text:props.message.content }, provider_options:{ checkpoint:settings.imageCheckpoint }
   };
 };
 

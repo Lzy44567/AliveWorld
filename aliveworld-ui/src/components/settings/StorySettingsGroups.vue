@@ -10,6 +10,12 @@ const props = defineProps({
   showAdvanced: { type: Boolean, default: false }
 });
 const visibleGroups = computed(() => STORY_SETTING_GROUPS.filter(group => props.showAdvanced || !group.advanced));
+
+function normalizeNumber(item) {
+  const parsed = Number.parseInt(props.settings[item.key], 10);
+  const fallback = item.key === 'targetStoryLength' ? 500 : item.min;
+  props.settings[item.key] = Math.max(item.min, Math.min(item.max, Number.isFinite(parsed) ? parsed : fallback));
+}
 </script>
 
 <template>
@@ -24,7 +30,11 @@ const visibleGroups = computed(() => STORY_SETTING_GROUPS.filter(group => props.
         <div class="grid grid-cols-1 gap-2 xl:grid-cols-2">
           <label v-for="item in group.items" :key="item.key" class="setting-row">
             <span class="min-w-0"><span>{{ item.label }}</span><FieldHelp :text="item.help" /></span>
-            <input type="checkbox" v-model="settings[item.key]">
+            <span v-if="item.type==='number'" class="flex shrink-0 items-center gap-1 text-[10px] text-slate-500">
+              <input type="number" v-model.number="settings[item.key]" :min="item.min" :max="item.max" :step="item.step" class="w-20 rounded border border-slate-600 bg-slate-950 px-2 py-1 text-right text-xs text-slate-200" @change="normalizeNumber(item)">
+              {{ item.suffix }}
+            </span>
+            <input v-else type="checkbox" v-model="settings[item.key]">
           </label>
         </div>
         <StoryMemoryStatus v-if="showMemoryStatus && group.id === 'memory'" class="mt-3" />

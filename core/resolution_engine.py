@@ -7,6 +7,7 @@ from core.model_response import failure_message
 from core.future_candidates import candidate_probability, choose_candidate, normalize_candidates
 from core.action_suggestions import action_suggestion_instruction
 from core.preference_learning import preference_context_instruction, preference_learning_instruction
+from core.story_length import story_length_instruction
 
 log = get_logger()
 
@@ -66,6 +67,7 @@ class DualTrackResolver(BaseResolutionStrategy):
         # 2. 剧情结算
         visible_world, _ = session.build_visible_world_info(player_action)
         settle_p = pts.get('settlement_prompt', '').replace('{world_info}', visible_world).replace('{character_info}', session.char_info).replace('{style_info}', session.style_info).replace('{word_limit}', str(session.word_limit))
+        settle_p += "\n\n" + story_length_instruction(session.story_settings.get("targetStoryLength"))
         preference_context = getattr(session, "get_user_preference_context", lambda: "")()
         preference_prompt = preference_context_instruction(preference_context)
         if preference_prompt:
