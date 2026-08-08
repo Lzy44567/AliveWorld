@@ -6,15 +6,18 @@ const savedConfig = JSON.parse(localStorage.getItem('aw_config')) || {};
 const legacyEntityVisibility = savedConfig.settings?.entityVisibility;
 const SYSTEM_CONFIG_URL = '/api/v1/game/system_config';
 
-function persistableConfig(globalSettings, settings) {
+function persistableConfig(globalSettings, settings, uiPreferences) {
   const safeGlobalSettings = { ...globalSettings };
   delete safeGlobalSettings.apiKey;
   delete safeGlobalSettings.memoryApiKey;
   delete safeGlobalSettings.preferenceApiKey;
-  return { globalSettings: safeGlobalSettings, settings };
+  return { globalSettings: safeGlobalSettings, settings, uiPreferences };
 }
 
 export const configStore = reactive({
+  uiPreferences: {
+    showAdvancedSettings: savedConfig.uiPreferences?.showAdvancedSettings === true
+  },
   globalSettings: {
     apiKey: savedConfig.globalSettings?.apiKey || "", 
     apiKeyConfigured: false,
@@ -163,9 +166,13 @@ export async function waitForSystemConfig({ attempts = 8, delayMs = 500 } = {}) 
 }
 
 watch(() => configStore.globalSettings, () => {
-  localStorage.setItem('aw_config', JSON.stringify(persistableConfig(configStore.globalSettings, configStore.settings)));
+  localStorage.setItem('aw_config', JSON.stringify(persistableConfig(configStore.globalSettings, configStore.settings, configStore.uiPreferences)));
 }, { deep: true });
 
 watch(() => configStore.settings, () => {
-  localStorage.setItem('aw_config', JSON.stringify(persistableConfig(configStore.globalSettings, configStore.settings)));
+  localStorage.setItem('aw_config', JSON.stringify(persistableConfig(configStore.globalSettings, configStore.settings, configStore.uiPreferences)));
+}, { deep: true });
+
+watch(() => configStore.uiPreferences, () => {
+  localStorage.setItem('aw_config', JSON.stringify(persistableConfig(configStore.globalSettings, configStore.settings, configStore.uiPreferences)));
 }, { deep: true });

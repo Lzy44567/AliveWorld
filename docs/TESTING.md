@@ -8,6 +8,8 @@
 | --- | --- | --- |
 | `tests/` | 后端自动测试、测试夹具 | 是 |
 | `aliveworld-ui/tests/` | 前端纯逻辑测试 | 是 |
+| `aliveworld-ui/e2e/` | 玩家界面端到端验收 | 是 |
+| `tests/fakes/` | 隔离假模型服务 | 是 |
 | `tools/run_checks.ps1` | 一键自动检查 | 是 |
 | `tests/fixtures/manual_assets/` | 可安装的手动验收卡 | 是 |
 | `data/` | 用户个人资产、存档、测试安装副本；`*.template.yml` 是可推送模板 | 普通资产否；模板是 |
@@ -21,6 +23,25 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\run_checks.ps1
 ```
 
 它会运行 Python 单元测试、前端可见性测试和前端生产构建。网络、真实 API 和真实模型不在自动检查范围内。
+
+## 玩家界面端到端验收
+
+首次使用需要在前端目录安装开发依赖；之后执行：
+
+```powershell
+cd .\aliveworld-ui
+npm run test:e2e
+```
+
+这不是只调用后端接口的测试。Playwright 会启动真实 AliveWorld 前后端并操作 Edge 页面，完成以下闭环：
+
+1. 从玩家界面创建角色卡、世界书及条目、文风卡、实体卡和故事线。
+2. 从右侧资产库逐项载入，并在正文输入框发送行动。
+3. 由隔离假模型返回确定性正文，同时检查它实际收到的世界书、角色、文风和 Overseer 实体上下文。
+4. 从玩家界面关闭资产，再次发送行动，确认被关闭内容不再进入模型请求。
+5. 检查“显示高级设置”默认关闭，开启后高级分组出现，再关闭后隐藏。
+
+测试数据只写入仓库内的 `build/e2e-runtime/`，不会读取、迁移或修改源码游玩数据和便携版 `UserData/`。失败截图、追踪和报告位于 `build/e2e-results/` 与 `build/e2e-report/`。假模型不会产生真实 API 费用，也不能替代便携包、真实供应商和真实 ComfyUI 的少量人工抽查。
 
 ## 安装手动验收卡
 

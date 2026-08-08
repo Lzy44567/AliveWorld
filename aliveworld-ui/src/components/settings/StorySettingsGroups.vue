@@ -1,17 +1,20 @@
 <script setup>
+import { computed } from 'vue';
 import FieldHelp from '../common/FieldHelp.vue';
 import StoryMemoryStatus from './StoryMemoryStatus.vue';
 import { STORY_SETTING_GROUPS } from '../../utils/storySettingDefinitions';
 
-defineProps({
+const props = defineProps({
   settings: { type: Object, required: true },
-  showMemoryStatus: { type: Boolean, default: false }
+  showMemoryStatus: { type: Boolean, default: false },
+  showAdvanced: { type: Boolean, default: false }
 });
+const visibleGroups = computed(() => STORY_SETTING_GROUPS.filter(group => props.showAdvanced || !group.advanced));
 </script>
 
 <template>
   <div class="space-y-3">
-    <details v-for="group in STORY_SETTING_GROUPS" :key="group.id" :open="group.open" class="setting-group">
+    <details v-for="group in visibleGroups" :key="group.id" :open="group.open" class="setting-group">
       <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
         <span class="text-xs font-bold" :class="group.advanced ? 'text-slate-300' : 'text-emerald-300'">{{ group.title }}</span>
         <span class="text-[10px] text-slate-500">展开 / 收起</span>

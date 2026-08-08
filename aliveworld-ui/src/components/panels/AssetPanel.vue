@@ -249,7 +249,7 @@ onBeforeUnmount(() => {
         <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs">🔍</span>
         <input v-model="searchKeyword" class="w-full bg-slate-800 border border-slate-600 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-200 outline-none focus:border-indigo-500" placeholder="搜索名称或标签..." />
       </div>
-      <button v-if="uiStore.assetScope==='global'" @click="openNewAsset" class="px-2 h-8 bg-emerald-600/20 text-emerald-400 border border-emerald-700/50 rounded-lg hover:bg-emerald-600 hover:text-white transition text-xs font-bold whitespace-nowrap">+ 新建</button>
+      <button v-if="uiStore.assetScope==='global'" data-testid="asset-new" @click="openNewAsset" class="px-2 h-8 bg-emerald-600/20 text-emerald-400 border border-emerald-700/50 rounded-lg hover:bg-emerald-600 hover:text-white transition text-xs font-bold whitespace-nowrap">+ 新建</button>
       <button v-if="uiStore.rightTab==='world'" @click="uiStore.modals.embeddingModel=true" class="px-2 h-8 rounded-lg border text-[10px] font-bold whitespace-nowrap" :class="embeddingStatus.enabled?'border-cyan-700 bg-cyan-950/50 text-cyan-300':'border-slate-700 bg-slate-900 text-slate-400'" :title="embeddingStatus.error || '打开语义模型管理'">{{ embeddingStatus.state==='downloading'?`下载中 ${embeddingStatus.progress||0}%`:embeddingStatus.enabled?'语义检索已启用':embeddingStatus.downloaded?'语义模型已安装':'管理语义模型' }}</button>
     </div>
     
@@ -262,7 +262,7 @@ onBeforeUnmount(() => {
       <div class="space-y-3 pb-8">
        <template v-for="item in currentList" :key="item.name">
        <CharacterAssetCard v-if="uiStore.rightTab==='character'" :item="item" :scope="uiStore.assetScope" :portrait-url="portraitUrl(item)" :delete-confirm="confirmDeleteId===item.name" @toggle="toggleActive(item)" @edit="openEditAsset(item.name)" @portrait="openPortraitGenerator(item)" @pull="pullAssetToLocal(item.name)" @push="pushToGlobal(item)" @request-delete="requestAssetDelete(item)" @confirm-delete="executeDelete(item.name)" @cancel-delete="cancelDelete" @zoom="selectedPortraitUrl=$event" />
-       <div v-else class="bg-aw_panel border border-slate-700 p-3 rounded-xl hover:border-indigo-500 transition group shadow flex flex-col gap-2 relative overflow-hidden" :class="item.is_active === false ? 'opacity-60 grayscale' : ''">
+       <div v-else :data-asset-name="item.name" class="bg-aw_panel border border-slate-700 p-3 rounded-xl hover:border-indigo-500 transition group shadow flex flex-col gap-2 relative overflow-hidden" :class="item.is_active === false ? 'opacity-60 grayscale' : ''">
          
          <div class="flex justify-between items-start">
             <h4 class="text-sm font-bold text-slate-200 group-hover:text-indigo-400 transition flex items-center gap-2">

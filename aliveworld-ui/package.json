@@ -7,12 +7,14 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test:preference": "node tests/preferenceMeta.test.mjs"
+    "test:preference": "node tests/preferenceMeta.test.mjs",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "vue": "^3.5.34"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@vitejs/plugin-vue": "^6.0.6",
     "autoprefixer": "^10.5.0",
     "postcss": "^8.5.15",

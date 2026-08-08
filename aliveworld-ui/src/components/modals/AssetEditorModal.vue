@@ -140,14 +140,14 @@ const saveContent = async () => {
 
 <template>
   <div class="fixed inset-0 bg-black/80 z-[80] flex items-center justify-center backdrop-blur-sm p-4">
-    <div class="bg-[#1a1a1f] border border-slate-600 rounded-xl w-full max-w-4xl shadow-2xl flex flex-col slide-up overflow-hidden h-[85vh]">
+    <div data-testid="asset-editor" class="bg-[#1a1a1f] border border-slate-600 rounded-xl w-full max-w-4xl shadow-2xl flex flex-col slide-up overflow-hidden h-[85vh]">
       <div class="p-4 border-b border-slate-700 flex justify-between bg-slate-900/80">
         <h2 class="font-bold text-emerald-400 text-lg">✨ 编辑设定 <span class="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded">{{ type }}</span></h2>
-        <div class="flex gap-2"><button @click="openWorkshop" class="px-4 py-2 bg-violet-800 text-violet-100 text-sm font-bold rounded shadow">🧭 进入工坊</button><button @click="saveContent" class="px-5 py-2 bg-emerald-600 text-white text-sm font-bold rounded shadow">保存</button><button @click="closeEditor" class="px-4 py-2 bg-slate-700 text-white text-sm font-bold rounded">取消</button></div>
+        <div class="flex gap-2"><button @click="openWorkshop" class="px-4 py-2 bg-violet-800 text-violet-100 text-sm font-bold rounded shadow">🧭 进入工坊</button><button data-testid="asset-editor-save" @click="saveContent" class="px-5 py-2 bg-emerald-600 text-white text-sm font-bold rounded shadow">保存</button><button @click="closeEditor" class="px-4 py-2 bg-slate-700 text-white text-sm font-bold rounded">取消</button></div>
       </div>
       <div class="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
         <div class="grid grid-cols-2 gap-6">
-          <div><label class="text-xs text-slate-400 font-bold mb-1.5 block">资产名称 (Name)</label><input v-model="form.name" :readonly="!uiStore.editorData.isNew" :class="!uiStore.editorData.isNew ? 'cursor-default text-slate-400' : 'text-slate-200'" class="w-full bg-[#0d0d12] border border-slate-700 px-4 py-2.5 rounded-lg text-sm" /></div>
+          <div><label class="text-xs text-slate-400 font-bold mb-1.5 block">资产名称 (Name)</label><input data-testid="asset-name" v-model="form.name" :readonly="!uiStore.editorData.isNew" :class="!uiStore.editorData.isNew ? 'cursor-default text-slate-400' : 'text-slate-200'" class="w-full bg-[#0d0d12] border border-slate-700 px-4 py-2.5 rounded-lg text-sm" /></div>
           <div><label class="text-xs text-slate-400 font-bold mb-1.5 block">{{ type === 'worldbooks' ? '世界书分类标签（仅用于玩家检索管理）' : '标签 (逗号分隔)' }}</label><input v-model="form.tags" class="w-full bg-[#0d0d12] border border-slate-700 text-slate-200 px-4 py-2.5 rounded-lg text-sm" /></div>
         </div>
         <div v-if="!uiStore.editorData.isNew" class="flex items-center justify-between gap-4 rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-3">
@@ -160,7 +160,7 @@ const saveContent = async () => {
 
         <!-- 🚀 修复问题10：补回完整视图 -->
         <template v-if="type === 'worldbooks'">
-          <div><label class="text-xs text-slate-400 font-bold block mb-1.5">世界概述</label><p class="mb-1.5 text-[10px] text-slate-500">介绍世界背景与总体印象，不视为不可违反的规则。</p><ExpandableTextarea v-model="form.overview" label="世界概述" textarea-class="h-24 bg-[#0d0d12] border border-slate-700 text-slate-300 p-3 rounded-lg text-sm" /></div>
+          <div><label class="text-xs text-slate-400 font-bold block mb-1.5">世界概述</label><p class="mb-1.5 text-[10px] text-slate-500">介绍世界背景与总体印象，不视为不可违反的规则。</p><ExpandableTextarea data-testid="worldbook-overview" v-model="form.overview" label="世界概述" textarea-class="h-24 bg-[#0d0d12] border border-slate-700 text-slate-300 p-3 rounded-lg text-sm" /></div>
           <div><label class="text-xs text-amber-300 font-bold block mb-1.5">世界公理（每行一条）</label><p class="mb-1.5 text-[10px] text-slate-500">定义世界最基础的客观规则与基调，和口语化概述分开。</p><ExpandableTextarea v-model="form.axiomsText" label="世界公理" textarea-class="h-24 bg-[#0d0d12] border border-amber-900/70 text-slate-300 p-3 rounded-lg text-sm" /></div>
           <div class="border-t border-slate-700 pt-4">
             <div class="flex justify-between items-center mb-3"><h3 class="text-sm font-bold text-slate-300">📚 世界书条目</h3><button @click="addWorldEntry" class="px-3 py-1 bg-indigo-900/50 text-indigo-400 border border-indigo-700/50 rounded text-xs font-bold">+ 新增条目</button></div>
@@ -184,12 +184,12 @@ const saveContent = async () => {
         
         <template v-else-if="type === 'characters'">
           <div class="flex items-center gap-3 p-3 bg-indigo-900/20 border border-indigo-900/50 rounded-lg"><input type="checkbox" v-model="form.is_player" class="w-5 h-5 rounded bg-slate-900 border-slate-700 text-indigo-500"><div><p class="text-sm font-bold text-indigo-300">将此角色设为主役 (Is Player)</p></div></div>
-          <div><label class="text-xs text-slate-400 font-bold mb-1.5 block">背景与外观设定 (Description)</label><textarea v-model="form.desc" class="w-full h-40 bg-[#0d0d12] border border-slate-700 text-slate-300 p-4 rounded-lg text-sm"></textarea></div>
+          <div><label class="text-xs text-slate-400 font-bold mb-1.5 block">背景与外观设定 (Description)</label><textarea data-testid="asset-description" v-model="form.desc" class="w-full h-40 bg-[#0d0d12] border border-slate-700 text-slate-300 p-4 rounded-lg text-sm"></textarea></div>
         </template>
         
         <template v-else-if="type === 'entities'">
           <div class="grid grid-cols-2 gap-4">
-            <div><label class="text-xs text-slate-400 font-bold mb-1.5 block">动机 (Motive)<FieldHelp text="实体长期想实现什么，是 Overseer 判断行动方向的主要依据。" /></label><textarea v-model="form.motive" class="w-full h-24 bg-[#0d0d12] border border-slate-700 text-slate-300 p-3 rounded-lg text-sm"></textarea></div>
+            <div><label class="text-xs text-slate-400 font-bold mb-1.5 block">动机 (Motive)<FieldHelp text="实体长期想实现什么，是 Overseer 判断行动方向的主要依据。" /></label><textarea data-testid="entity-motive" v-model="form.motive" class="w-full h-24 bg-[#0d0d12] border border-slate-700 text-slate-300 p-3 rounded-lg text-sm"></textarea></div>
             <div><label class="text-xs text-slate-400 font-bold mb-1.5 block">当前状态 (Status)<FieldHelp text="实体此刻所处的客观状态，例如位置、资源、伤势、权力与处境。" /></label><textarea v-model="form.status" class="w-full h-24 bg-[#0d0d12] border border-slate-700 text-slate-300 p-3 rounded-lg text-sm"></textarea></div>
           </div>
           <div><label class="text-xs text-slate-400 font-bold mb-1.5 block">描述（供资产库浏览）</label><textarea v-model="form.desc" class="w-full h-20 bg-[#0d0d12] border border-slate-700 text-slate-300 p-3 rounded-lg text-sm"></textarea></div>
@@ -206,7 +206,7 @@ const saveContent = async () => {
         </template>
 
         <template v-else>
-           <div><label class="text-xs text-slate-400 font-bold mb-1.5 block">设定正文 (Content)</label><textarea v-model="form.desc" class="w-full h-64 bg-[#0d0d12] border border-slate-700 text-slate-300 p-4 rounded-lg text-sm"></textarea></div>
+           <div><label class="text-xs text-slate-400 font-bold mb-1.5 block">设定正文 (Content)</label><textarea data-testid="asset-content" v-model="form.desc" class="w-full h-64 bg-[#0d0d12] border border-slate-700 text-slate-300 p-4 rounded-lg text-sm"></textarea></div>
         </template>
       </div>
     </div>

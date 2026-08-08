@@ -9,7 +9,7 @@ defineEmits(['toggle', 'edit', 'portrait', 'pull', 'push', 'request-delete', 'co
 </script>
 
 <template>
-  <article class="overflow-hidden rounded-xl border border-slate-700 bg-aw_panel shadow transition hover:border-indigo-500" :class="item.is_active === false ? 'opacity-60 grayscale' : ''">
+  <article :data-asset-name="item.name" class="overflow-hidden rounded-xl border border-slate-700 bg-aw_panel shadow transition hover:border-indigo-500" :class="item.is_active === false ? 'opacity-60 grayscale' : ''">
     <div class="grid" :class="portraitUrl ? 'min-h-56 grid-cols-[9.5rem_minmax(0,1fr)]' : 'grid-cols-1'">
       <button v-if="portraitUrl" @click="$emit('zoom', portraitUrl)" class="group/portrait relative min-h-56 overflow-hidden border-r border-fuchsia-900/50 bg-black" title="点击放大立绘">
         <img :src="portraitUrl" class="absolute inset-0 h-full w-full object-contain transition group-hover/portrait:scale-[1.02]" />
