@@ -64,7 +64,10 @@ class ComfyUIProvider:
         return [str(item) for item in choices]
 
     def submit(self, task: ImageTask) -> ProviderJob:
-        workflow = self.workflows.get(task.workflow_id).render(task)
+        workflow = self.workflows.get(task.workflow_id).render(
+            task,
+            allow_original_prompt=bool(task.provider_options.get("allow_original_prompt", False)),
+        )
         payload = self._request_json("POST", "/prompt", {"prompt": workflow, "client_id": uuid4().hex})
         prompt_id = str(payload.get("prompt_id", "")) if isinstance(payload, dict) else ""
         if not prompt_id:

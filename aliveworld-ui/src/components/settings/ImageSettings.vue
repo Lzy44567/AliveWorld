@@ -4,6 +4,7 @@ import { configStore } from '../../store/configStore';
 import { uiStore } from '../../store/uiStore';
 import { imageApi } from '../../api/imageApi';
 import { connectionStore } from '../../store/connectionStore';
+import WorkflowProfileEditor from './WorkflowProfileEditor.vue';
 
 const checking = ref(false);
 const testing = ref(false);
@@ -12,6 +13,7 @@ const checkpoints = ref([...(configStore.globalSettings.imageCheckpoints || [])]
 const workflows = ref([]);
 const importing = ref(false);
 const latestTest = ref(null);
+const workflowDetail = ref(null);
 let testPollHandle = null;
 const currentModelProfile = computed({
   get: () => configStore.globalSettings.imageModelProfiles?.[configStore.globalSettings.imageCheckpoint] || '',
@@ -26,6 +28,12 @@ const testStatusText = { ready:'准备提交', submitted:'已提交', running:'�
 const imageProfile = computed(() => {
   const id = connectionStore.routes.image_generation?.connection_id;
   return connectionStore.profiles.find(item => item.id === id) || null;
+});
+const selectedWorkflow = computed(() => workflows.value.find(item => item.id === configStore.globalSettings.imageWorkflowId) || null);
+const needsCheckpoint = computed(() => selectedWorkflow.value?.is_template !== false);
+const canInjectPrompt = computed(() => {
+  if (workflowDetail.value?.id === configStore.globalSettings.imageWorkflowId) return workflowDetail.value.mapping_report?.can_inject_prompt !== false;
+  return selectedWorkflow.value?.mapping_report?.can_inject_prompt !== false;
 });
 
 const loadWorkflows = async () => {
@@ -47,12 +55,13 @@ const checkConnection = async () => {
 };
 
 const generateTest = async () => {
-  if (!configStore.globalSettings.imageCheckpoint) return uiStore.showToast('请先选择生图模型', 'error');
+  if (needsCheckpoint.value && !configStore.globalSettings.imageCheckpoint) return uiStore.showToast('内置基础工作流需要先选择生图模型', 'error');
   testing.value = true;
   try {
     const task = await imageApi.testComfyUI({
       checkpoint: configStore.globalSettings.imageCheckpoint,
-      workflowId: configStore.globalSettings.imageWorkflowId
+      workflowId: configStore.globalSettings.imageWorkflowId,
+      original: !canInjectPrompt.value
     });
     latestTest.value = task;
     startTestPolling(task);
@@ -127,29 +136,30 @@ onBeforeUnmount(() => { if (testPollHandle) window.clearInterval(testPollHandle)
       <button @click="checkConnection" :disabled="checking || !imageProfile?.enabled" class="action secondary">{{ checking ? '检查中…' : '检查连接与模型' }}</button>
       <span v-if="connection" class="self-center text-xs" :class="connection.connected ? 'text-emerald-400' : 'text-rose-400'">{{ connection.message }}</span>
     </div>
-    <label class="block"><span class="field-label">生图模型 <span class="text-slate-600">（ComfyUI Checkpoint 文件）</span></span>
+    <label v-if="needsCheckpoint" class="block"><span class="field-label">生图模型 <span class="text-slate-600">（仅内置基础工作流需要）</span></span>
       <select v-model="configStore.globalSettings.imageCheckpoint" class="field-input">
         <option value="">正在读取或尚未选择模型</option>
         <option v-if="configStore.globalSettings.imageCheckpoint && !checkpoints.includes(configStore.globalSettings.imageCheckpoint)" :value="configStore.globalSettings.imageCheckpoint">{{ configStore.globalSettings.imageCheckpoint }}（上次选择）</option>
         <option v-for="item in checkpoints" :key="item" :value="item">{{ item }}</option>
       </select>
     </label>
-    <label v-if="configStore.globalSettings.imageCheckpoint" class="block"><span class="field-label">当前模型特性说明（可选）</span><textarea v-model="currentModelProfile" rows="2" class="field-input resize-y" placeholder="例如：偏好 Danbooru 英文标签、适合动漫人物、推荐的起始标签……" /></label>
-    <p class="-mt-3 text-[10px] text-slate-500">AliveWorld 会把模型文件名和这段说明交给提示词 AI；不会仅凭文件名猜测模型能力。</p>
+    <label v-if="needsCheckpoint && configStore.globalSettings.imageCheckpoint" class="block"><span class="field-label">当前模型特性说明（可选）</span><textarea v-model="currentModelProfile" rows="2" class="field-input resize-y" placeholder="例如：偏好 Danbooru 英文标签、适合动漫人物、推荐的起始标签……" /></label>
+    <p v-if="needsCheckpoint" class="-mt-3 text-[10px] text-slate-500">内置工作流没有预设模型，因此需要从本机选择。导入工作流默认使用其自身模型，不会被这里覆盖。</p>
     <label class="block"><span class="field-label">工作流</span>
       <select v-model="configStore.globalSettings.imageWorkflowId" class="field-input">
         <option v-for="item in workflows" :key="item.id" :value="item.id">{{ item.name }}{{ item.is_template ? '（内置）' : '' }}</option>
       </select>
     </label>
     <label class="action secondary inline-block cursor-pointer">{{ importing ? '导入中…' : '导入 ComfyUI API 工作流 JSON' }}<input type="file" accept="application/json,.json" class="hidden" :disabled="importing" @change="importWorkflow" /></label>
-    <p class="text-[10px] text-slate-500">会自动识别常见核心节点。多个同类节点或正负提示标题不明确时会拒绝导入，不会猜测运行。</p>
+    <p class="text-[10px] text-slate-500">导入后会显示节点识别报告。宽高、张数等可选字段缺失时沿用工作流原值；正向提示词缺失时仅允许按原样测试。</p>
+    <WorkflowProfileEditor v-if="configStore.globalSettings.imageWorkflowId" :workflow-id="configStore.globalSettings.imageWorkflowId" @loaded="workflowDetail=$event" />
     <label class="block"><span class="field-label">默认负面提示词</span><textarea v-model="configStore.globalSettings.imageNegativePrompt" rows="3" class="field-input resize-y" /></label>
     <label class="block"><span class="field-label">画风偏好提示（可空）</span><textarea v-model="configStore.globalSettings.imageStylePreference" rows="2" class="field-input resize-y" placeholder="例如：柔和厚涂、电影光影……" /></label>
     <label class="block"><span class="field-label">画面表现尺度（可空）</span><input v-model="configStore.globalSettings.imagePresentationLevel" class="field-input" placeholder="例如：唯美、若隐若现、露点……" /></label>
     <div class="rounded-lg border border-amber-800/60 bg-amber-950/20 p-3 text-[11px] text-amber-200/80">
       测试图会真实占用显卡并生成一张 512×512 的“窗边蓝色蝴蝶结白猫”；它不调用大语言模型，也不代表默认画风。
     </div>
-    <button @click="generateTest" :disabled="testing" class="action primary">{{ testing ? '已提交，请等待…' : '生成极简测试图' }}</button>
+    <button @click="generateTest" :disabled="testing" class="action primary">{{ testing ? '已提交，请等待…' : canInjectPrompt ? '生成极简测试图' : '按工作流原样测试' }}</button>
     <div v-if="latestTest" class="rounded-lg border border-fuchsia-900/60 bg-slate-950/70 p-3">
       <div class="flex justify-between text-xs"><span class="text-fuchsia-300">{{ testStatusText[latestTest.status] || latestTest.status }}</span><span class="font-mono text-[9px] text-slate-600">{{ latestTest.id }}</span></div>
       <div v-if="['ready','submitted','running'].includes(latestTest.status)" class="mt-2"><div class="h-1.5 overflow-hidden rounded bg-slate-800"><div class="h-full w-1/3 animate-pulse bg-fuchsia-500" /></div><p class="mt-1 text-[9px] text-slate-600">运行状态动画，不代表精确百分比。</p></div>

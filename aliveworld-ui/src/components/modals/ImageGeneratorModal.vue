@@ -21,7 +21,7 @@ const chooseFiles = event => { files.value = [...(event.target.files || [])]; };
 const submit = async (direct = false) => {
   const settings = configStore.globalSettings;
   if (direct && !prompt.value.trim()) return uiStore.showToast('直接生成模式需要填写生图提示词', 'error');
-  if (!settings.imageCheckpoint) return uiStore.showToast('请先在生图配置中选择生图模型', 'error');
+  if (settings.imageWorkflowId === 'builtin_basic' && !settings.imageCheckpoint) return uiStore.showToast('内置基础工作流需要先在生图配置中选择生图模型', 'error');
   submitting.value = true;
   try {
     const references = [];

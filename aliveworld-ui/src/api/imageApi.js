@@ -68,8 +68,17 @@ export const imageApi = {
   listWorkflows() {
     return request(`${API_URL}/images/workflows`);
   },
+  getWorkflow(workflowId) {
+    return request(`${API_URL}/images/workflows/${encodeURIComponent(workflowId)}`);
+  },
   importWorkflow(data) {
     return request(`${API_URL}/images/workflows`, jsonOptions({ data }));
+  },
+  saveWorkflowProfile(workflowId, data) {
+    return request(`${API_URL}/images/workflows/${encodeURIComponent(workflowId)}/profile`, jsonOptions(data, 'PUT'));
+  },
+  resetWorkflowProfile(workflowId) {
+    return request(`${API_URL}/images/workflows/${encodeURIComponent(workflowId)}/profile`, { method: 'DELETE' });
   },
   listReferences(sessionId) {
     return request(`${API_URL}/${sessionId}/images/references`);
@@ -80,8 +89,8 @@ export const imageApi = {
   deleteReference(sessionId, referenceId) {
     return request(`${API_URL}/${sessionId}/images/references/${referenceId}`, { method: 'DELETE' });
   },
-  testComfyUI({ checkpoint, workflowId }) {
-    const query = new URLSearchParams({ checkpoint, workflow_id: workflowId });
+  testComfyUI({ checkpoint = '', workflowId, original = false }) {
+    const query = new URLSearchParams({ checkpoint, workflow_id: workflowId, original: String(original) });
     return request(`${API_URL}/images/library/test?${query}`, { method: 'POST' });
   },
   absoluteImageUrl(path) {

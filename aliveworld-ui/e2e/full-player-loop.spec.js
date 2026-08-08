@@ -147,3 +147,18 @@ test('接口可从卡片直接启停并发现模型列表', async ({ page }) => 
   await expect(page.getByText('已读取可用模型')).toBeVisible();
   await expect(page.getByRole('button', { name: 'fake-story', exact: true })).toBeVisible();
 });
+
+
+test('生图工作流显示映射报告并独立保存配置档案', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /设置/ }).click();
+  await page.getByRole('button', { name: '🎨 生图配置' }).click();
+  await expect(page.getByText('工作流配置档案', { exact: true })).toBeVisible();
+  await expect(page.getByText('正向提示词', { exact: true }).first()).toBeVisible();
+  await page.getByLabel('玩家固定正向补充').fill('自动验收固定画风');
+  await page.getByRole('checkbox', { name: /允许覆盖工作流设定/ }).check();
+  await page.getByRole('button', { name: '保存配置档案' }).click();
+  await expect(page.getByText('工作流配置档案已保存')).toBeVisible();
+  await page.getByText('预览提示词合成顺序').click();
+  await expect(page.getByText(/自动验收固定画风/)).toBeVisible();
+});

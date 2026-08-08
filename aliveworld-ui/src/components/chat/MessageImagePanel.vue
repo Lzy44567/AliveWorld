@@ -39,7 +39,7 @@ const uploadReferences = async () => {
 
 const baseTask = async (positive = '') => {
   const settings = configStore.globalSettings;
-  if (!settings.imageCheckpoint) throw new Error('请先在“设置 → 生图配置”选择生图模型');
+  if (settings.imageWorkflowId === 'builtin_basic' && !settings.imageCheckpoint) throw new Error('内置基础工作流需要先在“设置 → 生图配置”选择生图模型');
   Object.assign(settings, { imageWidth:options.width, imageHeight:options.height, imageCount:options.count, imageSteps:options.steps, imageCfg:options.cfg });
   return {
     intent:intent.value, source_message_id:props.message.id, provider_id:'comfyui', workflow_id:settings.imageWorkflowId,

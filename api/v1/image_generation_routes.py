@@ -12,7 +12,8 @@ from core.image_generation.runtime import get_image_runtime
 from core.image_generation.references import ReferenceImageError, ReferenceImageRepository
 from core.image_generation.prompt_compiler import ImagePromptCompiler, PromptCompilationError
 from core.image_generation.portrait import PortraitAssignmentError, assign_current_portrait, assign_global_portrait, global_portrait_path, task_is_local_portrait
-from core.image_generation.workflows import WorkflowError, WorkflowRepository
+from core.image_generation.workflows import WorkflowError, WorkflowRepository, normalize_mapping
+from core.image_generation.workflow_profiles import WorkflowProfileRepository
 from core.image_generation.library import ImageLibraryScope, list_global_portrait_assets, list_library_scopes, resolve_library_scope
 from core.session_manager import active_sessions
 from utils.asset_catalog import resolve_asset_path
@@ -27,6 +28,14 @@ class ImageTaskPayload(BaseModel):
 
 class WorkflowPayload(BaseModel):
     data: Dict[str, Any] = Field(default_factory=dict)
+
+
+class WorkflowProfilePayload(BaseModel):
+    allow_overrides: bool = False
+    overrides: Dict[str, Any] = Field(default_factory=dict)
+    mapping_overrides: Dict[str, list[str]] = Field(default_factory=dict)
+    player_positive: str = ""
+    player_negative: str = ""
 
 
 class ReferenceImagePayload(BaseModel):
@@ -201,7 +210,9 @@ def get_library_generated_image(scope_id: str, task_id: str, image_index: int):
 
 
 @router.post("/images/library/test")
-def generate_global_comfyui_test_image(checkpoint: str, workflow_id: str = "builtin_basic"):
+def generate_global_comfyui_test_image(
+    checkpoint: str = "", workflow_id: str = "builtin_basic", original: bool = False
+):
     scope = resolve_library_scope("global")
     runtime = get_image_runtime(scope.root)
     task = runtime.service.create("global", _route_image_task({
@@ -215,7 +226,7 @@ def generate_global_comfyui_test_image(checkpoint: str, workflow_id: str = "buil
             "height": 512,
         },
         "context_snapshot": {"test_task": True, "library_scope": "global"},
-        "provider_options": {"checkpoint": checkpoint},
+        "provider_options": {"checkpoint": checkpoint, "allow_original_prompt": original},
     }))
     runtime.runner.start(task.id)
     return _library_task_payload(scope, task)
@@ -432,12 +443,50 @@ def list_image_workflows():
     return [item.summary() for item in WorkflowRepository().list()]
 
 
+@router.get("/images/workflows/{workflow_id}")
+def get_image_workflow(workflow_id: str):
+    try:
+        definition = WorkflowRepository().get(workflow_id)
+        profile = WorkflowProfileRepository().get(definition.id, definition.fingerprint)
+        return {
+            **definition.summary(),
+            "defaults": definition.defaults(),
+            "mapping": definition.mapping,
+            "profile": profile.to_dict(),
+        }
+    except WorkflowError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
 @router.post("/images/workflows")
 def import_image_workflow(payload: WorkflowPayload):
     try:
         return WorkflowRepository().import_definition(payload.data).summary()
     except WorkflowError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.put("/images/workflows/{workflow_id}/profile")
+def save_image_workflow_profile(workflow_id: str, payload: WorkflowProfilePayload):
+    try:
+        definition = WorkflowRepository().get(workflow_id)
+        data = payload.model_dump()
+        data["mapping_overrides"] = normalize_mapping(definition.workflow, data["mapping_overrides"])
+        profile = WorkflowProfileRepository().save(
+            definition.id, definition.fingerprint, data
+        )
+        return profile.to_dict()
+    except (WorkflowError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.delete("/images/workflows/{workflow_id}/profile")
+def reset_image_workflow_profile(workflow_id: str):
+    try:
+        definition = WorkflowRepository().get(workflow_id)
+        return WorkflowProfileRepository().reset(definition.id, definition.fingerprint).to_dict()
+    except (WorkflowError, ValueError) as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.get("/{session_id}/images/references")
@@ -489,7 +538,9 @@ def delete_reference_image(session_id: str, reference_id: str):
 
 
 @router.post("/{session_id}/images/providers/comfyui/test")
-def generate_comfyui_test_image(session_id: str, checkpoint: str, workflow_id: str = "builtin_basic"):
+def generate_comfyui_test_image(
+    session_id: str, checkpoint: str = "", workflow_id: str = "builtin_basic", original: bool = False
+):
     runtime = _runtime(session_id)
     game = active_sessions[session_id]
     task = runtime.service.create(game.save_name or session_id, _route_image_task({
@@ -503,7 +554,7 @@ def generate_comfyui_test_image(session_id: str, checkpoint: str, workflow_id: s
             "height": 512,
         },
         "context_snapshot": {"test_task": True},
-        "provider_options": {"checkpoint": checkpoint},
+        "provider_options": {"checkpoint": checkpoint, "allow_original_prompt": original},
     }))
     runtime.runner.start(task.id)
     return _task_payload(session_id, task)
