@@ -20,8 +20,11 @@ export const assetApi = {
     return await res.json();
   },
 
-  async getSystemLogs() {
-    const res = await fetch(`${BASE_URL}/logs`);
+  async getSystemLogs({ category = '', traceId = '', limit = 500 } = {}) {
+    const query = new URLSearchParams({ limit: String(limit) });
+    if (category) query.set('category', category);
+    if (traceId) query.set('trace_id', traceId);
+    const res = await fetch(`${BASE_URL}/logs?${query}`);
     if (!res.ok) throw new Error("拉取日志失败");
     return await res.json();
   },

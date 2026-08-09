@@ -8,9 +8,11 @@ class _CaptureHandler(logging.Handler):
     def __init__(self):
         super().__init__()
         self.messages = []
+        self.records = []
 
     def emit(self, record):
         self.messages.append(record.getMessage())
+        self.records.append(record)
 
 
 class LLMTraceTests(unittest.TestCase):
@@ -32,6 +34,10 @@ class LLMTraceTests(unittest.TestCase):
         self.assertIn("[USER]\n玩家行动", output)
         self.assertIn('{"ok": true}', output)
         self.assertNotIn("api_key", output)
+        self.assertEqual(len(handler.records), 2)
+        self.assertEqual(handler.records[0].aw_trace_id, handler.records[1].aw_trace_id)
+        self.assertEqual(handler.records[0].aw_phase, "request")
+        self.assertEqual(handler.records[1].aw_status, "success")
 
 
 if __name__ == "__main__":

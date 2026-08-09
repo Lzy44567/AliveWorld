@@ -162,3 +162,21 @@ test('生图工作流显示映射报告并独立保存配置档案', async ({ pa
   await page.getByText('预览提示词合成顺序').click();
   await expect(page.getByText(/自动验收固定画风/)).toBeVisible();
 });
+
+
+test('运行日志按任务分类、折叠详情并关联同一次模型调用', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /日志/ }).click();
+  await expect(page.getByRole('dialog', { name: '运行日志' })).toBeVisible();
+  await page.getByRole('button', { name: '正文', exact: true }).click();
+  const entries = page.locator('details');
+  await expect(entries.first()).toBeVisible();
+  await entries.first().locator('summary').click();
+  await expect(entries.first().locator('pre')).toBeVisible();
+  const traceButton = entries.first().locator('summary button').first();
+  if (await traceButton.count()) {
+    const traceId = await traceButton.textContent();
+    await traceButton.click();
+    await expect(page.getByRole('button', { name: new RegExp(`退出关联追踪 ${traceId}`) })).toBeVisible();
+  }
+});

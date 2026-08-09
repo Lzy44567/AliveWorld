@@ -22,7 +22,7 @@
 
 `v1.5.0-dev.15` 已把平铺的正文/记忆/偏好 API 字段升级为“连接配置中心 + 任务路由”。普通玩家只配置主文本接口，其他任务默认继承；高级玩家才逐项覆盖。连接、协议、密钥仓储、任务用途和服务商特有工作流已分层，避免每增加一个 AI 功能就在设置和 `game_routes.py` 复制一组字段。详细设计和未完成边界见 [`features/10_api_profiles_and_routing.md`](features/10_api_profiles_and_routing.md)。
 
-`v1.5.0-dev.17` 已完成 ComfyUI 工作流配置档案：导入工作流默认采用自身模型与参数，玩家可以检查或人工修正节点映射，解锁后再保存覆盖；提示词按工作流基础、AI 场景和玩家固定补充三层合成。下一核心切片不继续无止境精修工作流，转向日志任务分类与自动验收可观察性。详见 [`features/05_image_generation.md`](features/05_image_generation.md) 与 [`features/12_automated_acceptance_testing.md`](features/12_automated_acceptance_testing.md)。
+`v1.5.0-dev.18` 已完成结构化日志与调用追踪：正文、未来、暗流、世界书、工坊、记忆、偏好、生图和系统可分类筛选，LLM 请求/响应以 trace ID 关联，完整详情默认折叠并在写入时脱敏。下一切片继续扩充高价值自动验收场景，而不是建立测试后门。详见 [`features/12_automated_acceptance_testing.md`](features/12_automated_acceptance_testing.md)。
 
 发行前自动验收采用“现有正式 API + 隔离假模型服务 + 浏览器端到端 + 少量真实服务人工验收”四层结构。不会在发行版加入可任意操纵文件和存档的万能测试后门；日志逐步升级为按正文、工坊、暗流、记忆、偏好和生图分类的可折叠结构。详见 [`features/12_automated_acceptance_testing.md`](features/12_automated_acceptance_testing.md)。
 

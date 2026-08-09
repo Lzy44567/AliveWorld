@@ -247,8 +247,8 @@ async def rename_save_route(save_name: str, payload: AssetLifecyclePayload):
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 @router.get("/logs")
-async def get_system_logs():
-    try: return {"logs": read_logs_parsed()}
+async def get_system_logs(category: str = "", trace_id: str = "", limit: int = 500):
+    try: return {"logs": read_logs_parsed(category=category, trace_id=trace_id, limit=limit)}
     except Exception as e: return {"logs": []}
 
 @router.delete("/saves/{save_name}")

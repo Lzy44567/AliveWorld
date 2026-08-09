@@ -23,6 +23,19 @@ def begin_llm_trace(label, model, system_prompt, user_prompt, response_mode):
         response_mode,
         system_prompt,
         user_prompt,
+        extra={
+            "aw_task": label or "unspecified",
+            "aw_trace_id": trace_id,
+            "aw_phase": "request",
+            "aw_status": "sent",
+            "aw_summary": f"向 {model} 发送 {response_mode.upper()} 请求",
+            "aw_details": {
+                "model": model,
+                "response_mode": response_mode,
+                "system": system_prompt,
+                "user": user_prompt,
+            },
+        },
     )
     return trace_id
 
@@ -30,6 +43,22 @@ def begin_llm_trace(label, model, system_prompt, user_prompt, response_mode):
 def finish_llm_trace(label, trace_id, response="", error=None, metadata=None):
     meta = f" metadata={json.dumps(metadata, ensure_ascii=False, separators=(',', ':'))}" if metadata else ""
     if error:
-        log.error("LLM 响应 [%s] id=%s error=%s%s", label or "unspecified", trace_id, error, meta)
+        log.error(
+            "LLM 响应 [%s] id=%s error=%s%s", label or "unspecified", trace_id, error, meta,
+            extra={
+                "aw_task": label or "unspecified", "aw_trace_id": trace_id,
+                "aw_phase": "response", "aw_status": "error",
+                "aw_summary": f"模型请求失败：{error}",
+                "aw_details": {"error": error, "metadata": metadata or {}},
+            },
+        )
         return
-    log.info("LLM 响应 [%s] id=%s%s\n%s", label or "unspecified", trace_id, meta, response)
+    log.info(
+        "LLM 响应 [%s] id=%s%s\n%s", label or "unspecified", trace_id, meta, response,
+        extra={
+            "aw_task": label or "unspecified", "aw_trace_id": trace_id,
+            "aw_phase": "response", "aw_status": "success",
+            "aw_summary": "模型响应成功",
+            "aw_details": {"response": response, "metadata": metadata or {}},
+        },
+    )
