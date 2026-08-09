@@ -54,7 +54,7 @@ function createAsset() {
         </div>
         <input v-model="workshopStore.search" class="mb-3 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-200" placeholder="搜索名称或标签……" />
         <div class="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1 custom-scrollbar">
-          <button v-for="item in workshopStore.assets" :key="item.name" class="w-full rounded-xl border p-3 text-left transition" :class="workshopStore.assetName===item.name?'border-cyan-600 bg-cyan-950/30':'border-slate-700 bg-slate-900/55 hover:border-cyan-900'" @click="workshopStore.start(item.name)">
+          <button v-for="item in workshopStore.assets" :key="item.name" :data-workshop-asset-name="item.name" class="w-full rounded-xl border p-3 text-left transition" :class="workshopStore.assetName===item.name?'border-cyan-600 bg-cyan-950/30':'border-slate-700 bg-slate-900/55 hover:border-cyan-900'" @click="workshopStore.start(item.name)">
             <div class="truncate text-xs font-bold text-slate-200">{{ item.name }}</div>
             <div v-if="workshopStore.scope==='local'" class="mt-1 text-[9px] text-cyan-400/80">📂 {{ workshopStore.localScopeLabel }}</div>
             <div class="mt-2 flex flex-wrap gap-1"><span v-for="tag in item.tags" :key="tag" class="rounded bg-slate-800 px-1 text-[9px] text-slate-500">{{ tag }}</span></div>

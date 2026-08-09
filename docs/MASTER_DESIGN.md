@@ -22,7 +22,7 @@
 
 `v1.5.0-dev.15` 已把平铺的正文/记忆/偏好 API 字段升级为“连接配置中心 + 任务路由”。普通玩家只配置主文本接口，其他任务默认继承；高级玩家才逐项覆盖。连接、协议、密钥仓储、任务用途和服务商特有工作流已分层，避免每增加一个 AI 功能就在设置和 `game_routes.py` 复制一组字段。详细设计和未完成边界见 [`features/10_api_profiles_and_routing.md`](features/10_api_profiles_and_routing.md)。
 
-`v1.5.0-dev.18` 已完成结构化日志与调用追踪：正文、未来、暗流、世界书、工坊、记忆、偏好、生图和系统可分类筛选，LLM 请求/响应以 trace ID 关联，完整详情默认折叠并在写入时脱敏。下一切片继续扩充高价值自动验收场景，而不是建立测试后门。详见 [`features/12_automated_acceptance_testing.md`](features/12_automated_acceptance_testing.md)。
+`v1.5.0-dev.19` 已完成高价值浏览器回归扩充：真实 UI 覆盖正文重试/撤回、世界书工坊发布、生图失败恢复和页面重载持久化；隔离假 OpenAI 与假 ComfyUI 只存在于测试进程，不形成发行版控制后门。RP-Hub 与 SillyTavern 只作为移动交互和资产兼容参考，不替换已经形成的 AliveWorld 领域架构。详见 [`features/12_automated_acceptance_testing.md`](features/12_automated_acceptance_testing.md)。
 
 发行前自动验收采用“现有正式 API + 隔离假模型服务 + 浏览器端到端 + 少量真实服务人工验收”四层结构。不会在发行版加入可任意操纵文件和存档的万能测试后门；日志逐步升级为按正文、工坊、暗流、记忆、偏好和生图分类的可折叠结构。详见 [`features/12_automated_acceptance_testing.md`](features/12_automated_acceptance_testing.md)。
 

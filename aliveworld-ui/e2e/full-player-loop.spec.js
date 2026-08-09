@@ -63,10 +63,26 @@ async function setLocalAssetEnabled(page, type, name, enabled) {
 }
 
 
-test('前端创建和载入全类资产，正文上下文启停可由假模型验证', async ({ page, request }) => {
-  await page.goto('/');
+async function dismissStartupPrompt(page) {
   const snooze = page.getByRole('button', { name: '稍后再说' });
   if (await snooze.isVisible().catch(() => false)) await snooze.click();
+}
+
+
+async function loadStory(page, name = '自动验收故事') {
+  await page.goto('/');
+  await dismissStartupPrompt(page);
+  await page.getByTestId('tab-saves').click();
+  const card = page.locator(`[data-save-name="${name}"]`);
+  await expect(card).toBeVisible();
+  await card.getByTestId('save-load').click();
+  await expect(page.getByTestId('story-action-input')).toBeEnabled();
+}
+
+
+test('前端创建和载入全类资产，正文上下文启停可由假模型验证', async ({ page, request }) => {
+  await page.goto('/');
+  await dismissStartupPrompt(page);
 
   await createAsset(page, 'characters', '测试角色卡');
   await createAsset(page, 'worldbooks', '测试世界书');
@@ -115,6 +131,101 @@ test('前端创建和载入全类资产，正文上下文启停可由假模型�
   expect(secondSettlement.system).not.toContain('测试世界书条目');
   expect(secondSettlement.system).not.toContain('测试角色卡');
   expect(secondSettlement.system).not.toContain('测试文风');
+});
+
+
+test('正文可用同一行动重试，随后撤回恢复上一状态', async ({ page, request }) => {
+  await loadStory(page);
+  const storyText = page.getByText('前端正文测试成功。');
+  const before = await storyText.count();
+
+  await request.delete('http://127.0.0.1:18765/__test__/requests');
+  await page.getByTestId('story-action-input').fill('这是撤回与重试专项行动。');
+  await page.getByTestId('story-action-submit').click();
+  await expect(storyText).toHaveCount(before + 1);
+
+  await page.getByTestId('story-retry').click();
+  await expect.poll(async () => {
+    const items = (await (await request.get('http://127.0.0.1:18765/__test__/requests')).json()).requests;
+    return items.filter(item => item.kind === 'settlement').length;
+  }).toBe(2);
+  await expect(storyText).toHaveCount(before + 1);
+  const records = (await (await request.get('http://127.0.0.1:18765/__test__/requests')).json()).requests;
+  const settlements = records.filter(item => item.kind === 'settlement');
+  expect(settlements).toHaveLength(2);
+  expect(settlements[1].user).toContain('这是撤回与重试专项行动');
+
+  await page.getByTestId('story-undo').click();
+  await expect(storyText).toHaveCount(before);
+});
+
+
+test('世界书工坊修改先进入草稿，发布后成为正式资产并可重新进入', async ({ page, request }) => {
+  await page.goto('/');
+  await dismissStartupPrompt(page);
+  await page.getByRole('button', { name: '🧰 工坊' }).click();
+  const asset = page.locator('[data-workshop-asset-name="测试世界书"]');
+  await expect(asset).toBeVisible();
+  await asset.click();
+  await expect(page.getByText('世界书工坊 · 测试世界书')).toBeVisible();
+
+  const overviewSection = page.locator('section').filter({ hasText: '世界概述' });
+  const overview = overviewSection.locator('textarea').first();
+  await overview.fill('dev.19 工坊发布专项概述。');
+  await expect(page.getByTestId('workshop-publish')).toBeEnabled({ timeout: 10_000 });
+
+  const before = await (await request.get('/api/v1/lobby/assets/worldbooks/%E6%B5%8B%E8%AF%95%E4%B8%96%E7%95%8C%E4%B9%A6')).json();
+  expect(before.parsed.overview).not.toBe('dev.19 工坊发布专项概述。');
+
+  await page.getByTestId('workshop-publish').click();
+  await expect(page.getByText('工坊草稿已发布')).toBeVisible();
+  const published = await (await request.get('/api/v1/lobby/assets/worldbooks/%E6%B5%8B%E8%AF%95%E4%B8%96%E7%95%8C%E4%B9%A6')).json();
+  expect(published.parsed.overview).toBe('dev.19 工坊发布专项概述。');
+
+  await page.getByRole('button', { name: '🎮 游戏' }).click();
+  await page.getByRole('button', { name: '🧰 工坊' }).click();
+  await page.locator('[data-workshop-asset-name="测试世界书"]').click();
+  await expect(page.locator('section').filter({ hasText: '世界概述' }).locator('textarea').first())
+    .toHaveValue('dev.19 工坊发布专项概述。');
+});
+
+
+test('生图执行失败保留任务卡，点击重试后成功交付图片', async ({ page }) => {
+  await page.addInitScript(() => {
+    const current = JSON.parse(localStorage.getItem('aw_config') || '{}');
+    current.globalSettings = {
+      ...(current.globalSettings || {}),
+      imageCheckpoint: 'fake-e2e.safetensors',
+      imageWorkflowId: 'builtin_basic',
+    };
+    localStorage.setItem('aw_config', JSON.stringify(current));
+  });
+  await loadStory(page);
+  const latest = page.locator('[data-message-role="ai"]').last();
+  await latest.getByRole('button', { name: '🎨 生成此处 CG' }).click();
+  await latest.getByPlaceholder(/用自然语言补充/).fill('dev.19 failure recovery scene');
+  await latest.getByRole('button', { name: '直接使用当前提示词' }).click();
+
+  await expect(latest.getByText('ComfyUI 工作流执行失败')).toBeVisible({ timeout: 15_000 });
+  await latest.getByRole('button', { name: '重试', exact: true }).click();
+  await expect(latest.locator('img')).toBeVisible({ timeout: 15_000 });
+  await expect(latest.getByText(/已完成/)).toBeVisible();
+});
+
+
+test('页面重载后可重新唤醒故事并恢复正文、局内资产和图片任务', async ({ page }) => {
+  await loadStory(page);
+  await expect(page.getByText('我继续进行第二次自动验收。')).toBeVisible();
+  await expect(page.getByText('前端正文测试成功。', { exact: true }).first()).toBeVisible();
+  await expect(page.locator('[data-message-role="ai"] img')).toBeVisible({ timeout: 10_000 });
+  await page.getByTestId('tab-character').click();
+  await page.getByRole('button', { name: '🛡️ 本局专属' }).click();
+  await expect(page.locator('[data-asset-name="测试角色卡"]')).toBeVisible();
+  await page.getByTestId('tab-style').click();
+  await page.getByRole('button', { name: '🛡️ 本局专属' }).click();
+  await expect(page.locator('[data-asset-name="测试文风"]')).toBeVisible();
+  await page.getByTestId('tab-saves').click();
+  await expect(page.locator('[data-save-name="自动验收故事"]')).toContainText('当前游玩');
 });
 
 

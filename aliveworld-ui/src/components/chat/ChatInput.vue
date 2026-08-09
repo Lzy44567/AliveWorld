@@ -131,8 +131,8 @@ const insertPreference = () => {
         <button @click="insertPreference" :disabled="!gameStore.sessionId || gameStore.isProcessing" class="px-3 py-2 rounded-xl border border-fuchsia-800/70 bg-fuchsia-950/40 text-xs text-fuchsia-200 hover:bg-fuchsia-900/50 disabled:opacity-40" title="插入玩家偏好说明；这部分不会成为角色台词">🪞 偏好</button>
         
         <div class="flex flex-col gap-1 justify-center">
-           <button @click="undoTurn" :disabled="gameStore.isProcessing" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded text-[10px] border border-slate-700 transition disabled:opacity-50" title="撤回">⏪</button>
-           <button @click="retryTurn" :disabled="gameStore.isProcessing" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded text-[10px] border border-slate-700 transition disabled:opacity-50" title="重试">🔄</button>
+           <button data-testid="story-undo" @click="undoTurn" :disabled="gameStore.isProcessing" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded text-[10px] border border-slate-700 transition disabled:opacity-50" title="撤回">⏪</button>
+           <button data-testid="story-retry" @click="retryTurn" :disabled="gameStore.isProcessing" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded text-[10px] border border-slate-700 transition disabled:opacity-50" title="重试">🔄</button>
         </div>
         
         <button data-testid="story-action-submit" @click="submitAction()" :disabled="gameStore.isProcessing || !gameStore.sessionId" class="px-8 py-4 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-bold disabled:opacity-50 transition shadow-lg text-lg">发送</button>

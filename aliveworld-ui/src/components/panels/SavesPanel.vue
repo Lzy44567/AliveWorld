@@ -123,7 +123,7 @@ const confirmLifecycle = async (newName) => {
     <!-- 只滚动存档卡片，搜索、收藏、新局和计数固定 -->
     <div class="flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-1">
     <div class="space-y-3 pb-32">
-      <div v-for="save in filteredSaves" :key="save.id" class="bg-aw_panel border rounded-xl p-3 transition group shadow" :class="gameStore.currentSaveName===save.name?'border-emerald-500 ring-1 ring-emerald-500/30':'border-slate-700 hover:border-indigo-500'">
+      <div v-for="save in filteredSaves" :key="save.id" :data-save-name="save.name" class="bg-aw_panel border rounded-xl p-3 transition group shadow" :class="gameStore.currentSaveName===save.name?'border-emerald-500 ring-1 ring-emerald-500/30':'border-slate-700 hover:border-indigo-500'">
         
         <div class="flex justify-between items-start mb-2">
           <h4 class="text-sm font-bold text-slate-200 group-hover:text-indigo-400">{{ save.name }} <span v-if="gameStore.currentSaveName===save.name" class="ml-1 rounded bg-emerald-950 px-1.5 py-0.5 text-[9px] text-emerald-300">当前游玩</span></h4>
@@ -134,7 +134,7 @@ const confirmLifecycle = async (newName) => {
         
         <!-- 操作按钮栏 -->
         <div class="flex gap-2 relative" data-save-actions>
-          <button @click="loadSave(save.name)" class="flex-1 bg-indigo-600/20 hover:bg-indigo-600 text-indigo-300 hover:text-white text-[10px] py-1.5 rounded font-bold transition">▶ 唤醒</button>
+          <button data-testid="save-load" @click="loadSave(save.name)" class="flex-1 bg-indigo-600/20 hover:bg-indigo-600 text-indigo-300 hover:text-white text-[10px] py-1.5 rounded font-bold transition">▶ 唤醒</button>
           <div v-if="confirmDeleteId !== save.name" class="relative" data-save-actions>
             <button @click.stop="openMenuId = openMenuId === save.name ? '' : save.name" class="h-full w-10 rounded border border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700" aria-label="存档管理" :aria-expanded="openMenuId === save.name">•••</button>
             <div v-if="openMenuId === save.name" class="absolute right-0 top-full z-20 mt-2 w-32 overflow-hidden rounded-lg border border-slate-600 bg-slate-900 p-1 shadow-2xl">

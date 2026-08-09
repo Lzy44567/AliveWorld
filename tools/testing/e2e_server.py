@@ -36,13 +36,19 @@ os.environ["ALIVEWORLD_FRONTEND_DIST"] = str(ROOT / "aliveworld-ui" / "dist")
 sys.path.insert(0, str(ROOT))
 
 from tests.fakes.fake_openai_app import app as fake_openai_app  # noqa: E402
+from tests.fakes.fake_comfyui_app import app as fake_comfyui_app  # noqa: E402
 
 
 def run_fake_model():
     uvicorn.run(fake_openai_app, host="127.0.0.1", port=18765, log_level="warning")
 
 
+def run_fake_comfyui():
+    uvicorn.run(fake_comfyui_app, host="127.0.0.1", port=18767, log_level="warning")
+
+
 threading.Thread(target=run_fake_model, name="aliveworld-e2e-fake-llm", daemon=True).start()
+threading.Thread(target=run_fake_comfyui, name="aliveworld-e2e-fake-comfyui", daemon=True).start()
 
 from main import create_app  # noqa: E402
 

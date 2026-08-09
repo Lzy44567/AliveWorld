@@ -47,7 +47,7 @@ const doReroll = async () => {
 </script>
 
 <template>
-  <div class="flex flex-col" :class="msg.role === 'user' ? 'items-end' : 'items-start'">
+  <div class="flex flex-col" :data-message-role="msg.role" :data-message-id="msg.id || ''" :class="msg.role === 'user' ? 'items-end' : 'items-start'">
     
     <!-- 🎲 动态未来候选折叠面板 -->
     <div v-if="msg.role === 'reactions' && effectiveStorySettings.showFutures" class="w-full max-w-[85%] bg-amber-950/60 border border-amber-700/50 rounded-xl overflow-hidden backdrop-blur-md shadow-lg mb-2">

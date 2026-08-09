@@ -27,7 +27,7 @@ const waitingText = computed(() => ({
       <header class="border-b border-slate-800 bg-slate-950/75 px-5 py-3">
         <div class="flex items-center justify-between gap-4">
           <div><div class="flex items-center gap-2"><h2 class="font-bold text-cyan-200">{{ workshopStore.typeInfo.icon }} {{ workshopStore.typeInfo.label }}工坊<span v-if="workshopStore.assetName"> · {{ workshopStore.assetName }}</span></h2><span v-if="workshopStore.dirty" class="text-[10px] text-amber-400">草稿已自动保存</span></div><p class="mt-1 text-[10px] text-slate-500">不推进故事时间；发布前不会改变正式资产</p></div>
-          <div class="flex gap-2"><button class="rounded bg-slate-800 px-3 py-1.5 text-xs text-slate-300" @click="workshopStore.undo">撤销</button><button class="rounded bg-emerald-700 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-30" :disabled="workshopStore.busy || !workshopStore.dirty" @click="workshopStore.publish">发布草稿</button></div>
+          <div class="flex gap-2"><button class="rounded bg-slate-800 px-3 py-1.5 text-xs text-slate-300" @click="workshopStore.undo">撤销</button><button data-testid="workshop-publish" class="rounded bg-emerald-700 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-30" :disabled="workshopStore.busy || !workshopStore.dirty" @click="workshopStore.publish">发布草稿</button></div>
         </div>
         <div class="mt-3 flex flex-wrap gap-2"><button v-for="item in workshopStore.modes" :key="item.id" class="rounded px-3 py-1 text-[10px]" :class="workshopStore.mode===item.id?'bg-cyan-800 text-white':'bg-slate-900 text-slate-500'" :title="item.description" @click="workshopStore.mode=item.id">{{ item.label }}</button></div>
         <p class="mt-2 text-[10px] leading-relaxed text-cyan-300/70">{{ workshopStore.activeMode.description }}</p>
