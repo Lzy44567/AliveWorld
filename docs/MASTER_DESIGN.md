@@ -26,6 +26,8 @@
 
 `v1.6` 的产品目标不是继续增加自由配置项，而是把现有能力组织成可分享、可安装、可一键开玩的完整世界包。世界包与玩家存档分离，具备稳定 ID、依赖、版本、隐私扫描、冲突预览和安全卸载；首版仅做本地文件分享，通过 QQ、Discord 或 GitHub 等现有渠道传播，不提前建设社区服务器。详细设计见 [`features/13_world_packages.md`](features/13_world_packages.md)。
 
+对外测试前以 `v1.5.0-dev.20` 增加游戏内反馈与诊断：默认只整理版本、环境、错误摘要和 trace ID；截图、完整日志及任何故事内容均需玩家主动选择，API Key 永不导出。玩家可复制摘要到 QQ/Discord、导出本地诊断包，或打开预填 GitHub Issue；GitHub 不可达不能阻断本地反馈。详见 [`features/14_feedback_and_diagnostics.md`](features/14_feedback_and_diagnostics.md)。
+
 发行前自动验收采用“现有正式 API + 隔离假模型服务 + 浏览器端到端 + 少量真实服务人工验收”四层结构。不会在发行版加入可任意操纵文件和存档的万能测试后门；日志逐步升级为按正文、工坊、暗流、记忆、偏好和生图分类的可折叠结构。详见 [`features/12_automated_acceptance_testing.md`](features/12_automated_acceptance_testing.md)。
 
 ## 对象边界
