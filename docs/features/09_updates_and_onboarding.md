@@ -92,7 +92,7 @@ GitHub 没有可配置的 Release API 重定向，不能把仓库网页重定向
 - `AliveWorldUpdater.exe` 使用独立 PyInstaller onefile 构建。确认安装后复制到系统临时目录运行，主程序自动退出，不要求玩家打开网页、解压、选择目录或手工备份。
 - 更新助手先完整复制旧程序，再替换除 `UserData` 外的文件；新版启动后用一次性令牌和版本号写入原子健康确认，失败则恢复并重启旧版。
 - WebView 与系统浏览器回退启动方式都监听更新退出；更新过程写入本机日志。
-- Python、API 和前端生产构建已通过。真实 PyInstaller 双 EXE 构建、便携 ZIP 结构和从旧 EXE 到新 EXE 的整链测试仍是发布门禁。
+- Python、API、前端生产构建、11 项 Edge 端到端验收和真实 PyInstaller 双 EXE 构建均已通过；便携 ZIP 已验证结构、隐私边界、SHA-256 和覆盖升级保留 `UserData`。从一个已发布旧 EXE 经 GitHub 下载并切换到另一个已发布新 EXE，仍需在桥接 Release 发布后完成最终实机验收。
 
 ## 双层教程
 
