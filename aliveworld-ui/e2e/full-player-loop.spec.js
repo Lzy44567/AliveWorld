@@ -340,3 +340,62 @@ test('启动后非阻塞提示新版本，并可直接进入更新设置', async
   await notice.getByRole('button', { name: '查看更新' }).click();
   await expect(page.getByRole('heading', { name: /关于与更新/ })).toBeVisible();
 });
+
+
+test('便携版一键更新从下载进度自动进入独立助手安装', async ({ page }) => {
+  let phase = 'idle';
+  let installCalled = false;
+  const release = {
+    current_version: '1.5.0-dev.20',
+    latest_version: '1.5.0-dev.21',
+    update_available: true,
+    prerelease: true,
+    title: 'AliveWorld dev.21',
+    notes: '一键更新界面专项测试',
+    release_url: 'https://github.com/Lzy44567/AliveWorld/releases/tag/v1.5.0-dev.21',
+  };
+  await page.route('**/api/v1/updates/check?*', route => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify(release),
+  }));
+  await page.route('**/api/v1/updates/status', route => {
+    const ready = phase === 'downloading';
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        supported: true,
+        status: ready ? 'ready' : phase,
+        progress: ready ? 100 : 0,
+        message: ready ? '更新已下载并通过校验，可以安装。' : '尚未开始下载。',
+      }),
+    });
+  });
+  await page.route('**/api/v1/updates/prepare?*', route => {
+    phase = 'downloading';
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ supported: true, status: phase, progress: 30, message: '正在下载更新……' }),
+    });
+  });
+  await page.route('**/api/v1/updates/install', route => {
+    installCalled = true;
+    phase = 'installing';
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ status: phase, message: '正在退出 AliveWorld 并安装更新……' }),
+    });
+  });
+
+  await page.goto('/');
+  const notice = page.getByTestId('startup-update-notice');
+  await expect(notice).toBeVisible({ timeout: 5000 });
+  await notice.getByRole('button', { name: '查看更新' }).click();
+  await page.getByRole('button', { name: '检查更新' }).click();
+  const updateButton = page.getByRole('button', { name: '一键更新并重启' });
+  await expect(updateButton).toBeVisible();
+  await updateButton.click();
+  await expect.poll(() => installCalled).toBe(true);
+  await expect(page.getByText('正在重启并安装更新……')).toBeVisible();
+});

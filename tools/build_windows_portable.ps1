@@ -45,6 +45,9 @@ if (-not $PackageOnly) {
     try {
         & $Python -m PyInstaller --noconfirm --clean "AliveWorld.spec"
         if ($LASTEXITCODE -ne 0) { throw "PyInstaller failed." }
+        & $Python -m PyInstaller --noconfirm --clean "AliveWorldUpdater.spec"
+        if ($LASTEXITCODE -ne 0) { throw "Updater PyInstaller failed." }
+        Copy-Item -LiteralPath (Join-Path $Project "dist\AliveWorldUpdater.exe") -Destination (Join-Path $Project "dist\AliveWorld\AliveWorldUpdater.exe") -Force
     } finally {
         Pop-Location
         if ($HasSmokeUserData) {
@@ -58,6 +61,10 @@ if (-not $PackageOnly) {
 }
 elseif (-not (Test-Path -LiteralPath (Join-Path $Project "dist\AliveWorld\AliveWorld.exe"))) {
     throw "PackageOnly requested, but dist\AliveWorld\AliveWorld.exe does not exist."
+}
+
+if (-not (Test-Path -LiteralPath (Join-Path $Project "dist\AliveWorld\AliveWorldUpdater.exe") -PathType Leaf)) {
+    throw "AliveWorldUpdater.exe is missing from the portable build."
 }
 
 New-Item -ItemType Directory -Force -Path $ReleaseDir | Out-Null

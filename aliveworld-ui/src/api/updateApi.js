@@ -12,5 +12,19 @@ export const updateApi = {
     );
     return readPayload(response);
   },
+  async prepare(includePrerelease = true) {
+    return readPayload(await fetch(
+      `/api/v1/updates/prepare?include_prerelease=${includePrerelease ? 'true' : 'false'}`,
+      { method: 'POST' },
+    ));
+  },
+  async status() {
+    return readPayload(await fetch('/api/v1/updates/status', { cache: 'no-store' }));
+  },
+  async cancel() {
+    return readPayload(await fetch('/api/v1/updates/cancel', { method: 'POST' }));
+  },
+  async install() {
+    return readPayload(await fetch('/api/v1/updates/install', { method: 'POST' }));
+  },
 };
-

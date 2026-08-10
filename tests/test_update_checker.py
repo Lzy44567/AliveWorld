@@ -103,6 +103,36 @@ class UpdateRouteTests(unittest.TestCase):
         self.assertEqual(response.status_code, 503)
         self.assertIn("不会影响游戏", response.json()["detail"])
 
+    def test_prepare_rechecks_official_release_before_starting_download(self):
+        release = {"latest_version": "1.5.0-dev.20", "update_available": True, "assets": []}
+        with patch("api.v1.update_routes.check_for_updates", return_value=release), patch(
+            "api.v1.update_routes.UPDATE_MANAGER.start_prepare",
+            return_value={"status": "downloading", "supported": True},
+        ) as start:
+            client = TestClient(create_app(frontend_dist="missing"))
+            response = client.post("/api/v1/updates/prepare")
+        self.assertEqual(response.status_code, 200)
+        start.assert_called_once_with(release)
+
+    def test_update_status_is_read_only_snapshot(self):
+        with patch(
+            "api.v1.update_routes.UPDATE_MANAGER.snapshot",
+            return_value={"status": "ready", "progress": 100},
+        ):
+            client = TestClient(create_app(frontend_dist="missing"))
+            response = client.get("/api/v1/updates/status")
+        self.assertEqual(response.json(), {"status": "ready", "progress": 100})
+
+    def test_cancel_route_delegates_to_update_manager(self):
+        with patch(
+            "api.v1.update_routes.UPDATE_MANAGER.cancel",
+            return_value={"status": "cancelling"},
+        ) as cancel:
+            client = TestClient(create_app(frontend_dist="missing"))
+            response = client.post("/api/v1/updates/cancel")
+        self.assertEqual(response.json(), {"status": "cancelling"})
+        cancel.assert_called_once_with()
+
 
 if __name__ == "__main__":
     unittest.main()

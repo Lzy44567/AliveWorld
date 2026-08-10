@@ -30,6 +30,7 @@ try {
     $AppRoot = $Roots[0].FullName
     Assert-True ($Roots[0].Name -eq "AliveWorld") "ZIP root must be the stable AliveWorld directory."
     Assert-True (Test-Path -LiteralPath (Join-Path $AppRoot "AliveWorld.exe") -PathType Leaf) "AliveWorld.exe is missing."
+    Assert-True (Test-Path -LiteralPath (Join-Path $AppRoot "AliveWorldUpdater.exe") -PathType Leaf) "AliveWorldUpdater.exe is missing."
     Assert-True (Test-Path -LiteralPath (Join-Path $AppRoot "_internal") -PathType Container) "PyInstaller runtime is missing."
     Assert-True (Test-Path -LiteralPath (Join-Path $AppRoot "README.md") -PathType Leaf) "README.md is missing."
     Assert-True (Test-Path -LiteralPath (Join-Path $AppRoot "INSTALL_WINDOWS.md") -PathType Leaf) "INSTALL_WINDOWS.md is missing."

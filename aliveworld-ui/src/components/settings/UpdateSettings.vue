@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue';
+import { onBeforeUnmount, ref } from 'vue';
 import { onboardingStore } from '../../store/onboardingStore';
 import { uiStore } from '../../store/uiStore';
 import { updateApi } from '../../api/updateApi';
@@ -7,6 +7,13 @@ import { updateApi } from '../../api/updateApi';
 const checking = ref(false);
 const result = ref(null);
 const error = ref('');
+const updateState = ref(null);
+const updating = ref(false);
+let updatePoll = null;
+
+onBeforeUnmount(() => {
+  if (updatePoll) window.clearTimeout(updatePoll);
+});
 
 async function checkUpdate() {
   checking.value = true;
@@ -14,10 +21,53 @@ async function checkUpdate() {
   error.value = '';
   try {
     result.value = await updateApi.check(true);
+    updateState.value = await updateApi.status().catch(() => null);
   } catch (reason) {
     error.value = reason?.message || '暂时无法检查更新；这不会影响游戏。';
   } finally {
     checking.value = false;
+  }
+}
+
+async function waitForPrepared() {
+  try {
+    updateState.value = await updateApi.status();
+    if (updateState.value.status === 'ready') {
+      await updateApi.install();
+      updateState.value = { ...updateState.value, status: 'installing', message: '正在重启并安装更新……' };
+      return;
+    }
+    if (updateState.value.status === 'failed') {
+      throw new Error(updateState.value.error || updateState.value.message || '更新准备失败。');
+    }
+    updatePoll = window.setTimeout(waitForPrepared, 500);
+  } catch (reason) {
+    updating.value = false;
+    error.value = reason?.message || '一键更新失败，请稍后重试。';
+  }
+}
+
+async function startOneClickUpdate() {
+  updating.value = true;
+  error.value = '';
+  try {
+    updateState.value = await updateApi.prepare(true);
+    await waitForPrepared();
+  } catch (reason) {
+    updating.value = false;
+    error.value = reason?.message || '一键更新失败，请稍后重试。';
+  }
+}
+
+async function cancelUpdate() {
+  if (updatePoll) window.clearTimeout(updatePoll);
+  updatePoll = null;
+  try {
+    updateState.value = await updateApi.cancel();
+  } catch (reason) {
+    error.value = reason?.message || '取消下载失败。';
+  } finally {
+    updating.value = false;
   }
 }
 
@@ -74,13 +124,45 @@ async function restartGuide() {
         >
           打开官方发布页
         </a>
+        <button
+          v-if="result.update_available && updateState?.supported"
+          type="button"
+          class="ml-2 mt-3 inline-flex rounded-md bg-emerald-700 px-3 py-1.5 text-sm font-bold text-white hover:bg-emerald-600 disabled:cursor-wait disabled:opacity-60"
+          :disabled="updating"
+          @click="startOneClickUpdate"
+        >
+          {{ updating ? '正在更新…' : '一键更新并重启' }}
+        </button>
+        <p v-else-if="result.update_available && updateState && !updateState.supported" class="mt-2 text-xs text-slate-400">
+          当前是源码运行模式，请使用 Git 更新或从发布页下载；Windows 便携版才显示一键安装。
+        </p>
+      </div>
+
+      <div v-if="updating && updateState" class="space-y-2 rounded-lg border border-cyan-800/60 bg-cyan-950/20 p-3">
+        <div class="flex items-center justify-between gap-3 text-xs">
+          <span class="text-cyan-200">{{ updateState.message }}</span>
+          <span class="font-mono text-slate-300">{{ updateState.progress || 0 }}%</span>
+        </div>
+        <div class="h-2 overflow-hidden rounded-full bg-slate-800">
+          <div class="h-full rounded-full bg-gradient-to-r from-cyan-500 to-emerald-400 transition-all" :style="{ width: `${updateState.progress || 0}%` }"></div>
+        </div>
+        <p class="text-[11px] text-slate-500">下载、校验和暂存均自动完成；安装时 AliveWorld 会退出并由更新助手重新打开。</p>
+        <button
+          v-if="['downloading', 'verifying', 'cancelling'].includes(updateState.status)"
+          type="button"
+          class="rounded-md border border-slate-600 px-2.5 py-1 text-xs text-slate-300 hover:bg-slate-800"
+          :disabled="updateState.status === 'cancelling'"
+          @click="cancelUpdate"
+        >
+          {{ updateState.status === 'cancelling' ? '正在取消…' : '取消下载' }}
+        </button>
       </div>
     </div>
 
     <div class="rounded-xl border border-indigo-800/60 bg-indigo-950/20 p-4 text-sm leading-6 text-slate-300">
       <p class="font-bold text-indigo-200">当前更新方式</p>
-      <p>关闭 AliveWorld，备份旧 <code>UserData</code>，再把新版覆盖解压到原来的 <code>AliveWorld</code> 目录。</p>
-      <p class="mt-1 text-slate-400">自动下载与安装将在具备 SHA-256 校验、备份和失败回滚后再开放。</p>
+      <p>便携版可使用“一键更新并重启”：自动下载、校验、备份程序、安装并验证新版，整个过程不会替换 <code>UserData</code>。</p>
+      <p class="mt-1 text-slate-400">若新版启动失败，独立更新助手会尝试恢复并重新打开旧版。</p>
     </div>
 
     <div class="rounded-xl border border-emerald-900/60 bg-emerald-950/15 p-4 text-sm leading-6 text-slate-300">

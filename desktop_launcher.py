@@ -14,6 +14,7 @@ import urllib.parse
 import webbrowser
 
 from desktop_shell import show_desktop_window
+from core.update_runtime import UPDATE_EXIT_EVENT
 from utils.runtime_paths import PATHS
 from utils.sys_logger import get_logger
 from utils.version import APP_VERSION
@@ -158,6 +159,41 @@ def set_loading_status(window, message: str) -> None:
         pass
 
 
+def confirm_successful_update() -> None:
+    confirmation = os.environ.get("ALIVEWORLD_UPDATE_CONFIRM_PATH")
+    token = os.environ.get("ALIVEWORLD_UPDATE_TOKEN")
+    expected = os.environ.get("ALIVEWORLD_EXPECTED_VERSION")
+    if not confirmation or not token or expected != APP_VERSION:
+        return
+    try:
+        target = os.path.abspath(confirmation)
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        temporary = f"{target}.tmp-{os.getpid()}"
+        with open(temporary, "w", encoding="utf-8") as output:
+            json.dump({"token": token, "version": APP_VERSION, "pid": os.getpid()}, output)
+        os.replace(temporary, target)
+    except OSError as exc:
+        get_logger().warning("无法写入更新健康确认：%s", exc)
+
+
+def monitor_update_exit(window, server) -> None:
+    UPDATE_EXIT_EVENT.wait()
+    # Let the install endpoint return so the player sees the restart message.
+    time.sleep(1.0)
+    server.should_exit = True
+    time.sleep(0.3)
+    try:
+        window.destroy()
+    except Exception:
+        pass
+
+
+def monitor_browser_update_exit(server) -> None:
+    UPDATE_EXIT_EVENT.wait()
+    time.sleep(1.0)
+    server.should_exit = True
+
+
 def run_browser_fallback(url: str, port: int) -> None:
     from main import app
 
@@ -166,6 +202,13 @@ def run_browser_fallback(url: str, port: int) -> None:
     server_thread.start()
     if not wait_until_healthy(url):
         raise RuntimeError("本地服务未能完成健康检查")
+    confirm_successful_update()
+    threading.Thread(
+        target=monitor_browser_update_exit,
+        args=(server,),
+        name="aliveworld-browser-update-exit",
+        daemon=True,
+    ).start()
     if os.environ.get("ALIVEWORLD_NO_BROWSER") != "1":
         webbrowser.open(versioned_url(url), new=1)
     show_control_window(url, server, server_thread)
@@ -216,6 +259,13 @@ def run() -> int:
                 server_thread.start()
                 if not wait_until_healthy(url):
                     raise RuntimeError("本地服务未能完成健康检查")
+                confirm_successful_update()
+                threading.Thread(
+                    target=monitor_update_exit,
+                    args=(window, server),
+                    name="aliveworld-update-exit",
+                    daemon=True,
+                ).start()
                 set_loading_status(window, "世界已经就绪，正在打开……")
                 window.load_url(versioned_url(url))
             except Exception as exc:
