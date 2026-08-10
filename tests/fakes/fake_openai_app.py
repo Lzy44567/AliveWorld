@@ -12,6 +12,8 @@ from typing import Any
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
 
+from tests.fakes.prompt_contract import next_story_index, scan_prompt, visible_readiness_lines
+
 
 app = FastAPI(title="AliveWorld deterministic fake model")
 _requests: list[dict[str, Any]] = []
@@ -57,18 +59,6 @@ def _classify(system: str) -> str:
     return "unknown"
 
 
-def _readiness_markers(full_prompt: str) -> list[str]:
-    markers = []
-    for needle, marker in (
-        ("测试世界书", "世界书就绪"),
-        ("测试角色卡", "角色卡就绪"),
-        ("测试文风", "文风就绪"),
-    ):
-        if needle in full_prompt:
-            markers.append(marker)
-    return markers
-
-
 def _response_for(kind: str, system: str, user: str) -> dict[str, Any] | str:
     full = f"{system}\n{user}"
     if kind == "reaction":
@@ -87,7 +77,11 @@ def _response_for(kind: str, system: str, user: str) -> dict[str, Any] | str:
             ],
         }
     if kind == "settlement":
-        paragraphs = ["前端正文测试成功。", *_readiness_markers(full)]
+        paragraphs = [
+            "前端正文测试成功。",
+            f"自动测试正文{next_story_index(full)}",
+            *visible_readiness_lines(full),
+        ]
         return {
             "story_text": "\n\n".join(paragraphs),
             "new_buffs": {},
@@ -142,6 +136,7 @@ def chat(payload: ChatRequest):
     record = {
         "id": str(uuid.uuid4()), "time": time.time(), "kind": kind,
         "model": payload.model, "system": system, "user": user,
+        "markers": scan_prompt(f"{system}\n{user}"),
     }
     with _lock:
         _requests.append(record)
@@ -170,3 +165,20 @@ def clear_requests():
     with _lock:
         _requests.clear()
     return {"status": "cleared"}
+
+
+@app.get("/__test__/coverage")
+def prompt_coverage():
+    """Summarize which markers reached which task, without exposing player data."""
+
+    with _lock:
+        records = list(_requests)
+    tasks: dict[str, int] = {}
+    markers: dict[str, dict[str, int]] = {}
+    for record in records:
+        kind = str(record.get("kind") or "unknown")
+        tasks[kind] = tasks.get(kind, 0) + 1
+        for marker in record.get("markers") or []:
+            by_task = markers.setdefault(str(marker), {})
+            by_task[kind] = by_task.get(kind, 0) + 1
+    return {"request_count": len(records), "tasks": tasks, "markers": markers}

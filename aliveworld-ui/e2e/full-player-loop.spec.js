@@ -22,14 +22,14 @@ async function createAsset(page, type, name) {
   const editor = page.getByTestId('asset-editor');
   await editor.getByTestId('asset-name').fill(name);
   if (type === 'characters') {
-    await editor.getByTestId('asset-description').fill('测试角色卡：看到本设定应确认角色卡上下文已经载入。');
+    await editor.getByTestId('asset-description').fill('测试角色卡：【AWTEST:角色卡A】看到本设定应确认角色卡上下文已经载入。');
   } else if (type === 'styles') {
-    await editor.getByTestId('asset-content').fill('测试文风：正文应自然分段，并确认文风上下文已经载入。');
+    await editor.getByTestId('asset-content').fill('测试文风：【AWTEST:文风卡A】正文应自然分段，并确认文风上下文已经载入。');
   } else if (type === 'entities') {
-    await editor.getByTestId('entity-motive').fill('测试实体：持续观察自动验收世界。');
+    await editor.getByTestId('entity-motive').fill('测试实体：【AWTEST:实体卡A】持续观察自动验收世界。');
   } else if (type === 'worldbooks') {
     await editor.getByText('世界概述', { exact: true }).locator('..').getByRole('textbox').fill(
-      '测试世界书：这是自动验收专用世界概述。'
+      '测试世界书：【AWTEST:世界书A】这是自动验收专用世界概述。'
     );
     await editor.getByRole('button', { name: '+ 新增条目' }).click();
     const entryEditor = page.getByRole('heading', { name: '新增世界书条目' }).locator('..').locator('..');
@@ -105,9 +105,13 @@ test('前端创建和载入全类资产，正文上下文启停可由假模型�
   await page.getByTestId('story-action-input').fill('我施放测试法术。');
   await page.getByTestId('story-action-submit').click();
   await expect(page.getByText('前端正文测试成功。')).toBeVisible();
+  await expect(page.getByText('自动测试正文1')).toBeVisible();
   await expect(page.getByText('世界书就绪')).toBeVisible();
   await expect(page.getByText('角色卡就绪')).toBeVisible();
   await expect(page.getByText('文风就绪')).toBeVisible();
+  await expect(page.getByText('世界书A就绪')).toBeVisible();
+  await expect(page.getByText('角色卡A就绪')).toBeVisible();
+  await expect(page.getByText('文风卡A就绪')).toBeVisible();
 
   let records = (await (await request.get('http://127.0.0.1:18765/__test__/requests')).json()).requests;
   const settlement = records.find(item => item.kind === 'settlement');
@@ -117,6 +121,14 @@ test('前端创建和载入全类资产，正文上下文启停可由假模型�
   expect(settlement.system).toContain('测试文风');
   expect(settlement.system).toContain('目标约 500 个中文字符');
   expect(overseer.system).toContain('测试实体');
+  expect(settlement.markers).toEqual(expect.arrayContaining(['世界书A', '角色卡A', '文风卡A']));
+  expect(overseer.markers).toContain('实体卡A');
+
+  const coverage = await (await request.get('http://127.0.0.1:18765/__test__/coverage')).json();
+  expect(coverage.markers['世界书A'].settlement).toBe(1);
+  expect(coverage.markers['角色卡A'].settlement).toBe(1);
+  expect(coverage.markers['文风卡A'].settlement).toBe(1);
+  expect(coverage.markers['实体卡A'].overseer).toBe(1);
 
   await setLocalAssetEnabled(page, 'characters', '测试角色卡', false);
   await setLocalAssetEnabled(page, 'worldbooks', '测试世界书', false);
@@ -125,12 +137,14 @@ test('前端创建和载入全类资产，正文上下文启停可由假模型�
   await page.getByTestId('story-action-input').fill('我继续进行第二次自动验收。');
   await page.getByTestId('story-action-submit').click();
   await expect(page.getByText('前端正文测试成功。')).toHaveCount(2);
+  await expect(page.getByText('自动测试正文2')).toBeVisible();
 
   records = (await (await request.get('http://127.0.0.1:18765/__test__/requests')).json()).requests;
   const secondSettlement = records.find(item => item.kind === 'settlement');
   expect(secondSettlement.system).not.toContain('测试世界书条目');
   expect(secondSettlement.system).not.toContain('测试角色卡');
   expect(secondSettlement.system).not.toContain('测试文风');
+  expect(secondSettlement.markers).not.toEqual(expect.arrayContaining(['世界书A', '角色卡A', '文风卡A']));
 });
 
 
@@ -216,7 +230,9 @@ test('生图执行失败保留任务卡，点击重试后成功交付图片', as
 test('页面重载后可重新唤醒故事并恢复正文、局内资产和图片任务', async ({ page }) => {
   await loadStory(page);
   await expect(page.getByText('我继续进行第二次自动验收。')).toBeVisible();
-  await expect(page.getByText('前端正文测试成功。', { exact: true }).first()).toBeVisible();
+  const restoredReplies = page.locator('[data-message-role="ai"]');
+  await expect(restoredReplies.filter({ hasText: '前端正文测试成功。' }).first()).toBeVisible();
+  await expect(restoredReplies.filter({ hasText: '自动测试正文2' })).toBeVisible();
   await expect(page.locator('[data-message-role="ai"] img')).toBeVisible({ timeout: 10_000 });
   await page.getByTestId('tab-character').click();
   await page.getByRole('button', { name: '🛡️ 本局专属' }).click();

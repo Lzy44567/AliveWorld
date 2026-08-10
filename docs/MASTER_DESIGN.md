@@ -28,6 +28,8 @@
 
 对外测试前以 `v1.5.0-dev.20` 增加游戏内反馈与诊断：默认只整理版本、环境、错误摘要和 trace ID；截图、完整日志及任何故事内容均需玩家主动选择，API Key 永不导出。玩家可复制摘要到 QQ/Discord、导出本地诊断包，或打开预填 GitHub Issue；GitHub 不可达不能阻断本地反馈。详见 [`features/14_feedback_and_diagnostics.md`](features/14_feedback_and_diagnostics.md)。
 
+模型兼容扩展区分“模型适配预设”和“内容提示词预设”：前者解决 system/JSON/prefill/参数差异，后者承载玩家自定义创作约束。预设按任务选择并经独立消息组装器注入，不与 API Key、核心提示词或世界包静默混写。详见 [`features/15_prompt_presets.md`](features/15_prompt_presets.md)。
+
 发行前自动验收采用“现有正式 API + 隔离假模型服务 + 浏览器端到端 + 少量真实服务人工验收”四层结构。不会在发行版加入可任意操纵文件和存档的万能测试后门；日志逐步升级为按正文、工坊、暗流、记忆、偏好和生图分类的可折叠结构。详见 [`features/12_automated_acceptance_testing.md`](features/12_automated_acceptance_testing.md)。
 
 ## 对象边界
