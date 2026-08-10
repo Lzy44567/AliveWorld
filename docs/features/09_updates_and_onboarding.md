@@ -58,6 +58,18 @@ AliveWorld 面向没有编程基础的玩家。发行体验必须同时解决三
 
 GitHub 没有可配置的 Release API 重定向，不能把仓库网页重定向当成客户端更新协议。发行仓库只保存公开 README、版本说明、更新清单、ZIP 和校验文件，不复制私有源码。
 
+#### 建议的最终仓库拓扑（待桥接包完成后执行）
+
+当前两个仓库均无 star、watcher 或 fork，可在桥接节点一次迁移：
+
+1. 先把已有公开 Release 的说明、ZIP 和校验文件复制到 `AliveWorld-Releases`，核对摘要。
+2. 将现有含完整 Git 历史的 `AliveWorld` 改名为 `AliveWorld-Source` 并转为私有；本地开发 remote 随后改指向它。
+3. 将公开的 `AliveWorld-Releases` 改名为 `AliveWorld`，使项目主页、下载与 Issue 保持最容易搜索的名称。
+4. GitHub 在旧名称被重新使用后不会继续把 `/AliveWorld` 重定向到改名后的源码仓库；这是本方案的预期行为：dev.14 等旧客户端仍请求 `/AliveWorld/releases`，但会进入新的公开发行仓库。
+5. 桥接客户端同时兼容 `/AliveWorld` 与旧 `/AliveWorld-Releases` 地址；确认后再移除过渡回退。
+
+不能通过在公开分支提交“删除所有源码”来隐藏历史；文件仍存在于旧提交。仓库改名、转私有和发行仓库接管旧名称必须作为同一迁移窗口执行，避免旧客户端在中间状态查不到版本。
+
 ### 一键更新实现切片
 
 “一键更新”由主程序和独立更新助手协作：
