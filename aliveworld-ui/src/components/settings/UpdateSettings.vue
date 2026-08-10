@@ -2,6 +2,7 @@
 import { ref } from 'vue';
 import { onboardingStore } from '../../store/onboardingStore';
 import { uiStore } from '../../store/uiStore';
+import { updateApi } from '../../api/updateApi';
 
 const checking = ref(false);
 const result = ref(null);
@@ -12,12 +13,7 @@ async function checkUpdate() {
   result.value = null;
   error.value = '';
   try {
-    const response = await fetch('/api/v1/updates/check?include_prerelease=true');
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      throw new Error(payload.detail || `检查失败（HTTP ${response.status}）`);
-    }
-    result.value = payload;
+    result.value = await updateApi.check(true);
   } catch (reason) {
     error.value = reason?.message || '暂时无法检查更新；这不会影响游戏。';
   } finally {

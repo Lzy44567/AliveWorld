@@ -12,8 +12,19 @@ from urllib.request import Request, urlopen
 from utils.version import APP_VERSION
 
 
-RELEASES_API = "https://api.github.com/repos/Lzy44567/AliveWorld/releases?per_page=20"
-RELEASES_PAGE = "https://github.com/Lzy44567/AliveWorld/releases"
+RELEASE_SOURCES = (
+    {
+        "name": "public-releases",
+        "api": "https://api.github.com/repos/Lzy44567/AliveWorld-Releases/releases?per_page=20",
+        "page": "https://github.com/Lzy44567/AliveWorld-Releases/releases",
+    },
+    {
+        "name": "legacy-public-source",
+        "api": "https://api.github.com/repos/Lzy44567/AliveWorld/releases?per_page=20",
+        "page": "https://github.com/Lzy44567/AliveWorld/releases",
+    },
+)
+RELEASES_PAGE = RELEASE_SOURCES[0]["page"]
 VERSION_RE = re.compile(
     r"^v?(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)"
     r"(?:-(?P<label>[0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$"
@@ -112,34 +123,41 @@ def check_for_updates(
     include_prerelease: bool = True,
     timeout: float = 5.0,
 ) -> dict[str, Any]:
-    request = Request(
-        RELEASES_API,
-        headers={
-            "Accept": "application/vnd.github+json",
-            "User-Agent": f"AliveWorld/{current_version}",
-            "X-GitHub-Api-Version": "2022-11-28",
-        },
-    )
-    try:
-        with urlopen(request, timeout=timeout) as response:
-            releases = json.loads(response.read().decode("utf-8"))
-    except HTTPError as exc:
-        if exc.code in {403, 429}:
-            raise UpdateCheckError("GitHub 检查次数暂时受限，请稍后重试。") from exc
-        raise UpdateCheckError(f"GitHub 返回 HTTP {exc.code}。") from exc
-    except (URLError, TimeoutError, OSError) as exc:
-        raise UpdateCheckError("暂时无法连接 GitHub；这不会影响游戏。") from exc
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise UpdateCheckError("GitHub 返回了无法识别的版本数据。") from exc
+    release = None
+    release_source = None
+    reachable_source = None
+    errors: list[Exception] = []
+    for source in RELEASE_SOURCES:
+        request = Request(
+            source["api"],
+            headers={
+                "Accept": "application/vnd.github+json",
+                "User-Agent": f"AliveWorld/{current_version}",
+                "X-GitHub-Api-Version": "2022-11-28",
+            },
+        )
+        try:
+            with urlopen(request, timeout=timeout) as response:
+                releases = json.loads(response.read().decode("utf-8"))
+            if not isinstance(releases, list):
+                raise ValueError("release payload is not a list")
+            reachable_source = source
+            release = select_release(
+                releases,
+                current_version=current_version,
+                include_prerelease=include_prerelease,
+            )
+            if release is not None:
+                release_source = source
+                break
+        except (HTTPError, URLError, TimeoutError, OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+            errors.append(exc)
 
-    if not isinstance(releases, list):
-        raise UpdateCheckError("GitHub 返回了无法识别的版本数据。")
-    release = select_release(
-        releases,
-        current_version=current_version,
-        include_prerelease=include_prerelease,
-    )
     if release is None:
+        if reachable_source is None:
+            if any(isinstance(exc, HTTPError) and exc.code in {403, 429} for exc in errors):
+                raise UpdateCheckError("GitHub 检查次数暂时受限，请稍后重试。")
+            raise UpdateCheckError("暂时无法连接 GitHub；这不会影响游戏。")
         return {
             "current_version": current_version,
             "latest_version": None,
@@ -149,6 +167,20 @@ def check_for_updates(
         }
 
     latest_version = str(release.get("tag_name") or "").removeprefix("v")
+    assets = []
+    for asset in release.get("assets") or []:
+        if not isinstance(asset, dict):
+            continue
+        name = str(asset.get("name") or "").strip()
+        url = str(asset.get("browser_download_url") or "").strip()
+        if not name or not url.startswith("https://github.com/"):
+            continue
+        assets.append({
+            "name": name,
+            "url": url,
+            "size": max(0, int(asset.get("size") or 0)),
+            "digest": str(asset.get("digest") or "").strip(),
+        })
     return {
         "current_version": current_version,
         "latest_version": latest_version,
@@ -157,6 +189,8 @@ def check_for_updates(
         "notes": str(release.get("body") or "").strip()[:4000],
         "published_at": release.get("published_at"),
         "prerelease": bool(release.get("prerelease")),
-        "release_url": str(release.get("html_url") or RELEASES_PAGE),
-        "releases_url": RELEASES_PAGE,
+        "release_url": str(release.get("html_url") or release_source["page"]),
+        "releases_url": release_source["page"],
+        "release_source": release_source["name"],
+        "assets": assets,
     }

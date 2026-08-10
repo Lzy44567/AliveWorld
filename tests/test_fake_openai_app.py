@@ -1,3 +1,4 @@
+import json
 import unittest
 
 from fastapi.testclient import TestClient
@@ -38,9 +39,17 @@ class FakeOpenAIAppTests(unittest.TestCase):
 
     def test_story_sequence_is_derived_from_history_in_prompt(self):
         first = self._chat("你是游戏地下城主。", "开始故事").json()
-        self.assertIn("自动测试正文1", first["choices"][0]["message"]["content"])
+        first_content = first["choices"][0]["message"]["content"]
+        self.assertIn("自动测试正文1", first_content)
+        first_payload = json.loads(first_content)
+        self.assertEqual(first_payload["dynamic_bars"]["自动验收进度"]["current"], 1)
+        self.assertEqual(first_payload["status_updates"]["自动验收阶段"], "第1回合")
         second = self._chat("你是游戏地下城主。", "历史：自动测试正文1\n继续").json()
-        self.assertIn("自动测试正文2", second["choices"][0]["message"]["content"])
+        second_content = second["choices"][0]["message"]["content"]
+        self.assertIn("自动测试正文2", second_content)
+        second_payload = json.loads(second_content)
+        self.assertEqual(second_payload["dynamic_bars"]["自动验收进度"]["current"], 2)
+        self.assertEqual(second_payload["status_updates"]["当前时间"], "自动纪元第2回合")
 
     def test_coverage_groups_markers_by_ai_task(self):
         self._chat("你是游戏地下城主。【AWTEST:正文规则A】")

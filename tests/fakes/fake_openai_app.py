@@ -77,17 +77,26 @@ def _response_for(kind: str, system: str, user: str) -> dict[str, Any] | str:
             ],
         }
     if kind == "settlement":
+        story_index = next_story_index(full)
         paragraphs = [
             "前端正文测试成功。",
-            f"自动测试正文{next_story_index(full)}",
+            f"自动测试正文{story_index}",
             *visible_readiness_lines(full),
         ]
         return {
             "story_text": "\n\n".join(paragraphs),
             "new_buffs": {},
             "remove_buffs": [],
-            "dynamic_bars": {},
-            "status_updates": {"身体": "自动验收正常"},
+            "dynamic_bars": {
+                "自动验收进度": {
+                    "current": min(story_index, 5), "max": 5, "color": "cyan",
+                },
+            },
+            "status_updates": {
+                "身体": "自动验收正常",
+                "自动验收阶段": f"第{story_index}回合",
+                "当前时间": f"自动纪元第{story_index}回合",
+            },
             "npc_states": {},
             "status_deletions": [],
             "resolved_influences": [],

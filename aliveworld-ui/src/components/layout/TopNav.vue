@@ -1,9 +1,23 @@
 <script setup>
-import { onBeforeUnmount, onMounted } from 'vue';
+import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { uiStore } from '../../store/uiStore';
 import { gameStore } from '../../store/gameStore';
 import { preferenceStore } from '../../store/preferenceStore';
 import { APP_VERSION } from '../../version';
+
+const runtimeVersion = ref(APP_VERSION);
+
+async function refreshRuntimeVersion() {
+  try {
+    const response = await fetch('/api/health', { cache: 'no-store' });
+    if (!response.ok) return;
+    const payload = await response.json();
+    const value = String(payload?.version || '').trim();
+    if (value) runtimeVersion.value = value.startsWith('v') ? value : `v${value}`;
+  } catch {
+    // The build-time version remains a safe fallback while the backend starts.
+  }
+}
 
 const openPreferences = () => {
   uiStore.settingsSection = 'preferences';
@@ -11,6 +25,7 @@ const openPreferences = () => {
 };
 let preferenceRefreshTimer = null;
 onMounted(() => {
+  refreshRuntimeVersion();
   preferenceStore.refresh().catch(() => {});
   preferenceRefreshTimer = window.setInterval(() => preferenceStore.refresh().catch(() => {}), 15000);
 });
@@ -26,7 +41,7 @@ onBeforeUnmount(() => {
         <span class="text-xl">☷</span>
       </button>
       <span class="font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-indigo-400 text-lg tracking-widest">ALIVEWORLD</span>
-      <span class="rounded border border-slate-700 bg-slate-800/80 px-1.5 py-0.5 text-[9px] font-bold tracking-normal text-slate-400">{{ APP_VERSION }}</span>
+      <span data-testid="runtime-version" class="rounded border border-slate-700 bg-slate-800/80 px-1.5 py-0.5 text-[9px] font-bold tracking-normal text-slate-400">{{ runtimeVersion }}</span>
     </div>
 
     <div class="absolute left-1/2 hidden -translate-x-1/2 items-center gap-2 md:flex">

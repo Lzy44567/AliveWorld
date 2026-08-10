@@ -10,6 +10,7 @@ import sys
 import threading
 import time
 import urllib.request
+import urllib.parse
 import webbrowser
 
 from desktop_shell import show_desktop_window
@@ -54,6 +55,12 @@ def read_running_url() -> str | None:
     except (OSError, ValueError):
         return None
     return f"http://127.0.0.1:{port}/"
+
+
+def versioned_url(base_url: str) -> str:
+    """Force WebView/browser navigation to revalidate the frontend after upgrades."""
+
+    return f"{base_url}?app_version={urllib.parse.quote(APP_VERSION, safe='')}"
 
 
 def wait_until_healthy(url: str, timeout: float = 45.0) -> bool:
@@ -160,7 +167,7 @@ def run_browser_fallback(url: str, port: int) -> None:
     if not wait_until_healthy(url):
         raise RuntimeError("本地服务未能完成健康检查")
     if os.environ.get("ALIVEWORLD_NO_BROWSER") != "1":
-        webbrowser.open(url, new=1)
+        webbrowser.open(versioned_url(url), new=1)
     show_control_window(url, server, server_thread)
     server.should_exit = True
     server_thread.join(timeout=10)
@@ -180,7 +187,7 @@ def run() -> int:
     if instance.already_running:
         url = read_running_url()
         if not activate_existing_window() and url and os.environ.get("ALIVEWORLD_NO_BROWSER") != "1":
-            webbrowser.open(url, new=1)
+            webbrowser.open(versioned_url(url), new=1)
         instance.close()
         return 0
 
@@ -210,7 +217,7 @@ def run() -> int:
                 if not wait_until_healthy(url):
                     raise RuntimeError("本地服务未能完成健康检查")
                 set_loading_status(window, "世界已经就绪，正在打开……")
-                window.load_url(url)
+                window.load_url(versioned_url(url))
             except Exception as exc:
                 get_logger().error(
                     "桌面后端启动失败：%s: %s",

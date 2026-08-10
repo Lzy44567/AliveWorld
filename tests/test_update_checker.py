@@ -1,9 +1,12 @@
+import io
+import json
 import unittest
+from urllib.error import URLError
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-from core.update_checker import is_newer, parse_version, select_release
+from core.update_checker import check_for_updates, is_newer, parse_version, select_release
 from main import create_app
 
 
@@ -31,6 +34,47 @@ class UpdateVersionTests(unittest.TestCase):
         ]
         selected = select_release(releases, include_prerelease=False)
         self.assertEqual(selected["tag_name"], "v1.5.0")
+
+    @staticmethod
+    def _response(payload):
+        class Response(io.BytesIO):
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                self.close()
+
+        return Response(json.dumps(payload).encode("utf-8"))
+
+    def test_public_release_repository_is_preferred_and_exposes_safe_assets(self):
+        release = {
+            "tag_name": "v1.5.0-dev.20", "draft": False, "prerelease": True,
+            "name": "Bridge", "html_url": "https://github.com/Lzy44567/AliveWorld-Releases/releases/tag/v1.5.0-dev.20",
+            "assets": [{
+                "name": "AliveWorld-1.5.0-dev.20-windows-x64.zip",
+                "browser_download_url": "https://github.com/Lzy44567/AliveWorld-Releases/releases/download/v1.5.0-dev.20/AliveWorld.zip",
+                "size": 123, "digest": "sha256:abc",
+            }],
+        }
+        with patch("core.update_checker.urlopen", return_value=self._response([release])) as mocked:
+            result = check_for_updates(current_version="1.5.0-dev.19")
+        self.assertEqual(mocked.call_count, 1)
+        self.assertEqual(result["release_source"], "public-releases")
+        self.assertEqual(result["assets"][0]["digest"], "sha256:abc")
+
+    def test_empty_or_unreachable_public_repository_falls_back_to_legacy(self):
+        legacy = [{
+            "tag_name": "v1.5.0-dev.19", "draft": False, "prerelease": True,
+            "html_url": "https://github.com/Lzy44567/AliveWorld/releases/tag/v1.5.0-dev.19",
+            "assets": [],
+        }]
+        with patch("core.update_checker.urlopen", side_effect=[
+            URLError("temporary"), self._response(legacy),
+        ]) as mocked:
+            result = check_for_updates(current_version="1.5.0-dev.14")
+        self.assertEqual(mocked.call_count, 2)
+        self.assertTrue(result["update_available"])
+        self.assertEqual(result["release_source"], "legacy-public-source")
 
 
 class UpdateRouteTests(unittest.TestCase):

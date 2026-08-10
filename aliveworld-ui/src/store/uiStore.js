@@ -40,6 +40,7 @@ export const uiStore = reactive({
 
   // 🚀 问题 4：新增全局非阻断式飘字提示
   toast: { show: false, message: "", type: "success" },
+  updateNotice: { show: false, result: null },
   
   showToast(message, type = "success") {
     if (toastTimer) clearTimeout(toastTimer);

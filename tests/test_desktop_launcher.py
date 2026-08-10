@@ -6,6 +6,12 @@ import desktop_launcher
 
 
 class DesktopLauncherTests(unittest.TestCase):
+    def test_versioned_url_busts_frontend_cache(self):
+        self.assertEqual(
+            desktop_launcher.versioned_url("http://127.0.0.1:8000/"),
+            f"http://127.0.0.1:8000/?app_version={desktop_launcher.APP_VERSION}",
+        )
+
     def test_choose_port_skips_occupied_port(self):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as occupied:
             occupied.bind(("127.0.0.1", 0))

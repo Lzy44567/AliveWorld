@@ -106,6 +106,11 @@ test('前端创建和载入全类资产，正文上下文启停可由假模型�
   await page.getByTestId('story-action-submit').click();
   await expect(page.getByText('前端正文测试成功。')).toBeVisible();
   await expect(page.getByText('自动测试正文1')).toBeVisible();
+  await expect(page.getByTestId('runtime-version')).toHaveText('v1.5.0-dev.20');
+  await expect(page.getByText('自动验收阶段')).toBeVisible();
+  await expect(page.getByText('第1回合', { exact: true })).toBeVisible();
+  await expect(page.getByText('自动验收进度')).toBeVisible();
+  await expect(page.getByText('1/5')).toBeVisible();
   await expect(page.getByText('世界书就绪')).toBeVisible();
   await expect(page.getByText('角色卡就绪')).toBeVisible();
   await expect(page.getByText('文风就绪')).toBeVisible();
@@ -138,6 +143,8 @@ test('前端创建和载入全类资产，正文上下文启停可由假模型�
   await page.getByTestId('story-action-submit').click();
   await expect(page.getByText('前端正文测试成功。')).toHaveCount(2);
   await expect(page.getByText('自动测试正文2')).toBeVisible();
+  await expect(page.getByText('第2回合', { exact: true })).toBeVisible();
+  await expect(page.getByText('2/5')).toBeVisible();
 
   records = (await (await request.get('http://127.0.0.1:18765/__test__/requests')).json()).requests;
   const secondSettlement = records.find(item => item.kind === 'settlement');
@@ -233,6 +240,8 @@ test('页面重载后可重新唤醒故事并恢复正文、局内资产和图�
   const restoredReplies = page.locator('[data-message-role="ai"]');
   await expect(restoredReplies.filter({ hasText: '前端正文测试成功。' }).first()).toBeVisible();
   await expect(restoredReplies.filter({ hasText: '自动测试正文2' })).toBeVisible();
+  await expect(page.getByText('第2回合', { exact: true })).toBeVisible();
+  await expect(page.getByText('2/5')).toBeVisible();
   await expect(page.locator('[data-message-role="ai"] img')).toBeVisible({ timeout: 10_000 });
   await page.getByTestId('tab-character').click();
   await page.getByRole('button', { name: '🛡️ 本局专属' }).click();
@@ -306,4 +315,28 @@ test('运行日志按任务分类、折叠详情并关联同一次模型调用',
     await traceButton.click();
     await expect(page.getByRole('button', { name: new RegExp(`退出关联追踪 ${traceId}`) })).toBeVisible();
   }
+});
+
+
+test('启动后非阻塞提示新版本，并可直接进入更新设置', async ({ page }) => {
+  await page.route('**/api/v1/updates/check?*', async route => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        current_version: '1.5.0-dev.20',
+        latest_version: '1.5.0-dev.21',
+        update_available: true,
+        prerelease: true,
+        title: 'AliveWorld dev.21',
+        notes: '自动更新提示专项测试',
+        release_url: 'https://github.com/Lzy44567/AliveWorld-Releases/releases/tag/v1.5.0-dev.21',
+      }),
+    });
+  });
+  await page.goto('/');
+  const notice = page.getByTestId('startup-update-notice');
+  await expect(notice).toContainText('发现新版本 1.5.0-dev.21', { timeout: 5000 });
+  await notice.getByRole('button', { name: '查看更新' }).click();
+  await expect(page.getByRole('heading', { name: /关于与更新/ })).toBeVisible();
 });

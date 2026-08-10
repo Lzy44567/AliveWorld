@@ -6,7 +6,7 @@ import datetime
 import os
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -75,7 +75,8 @@ def create_app(
     )
 
     @application.get("/api/health", tags=["运行状态"])
-    def health():
+    def health(response: Response):
+        response.headers["Cache-Control"] = "no-store, max-age=0"
         return {
             "status": "ok",
             "version": APP_VERSION,
@@ -96,7 +97,7 @@ def create_app(
             candidate = (static_root / requested_path).resolve()
             if candidate.is_relative_to(static_root) and candidate.is_file():
                 return FileResponse(candidate)
-            return FileResponse(index_file)
+            return FileResponse(index_file, headers={"Cache-Control": "no-store, max-age=0"})
     else:
         @application.get("/", include_in_schema=False)
         def source_root():
