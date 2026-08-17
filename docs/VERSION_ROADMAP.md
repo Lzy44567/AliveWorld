@@ -122,6 +122,7 @@ v2 不是“实体推演单功能升级”。它需要同时让玩家感受到�
 - v1.5-dev.20：对外测试与发行准备。已完成声明式假模型、状态栏协议、稳定同名发行地址、启动更新提示、Windows 一键更新内核、真实双 EXE 构建，以及本机反馈摘要/诊断包；Python 264 项、前端 114 模块和 Edge 12 场景通过。dev.19 没有更新助手，最终实机更新应以人工安装 dev.20 后的 dev.20 → 后续 Release 验收。下一切片优先修复真实游玩暴露的玩家代理权与事实裁定，再补账本撤回、记忆压缩失败回退和其他资产工坊冲突保护。详细边界见 [`features/09_updates_and_onboarding.md`](features/09_updates_and_onboarding.md) 与 [`features/14_feedback_and_diagnostics.md`](features/14_feedback_and_diagnostics.md)。
 - 手机局域网访问继续后置：必须先完成配对鉴权、危险接口保护与移动正文布局，不以监听 `0.0.0.0` 冒充完成。
 - v1.5 Beta 前：真实模型质量、真实 ComfyUI 和便携包升级仍需人工抽查。
+- v1.5 Beta 后候选：先完成最近一回合的微调重演，再进入任意节点和持久化分支；不把现有最多 20 份整存档快照直接扩展成无限历史。详见 [`features/15_timeline_branching.md`](features/15_timeline_branching.md)。
 - v1.5-beta.1：在没有 Python、Node 和开发缓存的干净 Windows 10/11 环境完成首次启动、升级保留数据和完整游戏循环验收。
 - 提供全局偏好管理页，重点是检查与纠错，不把手工填表作为主要形成方式。
 - 学习与正文注入分别提供全局默认和局内开关；关闭后对应提示词/上下文不再发送。

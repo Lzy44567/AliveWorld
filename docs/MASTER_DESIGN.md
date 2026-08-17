@@ -24,6 +24,8 @@
 
 `v1.5.0-dev.19` 已完成高价值浏览器回归扩充：真实 UI 覆盖正文重试/撤回、世界书工坊发布、生图失败恢复和页面重载持久化；隔离假 OpenAI 与假 ComfyUI 只存在于测试进程，不形成发行版控制后门。RP-Hub 与 SillyTavern 只作为移动交互和资产兼容参考，不替换已经形成的 AliveWorld 领域架构。详见 [`features/12_automated_acceptance_testing.md`](features/12_automated_acceptance_testing.md)。
 
+回合回溯已从“撤回最后一步”扩展为独立设计议题：原样回放、微调重演、重新推演和长期时间线分支必须具有不同语义。被撤销正文只能进入一次性的非正式重演胶囊，不能重新污染正式历史；完全相同只通过缓存回放保证，修改行动后的 LLM 输出只承诺锁定候选与主要条件。完整设计见 [`features/15_timeline_branching.md`](features/15_timeline_branching.md)。
+
 `v1.6` 的产品目标不是继续增加自由配置项，而是把现有能力组织成可分享、可安装、可一键开玩的完整世界包。世界包与玩家存档分离，具备稳定 ID、依赖、版本、隐私扫描、冲突预览和安全卸载；首版仅做本地文件分享，通过 QQ、Discord 或 GitHub 等现有渠道传播，不提前建设社区服务器。详细设计见 [`features/13_world_packages.md`](features/13_world_packages.md)。
 
 对外测试前以 `v1.5.0-dev.20` 增加游戏内反馈与诊断：默认只整理版本、环境、错误摘要和 trace ID；截图、完整日志及任何故事内容均需玩家主动选择，API Key 永不导出。玩家可复制摘要到 QQ/Discord、导出本地诊断包，或打开预填 GitHub Issue；GitHub 不可达不能阻断本地反馈。详见 [`features/14_feedback_and_diagnostics.md`](features/14_feedback_and_diagnostics.md)。
