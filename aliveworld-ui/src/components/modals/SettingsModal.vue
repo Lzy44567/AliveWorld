@@ -7,6 +7,7 @@ import ImageSettings from '../settings/ImageSettings.vue';
 import PreferenceSettings from '../settings/PreferenceSettings.vue';
 import DataMigrationSettings from '../settings/DataMigrationSettings.vue';
 import UpdateSettings from '../settings/UpdateSettings.vue';
+import FeedbackSettings from '../settings/FeedbackSettings.vue';
 import { configStore } from '../../store/configStore';
 import { onboardingStore } from '../../store/onboardingStore';
 
@@ -42,6 +43,7 @@ const selectSection = section => { activeSection.value = section; uiStore.settin
           <button @click="selectSection('image')" :class="activeSection === 'image' ? 'bg-slate-800 text-fuchsia-300' : 'text-slate-400 hover:bg-slate-800'" class="w-full text-left px-3 py-2 text-sm font-bold rounded transition">🎨 生图配置</button>
           <button @click="selectSection('data')" :class="activeSection === 'data' ? 'bg-slate-800 text-cyan-300' : 'text-slate-400 hover:bg-slate-800'" class="w-full text-left px-3 py-2 text-sm font-bold rounded transition">📦 数据与迁移</button>
           <button @click="selectSection('updates')" :class="activeSection === 'updates' ? 'bg-slate-800 text-cyan-300' : 'text-slate-400 hover:bg-slate-800'" class="w-full text-left px-3 py-2 text-sm font-bold rounded transition">ℹ️ 关于与更新</button>
+          <button @click="selectSection('feedback')" :class="activeSection === 'feedback' ? 'bg-slate-800 text-violet-300' : 'text-slate-400 hover:bg-slate-800'" class="w-full text-left px-3 py-2 text-sm font-bold rounded transition">💬 反馈与诊断</button>
         </nav>
         <div class="flex-1 min-w-0 p-6 overflow-y-auto bg-slate-800/20 custom-scrollbar">
           <InferenceSettings v-if="activeSection === 'inference'" />
@@ -49,7 +51,8 @@ const selectSection = section => { activeSection.value = section; uiStore.settin
           <PreferenceSettings v-else-if="activeSection === 'preferences'" />
           <ImageSettings v-else-if="activeSection === 'image'" />
           <DataMigrationSettings v-else-if="activeSection === 'data'" />
-          <UpdateSettings v-else />
+          <UpdateSettings v-else-if="activeSection === 'updates'" />
+          <FeedbackSettings v-else />
         </div>
       </div>
     </div>

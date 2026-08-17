@@ -399,3 +399,20 @@ test('便携版一键更新从下载进度自动进入独立助手安装', async
   await expect.poll(() => installCalled).toBe(true);
   await expect(page.getByText('正在重启并安装更新……')).toBeVisible();
 });
+
+
+test('反馈面板默认不附带私人日志并可生成本机安全预览', async ({ page }) => {
+  await page.goto('/');
+  await dismissStartupPrompt(page);
+  await page.getByRole('button', { name: /设置/ }).click();
+  await page.getByRole('button', { name: '💬 反馈与诊断' }).click();
+  await expect(page.getByTestId('feedback-settings')).toBeVisible();
+  await page.getByTestId('feedback-title').fill('自动验收反馈');
+  await page.getByRole('textbox', { name: '实际发生了什么', exact: true }).fill('按钮没有响应。');
+  await page.getByRole('textbox', { name: '你期望看到什么', exact: true }).fill('按钮应正常响应。');
+  await page.getByTestId('feedback-preview').click();
+  const preview = page.getByTestId('feedback-preview-content');
+  await expect(preview).toContainText('自动验收反馈');
+  await expect(preview).toContainText('AliveWorld：1.5.0-dev.20');
+  await expect(preview).not.toContainText('玩家私人正文');
+});

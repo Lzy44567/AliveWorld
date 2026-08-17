@@ -14,6 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from api.v1.asset_workshop_routes import router as asset_workshop_router
 from api.v1.causal_ledger_routes import router as causal_ledger_router
 from api.v1.game_routes import router as game_router
+from api.v1.feedback_routes import router as feedback_router
 from api.v1.image_generation_routes import router as image_generation_router
 from api.v1.lobby_routes import router as lobby_router
 from api.v1.local_asset_routes import router as local_asset_router
@@ -68,6 +69,7 @@ def create_app(
         tags=["角色文风实体工坊"],
     )
     application.include_router(update_router, prefix="/api/v1/updates", tags=["版本更新"])
+    application.include_router(feedback_router, prefix="/api/v1/feedback", tags=["反馈与诊断"])
     application.include_router(
         model_connection_router,
         prefix="/api/v1/model-connections",

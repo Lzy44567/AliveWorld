@@ -14,14 +14,14 @@ from utils.version import APP_VERSION
 
 RELEASE_SOURCES = (
     {
-        "name": "public-releases",
-        "api": "https://api.github.com/repos/Lzy44567/AliveWorld-Releases/releases?per_page=20",
-        "page": "https://github.com/Lzy44567/AliveWorld-Releases/releases",
-    },
-    {
-        "name": "legacy-public-source",
+        "name": "stable-public-release",
         "api": "https://api.github.com/repos/Lzy44567/AliveWorld/releases?per_page=20",
         "page": "https://github.com/Lzy44567/AliveWorld/releases",
+    },
+    {
+        "name": "temporary-release-staging",
+        "api": "https://api.github.com/repos/Lzy44567/AliveWorld-Releases/releases?per_page=20",
+        "page": "https://github.com/Lzy44567/AliveWorld-Releases/releases",
     },
 )
 RELEASES_PAGE = RELEASE_SOURCES[0]["page"]
