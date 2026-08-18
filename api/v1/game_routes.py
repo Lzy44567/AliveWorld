@@ -1,5 +1,6 @@
 # api/v1/game_routes.py
 import uuid
+import shutil
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any
@@ -150,20 +151,40 @@ def start_game(payload: StartRequest):
     except AssetLifecycleError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+    return start_prepared_game(
+        save_name=save_name,
+        save_dir_path=save_dir_path,
+        world_premise=payload.world_premise if payload.world_premise is not None else payload.description,
+        story_settings=payload.story_settings,
+    )
+
+
+def start_prepared_game(
+    *,
+    save_name: str,
+    save_dir_path: str,
+    world_premise: str = "",
+    story_settings: dict[str, Any] | None = None,
+    opening: str = "",
+):
+    """Start a session after a trusted caller has materialized the save directory."""
+    if not global_ai_engine:
+        shutil.rmtree(save_dir_path, ignore_errors=True)
+        raise HTTPException(status_code=500, detail="请先在设置中配置可用的大语言模型 API")
     session_id = str(uuid.uuid4())
     game = GameSession(
         global_ai_engine, save_name, save_dir_path=save_dir_path,
-        story_settings=payload.story_settings, memory_ai_engine=global_memory_ai_engine,
+        story_settings=story_settings or {}, memory_ai_engine=global_memory_ai_engine,
         memory_config=global_memory_config,
         preference_ai_engine=global_preference_ai_engine,
         overseer_ai_engine=global_overseer_ai_engine,
         worldbook_capture_ai_engine=global_worldbook_capture_ai_engine,
     )
-    world_premise = payload.world_premise if payload.world_premise is not None else payload.description
-    
-    opening = "【时间线已建立】\n"
-    if world_premise: opening += f"宇宙法则主导向被设定为：{world_premise}\n"
-    opening += "当前世界犹如一张白纸。你可以随时从右侧“万象资产”中拉取角色、世界书或文风进入本局..."
+    if not opening:
+        opening = "【时间线已建立】\n"
+        if world_premise:
+            opening += f"宇宙法则主导向被设定为：{world_premise}\n"
+        opening += "当前世界犹如一张白纸。你可以随时从右侧“万象资产”中拉取角色、世界书或文风进入本局..."
     
     game.start_new_game(world_premise=world_premise, opening=opening.strip())
     active_sessions[session_id] = game

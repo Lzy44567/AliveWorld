@@ -7,7 +7,8 @@ from pathlib import Path
 import yaml
 
 from core.asset_lifecycle import clone_yaml_asset
-from core.world_packages import AssetSource, InstallLedger, PackageFormatError, WorldPackageExporter, WorldPackageImporter, new_package_id
+from core.world_packages import AssetSource, InstallLedger, PackageFormatError, WorldPackageExporter, WorldPackageImporter, WorldPackageService, new_package_id
+from core.world_packages.models import new_asset_id
 from core.world_packages.identity import asset_id_from_data, ensure_yaml_asset_id
 
 
@@ -127,6 +128,63 @@ class WorldPackageTests(unittest.TestCase):
                     package=self._package(new_package_id()),
                     assets=[AssetSource("worldbooks", source, dependencies=("awasset_" + "0" * 32,))],
                 )
+
+    def test_materialize_story_uses_starter_and_copies_only_default_story_assets(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            data = root / "data"
+            world = root / "world.yml"
+            world.write_text("name: 世界规则\noverview: 包内世界\n", encoding="utf-8")
+            world_id = ensure_yaml_asset_id(world)
+            starter = root / "starter.json"
+            starter.write_text(json.dumps({
+                "world_premise": "包内梗概",
+                "opening": "包内开场",
+                "story_settings": {"aiSuggestions": False},
+            }, ensure_ascii=False), encoding="utf-8")
+            starter_id = new_asset_id()
+            archive = root / "world.aliveworld"
+            package = self._package(new_package_id())
+            package["entrypoints"] = {"main_worldbook": world_id, "starter": starter_id}
+            WorldPackageExporter().export(archive, package=package, assets=[
+                AssetSource("worldbooks", world),
+                AssetSource("starter", starter, name="默认起点", asset_id=starter_id),
+            ])
+            service = WorldPackageService(data / "world_packages", data)
+            record = service.importer.install(archive)
+            save = root / "Save_测试"
+            save.mkdir()
+            result = service.materialize_story(record.package_id, record.version, save)
+            self.assertEqual(result.world_premise, "包内梗概")
+            self.assertEqual(result.opening, "包内开场")
+            self.assertFalse(result.story_settings["aiSuggestions"])
+            self.assertEqual(len(list((save / "worldbooks").glob("*.yml"))), 1)
+            self.assertTrue((save / "world_package.json").is_file())
+
+    def test_safe_uninstall_preserves_modified_asset_and_removes_ledger_record(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            data = root / "data"
+            source = root / "world.yml"
+            source.write_text("name: 世界规则\noverview: 原始\n", encoding="utf-8")
+            archive = root / "world.aliveworld"
+            package_id = new_package_id()
+            WorldPackageExporter().export(archive, package=self._package(package_id), assets=[AssetSource("worldbooks", source)])
+            service = WorldPackageService(data / "world_packages", data)
+            record = service.importer.install(archive)
+            story = root / "Save_继续保留"
+            story.mkdir()
+            service.materialize_story(package_id, "1.0.0", story)
+            installed_asset = service.root / record.assets[0]["path"]
+            installed_asset.write_text(installed_asset.read_text(encoding="utf-8").replace("原始", "玩家修改"), encoding="utf-8")
+            result = service.uninstall(package_id, "1.0.0")
+            self.assertEqual(result["status"], "removed")
+            self.assertEqual(len(result["preserved_paths"]), 1)
+            self.assertTrue(Path(result["preserved_paths"][0]).is_file())
+            self.assertIsNone(service.importer.ledger.find(package_id, "1.0.0"))
+            self.assertTrue(any((service.root / "uninstall_backups" / package_id).iterdir()))
+            self.assertTrue((story / "world_package.json").is_file())
+            self.assertEqual(len(list((story / "worldbooks").glob("*.yml"))), 1)
 
 
 if __name__ == "__main__":

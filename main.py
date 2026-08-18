@@ -24,6 +24,7 @@ from api.v1.story_memory_routes import router as story_memory_router
 from api.v1.user_preference_routes import router as user_preference_router
 from api.v1.update_routes import router as update_router
 from api.v1.worldbook_workshop_routes import router as worldbook_workshop_router
+from api.v1.world_package_routes import router as world_package_router
 from utils.runtime_paths import PATHS
 from utils.sys_logger import init_logger
 from utils.version import APP_VERSION
@@ -55,6 +56,7 @@ def create_app(
     application.include_router(causal_ledger_router, prefix="/api/v1/game", tags=["Game 暗流因果账本"])
     application.include_router(lobby_router, prefix="/api/v1/lobby", tags=["大厅与资产"])
     application.include_router(worldbook_workshop_router, prefix="/api/v1/worldbooks", tags=["世界书工坊"])
+    application.include_router(world_package_router, prefix="/api/v1/world-packages", tags=["世界包与一键开始"])
     application.include_router(image_generation_router, prefix="/api/v1/game", tags=["Game 异步生图"])
     application.include_router(story_memory_router, prefix="/api/v1/game", tags=["Game 分级故事记忆"])
     application.include_router(user_preference_router, prefix="/api/v1/preferences", tags=["用户偏好卡"])

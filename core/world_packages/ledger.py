@@ -38,6 +38,17 @@ class InstallLedger:
             if not (item.package_id == record.package_id and item.version == record.version)
         ]
         records.append(record)
+        self._write(records)
+
+    def remove(self, package_id: str, version: str) -> InstallRecord | None:
+        records = self.list()
+        removed = next((item for item in records if item.package_id == package_id and item.version == version), None)
+        if removed is None:
+            return None
+        self._write([item for item in records if item != removed])
+        return removed
+
+    def _write(self, records: list[InstallRecord]) -> None:
         records.sort(key=lambda item: (item.package_id, item.version))
         payload = {"schema_version": 1, "packages": [item.to_dict() for item in records]}
         self.root.mkdir(parents=True, exist_ok=True)

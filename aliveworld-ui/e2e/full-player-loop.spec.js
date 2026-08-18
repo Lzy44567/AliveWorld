@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 
 const runtimeVersion = readFileSync(new URL('../../VERSION', import.meta.url), 'utf8').trim();
@@ -157,6 +158,40 @@ test('前端创建和载入全类资产，正文上下文启停可由假模型�
   expect(secondSettlement.system).not.toContain('测试角色卡');
   expect(secondSettlement.system).not.toContain('测试文风');
   expect(secondSettlement.markers).not.toEqual(expect.arrayContaining(['世界书A', '角色卡A', '文风卡A']));
+});
+
+
+test('玩家可导入世界包并一键建立带完整资产的独立故事', async ({ page, request }) => {
+  await page.goto('/');
+  await dismissStartupPrompt(page);
+  await page.getByTestId('tab-packages').click();
+  const packagePath = fileURLToPath(new URL('../../build/e2e-runtime/e2e-world.aliveworld', import.meta.url));
+  await page.getByTestId('world-package-file').setInputFiles(packagePath);
+  await expect(page.getByTestId('world-package-preview')).toContainText('自动验收世界包');
+  await page.getByTestId('world-package-install').click();
+  const card = page.locator('[data-package-name="自动验收世界包"]');
+  await expect(card).toBeVisible();
+  await card.getByTestId('world-package-start').click();
+  await page.getByTestId('world-package-save-name').fill('世界包一键故事');
+  await page.getByTestId('world-package-confirm-start').click();
+  await expect(page.locator('[data-save-name="世界包一键故事"]')).toContainText('当前游玩');
+
+  await page.getByTestId('tab-world').click();
+  await page.getByRole('button', { name: '🛡️ 本局专属' }).click();
+  await expect(page.locator('[data-asset-name="世界包测试世界"]')).toBeVisible();
+  await request.delete('http://127.0.0.1:18765/__test__/requests');
+  await page.getByTestId('story-action-input').fill('验证世界包资产。');
+  await page.getByTestId('story-action-submit').click();
+  await expect(page.getByText('世界包世界书就绪')).toBeVisible();
+  await expect.poll(async () => {
+    const coverage = await (await request.get('http://127.0.0.1:18765/__test__/coverage')).json();
+    return {
+      worldbook: (coverage.markers['世界包世界书']?.settlement || 0) > 0,
+      character: (coverage.markers['世界包角色']?.settlement || 0) > 0,
+      style: (coverage.markers['世界包文风']?.settlement || 0) > 0,
+      entity: (coverage.markers['世界包实体']?.overseer || 0) > 0,
+    };
+  }).toEqual({ worldbook: true, character: true, style: true, entity: true });
 });
 
 

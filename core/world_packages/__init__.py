@@ -9,6 +9,7 @@ from core.world_packages.models import (
     WorldPackageManifest,
     new_package_id,
 )
+from core.world_packages.service import StoryStarter, WorldPackageService
 
 __all__ = [
     "AssetRecord",
@@ -19,5 +20,7 @@ __all__ = [
     "WorldPackageExporter",
     "WorldPackageImporter",
     "WorldPackageManifest",
+    "WorldPackageService",
+    "StoryStarter",
     "new_package_id",
 ]

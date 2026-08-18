@@ -4,6 +4,7 @@ import AssetPanel from '../panels/AssetPanel.vue';
 import SavesPanel from '../panels/SavesPanel.vue';
 import LocalEditPanel from '../panels/LocalEditPanel.vue';
 import EntityRuntimeToggle from '../controls/EntityRuntimeToggle.vue';
+import WorldPackagesPanel from '../panels/WorldPackagesPanel.vue';
 </script>
 
 <template>
@@ -11,6 +12,7 @@ import EntityRuntimeToggle from '../controls/EntityRuntimeToggle.vue';
     
     <!-- 顶级 Tab 导航栏 -->
     <div class="flex text-lg border-b border-slate-700 bg-slate-900 min-w-[400px] shrink-0">
+      <button data-testid="tab-packages" @click="uiStore.rightTab = 'packages'" :class="uiStore.rightTab==='packages'?'text-cyan-300 border-b-2 border-cyan-400 bg-slate-800':'text-slate-500 hover:bg-slate-800/50'" class="flex-1 py-3 transition" title="开始与世界包">🌌</button>
       <button data-testid="tab-saves" @click="uiStore.rightTab = 'saves'" :class="uiStore.rightTab==='saves'?'text-emerald-400 border-b-2 border-emerald-400 bg-slate-800':'text-slate-500 hover:bg-slate-800/50'" class="flex-1 py-3 transition" title="故事线/存档">📂</button>
       <button data-testid="tab-character" @click="uiStore.rightTab = 'character'" :class="uiStore.rightTab==='character'?'text-indigo-400 border-b-2 border-indigo-400 bg-slate-800':'text-slate-500 hover:bg-slate-800/50'" class="flex-1 py-3 transition" title="角色卡库">🎭</button>
       <button data-testid="tab-world" @click="uiStore.rightTab = 'world'" :class="uiStore.rightTab==='world'?'text-amber-400 border-b-2 border-amber-400 bg-slate-800':'text-slate-500 hover:bg-slate-800/50'" class="flex-1 py-3 transition" title="世界法则">🌍</button>
@@ -29,7 +31,8 @@ import EntityRuntimeToggle from '../controls/EntityRuntimeToggle.vue';
       <!-- 动态呼叫组件 -->
       <AssetPanel v-if="['character', 'world', 'style', 'entity'].includes(uiStore.rightTab)" />
       <div v-else class="flex flex-1 min-h-0 flex-col overflow-hidden">
-        <SavesPanel v-if="uiStore.rightTab === 'saves'" />
+        <WorldPackagesPanel v-if="uiStore.rightTab === 'packages'" />
+        <SavesPanel v-else-if="uiStore.rightTab === 'saves'" />
         <LocalEditPanel v-else-if="uiStore.rightTab === 'local_edit'" />
       </div>
     </div>

@@ -9,7 +9,7 @@ export const uiStore = reactive({
   appMode: 'game',
   leftDrawerOpen: true,
   rightDrawerOpen: true,
-  rightTab: 'saves',
+  rightTab: 'packages',
   assetScope: 'global', 
 
   modals: { 
@@ -34,7 +34,7 @@ export const uiStore = reactive({
   },
   
   tabTitles: {
-    saves: "📂 时间线档案", character: "🎭 角色卡图鉴", world: "🌍 世界法则",
+    packages: "🌌 开始与世界包", saves: "📂 时间线档案", character: "🎭 角色卡图鉴", world: "🌍 世界法则",
     style: "📜 文风指导卡", entity: "👾 暗流实体库", local_edit: "⚙️ 局内专属设定"
   },
 
