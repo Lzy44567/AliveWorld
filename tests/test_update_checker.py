@@ -18,6 +18,15 @@ class UpdateVersionTests(unittest.TestCase):
         self.assertFalse(is_newer("1.5.0-dev.11", "1.5.0-dev.12"))
         self.assertFalse(is_newer("1.4.9", "1.5.0-dev.1"))
 
+    def test_orders_hyphenated_development_suffix_after_numeric_build(self):
+        self.assertTrue(is_newer("1.5.0-dev.21-a", "1.5.0-dev.19"))
+        self.assertTrue(is_newer("1.5.0-dev.21-b", "1.5.0-dev.21-a"))
+        releases = [
+            {"tag_name": "v1.5.0-dev.21-a", "draft": False, "prerelease": True},
+            {"tag_name": "v1.5.0-dev.19", "draft": False, "prerelease": True},
+        ]
+        self.assertEqual(select_release(releases)["tag_name"], "v1.5.0-dev.21-a")
+
     def test_rejects_non_version_release_tags(self):
         self.assertIsNone(parse_version("nightly"))
         releases = [

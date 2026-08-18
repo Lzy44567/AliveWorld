@@ -50,7 +50,10 @@ def parse_version(value: str) -> ParsedVersion | None:
     prerelease: tuple[tuple[int, int | str], ...] | None = None
     if label:
         parts: list[tuple[int, int | str]] = []
-        for index, token in enumerate(label.lower().split(".")):
+        # Release tags historically used both dots and hyphens inside the
+        # prerelease suffix (for example ``dev.21-a``).  Treat both as
+        # identifier separators so a numeric build keeps its numeric order.
+        for index, token in enumerate(re.split(r"[.-]+", label.lower())):
             if token.isdigit():
                 parts.append((1, int(token)))
             elif index == 0 and token in PRERELEASE_RANK:
