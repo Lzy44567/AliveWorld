@@ -35,7 +35,10 @@ function createAsset() {
     <div class="flex min-h-0 min-w-[400px] flex-1 flex-col p-4">
       <div class="mb-3 flex items-center justify-between">
         <div><h2 class="text-sm font-bold text-cyan-200">{{ workshopStore.typeInfo.label }}资产</h2><p class="mt-1 text-[10px] text-slate-500">选择创作对象，不会载入正文</p></div>
-        <button v-if="workshopStore.type!=='preferences' && workshopStore.scope==='global'" class="rounded bg-emerald-800 px-2 py-1 text-[10px] font-bold text-white" @click="createAsset">＋ 新建</button>
+        <div class="flex gap-1">
+          <button data-testid="open-world-package-builder" class="rounded border border-cyan-800 bg-cyan-950/40 px-2 py-1 text-[10px] font-bold text-cyan-200" title="选择已完成的资产并导出本地世界包" @click="uiStore.modals.worldPackageBuilder=true">📦 打包</button>
+          <button v-if="workshopStore.type!=='preferences' && workshopStore.scope==='global'" class="rounded bg-emerald-800 px-2 py-1 text-[10px] font-bold text-white" @click="createAsset">＋ 新建</button>
+        </div>
       </div>
       <template v-if="workshopStore.type==='preferences'">
         <button class="rounded-xl border p-4 text-left" :class="workshopStore.workshopId?'border-fuchsia-700 bg-fuchsia-950/25':'border-slate-700 bg-slate-900/50 hover:border-fuchsia-800'" @click="workshopStore.start('', 'global')">

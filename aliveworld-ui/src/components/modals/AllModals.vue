@@ -12,6 +12,7 @@ import ImageGeneratorModal from './ImageGeneratorModal.vue';
 import CausalLedgerModal from './CausalLedgerModal.vue';
 import LegacyMigrationModal from './LegacyMigrationModal.vue';
 import QuickStartModal from './QuickStartModal.vue';
+import WorldPackageBuilderModal from './WorldPackageBuilderModal.vue';
 </script>
 
 <template>
@@ -26,4 +27,5 @@ import QuickStartModal from './QuickStartModal.vue';
   <CausalLedgerModal v-if="uiStore.modals.causalLedger" />
   <LegacyMigrationModal v-if="uiStore.modals.legacyMigration" />
   <QuickStartModal v-if="uiStore.modals.quickStart" />
+  <WorldPackageBuilderModal v-if="uiStore.modals.worldPackageBuilder" />
 </template>

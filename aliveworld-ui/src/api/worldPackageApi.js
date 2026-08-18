@@ -16,6 +16,16 @@ async function sendFile(path, file) {
 }
 
 export const worldPackageApi = {
+  async authoringAssets() {
+    return requireOk(await fetch(`${BASE_URL}/authoring/assets`), '读取可打包资产失败');
+  },
+  async exportPackage(payload) {
+    return requireOk(await fetch(`${BASE_URL}/authoring/export`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }), '导出世界包失败');
+  },
   async list() {
     return requireOk(await fetch(BASE_URL), '读取世界包失败');
   },
@@ -36,6 +46,13 @@ export const worldPackageApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ save_name: saveName }),
     }), '无法从世界包创建故事');
+  },
+  async startOfficial(officialId, saveName) {
+    return requireOk(await fetch(`${BASE_URL}/official/${encodeURIComponent(officialId)}/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ save_name: saveName }),
+    }), '无法启动官方演示世界');
   },
   async uninstall(packageId, version, mode = 'safe', confirmed = false, deleteStoryPaths = []) {
     return requireOk(await fetch(`${BASE_URL}/${encodeURIComponent(packageId)}/${encodeURIComponent(version)}/uninstall`, {

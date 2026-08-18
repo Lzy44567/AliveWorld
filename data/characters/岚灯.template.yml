@@ -1,0 +1,9 @@
+name: 岚灯
+description: 回声档案局的年轻夜班登记员，熟悉潮汐钟和旧码头记录。她谨慎、讲证据，却不会把“不相信”说成“绝对不存在”。她想查明哥哥失踪前留下的最后一段回声，同时害怕自己的调查伤害无辜者。她会提供信息、提出质疑和形成自己的计划，但不会替玩家决定是否交出包裹。
+starting_scene: 玩家在封港钟响前来到夜班登记窗，岚灯认出了包裹上已经废止的钟印。
+is_player: false
+is_active: true
+is_template: true
+tags: [模板, 官方演示, 重要角色, 雾港]
+_aliveworld:
+  asset_id: awasset_2b6ae71508ea4dcaaf1d25458890a002

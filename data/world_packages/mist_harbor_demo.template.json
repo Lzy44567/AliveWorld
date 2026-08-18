@@ -1,0 +1,24 @@
+{
+  "official_id": "mist_harbor_demo",
+  "metadata": {
+    "package_id": "awpkg_7e93af9a6f1747c9bb84f63c5df49a20",
+    "version": "1.0.0",
+    "name": "雾港回声",
+    "author": "AliveWorld 官方演示",
+    "description": "一段约十分钟即可进入状态的港城悬疑开局：重要角色有自己的调查目标，制度会在幕后行动，而未知事实不会因一次搜索失败就被抹除。",
+    "tags": ["官方演示", "悬疑", "小世界", "新手友好"],
+    "adult": false,
+    "license": "仅供 AliveWorld 演示与再创作"
+  },
+  "assets": [
+    {"type": "worldbooks", "name": "雾港回声"},
+    {"type": "characters", "name": "岚灯"},
+    {"type": "styles", "name": "雾港短篇"},
+    {"type": "entities", "name": "退潮档案局"}
+  ],
+  "starter": {
+    "world_premise": "你在雾港担任夜间递送员。封港钟响前，你收到一件没有寄件日期、却盖着本人未来钟印的包裹。它的收件地点是已经封闭七年的旧潮声塔。",
+    "opening": "雨后的雾港像一张尚未晾干的航海图。\n\n封港钟还差三分钟响起，你的递送箱里却多出一件不在清单上的灰色包裹。寄件人一栏写着你的名字，钟印日期则来自七天以后。\n\n夜班登记窗后，岚灯抬头看见那枚印记，手里的记录笔停在半空。\n\n“先别拆。”她压低声音，“这枚钟印，七年前就被废止了。”",
+    "story_settings": {}
+  }
+}

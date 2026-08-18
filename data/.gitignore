@@ -19,3 +19,5 @@
 !image_workflows/
 !image_workflows/.gitkeep
 !image_workflows/*.template.json
+!world_packages/
+!world_packages/*.template.json

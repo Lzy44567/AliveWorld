@@ -1,6 +1,7 @@
 """World package domain boundary for portable, inspectable content bundles."""
 
 from core.world_packages.archive import AssetSource, WorldPackageExporter, WorldPackageImporter
+from core.world_packages.authoring import AssetSelection, WorldPackageAuthoringService
 from core.world_packages.ledger import InstallLedger
 from core.world_packages.models import (
     AssetRecord,
@@ -13,6 +14,7 @@ from core.world_packages.service import StoryStarter, WorldPackageService
 
 __all__ = [
     "AssetRecord",
+    "AssetSelection",
     "AssetSource",
     "InstallLedger",
     "InstallRecord",
@@ -20,6 +22,7 @@ __all__ = [
     "WorldPackageExporter",
     "WorldPackageImporter",
     "WorldPackageManifest",
+    "WorldPackageAuthoringService",
     "WorldPackageService",
     "StoryStarter",
     "new_package_id",

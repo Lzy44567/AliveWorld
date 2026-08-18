@@ -8,12 +8,14 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from api.v1.game_routes import start_prepared_game
 from core.asset_lifecycle import AssetLifecycleError, normalize_asset_name
 from core.session_manager import active_sessions
 from core.world_packages.archive import MAX_PACKAGE_SIZE
+from core.world_packages.authoring import AssetSelection, WorldPackageAuthoringService
 from core.world_packages.models import PackageFormatError
 from core.world_packages.service import WorldPackageService
 from utils.file_io import init_save_folder
@@ -22,6 +24,7 @@ from utils.runtime_paths import PATHS
 
 router = APIRouter()
 SERVICE = WorldPackageService(PATHS.data_dir / "world_packages", PATHS.data_dir)
+AUTHORING = WorldPackageAuthoringService(PATHS.data_dir)
 
 
 class PackageStartPayload(BaseModel):
@@ -33,6 +36,26 @@ class UninstallPayload(BaseModel):
     mode: str = "safe"
     confirmed: bool = False
     delete_story_paths: list[str] = Field(default_factory=list)
+
+
+class PackageAssetSelectionPayload(BaseModel):
+    type: str
+    name: str
+
+
+class PackageExportPayload(BaseModel):
+    package_id: str = ""
+    version: str = "1.0.0"
+    name: str
+    author: str
+    description: str = ""
+    tags: list[str] = Field(default_factory=list)
+    adult: bool = False
+    license: str = "unspecified"
+    assets: list[PackageAssetSelectionPayload] = Field(default_factory=list)
+    world_premise: str = ""
+    opening: str = ""
+    experience_preset: dict[str, Any] = Field(default_factory=dict)
 
 
 async def _receive_archive(request: Request) -> Path:
@@ -59,9 +82,100 @@ async def _receive_archive(request: Request) -> Path:
 @router.get("")
 def list_packages():
     try:
-        return {"packages": SERVICE.list_packages()}
+        installed = SERVICE.list_packages()
+        installed_keys = {(item["package_id"], item["version"]) for item in installed}
+        official = [
+            {**item, "installed": (item.get("package_id"), item.get("version")) in installed_keys}
+            for item in AUTHORING.official_catalog()
+        ]
+        return {"packages": installed, "official_packages": official}
     except PackageFormatError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@router.get("/authoring/assets")
+def list_authoring_assets():
+    """Return safe, name-based choices; never expose personal filesystem paths."""
+    return {"assets": AUTHORING.catalog()}
+
+
+@router.post("/official/{official_id}/start")
+def start_official_package(official_id: str, payload: PackageStartPayload):
+    """Build the bundled, inspectable package and enter it through the normal package path."""
+    save_dir: Path | None = None
+    record = None
+    created_install = False
+    try:
+        archive, manifest = AUTHORING.export_official(official_id)
+        save_name = normalize_asset_name(payload.save_name)
+        save_dir = Path(init_save_folder(save_name))
+        created_install = SERVICE.importer.ledger.find(manifest["package_id"], manifest["version"]) is None
+        record = SERVICE.importer.install(archive)
+        starter = SERVICE.materialize_story(record.package_id, record.version, save_dir)
+        return start_prepared_game(
+            save_name=save_name,
+            save_dir_path=str(save_dir),
+            world_premise=starter.world_premise,
+            story_settings=starter.story_settings,
+            opening=starter.opening,
+        )
+    except FileExistsError as exc:
+        raise HTTPException(status_code=409, detail=f"已存在同名存档“{payload.save_name.strip()}”，请更换名称") from exc
+    except (AssetLifecycleError, PackageFormatError) as exc:
+        if created_install and record:
+            SERVICE.rollback_install(record)
+        if save_dir:
+            shutil.rmtree(save_dir, ignore_errors=True)
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception:
+        if created_install and record:
+            SERVICE.rollback_install(record)
+        if save_dir:
+            shutil.rmtree(save_dir, ignore_errors=True)
+        raise
+
+
+@router.post("/authoring/export")
+def export_authored_package(payload: PackageExportPayload):
+    try:
+        target, manifest = AUTHORING.export(
+            metadata={
+                "package_id": payload.package_id,
+                "version": payload.version,
+                "name": payload.name,
+                "author": payload.author,
+                "description": payload.description,
+                "tags": payload.tags,
+                "adult": payload.adult,
+                "license": payload.license,
+                "experience_preset": payload.experience_preset,
+            },
+            selections=[AssetSelection(item.type, item.name) for item in payload.assets],
+            starter={
+                "world_premise": payload.world_premise or payload.description,
+                "opening": payload.opening,
+                "story_settings": {},
+            },
+        )
+        return {
+            "status": "exported",
+            "filename": target.name,
+            "download_url": f"/api/v1/world-packages/authoring/exports/{target.name}",
+            "manifest": manifest,
+        }
+    except PackageFormatError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"世界包导出失败：{exc}") from exc
+
+
+@router.get("/authoring/exports/{filename}")
+def download_authored_package(filename: str):
+    try:
+        path = AUTHORING.download_path(filename)
+        return FileResponse(path, media_type="application/zip", filename=path.name)
+    except PackageFormatError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.post("/inspect")

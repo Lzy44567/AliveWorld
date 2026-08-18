@@ -287,6 +287,33 @@ test('世界书工坊修改先进入草稿，发布后成为正式资产并可�
 });
 
 
+test('官方演示世界可一键开局，工坊可选择资产并下载世界包', async ({ page }) => {
+  await page.goto('/');
+  await dismissStartupPrompt(page);
+  await page.getByTestId('tab-packages').click();
+  const official = page.getByTestId('official-world-packages');
+  await expect(official).toContainText('雾港回声');
+  await official.getByTestId('official-world-start').click();
+  const startDialog = page.getByRole('dialog', { name: '从世界包开始' });
+  await startDialog.getByTestId('world-package-save-name').fill('雾港自动验收');
+  await startDialog.getByTestId('world-package-confirm-start').click();
+  await expect(page.locator('[data-save-name="雾港自动验收"]')).toContainText('当前游玩');
+
+  await page.getByRole('button', { name: '🧰 工坊' }).click();
+  await page.getByTestId('open-world-package-builder').click();
+  const builder = page.getByRole('dialog', { name: '创建世界包' });
+  await expect(builder).toBeVisible();
+  await builder.getByTestId('package-builder-name').fill('自动导出世界');
+  await builder.getByText('作者').locator('input').fill('AliveWorld Test');
+  await builder.getByRole('button', { name: /测试世界书/ }).click();
+  const downloadPromise = page.waitForEvent('download');
+  await builder.getByTestId('package-builder-export').click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe('自动导出世界-1.0.0.aliveworld');
+  await expect(page.getByText('世界包“自动导出世界”已通过隐私检查并导出')).toBeVisible();
+});
+
+
 test('生图执行失败保留任务卡，点击重试后成功交付图片', async ({ page }) => {
   await page.addInitScript(() => {
     const current = JSON.parse(localStorage.getItem('aw_config') || '{}');

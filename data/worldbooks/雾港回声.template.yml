@@ -1,0 +1,30 @@
+name: 雾港回声
+overview: 雾港依靠潮汐钟和回声档案维持航运。退潮时，海雾会短暂重现曾在港口发生过的声音；档案局负责登记、解释并封存可能扰乱秩序的回声。玩家是一名夜间递送员，收到了一件标注为“由未来的自己寄出”的密封包裹。
+axioms:
+  - 回声只能重现曾经在雾港真实发生过的声音，不能凭空预言未来。
+  - 潮汐钟决定公共航道与回声开放时段，任何组织都不能让整座城市永久停潮。
+  - 未被证实、未被找到或不被官方承认的事物，不等于绝对不存在。
+entries:
+  - id: entry_mist_harbor_echoes
+    name: 退潮回声
+    keys: 退潮,海雾,回声,旧声音
+    content: 每次退潮后的半小时，海雾会重放附近曾经发生过的声音。距离、遮挡和年代会使声音残缺；回声本身不能改变现实，但能暴露线索或制造误解。
+    tags: [常驻, 绝对规则]
+    is_active: true
+  - id: entry_mist_harbor_archive
+    name: 回声档案局
+    keys: 档案局,封存,登记员,潮汐钟
+    content: 档案局公开职责是整理危险回声、维护潮汐钟与航运秩序。它没有权力宣布某件事从未存在，只能给证据标注可信等级并限制公开传播。
+    tags: [制度, 常驻]
+    is_active: true
+  - id: entry_mist_harbor_delivery
+    name: 夜间递送
+    keys: 包裹,递送,收件人,旧码头
+    content: 夜间递送员持有跨越封锁区的临时通行牌，但每一次越区都会留下可追溯的钟印。遗失、转交或拒收包裹都可能改变不同势力的判断。
+    tags: [职业, 剧情线索]
+    is_active: true
+is_active: true
+is_template: true
+tags: [模板, 官方演示, 悬疑, 小世界]
+_aliveworld:
+  asset_id: awasset_2b6ae71508ea4dcaaf1d25458890a001

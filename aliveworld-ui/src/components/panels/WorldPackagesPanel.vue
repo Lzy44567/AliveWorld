@@ -8,6 +8,7 @@ import { uiStore } from '../../store/uiStore';
 import WorldPackageManagerModal from '../modals/WorldPackageManagerModal.vue';
 
 const packages = ref([]);
+const officialPackages = ref([]);
 const preview = ref(null);
 const pendingFile = ref(null);
 const busy = ref(false);
@@ -23,6 +24,7 @@ const previewStatus = computed(() => ({
 const refresh = async () => {
   const data = await worldPackageApi.list();
   packages.value = data.packages || [];
+  officialPackages.value = data.official_packages || [];
 };
 
 const chooseFile = async (event) => {
@@ -90,7 +92,9 @@ const startStory = async () => {
   if (!startTarget.value || !saveName.value.trim()) return;
   gameStore.isProcessing = true;
   try {
-    const data = await worldPackageApi.start(startTarget.value.package_id, startTarget.value.version, saveName.value.trim());
+    const data = startTarget.value.official_id
+      ? await worldPackageApi.startOfficial(startTarget.value.official_id, saveName.value.trim())
+      : await worldPackageApi.start(startTarget.value.package_id, startTarget.value.version, saveName.value.trim());
     await applyStartedStory(data, saveName.value.trim());
     startTarget.value = null;
     uiStore.rightTab = 'saves';
@@ -135,7 +139,16 @@ onMounted(() => refresh().catch(error => uiStore.showToast(error.message, 'error
       </div>
     </section>
 
-    <div v-if="!packages.length" class="flex flex-1 flex-col items-center justify-center px-6 text-center text-slate-500">
+    <section v-if="officialPackages.length" class="mb-3 shrink-0 rounded-xl border border-amber-700/60 bg-amber-950/15 p-3" data-testid="official-world-packages">
+      <div class="mb-2 flex items-center justify-between"><div><h3 class="text-xs font-black text-amber-200">✨ 官方演示世界</h3><p class="mt-1 text-[10px] text-slate-500">无需先制作资产，建立独立故事后即可游玩</p></div></div>
+      <article v-for="item in officialPackages" :key="item.official_id" class="rounded-lg border border-amber-800/50 bg-slate-900/65 p-3">
+        <div class="flex items-start justify-between gap-2"><div><h4 class="text-sm font-bold text-slate-100">{{ item.name }}</h4><p class="mt-1 text-[10px] text-slate-500">v{{ item.version }} · {{ item.asset_count }} 项内容</p></div><span class="rounded bg-amber-950 px-1.5 py-0.5 text-[9px] text-amber-300">{{ item.installed ? '已安装' : '随游戏提供' }}</span></div>
+        <p class="mt-2 text-xs leading-5 text-slate-400">{{ item.description }}</p>
+        <button data-testid="official-world-start" class="mt-3 w-full rounded bg-amber-700 py-2 text-xs font-bold text-white hover:bg-amber-600" @click="openStart(item)">▶ 用此世界创建故事</button>
+      </article>
+    </section>
+
+    <div v-if="!packages.length && !officialPackages.length" class="flex flex-1 flex-col items-center justify-center px-6 text-center text-slate-500">
       <div class="mb-3 text-4xl">🌌</div>
       <p class="font-bold text-slate-300">还没有安装世界包</p>
       <p class="mt-2 text-xs leading-5">世界包会准备好世界、角色、文风与开场。你也可以先创建空白故事，继续使用原有自由创作流程。</p>

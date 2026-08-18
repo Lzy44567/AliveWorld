@@ -14,7 +14,7 @@ export const uiStore = reactive({
 
   modals: { 
     settings: false, gallery: false, terminal: false, newGame: false, insertChar: false,
-    assetEditor: false, quickStart: false,
+    assetEditor: false, quickStart: false, worldPackageBuilder: false,
     embeddingModel: false, causalLedger: false, imageGenerator: false, legacyMigration: false
   },
   legacyMigrationSource: '',
