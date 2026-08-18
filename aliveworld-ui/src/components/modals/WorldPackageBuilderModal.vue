@@ -113,7 +113,7 @@ onMounted(async () => {
             <details v-for="group in groups" :key="group.type" open class="rounded-xl border border-slate-800 bg-slate-900/45 p-3">
               <summary class="cursor-pointer text-sm font-bold text-slate-200">{{ group.icon }} {{ group.label }} · {{ group.items.length }}</summary>
               <div class="mt-2 space-y-2">
-                <button v-for="item in group.items" :key="keyOf(item)" type="button" class="flex w-full items-start gap-3 rounded-lg border p-3 text-left" :class="isSelected(item)?'border-cyan-600 bg-cyan-950/35':'border-slate-700 bg-slate-950/40 hover:border-slate-500'" @click="toggle(item)">
+                <button v-for="item in group.items" :key="keyOf(item)" data-testid="package-builder-asset" type="button" class="flex w-full items-start gap-3 rounded-lg border p-3 text-left" :class="isSelected(item)?'border-cyan-600 bg-cyan-950/35':'border-slate-700 bg-slate-950/40 hover:border-slate-500'" @click="toggle(item)">
                   <input type="checkbox" class="mt-0.5" :checked="isSelected(item)" tabindex="-1" />
                   <span class="min-w-0"><strong class="block truncate text-xs text-slate-200">{{ item.name }}</strong><span class="mt-1 line-clamp-2 block text-[10px] leading-4 text-slate-500">{{ item.description || '未填写简介' }}</span><span v-if="item.is_template" class="mt-1 inline-block rounded bg-indigo-950 px-1.5 py-0.5 text-[9px] text-indigo-300">模板</span></span>
                 </button>

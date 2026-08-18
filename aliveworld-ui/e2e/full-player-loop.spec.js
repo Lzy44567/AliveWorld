@@ -7,14 +7,27 @@ const runtimeVersion = readFileSync(new URL('../../VERSION', import.meta.url), '
 
 
 const assetTabs = {
-  characters: 'tab-character',
-  worldbooks: 'tab-world',
-  styles: 'tab-style',
-  entities: 'tab-entity',
+  characters: 'resource-asset-character',
+  worldbooks: 'resource-asset-world',
+  styles: 'resource-asset-style',
+  entities: 'resource-asset-entity',
 };
 
+async function openResourceLibrary(page, section = 'assets') {
+  if (!await page.getByTestId('resource-library').isVisible().catch(() => false)) {
+    await page.getByTestId('open-resource-library').click();
+  }
+  await page.getByTestId(`resource-tab-${section}`).click();
+}
+
+async function closeResourceLibrary(page) {
+  if (await page.getByTestId('resource-library').isVisible().catch(() => false)) {
+    await page.getByTestId('resource-library-close').click();
+  }
+}
 
 async function openAssetEditor(page, type) {
+  await openResourceLibrary(page, 'assets');
   await page.getByTestId(assetTabs[type]).click();
   await page.getByRole('button', { name: '🌐 全局图鉴' }).click();
   await page.getByTestId('asset-new').click();
@@ -46,25 +59,30 @@ async function createAsset(page, type, name) {
   await editor.getByTestId('asset-editor-save').click();
   await expect(editor).toBeHidden();
   await expect(page.locator(`[data-asset-name="${name}"]`)).toBeVisible();
+  await closeResourceLibrary(page);
 }
 
 
 async function loadAsset(page, type, name) {
+  await openResourceLibrary(page, 'assets');
   await page.getByTestId(assetTabs[type]).click();
   await page.getByRole('button', { name: '🌐 全局图鉴' }).click();
   const card = page.locator(`[data-asset-name="${name}"]`);
   await expect(card).toBeVisible();
   await card.getByRole('button', { name: /载入局内/ }).click();
+  await closeResourceLibrary(page);
 }
 
 
 async function setLocalAssetEnabled(page, type, name, enabled) {
+  await openResourceLibrary(page, 'assets');
   await page.getByTestId(assetTabs[type]).click();
   await page.getByRole('button', { name: '🛡️ 本局专属' }).click();
   const card = page.locator(`[data-asset-name="${name}"]`);
   await expect(card).toBeVisible();
   const toggle = card.getByRole('switch');
   if ((await toggle.getAttribute('aria-checked')) !== String(enabled)) await toggle.click();
+  await closeResourceLibrary(page);
 }
 
 
@@ -83,6 +101,8 @@ async function dismissStartupPrompt(page) {
 async function loadStory(page, name = '自动验收故事') {
   await page.goto('/');
   await dismissStartupPrompt(page);
+  await expect(page.getByTestId('tab-character')).toHaveCount(0);
+  await expect(page.getByTestId('open-resource-library')).toBeVisible();
   await page.getByTestId('tab-saves').click();
   const card = page.locator(`[data-save-name="${name}"]`);
   await expect(card).toBeVisible();
@@ -166,11 +186,10 @@ test('前端创建和载入全类资产，正文上下文启停可由假模型�
   expect(secondSettlement.markers).not.toEqual(expect.arrayContaining(['世界书A', '角色卡A', '文风卡A']));
 });
 
-
 test('玩家可导入世界包并一键建立带完整资产的独立故事', async ({ page, request }) => {
   await page.goto('/');
   await dismissStartupPrompt(page);
-  await page.getByTestId('tab-packages').click();
+  await openResourceLibrary(page, 'packages');
   const packagePath = fileURLToPath(new URL('../../build/e2e-runtime/e2e-world.aliveworld', import.meta.url));
   await page.getByTestId('world-package-file').setInputFiles(packagePath);
   await expect(page.getByTestId('world-package-preview')).toContainText('自动验收世界包');
@@ -178,16 +197,18 @@ test('玩家可导入世界包并一键建立带完整资产的独立故事', as
   await page.getByTestId('world-package-install-start').click();
   await expect(page.locator('[data-save-name="世界包一键故事"]')).toContainText('当前游玩');
 
-  await page.getByTestId('tab-packages').click();
+  await openResourceLibrary(page, 'packages');
   await page.getByTestId('world-package-manage').click();
   const manager = page.getByRole('dialog', { name: '世界包管理' });
   await expect(manager).toContainText('关联故事 1 个');
   await expect(manager).toContainText('🔒 来源：自动验收世界包');
   await manager.getByRole('button', { name: '✕' }).click();
 
-  await page.getByTestId('tab-world').click();
+  await page.getByTestId('resource-tab-assets').click();
+  await page.getByTestId('resource-asset-world').click();
   await page.getByRole('button', { name: '🛡️ 本局专属' }).click();
   await expect(page.locator('[data-asset-name="世界包测试世界"]')).toBeVisible();
+  await closeResourceLibrary(page);
   await request.delete('http://127.0.0.1:18765/__test__/requests');
   await page.getByTestId('story-action-input').fill('验证世界包资产。');
   await page.getByTestId('story-action-submit').click();
@@ -209,7 +230,7 @@ test('外部角色卡先显示兼容报告，再导入全局资产库', async ({
   await request.delete(`/api/v1/lobby/assets/characters/${encodeURIComponent(name)}`);
   await page.goto('/');
   await dismissStartupPrompt(page);
-  await page.getByTestId('tab-packages').click();
+  await openResourceLibrary(page, 'packages');
   await page.getByTestId('world-package-manage').click();
   const manager = page.getByRole('dialog', { name: '世界包管理' });
   await manager.getByTestId('import-external-character').click();
@@ -230,7 +251,8 @@ test('外部角色卡先显示兼容报告，再导入全局资产库', async ({
   await dialog.getByTestId('external-asset-import').click();
   await expect(dialog).toBeHidden();
   await manager.getByRole('button', { name: '✕' }).first().click();
-  await page.getByTestId('tab-character').click();
+  await page.getByTestId('resource-tab-assets').click();
+  await page.getByTestId('resource-asset-character').click();
   await page.getByRole('button', { name: '🌐 全局图鉴' }).click();
   await expect(page.locator(`[data-asset-name="${name}"]`)).toBeVisible();
   await request.delete(`/api/v1/lobby/assets/characters/${encodeURIComponent(name)}`);
@@ -296,7 +318,7 @@ test('世界书工坊修改先进入草稿，发布后成为正式资产并可�
 test('官方演示世界可一键开局，工坊可选择资产并下载世界包', async ({ page }) => {
   await page.goto('/');
   await dismissStartupPrompt(page);
-  await page.getByTestId('tab-packages').click();
+  await openResourceLibrary(page, 'packages');
   const official = page.getByTestId('official-world-packages');
   await expect(official).toContainText('雾港回声');
   await official.locator('[data-official-id="mist_harbor_demo"]').getByTestId('official-world-start').click();
@@ -304,6 +326,11 @@ test('官方演示世界可一键开局，工坊可选择资产并下载世界�
   await startDialog.getByTestId('world-package-save-name').fill('雾港自动验收');
   await startDialog.getByTestId('world-package-confirm-start').click();
   await expect(page.locator('[data-save-name="雾港自动验收"]')).toContainText('当前游玩');
+  await expect(page.getByTestId('resource-library')).toBeHidden();
+  await openResourceLibrary(page, 'packages');
+  await expect(page.locator('[data-official-id="mist_harbor_demo"]')).toContainText('再开一局');
+  await expect(page.locator('[data-package-name="雾港回声"]')).toHaveCount(0);
+  await closeResourceLibrary(page);
 
   await page.getByRole('button', { name: '🧰 工坊' }).click();
   await page.getByTestId('open-world-package-builder').click();
@@ -311,7 +338,7 @@ test('官方演示世界可一键开局，工坊可选择资产并下载世界�
   await expect(builder).toBeVisible();
   await builder.getByTestId('package-builder-name').fill('自动导出世界');
   await builder.getByText('作者').locator('input').fill('AliveWorld Test');
-  await builder.getByRole('button', { name: /测试世界书/ }).click();
+  await builder.getByTestId('package-builder-asset').first().click();
   const downloadPromise = page.waitForEvent('download');
   await builder.getByTestId('package-builder-export').click();
   const download = await downloadPromise;
@@ -323,7 +350,7 @@ test('官方演示世界可一键开局，工坊可选择资产并下载世界�
 test('大型官方世界一键建立实体与初始动态状态', async ({ page }) => {
   await page.goto('/');
   await dismissStartupPrompt(page);
-  await page.getByTestId('tab-packages').click();
+  await openResourceLibrary(page, 'packages');
   const card = page.locator('[data-official-id="ash_ring_city"]');
   await expect(card).toContainText('烬环城：停炉前夜');
   await expect(card).toContainText('三个组织会持续行动');
@@ -387,12 +414,14 @@ test('页面重载后可重新唤醒故事并恢复正文、局内资产和图�
   await expect(page.getByText('第2回合', { exact: true })).toBeVisible();
   await expect(page.getByText('2/5')).toBeVisible();
   await expect(page.locator('[data-message-role="ai"] img')).toBeVisible({ timeout: 10_000 });
-  await page.getByTestId('tab-character').click();
+  await openResourceLibrary(page, 'assets');
+  await page.getByTestId('resource-asset-character').click();
   await page.getByRole('button', { name: '🛡️ 本局专属' }).click();
   await expect(page.locator('[data-asset-name="测试角色卡"]')).toBeVisible();
-  await page.getByTestId('tab-style').click();
+  await page.getByTestId('resource-asset-style').click();
   await page.getByRole('button', { name: '🛡️ 本局专属' }).click();
   await expect(page.locator('[data-asset-name="测试文风"]')).toBeVisible();
+  await closeResourceLibrary(page);
   await page.getByTestId('tab-saves').click();
   await expect(page.locator('[data-save-name="自动验收故事"]')).toContainText('当前游玩');
 });
@@ -400,7 +429,7 @@ test('页面重载后可重新唤醒故事并恢复正文、局内资产和图�
 
 test('高级设置默认隐藏并可由总开关统一显示', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: /设置/ }).click();
+  await page.getByRole('button', { name: '⚙️ 设置', exact: true }).click();
   await expect(page.getByText('用户偏好（高级）')).toHaveCount(0);
   await page.getByTestId('advanced-settings-toggle').check();
   await expect(page.getByText('用户偏好（高级）')).toBeVisible();
@@ -412,7 +441,7 @@ test('高级设置默认隐藏并可由总开关统一显示', async ({ page }) 
 
 test('接口可从卡片直接启停并发现模型列表', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: /设置/ }).click();
+  await page.getByRole('button', { name: '⚙️ 设置', exact: true }).click();
   await page.getByRole('button', { name: '🔌 接口与模型' }).click();
   const card = page.locator('article').filter({ hasText: 'fake-story' });
   await expect(card).toBeVisible();
@@ -431,7 +460,7 @@ test('接口可从卡片直接启停并发现模型列表', async ({ page }) => 
 
 test('生图工作流显示映射报告并独立保存配置档案', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: /设置/ }).click();
+  await page.getByRole('button', { name: '⚙️ 设置', exact: true }).click();
   await page.getByRole('button', { name: '🎨 生图配置' }).click();
   await expect(page.getByText('工作流配置档案', { exact: true })).toBeVisible();
   await expect(page.getByText('正向提示词', { exact: true }).first()).toBeVisible();
@@ -548,7 +577,7 @@ test('便携版一键更新从下载进度自动进入独立助手安装', async
 test('反馈面板默认不附带私人日志并可生成本机安全预览', async ({ page }) => {
   await page.goto('/');
   await dismissStartupPrompt(page);
-  await page.getByRole('button', { name: /设置/ }).click();
+  await page.getByRole('button', { name: '⚙️ 设置', exact: true }).click();
   await page.getByRole('button', { name: '💬 反馈与诊断' }).click();
   await expect(page.getByTestId('feedback-settings')).toBeVisible();
   await page.getByTestId('feedback-title').fill('自动验收反馈');

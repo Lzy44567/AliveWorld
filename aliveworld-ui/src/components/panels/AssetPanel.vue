@@ -20,11 +20,16 @@ import CharacterDeleteConfirmModal from '../modals/CharacterDeleteConfirmModal.v
 import { buildCharacterImageContext } from '../../utils/characterImageContext';
 import { workshopStore } from '../../store/workshopStore';
 
+const props = defineProps({ layout: { type: String, default: 'list' } });
+
 const searchKeyword = ref("");
 const { confirmDeleteId, requestDelete, cancelDelete } = useDeleteConfirmation();
 const embeddingStatus = ref({ state: 'disabled', downloaded: false, enabled: false });
 const selectedPortraitUrl = ref('');
 const pendingCharacterDelete = ref(null);
+const expandedAssetName = ref('');
+const expandedAssetDetail = ref(null);
+const detailLoading = ref(false);
 const entityDisclosure = computed(() => normalizeEntityDisclosure(effectiveStorySettings.value));
 const canManageCurrentLocalAsset = computed(() =>
   uiStore.rightTab !== 'entity' || entityDisclosure.value.allowEditing
@@ -65,6 +70,45 @@ const getApiType = () => {
   const map = { world: 'worldbooks', character: 'characters', style: 'styles', entity: 'entities' };
   return map[uiStore.rightTab];
 };
+
+const toggleAssetDetails = async item => {
+  if (expandedAssetName.value === item.name) {
+    expandedAssetName.value = '';
+    expandedAssetDetail.value = null;
+    return;
+  }
+  expandedAssetName.value = item.name;
+  detailLoading.value = true;
+  try {
+    expandedAssetDetail.value = uiStore.assetScope === 'local'
+      ? JSON.parse(JSON.stringify(item))
+      : (await assetApi.getAssetDetail(getApiType(), item.name)).parsed || item;
+  } catch {
+    expandedAssetDetail.value = item;
+  } finally {
+    detailLoading.value = false;
+  }
+};
+
+const detailLines = computed(() => {
+  const data = expandedAssetDetail.value || {};
+  if (uiStore.rightTab === 'world') return [
+    ['概述', data.overview || data.global_setting || '未填写'],
+    ['世界公理', `${Array.isArray(data.axioms) ? data.axioms.length : 0} 条`],
+    ['世界条目', `${Array.isArray(data.entries) ? data.entries.length : 0} 条`],
+  ];
+  if (uiStore.rightTab === 'character') return [
+    ['角色描述', data.description || data.content || '未填写'],
+    ['定位', data.is_player ? '玩家扮演角色' : '故事角色'],
+  ];
+  if (uiStore.rightTab === 'style') return [['文风要求', data.content || data.description || '未填写']];
+  return [
+    ['动机', data.motive || data.description || '未填写'],
+    ['当前状态', data.status || '未填写'],
+    ['计划', Array.isArray(data.plans) && data.plans.length ? data.plans.join('；') : '暂无'],
+    ['机制', Array.isArray(data.mechanisms) && data.mechanisms.length ? data.mechanisms.join('；') : '暂无'],
+  ];
+});
 
 const openNewAsset = () => {
   const type = getApiType();
@@ -260,23 +304,30 @@ onBeforeUnmount(() => {
       </div>
       <div v-else-if="currentList.length === 0" class="text-center text-slate-500 text-xs mt-10">当前区域暂无资产记录</div>
 
-      <div class="space-y-3 pb-8">
+      <div class="pb-8" :class="props.layout === 'grid' ? 'grid grid-cols-1 gap-4 xl:grid-cols-2' : 'space-y-3'">
        <template v-for="item in currentList" :key="item.name">
-       <CharacterAssetCard v-if="uiStore.rightTab==='character'" :item="item" :scope="uiStore.assetScope" :portrait-url="portraitUrl(item)" :delete-confirm="confirmDeleteId===item.name" @toggle="toggleActive(item)" @edit="openEditAsset(item.name)" @portrait="openPortraitGenerator(item)" @pull="pullAssetToLocal(item.name)" @push="pushToGlobal(item)" @request-delete="requestAssetDelete(item)" @confirm-delete="executeDelete(item.name)" @cancel-delete="cancelDelete" @zoom="selectedPortraitUrl=$event" />
+       <div v-if="uiStore.rightTab==='character'" class="min-w-0">
+       <CharacterAssetCard :item="item" :scope="uiStore.assetScope" :portrait-url="portraitUrl(item)" :delete-confirm="confirmDeleteId===item.name" @toggle="toggleActive(item)" @edit="openEditAsset(item.name)" @portrait="openPortraitGenerator(item)" @pull="pullAssetToLocal(item.name)" @push="pushToGlobal(item)" @request-delete="requestAssetDelete(item)" @confirm-delete="executeDelete(item.name)" @cancel-delete="cancelDelete" @zoom="selectedPortraitUrl=$event" @details="toggleAssetDetails(item)" />
+       <div v-if="expandedAssetName===item.name" class="mt-2 rounded-xl border border-indigo-800/60 bg-slate-950/80 p-3 text-[11px]"><p v-if="detailLoading" class="text-slate-500">正在读取详情……</p><dl v-else class="space-y-2"><div v-for="line in detailLines" :key="line[0]"><dt class="font-bold text-indigo-300">{{ line[0] }}</dt><dd class="mt-0.5 whitespace-pre-wrap leading-5 text-slate-400">{{ line[1] }}</dd></div></dl></div>
+       </div>
        <div v-else :data-asset-name="item.name" class="bg-aw_panel border border-slate-700 p-3 rounded-xl hover:border-indigo-500 transition group shadow flex flex-col gap-2 relative overflow-hidden" :class="item.is_active === false ? 'opacity-60 grayscale' : ''">
          
          <div class="flex justify-between items-start">
-            <h4 class="text-sm font-bold text-slate-200 group-hover:text-indigo-400 transition flex items-center gap-2">
+            <div class="flex min-w-0 items-center gap-2">
+            <button @click="toggleAssetDetails(item)" class="min-w-0 truncate text-left text-sm font-bold text-slate-200 group-hover:text-indigo-400 transition" title="展开或收起资产详情">
               <span v-if="item.is_player" class="text-amber-400" title="玩家化身">👑</span>
               {{ item.name }}
-              <button v-if="uiStore.assetScope==='local'" @click.stop="toggleActive(item)" role="switch" :aria-checked="item.is_active !== false" class="inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-[10px] font-bold transition" :class="item.is_active === false ? 'border-slate-600 bg-slate-800 text-slate-400 hover:border-slate-500' : 'border-emerald-700/70 bg-emerald-950/60 text-emerald-300 hover:bg-emerald-900/70'" :title="item.is_active === false ? '点击启用此卡片' : '点击封存此卡片'">
+              <span class="ml-1 text-[9px] font-normal text-slate-500">详情</span>
+            </button>
+            <button v-if="uiStore.assetScope==='local'" @click.stop="toggleActive(item)" role="switch" :aria-checked="item.is_active !== false" class="inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-1 text-[10px] font-bold transition" :class="item.is_active === false ? 'border-slate-600 bg-slate-800 text-slate-400 hover:border-slate-500' : 'border-emerald-700/70 bg-emerald-950/60 text-emerald-300 hover:bg-emerald-900/70'" :title="item.is_active === false ? '点击启用此卡片' : '点击封存此卡片'">
                 <span class="flex h-5 w-10 items-center rounded-full p-0.5 transition-colors" :class="item.is_active === false ? 'justify-start bg-slate-600' : 'justify-end bg-emerald-500'">
                   <span class="h-4 w-4 rounded-full bg-white shadow" />
                 </span>
                 {{ item.is_active === false ? '已封存' : '已启用' }}
-              </button>
-            </h4>
+            </button>
+            </div>
          </div>
+         <div v-if="expandedAssetName===item.name" class="rounded-lg border border-indigo-800/60 bg-slate-950/80 p-3 text-[11px]"><p v-if="detailLoading" class="text-slate-500">正在读取详情……</p><dl v-else class="space-y-2"><div v-for="line in detailLines" :key="line[0]"><dt class="font-bold text-indigo-300">{{ line[0] }}</dt><dd class="mt-0.5 whitespace-pre-wrap leading-5 text-slate-400">{{ line[1] }}</dd></div></dl></div>
          <div class="flex gap-3" :class="uiStore.rightTab==='character' && portraitUrl(item) ? 'items-stretch' : 'flex-col'">
          <img v-if="uiStore.rightTab==='character' && portraitUrl(item)" :src="portraitUrl(item)" @click="selectedPortraitUrl=portraitUrl(item)" class="h-44 w-28 shrink-0 cursor-zoom-in rounded-lg border border-fuchsia-900/50 bg-black object-contain transition hover:border-fuchsia-500" title="点击放大立绘" />
          <div class="min-w-0 flex-1">

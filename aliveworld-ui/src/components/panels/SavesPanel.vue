@@ -111,7 +111,7 @@ const confirmLifecycle = async (newName) => {
         <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs">🔍</span>
         <input v-model="searchSaveKeyword" class="w-full bg-slate-800 border border-slate-600 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-200 outline-none focus:border-indigo-500" placeholder="搜索记忆切片..." />
       </div>
-      <button class="w-8 h-8 bg-slate-800 border border-slate-600 rounded-lg flex items-center justify-center text-slate-400 hover:text-amber-400 transition" title="收藏">⭐</button>
+      <button data-testid="open-world-library" @click="uiStore.resourceLibrarySection='packages'; uiStore.modals.gallery=true" class="px-2 h-8 bg-cyan-950/40 border border-cyan-800 rounded-lg text-[10px] font-bold text-cyan-300 hover:bg-cyan-800 transition" title="从官方世界、已安装世界包或本地文件开始">🌌 选世界</button>
       <button class="px-3 h-8 bg-emerald-600/20 text-emerald-400 border border-emerald-700/50 rounded-lg hover:bg-emerald-600 hover:text-white transition text-xs font-bold whitespace-nowrap" @click="uiStore.modals.newGame = true">+ 新局</button>
     </div>
     

@@ -5,7 +5,7 @@ defineProps({
   portraitUrl: { type: String, default: '' },
   deleteConfirm: { type: Boolean, default: false },
 });
-defineEmits(['toggle', 'edit', 'portrait', 'pull', 'push', 'request-delete', 'confirm-delete', 'cancel-delete', 'zoom']);
+defineEmits(['toggle', 'edit', 'portrait', 'pull', 'push', 'request-delete', 'confirm-delete', 'cancel-delete', 'zoom', 'details']);
 </script>
 
 <template>
@@ -16,7 +16,7 @@ defineEmits(['toggle', 'edit', 'portrait', 'pull', 'push', 'request-delete', 'co
       </button>
       <div class="flex min-w-0 flex-col p-3">
         <div class="flex items-start justify-between gap-2">
-          <h4 class="min-w-0 truncate text-sm font-bold text-slate-200"><span v-if="item.is_player" class="mr-1 text-amber-400" title="玩家化身">👑</span>{{ item.name }}</h4>
+          <button @click="$emit('details')" class="min-w-0 truncate text-left text-sm font-bold text-slate-200 hover:text-indigo-300" title="展开或收起资产详情"><span v-if="item.is_player" class="mr-1 text-amber-400" title="玩家化身">👑</span>{{ item.name }} <span class="text-[9px] text-slate-500">详情</span></button>
           <button v-if="scope==='local'" @click="$emit('toggle')" role="switch" :aria-checked="item.is_active !== false" class="inline-flex shrink-0 items-center gap-1 rounded-full border px-1.5 py-1 text-[9px] font-bold" :class="item.is_active === false ? 'border-slate-600 bg-slate-800 text-slate-400' : 'border-emerald-700/70 bg-emerald-950/60 text-emerald-300'">
             <span class="flex h-4 w-8 items-center rounded-full p-0.5" :class="item.is_active === false ? 'justify-start bg-slate-600' : 'justify-end bg-emerald-500'"><span class="h-3 w-3 rounded-full bg-white" /></span>{{ item.is_active === false ? '封存' : '启用' }}
           </button>

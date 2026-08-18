@@ -38,7 +38,7 @@ export const imageStore = reactive({
         }
         if (task.status === 'succeeded' && previous.get(task.id) !== 'succeeded' && !this.notified.has(task.id)) {
           this.notified.add(task.id);
-          uiStore.showToast('图片已生成，可在正文或画廊查看', 'success');
+          uiStore.showToast('图片已生成，可在正文或资源库查看', 'success');
         }
         if (task.status === 'failed' && previous.get(task.id) !== 'failed' && !this.notified.has(task.id)) {
           this.notified.add(task.id);
@@ -89,7 +89,7 @@ export const imageStore = reactive({
             } else if (assignment?.status === 'failed') {
               uiStore.showToast(`图片已生成，但挂载全局立绘失败：${assignment.message || '角色卡不存在'}`, 'error');
             } else {
-              uiStore.showToast('全局图片已生成，可在画廊查看', 'success');
+              uiStore.showToast('全局图片已生成，可在资源库查看', 'success');
             }
           } else if (task.status === 'failed') {
             uiStore.showToast(imageFailureDetail(task).full, 'error');

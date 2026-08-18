@@ -15,6 +15,10 @@ const busy = ref(false);
 const startTarget = ref(null);
 const saveName = ref('');
 const managerOpen = ref(false);
+const visibleInstalledPackages = computed(() => {
+  const officialIds = new Set(officialPackages.value.map(item => item.package_id).filter(Boolean));
+  return packages.value.filter(item => !officialIds.has(item.package_id));
+});
 
 const previewStatus = computed(() => ({
   new: '新的世界包', update: '可安装的新版本', downgrade: '较旧版本', same: '已经安装',
@@ -65,6 +69,7 @@ const applyStartedStory = async (data, name) => {
   configStore.applyStoryConfig(data);
   await assetStore.fetchAssets();
   await assetStore.fetchLocalAssets(data.session_id);
+  uiStore.modals.gallery = false;
   uiStore.rightTab = 'saves';
 };
 
@@ -139,8 +144,9 @@ onMounted(() => refresh().catch(error => uiStore.showToast(error.message, 'error
       </div>
     </section>
 
-    <section v-if="officialPackages.length" class="mb-3 max-h-[54vh] shrink-0 space-y-2 overflow-y-auto rounded-xl border border-amber-700/60 bg-amber-950/15 p-3 custom-scrollbar" data-testid="official-world-packages">
+    <section v-if="officialPackages.length" class="mb-3 shrink-0 rounded-xl border border-amber-700/60 bg-amber-950/15 p-3" data-testid="official-world-packages">
       <div class="mb-2 flex items-center justify-between"><div><h3 class="text-xs font-black text-amber-200">✨ 官方世界</h3><p class="mt-1 text-[10px] text-slate-500">先看体验，再一键建立完整故事</p></div></div>
+      <div class="grid grid-cols-1 gap-3 xl:grid-cols-2">
       <article v-for="item in officialPackages" :key="item.official_id" class="rounded-lg border bg-slate-900/65 p-3" :class="item.featured ? 'border-cyan-700/70' : 'border-amber-800/50'" :data-official-id="item.official_id">
         <div class="flex items-start justify-between gap-2"><div><div class="flex flex-wrap items-center gap-1"><h4 class="text-sm font-bold text-slate-100">{{ item.name }}</h4><span v-if="item.featured" class="rounded bg-cyan-950 px-1.5 py-0.5 text-[9px] text-cyan-300">推荐体验</span></div><p class="mt-1 text-[10px] text-slate-500">v{{ item.version }} · {{ item.asset_count }} 项内容</p></div><span class="rounded bg-amber-950 px-1.5 py-0.5 text-[9px] text-amber-300">{{ item.installed ? '已安装' : '随游戏提供' }}</span></div>
         <div v-if="item.scale || item.duration || item.difficulty" class="mt-2 flex flex-wrap gap-1 text-[9px] text-slate-300">
@@ -152,8 +158,9 @@ onMounted(() => refresh().catch(error => uiStore.showToast(error.message, 'error
         <ul v-if="item.highlights?.length" class="mt-2 space-y-1 text-[10px] text-cyan-200/80">
           <li v-for="highlight in item.highlights.slice(0, 3)" :key="highlight">✓ {{ highlight }}</li>
         </ul>
-        <button data-testid="official-world-start" class="mt-3 w-full rounded bg-amber-700 py-2 text-xs font-bold text-white hover:bg-amber-600" @click="openStart(item)">▶ 用此世界创建故事</button>
+        <button data-testid="official-world-start" class="mt-3 w-full rounded bg-amber-700 py-2 text-xs font-bold text-white hover:bg-amber-600" @click="openStart(item)">▶ {{ item.installed ? '再开一局' : '立即开始' }}</button>
       </article>
+      </div>
     </section>
 
     <div v-if="!packages.length && !officialPackages.length" class="flex flex-1 flex-col items-center justify-center px-6 text-center text-slate-500">
@@ -162,8 +169,10 @@ onMounted(() => refresh().catch(error => uiStore.showToast(error.message, 'error
       <p class="mt-2 text-xs leading-5">世界包会准备好世界、角色、文风与开场。你也可以先创建空白故事，继续使用原有自由创作流程。</p>
     </div>
 
-    <div v-else class="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1 custom-scrollbar">
-      <article v-for="item in packages" :key="`${item.package_id}:${item.version}`" class="rounded-xl border border-slate-700 bg-aw_panel p-4" :data-package-name="item.name">
+    <div v-if="visibleInstalledPackages.length" class="min-h-0 flex-1 overflow-y-auto pr-1 custom-scrollbar">
+      <h3 class="mb-2 text-xs font-black text-slate-300">已安装的其他世界包</h3>
+      <div class="grid grid-cols-1 gap-3 xl:grid-cols-2">
+      <article v-for="item in visibleInstalledPackages" :key="`${item.package_id}:${item.version}`" class="rounded-xl border border-slate-700 bg-aw_panel p-4" :data-package-name="item.name">
         <div class="flex items-start justify-between gap-2">
           <div>
             <h3 class="font-bold text-slate-100">{{ item.name }}</h3>
@@ -178,6 +187,7 @@ onMounted(() => refresh().catch(error => uiStore.showToast(error.message, 'error
         <p v-if="!item.healthy" class="mt-2 text-[10px] text-amber-300">本地内容有 {{ item.modified_asset_ids.length }} 项修改、{{ item.missing_asset_ids.length }} 项丢失；开始前请检查。</p>
         <div class="mt-4"><button data-testid="world-package-start" class="w-full rounded bg-emerald-700 py-2 text-xs font-bold text-white hover:bg-emerald-600" @click="openStart(item)">▶ 创建新故事</button></div>
       </article>
+      </div>
     </div>
 
     <div v-if="startTarget" class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm" @click.self="startTarget=null">

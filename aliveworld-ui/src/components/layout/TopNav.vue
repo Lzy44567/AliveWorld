@@ -57,8 +57,8 @@ onBeforeUnmount(() => {
         <span class="text-lg">🪞</span><span class="hidden xl:inline">偏好</span>
         <span v-if="preferenceStore.pendingCount" class="absolute -right-2 -top-2 min-w-4 rounded-full bg-rose-500 px-1 text-[9px] leading-4 text-white">{{ Math.min(preferenceStore.pendingCount, 99) }}</span>
       </button>
-      <button @click="uiStore.modals.gallery = true" class="text-slate-400 hover:text-amber-400 flex items-center gap-1 text-sm font-bold transition">
-        <span class="text-lg">🖼️</span> 画廊
+      <button data-testid="open-resource-library" @click="uiStore.resourceLibrarySection='images'; uiStore.modals.gallery = true" class="text-slate-400 hover:text-amber-400 flex items-center gap-1 text-sm font-bold transition" title="统一管理图片、卡片资产与世界包">
+        <span class="text-lg">🗂️</span> 资源库
       </button>
       <button @click="uiStore.modals.terminal = true" class="text-slate-400 hover:text-rose-400 flex items-center gap-1 text-sm font-bold transition">
         <span class="text-lg">💻</span> 日志

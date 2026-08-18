@@ -1,10 +1,7 @@
 <script setup>
 import { uiStore } from '../../store/uiStore';
-import AssetPanel from '../panels/AssetPanel.vue';
 import SavesPanel from '../panels/SavesPanel.vue';
 import LocalEditPanel from '../panels/LocalEditPanel.vue';
-import EntityRuntimeToggle from '../controls/EntityRuntimeToggle.vue';
-import WorldPackagesPanel from '../panels/WorldPackagesPanel.vue';
 </script>
 
 <template>
@@ -12,27 +9,19 @@ import WorldPackagesPanel from '../panels/WorldPackagesPanel.vue';
     
     <!-- 顶级 Tab 导航栏 -->
     <div class="flex text-lg border-b border-slate-700 bg-slate-900 min-w-[400px] shrink-0">
-      <button data-testid="tab-packages" @click="uiStore.rightTab = 'packages'" :class="uiStore.rightTab==='packages'?'text-cyan-300 border-b-2 border-cyan-400 bg-slate-800':'text-slate-500 hover:bg-slate-800/50'" class="flex-1 py-3 transition" title="开始与世界包">🌌</button>
-      <button data-testid="tab-saves" @click="uiStore.rightTab = 'saves'" :class="uiStore.rightTab==='saves'?'text-emerald-400 border-b-2 border-emerald-400 bg-slate-800':'text-slate-500 hover:bg-slate-800/50'" class="flex-1 py-3 transition" title="故事线/存档">📂</button>
-      <button data-testid="tab-character" @click="uiStore.rightTab = 'character'" :class="uiStore.rightTab==='character'?'text-indigo-400 border-b-2 border-indigo-400 bg-slate-800':'text-slate-500 hover:bg-slate-800/50'" class="flex-1 py-3 transition" title="角色卡库">🎭</button>
-      <button data-testid="tab-world" @click="uiStore.rightTab = 'world'" :class="uiStore.rightTab==='world'?'text-amber-400 border-b-2 border-amber-400 bg-slate-800':'text-slate-500 hover:bg-slate-800/50'" class="flex-1 py-3 transition" title="世界法则">🌍</button>
-      <button data-testid="tab-style" @click="uiStore.rightTab = 'style'" :class="uiStore.rightTab==='style'?'text-rose-400 border-b-2 border-rose-400 bg-slate-800':'text-slate-500 hover:bg-slate-800/50'" class="flex-1 py-3 transition" title="文风卡">📜</button>
-      <button data-testid="tab-entity" @click="uiStore.rightTab = 'entity'" :class="uiStore.rightTab==='entity'?'text-purple-400 border-b-2 border-purple-400 bg-slate-800':'text-slate-500 hover:bg-slate-800/50'" class="flex-1 py-3 transition" title="暗流实体">👾</button>
-      <button @click="uiStore.rightTab = 'local_edit'" :class="uiStore.rightTab==='local_edit'?'text-cyan-400 border-b-2 border-cyan-400 bg-slate-800':'text-slate-500 hover:bg-slate-800/50'" class="flex-1 py-3 transition" title="局内独立设定">⚙️</button>
+      <button data-testid="tab-saves" @click="uiStore.rightTab = 'saves'" :class="uiStore.rightTab==='saves'?'text-emerald-400 border-b-2 border-emerald-400 bg-slate-800':'text-slate-500 hover:bg-slate-800/50'" class="flex-1 py-3 text-xs font-bold transition" title="故事线/存档">📂 故事线</button>
+      <button @click="uiStore.rightTab = 'local_edit'" :class="uiStore.rightTab==='local_edit'?'text-cyan-400 border-b-2 border-cyan-400 bg-slate-800':'text-slate-500 hover:bg-slate-800/50'" class="flex-1 py-3 text-xs font-bold transition" title="局内独立设定">⚙️ 本局设置</button>
     </div>
 
     <!-- 面板内容挂载区 -->
     <div class="flex-1 min-h-0 overflow-hidden bg-slate-900/30 min-w-[400px] p-4 relative flex flex-col">
       <div class="mb-3 flex min-h-7 items-center justify-between">
         <h2 class="text-sm font-bold text-slate-200 tracking-wider">{{ uiStore.tabTitles[uiStore.rightTab] || "数据面板" }}</h2>
-        <div v-if="uiStore.rightTab === 'entity'" class="flex items-center gap-2"><button v-if="uiStore.assetScope === 'local'" @click="uiStore.ledgerSourceFilter=''; uiStore.modals.causalLedger=true" class="rounded border border-fuchsia-800/70 bg-fuchsia-950/40 px-2 py-1 text-[10px] text-fuchsia-300">因果账本</button><EntityRuntimeToggle /></div>
       </div>
       
       <!-- 动态呼叫组件 -->
-      <AssetPanel v-if="['character', 'world', 'style', 'entity'].includes(uiStore.rightTab)" />
-      <div v-else class="flex flex-1 min-h-0 flex-col overflow-hidden">
-        <WorldPackagesPanel v-if="uiStore.rightTab === 'packages'" />
-        <SavesPanel v-else-if="uiStore.rightTab === 'saves'" />
+      <div class="flex flex-1 min-h-0 flex-col overflow-hidden">
+        <SavesPanel v-if="uiStore.rightTab === 'saves'" />
         <LocalEditPanel v-else-if="uiStore.rightTab === 'local_edit'" />
       </div>
     </div>
