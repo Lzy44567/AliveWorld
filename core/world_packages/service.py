@@ -15,9 +15,11 @@ from typing import Any
 
 import yaml
 
+from core.story_settings import DEFAULT_STORY_SETTINGS
 from core.world_packages.archive import WorldPackageImporter
 from core.world_packages.identity import asset_id_from_data
 from core.world_packages.models import InstallRecord, PackageFormatError, WorldPackageManifest
+from core.world_packages.provenance import annotate_story_asset, package_system_tags, related_stories
 
 
 STORY_ASSET_TYPES = frozenset({"worldbooks", "characters", "styles", "entities"})
@@ -60,6 +62,8 @@ class WorldPackageService:
         modified, missing = self._changes(record)
         return {
             **manifest.to_dict(),
+            "system_tags": package_system_tags(manifest.name, manifest.author, manifest.package_id),
+            "related_stories": related_stories(self.data_root / "saves", manifest.package_id, manifest.version),
             "installed_at": record.installed_at,
             "modified_asset_ids": modified,
             "missing_asset_ids": missing,
@@ -112,6 +116,9 @@ class WorldPackageService:
             "opening": f"【{manifest.name}】\n世界已经准备就绪。描述你的第一步行动。",
             "story_settings": dict(manifest.recommended_settings),
         }
+        preset = manifest.experience_preset
+        starter["story_settings"].update(preset.get("defaults", {}))
+        starter["story_settings"].update(preset.get("visibility", {}))
         starter_id = manifest.entrypoints.get("starter")
         if starter_id:
             starter_record = by_id.get(str(starter_id))
@@ -128,9 +135,13 @@ class WorldPackageService:
                     starter[key] = loaded[key]
         if not isinstance(starter["story_settings"], dict):
             raise PackageFormatError("世界包推荐设置格式无效")
+        unknown_settings = set(starter["story_settings"]) - set(DEFAULT_STORY_SETTINGS)
+        if unknown_settings:
+            raise PackageFormatError(f"世界包起点包含不可写入的设置：{sorted(unknown_settings)[0]}")
 
         destination_root = Path(save_dir)
         copied: list[Path] = []
+        local_instances: list[dict[str, str]] = []
         try:
             for asset in manifest.assets:
                 if asset.optional or asset.asset_type not in STORY_ASSET_TYPES:
@@ -142,14 +153,29 @@ class WorldPackageService:
                 destination.parent.mkdir(parents=True, exist_ok=True)
                 if destination.exists():
                     raise PackageFormatError(f"故事目录中已存在同名包资产：{asset.name}")
-                shutil.copy2(source, destination)
+                local_instance_id = annotate_story_asset(
+                    source,
+                    destination,
+                    package_id=manifest.package_id,
+                    package_version=manifest.version,
+                    package_name=manifest.name,
+                    source_asset_id=asset.asset_id,
+                )
                 copied.append(destination)
+                local_instances.append({
+                    "local_instance_id": local_instance_id,
+                    "source_asset_id": asset.asset_id,
+                    "type": asset.asset_type,
+                    "path": destination.relative_to(destination_root).as_posix(),
+                })
             provenance = destination_root / "world_package.json"
             provenance.write_text(json.dumps({
                 "package_id": manifest.package_id,
                 "version": manifest.version,
                 "name": manifest.name,
                 "asset_ids": [item.asset_id for item in manifest.assets if not item.optional],
+                "asset_instances": local_instances,
+                "experience_preset": manifest.experience_preset,
             }, ensure_ascii=False, indent=2), encoding="utf-8")
             copied.append(provenance)
         except Exception:
@@ -163,7 +189,15 @@ class WorldPackageService:
             package_name=manifest.name,
         )
 
-    def uninstall(self, package_id: str, version: str, *, mode: str = "safe", confirmed: bool = False) -> dict[str, Any]:
+    def uninstall(
+        self,
+        package_id: str,
+        version: str,
+        *,
+        mode: str = "safe",
+        confirmed: bool = False,
+        delete_story_paths: tuple[str, ...] = (),
+    ) -> dict[str, Any]:
         if mode not in {"safe", "record_only", "purge"}:
             raise PackageFormatError("未知的卸载方式")
         if mode == "purge" and not confirmed:
@@ -171,6 +205,13 @@ class WorldPackageService:
         record = self.importer.ledger.find(package_id, version)
         if record is None:
             raise PackageFormatError("世界包尚未安装")
+        known_stories = {str(Path(item["path"]).resolve()): item for item in related_stories(self.data_root / "saves", package_id, version)}
+        selected_story_paths: list[Path] = []
+        for raw_path in delete_story_paths:
+            resolved = str(Path(raw_path).resolve())
+            if resolved not in known_stories:
+                raise PackageFormatError("只能删除由当前世界包创建且仍存在的故事")
+            selected_story_paths.append(Path(resolved))
         package_dir = (self.root / PurePosixPath(record.manifest_path)).parent
         modified, missing = self._changes(record)
         preserved: list[str] = []
@@ -213,7 +254,26 @@ class WorldPackageService:
             raise
         if mode == "purge" and moved_target and moved_target.exists():
             shutil.rmtree(moved_target)
-        return {"status": "removed", "mode": mode, "preserved_paths": preserved, "recovery_record": str(audit)}
+        deleted_stories = []
+        for story_path in selected_story_paths:
+            shutil.rmtree(story_path)
+            deleted_stories.append(str(story_path))
+        return {
+            "status": "removed",
+            "mode": mode,
+            "preserved_paths": preserved,
+            "deleted_story_paths": deleted_stories,
+            "recovery_record": str(audit),
+        }
+
+    def rollback_install(self, record: InstallRecord) -> None:
+        """Remove only the exact installation created by a failed combined start."""
+        current = self.importer.ledger.find(record.package_id, record.version)
+        if current is None or current.package_sha256 != record.package_sha256:
+            return
+        package_dir = (self.root / PurePosixPath(current.manifest_path)).parent
+        self.importer.ledger.remove(current.package_id, current.version)
+        shutil.rmtree(package_dir, ignore_errors=True)
 
     def _manifest(self, record: InstallRecord) -> WorldPackageManifest:
         path = self.root / PurePosixPath(record.manifest_path)

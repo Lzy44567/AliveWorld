@@ -10,6 +10,7 @@ from core.asset_lifecycle import clone_yaml_asset
 from core.world_packages import AssetSource, InstallLedger, PackageFormatError, WorldPackageExporter, WorldPackageImporter, WorldPackageService, new_package_id
 from core.world_packages.models import new_asset_id
 from core.world_packages.identity import asset_id_from_data, ensure_yaml_asset_id
+from core.world_packages.provenance import related_stories, system_tags_from_asset
 
 
 class WorldPackageTests(unittest.TestCase):
@@ -160,6 +161,66 @@ class WorldPackageTests(unittest.TestCase):
             self.assertFalse(result.story_settings["aiSuggestions"])
             self.assertEqual(len(list((save / "worldbooks").glob("*.yml"))), 1)
             self.assertTrue((save / "world_package.json").is_file())
+
+    def test_experience_preset_and_immutable_origin_are_copied_to_story(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            data = root / "data"
+            source = root / "world.yml"
+            source.write_text("name: 同名世界\noverview: 测试\n", encoding="utf-8")
+            package_id = new_package_id()
+            package = self._package(package_id)
+            package["experience_preset"] = {
+                "defaults": {"aiSuggestions": False},
+                "visibility": {"showEntityNames": True},
+            }
+            archive = root / "preset.aliveworld"
+            WorldPackageExporter().export(archive, package=package, assets=[AssetSource("worldbooks", source)])
+            service = WorldPackageService(data / "world_packages", data)
+            service.importer.install(archive)
+            save = data / "saves" / "Save_体验预设"
+            save.mkdir(parents=True)
+            starter = service.materialize_story(package_id, "1.0.0", save)
+            self.assertFalse(starter.story_settings["aiSuggestions"])
+            self.assertTrue(starter.story_settings["showEntityNames"])
+            copied = yaml.safe_load(next((save / "worldbooks").glob("*.yml")).read_text(encoding="utf-8"))
+            origin = copied["_aliveworld"]["origin"]
+            self.assertEqual(origin["package_id"], package_id)
+            self.assertTrue(copied["_aliveworld"]["local_instance_id"].startswith("awlocal_"))
+            self.assertIn("来源：测试世界", system_tags_from_asset(copied))
+            self.assertEqual([item["save_name"] for item in related_stories(data / "saves", package_id, "1.0.0")], ["体验预设"])
+
+    def test_experience_preset_rejects_non_story_configuration(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source = root / "world.yml"
+            source.write_text("name: 世界规则\n", encoding="utf-8")
+            package = self._package(new_package_id())
+            package["experience_preset"] = {"defaults": {"apiKey": "never"}}
+            with self.assertRaisesRegex(PackageFormatError, "不可写入"):
+                WorldPackageExporter().export(root / "unsafe.aliveworld", package=package, assets=[AssetSource("worldbooks", source)])
+
+    def test_uninstall_deletes_only_explicitly_selected_related_story(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            data = root / "data"
+            source = root / "world.yml"
+            source.write_text("name: 世界规则\n", encoding="utf-8")
+            package_id = new_package_id()
+            archive = root / "world.aliveworld"
+            WorldPackageExporter().export(archive, package=self._package(package_id), assets=[AssetSource("worldbooks", source)])
+            service = WorldPackageService(data / "world_packages", data)
+            service.importer.install(archive)
+            keep = data / "saves" / "Save_保留"
+            remove = data / "saves" / "Save_删除"
+            keep.mkdir(parents=True)
+            remove.mkdir(parents=True)
+            service.materialize_story(package_id, "1.0.0", keep)
+            service.materialize_story(package_id, "1.0.0", remove)
+            result = service.uninstall(package_id, "1.0.0", delete_story_paths=(str(remove),))
+            self.assertTrue(keep.is_dir())
+            self.assertFalse(remove.exists())
+            self.assertEqual(result["deleted_story_paths"], [str(remove.resolve())])
 
     def test_safe_uninstall_preserves_modified_asset_and_removes_ledger_record(self):
         with tempfile.TemporaryDirectory() as temp:

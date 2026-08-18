@@ -21,7 +21,7 @@ defineEmits(['toggle', 'edit', 'portrait', 'pull', 'push', 'request-delete', 'co
             <span class="flex h-4 w-8 items-center rounded-full p-0.5" :class="item.is_active === false ? 'justify-start bg-slate-600' : 'justify-end bg-emerald-500'"><span class="h-3 w-3 rounded-full bg-white" /></span>{{ item.is_active === false ? '封存' : '启用' }}
           </button>
         </div>
-        <div class="mt-2 flex flex-wrap gap-1"><span v-for="tag in item.tags" :key="tag" class="rounded border border-slate-700 bg-slate-800 px-1.5 py-0.5 text-[9px] text-slate-400">{{ tag }}</span></div>
+        <div class="mt-2 flex flex-wrap gap-1"><span v-for="tag in item.tags" :key="tag" class="rounded border border-slate-700 bg-slate-800 px-1.5 py-0.5 text-[9px] text-slate-400">{{ tag }}</span><span v-for="tag in item.system_tags" :key="`system:${tag}`" class="rounded bg-slate-800/70 px-1.5 py-0.5 text-[9px] text-slate-500" title="系统来源标签不可修改">🔒 {{ tag }}</span></div>
         <p class="mt-2 line-clamp-4 text-[11px] leading-relaxed text-slate-500">{{ item.desc || item.description || item.content || '暂无角色简述' }}</p>
         <div class="mt-auto grid grid-cols-2 gap-2 pt-4 text-[10px] font-bold">
           <button @click="$emit('edit')" class="rounded bg-slate-800 py-1.5 text-slate-300 hover:bg-slate-700">✏️ {{ scope === 'local' ? '微调' : '编辑' }}</button>

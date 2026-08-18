@@ -168,13 +168,16 @@ test('玩家可导入世界包并一键建立带完整资产的独立故事', as
   const packagePath = fileURLToPath(new URL('../../build/e2e-runtime/e2e-world.aliveworld', import.meta.url));
   await page.getByTestId('world-package-file').setInputFiles(packagePath);
   await expect(page.getByTestId('world-package-preview')).toContainText('自动验收世界包');
-  await page.getByTestId('world-package-install').click();
-  const card = page.locator('[data-package-name="自动验收世界包"]');
-  await expect(card).toBeVisible();
-  await card.getByTestId('world-package-start').click();
-  await page.getByTestId('world-package-save-name').fill('世界包一键故事');
-  await page.getByTestId('world-package-confirm-start').click();
+  await page.getByTestId('world-package-preview').locator('input').fill('世界包一键故事');
+  await page.getByTestId('world-package-install-start').click();
   await expect(page.locator('[data-save-name="世界包一键故事"]')).toContainText('当前游玩');
+
+  await page.getByTestId('tab-packages').click();
+  await page.getByTestId('world-package-manage').click();
+  const manager = page.getByRole('dialog', { name: '世界包管理' });
+  await expect(manager).toContainText('关联故事 1 个');
+  await expect(manager).toContainText('🔒 来源：自动验收世界包');
+  await manager.getByRole('button', { name: '✕' }).click();
 
   await page.getByTestId('tab-world').click();
   await page.getByRole('button', { name: '🛡️ 本局专属' }).click();

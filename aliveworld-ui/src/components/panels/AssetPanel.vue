@@ -57,7 +57,8 @@ const currentList = computed(() => {
   
   if (!searchKeyword.value) return list;
   const keyword = searchKeyword.value.toLowerCase();
-  return list.filter(item => item.name.toLowerCase().includes(keyword) || (item.tags || []).some(tag => String(tag).toLowerCase().includes(keyword)));
+  return list.filter(item => item.name.toLowerCase().includes(keyword)
+    || [...(item.tags || []), ...(item.system_tags || [])].some(tag => String(tag).toLowerCase().includes(keyword)));
 });
 
 const getApiType = () => {
@@ -279,9 +280,10 @@ onBeforeUnmount(() => {
          <div class="flex gap-3" :class="uiStore.rightTab==='character' && portraitUrl(item) ? 'items-stretch' : 'flex-col'">
          <img v-if="uiStore.rightTab==='character' && portraitUrl(item)" :src="portraitUrl(item)" @click="selectedPortraitUrl=portraitUrl(item)" class="h-44 w-28 shrink-0 cursor-zoom-in rounded-lg border border-fuchsia-900/50 bg-black object-contain transition hover:border-fuchsia-500" title="点击放大立绘" />
          <div class="min-w-0 flex-1">
-         <div class="flex flex-wrap gap-1">
-           <span v-for="t in item.tags" :key="t" class="bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded text-[9px] border border-slate-700">{{ t }}</span>
-         </div>
+	         <div class="flex flex-wrap gap-1">
+	           <span v-for="t in item.tags" :key="t" class="bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded text-[9px] border border-slate-700">{{ t }}</span>
+	           <span v-for="t in item.system_tags" :key="`system:${t}`" class="rounded bg-slate-800/70 px-1.5 py-0.5 text-[9px] text-slate-500" title="系统来源标签不可修改">🔒 {{ t }}</span>
+	         </div>
          <p class="text-xs text-slate-500 line-clamp-2 mt-1 leading-relaxed">{{ item.desc }}</p>
          <div v-if="uiStore.rightTab==='entity' && uiStore.assetScope==='local' && entityDisclosure.allowEditing" class="rounded border border-slate-800 bg-slate-900/60 p-2 text-[9px] text-slate-400"><div>状态：{{ item.status || '未知' }}</div><div class="mt-1">近期行动：{{ item.recent_actions?.length ? item.recent_actions.slice(-2).join('；') : '无' }}</div><div class="mt-1">计划：{{ item.plans?.length ? item.plans.join('；') : '无' }}</div></div>
          <div v-if="item.influence_refs?.length" class="rounded-lg border border-fuchsia-900/50 bg-fuchsia-950/20 p-2 text-[9px] text-fuchsia-300">

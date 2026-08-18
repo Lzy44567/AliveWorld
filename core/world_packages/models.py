@@ -8,6 +8,8 @@ from dataclasses import dataclass, field
 from pathlib import PurePosixPath
 from typing import Any
 
+from core.story_settings import DEFAULT_STORY_SETTINGS
+
 
 SCHEMA_VERSION = 1
 PACKAGE_EXTENSION = ".aliveworld"
@@ -134,6 +136,7 @@ class WorldPackageManifest:
     assets: tuple[AssetRecord, ...] = ()
     entrypoints: dict[str, Any] = field(default_factory=dict)
     recommended_settings: dict[str, Any] = field(default_factory=dict)
+    experience_preset: dict[str, Any] = field(default_factory=dict)
     source: dict[str, str] = field(default_factory=dict)
     schema_version: int = SCHEMA_VERSION
 
@@ -179,6 +182,31 @@ class WorldPackageManifest:
         object.__setattr__(self, "assets", assets)
         if not isinstance(self.entrypoints, dict) or not isinstance(self.recommended_settings, dict):
             raise PackageFormatError("入口与推荐设置必须是对象")
+        unknown_recommended = set(self.recommended_settings) - set(DEFAULT_STORY_SETTINGS)
+        if unknown_recommended:
+            raise PackageFormatError(f"推荐设置包含不可写入的字段：{sorted(unknown_recommended)[0]}")
+        if not isinstance(self.experience_preset, dict):
+            raise PackageFormatError("体验预设必须是对象")
+        allowed_preset_keys = {"defaults", "visibility", "required_capabilities", "locked_keys"}
+        if set(self.experience_preset) - allowed_preset_keys:
+            raise PackageFormatError("体验预设包含未知字段")
+        clean_preset: dict[str, Any] = {}
+        for key in ("defaults", "visibility"):
+            value = self.experience_preset.get(key, {})
+            if not isinstance(value, dict):
+                raise PackageFormatError(f"体验预设 {key} 必须是对象")
+            unknown_settings = set(value) - set(DEFAULT_STORY_SETTINGS)
+            if unknown_settings:
+                raise PackageFormatError(f"体验预设包含不可写入的设置：{sorted(unknown_settings)[0]}")
+            clean_preset[key] = dict(value)
+        for key in ("required_capabilities", "locked_keys"):
+            value = self.experience_preset.get(key, [])
+            if not isinstance(value, list):
+                raise PackageFormatError(f"体验预设 {key} 必须是列表")
+            clean_preset[key] = list(dict.fromkeys(_text(item, name="体验预设项目", maximum=80, required=True) for item in value))
+        if set(clean_preset["locked_keys"]) - set(DEFAULT_STORY_SETTINGS):
+            raise PackageFormatError("体验预设锁定了非局内设置")
+        object.__setattr__(self, "experience_preset", clean_preset)
         if not isinstance(self.source, dict):
             raise PackageFormatError("更新来源必须是对象")
         entrypoint_ids: list[str] = []
@@ -213,6 +241,7 @@ class WorldPackageManifest:
             "assets": [item.to_dict() for item in self.assets],
             "entrypoints": self.entrypoints,
             "recommended_settings": self.recommended_settings,
+            "experience_preset": self.experience_preset,
             "source": self.source,
         }
 
@@ -234,6 +263,7 @@ class WorldPackageManifest:
             assets=tuple(AssetRecord.from_dict(item) for item in raw.get("assets", [])),
             entrypoints=raw.get("entrypoints", {}),
             recommended_settings=raw.get("recommended_settings", {}),
+            experience_preset=raw.get("experience_preset", {}),
             source=raw.get("source", {}),
         )
 

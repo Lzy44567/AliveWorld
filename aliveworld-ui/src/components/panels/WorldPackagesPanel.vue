@@ -5,6 +5,7 @@ import { assetStore } from '../../store/assetStore';
 import { configStore } from '../../store/configStore';
 import { gameStore } from '../../store/gameStore';
 import { uiStore } from '../../store/uiStore';
+import WorldPackageManagerModal from '../modals/WorldPackageManagerModal.vue';
 
 const packages = ref([]);
 const preview = ref(null);
@@ -12,7 +13,7 @@ const pendingFile = ref(null);
 const busy = ref(false);
 const startTarget = ref(null);
 const saveName = ref('');
-const uninstallTarget = ref(null);
+const managerOpen = ref(false);
 
 const previewStatus = computed(() => ({
   new: '新的世界包', update: '可安装的新版本', downgrade: '较旧版本', same: '已经安装',
@@ -32,6 +33,7 @@ const chooseFile = async (event) => {
   try {
     preview.value = await worldPackageApi.inspect(file);
     pendingFile.value = file;
+    saveName.value = preview.value.manifest.name;
   } catch (error) {
     preview.value = null;
     pendingFile.value = null;
@@ -52,6 +54,33 @@ const install = async () => {
   finally { busy.value = false; }
 };
 
+const applyStartedStory = async (data, name) => {
+  gameStore.sessionId = data.session_id;
+  gameStore.currentSaveName = name;
+  gameStore.chatLog = data.chat_messages || [];
+  gameStore.setActionSuggestions(data.action_suggestions);
+  gameStore.syncState(data.state);
+  configStore.applyStoryConfig(data);
+  await assetStore.fetchAssets();
+  await assetStore.fetchLocalAssets(data.session_id);
+  uiStore.rightTab = 'saves';
+};
+
+const installAndStart = async () => {
+  if (!pendingFile.value || !saveName.value.trim() || preview.value?.status === 'version_collision') return;
+  gameStore.isProcessing = true;
+  try {
+    const name = saveName.value.trim();
+    const data = await worldPackageApi.installAndStart(pendingFile.value, name);
+    await applyStartedStory(data, name);
+    pendingFile.value = null;
+    preview.value = null;
+    await refresh();
+    uiStore.showToast('世界包已安装，故事已建立');
+  } catch (error) { uiStore.showToast(error.message || '安装并开始失败', 'error'); }
+  finally { gameStore.isProcessing = false; }
+};
+
 const openStart = (item) => {
   startTarget.value = item;
   saveName.value = item.name;
@@ -62,14 +91,7 @@ const startStory = async () => {
   gameStore.isProcessing = true;
   try {
     const data = await worldPackageApi.start(startTarget.value.package_id, startTarget.value.version, saveName.value.trim());
-    gameStore.sessionId = data.session_id;
-    gameStore.currentSaveName = saveName.value.trim();
-    gameStore.chatLog = data.chat_messages || [];
-    gameStore.setActionSuggestions(data.action_suggestions);
-    gameStore.syncState(data.state);
-    configStore.applyStoryConfig(data);
-    await assetStore.fetchAssets();
-    await assetStore.fetchLocalAssets(data.session_id);
+    await applyStartedStory(data, saveName.value.trim());
     startTarget.value = null;
     uiStore.rightTab = 'saves';
     uiStore.showToast('世界包故事已建立，可以直接开始游玩');
@@ -77,27 +99,18 @@ const startStory = async () => {
   finally { gameStore.isProcessing = false; }
 };
 
-const uninstall = async (item) => {
-  busy.value = true;
-  try {
-    const result = await worldPackageApi.uninstall(item.package_id, item.version, 'safe');
-    const suffix = result.preserved_paths?.length ? `；已保留 ${result.preserved_paths.length} 个修改资产` : '';
-    uiStore.showToast(`世界包已安全卸载${suffix}`);
-    uninstallTarget.value = null;
-    await refresh();
-    await assetStore.fetchAssets();
-  } catch (error) { uiStore.showToast(error.message || '卸载失败', 'error'); }
-  finally { busy.value = false; }
-};
-
 onMounted(() => refresh().catch(error => uiStore.showToast(error.message, 'error')));
 </script>
 
 <template>
   <div class="flex min-h-0 flex-1 flex-col" data-testid="world-packages-panel">
+    <div class="mb-3 flex items-center justify-between shrink-0">
+      <div><h2 class="text-sm font-black text-slate-200">开始与世界包</h2><p class="mt-0.5 text-[10px] text-slate-500">选择完整世界，或从空白故事开始</p></div>
+      <button data-testid="world-package-manage" class="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-300 hover:border-cyan-700 hover:text-cyan-300" @click="managerOpen=true">⚙ 管理</button>
+    </div>
     <div class="mb-3 grid grid-cols-2 gap-2 shrink-0">
       <label class="cursor-pointer rounded-lg border border-cyan-700/60 bg-cyan-950/30 px-3 py-2 text-center text-xs font-bold text-cyan-300 hover:bg-cyan-900/50">
-        {{ busy ? '处理中…' : '📦 导入世界包' }}
+        {{ busy ? '处理中…' : '📦 导入并开始' }}
         <input data-testid="world-package-file" type="file" accept=".aliveworld" class="hidden" :disabled="busy" @change="chooseFile" />
       </label>
       <button class="rounded-lg border border-emerald-700/60 bg-emerald-950/30 px-3 py-2 text-xs font-bold text-emerald-300 hover:bg-emerald-900/50" @click="uiStore.modals.newGame=true">＋ 空白故事</button>
@@ -113,8 +126,11 @@ onMounted(() => refresh().catch(error => uiStore.showToast(error.message, 'error
       </div>
       <p v-if="preview.status==='version_collision'" class="mt-2 text-xs text-rose-300">相同版本号对应不同内容。请让作者提高版本号，AliveWorld 不会静默覆盖。</p>
       <p v-for="conflict in preview.conflicts" :key="`${conflict.kind}:${conflict.asset_id || conflict.package_id}`" class="mt-2 text-xs text-amber-300">{{ conflict.message || `资产“${conflict.name}”已有旧版本，安装时仍会保留版本边界。` }}</p>
+      <label class="mt-3 block text-xs font-bold text-slate-300">故事线名称</label>
+      <input v-model="saveName" class="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 p-2.5 text-sm outline-none focus:border-cyan-600" @keydown.enter="installAndStart">
       <div class="mt-3 flex gap-2">
-        <button data-testid="world-package-install" class="flex-1 rounded bg-cyan-700 py-2 text-xs font-bold text-white disabled:opacity-40" :disabled="busy || ['same','version_collision'].includes(preview.status)" @click="install">确认安装</button>
+        <button data-testid="world-package-install-start" class="flex-1 rounded bg-emerald-700 py-2 text-xs font-bold text-white disabled:opacity-40" :disabled="gameStore.isProcessing || !saveName.trim() || preview.status==='version_collision'" @click="installAndStart">安装并开始</button>
+        <button data-testid="world-package-install" class="rounded bg-cyan-800 px-3 py-2 text-xs font-bold text-white disabled:opacity-40" :disabled="busy || ['same','version_collision'].includes(preview.status)" @click="install">仅安装</button>
         <button class="rounded bg-slate-700 px-3 py-2 text-xs" @click="preview=null; pendingFile=null">取消</button>
       </div>
     </section>
@@ -139,14 +155,7 @@ onMounted(() => refresh().catch(error => uiStore.showToast(error.message, 'error
           <span v-for="tag in item.tags" :key="tag" class="rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[9px] text-slate-400">{{ tag }}</span>
         </div>
         <p v-if="!item.healthy" class="mt-2 text-[10px] text-amber-300">本地内容有 {{ item.modified_asset_ids.length }} 项修改、{{ item.missing_asset_ids.length }} 项丢失；开始前请检查。</p>
-        <div v-if="uninstallTarget !== `${item.package_id}:${item.version}`" class="mt-4 flex gap-2">
-          <button data-testid="world-package-start" class="flex-1 rounded bg-emerald-700 py-2 text-xs font-bold text-white hover:bg-emerald-600" @click="openStart(item)">▶ 一键开始</button>
-          <button class="rounded border border-slate-700 bg-slate-800 px-3 text-xs text-slate-400 hover:text-rose-300" @click="uninstallTarget=`${item.package_id}:${item.version}`">卸载</button>
-        </div>
-        <div v-else class="mt-4 flex gap-2 rounded-lg border border-rose-900/60 bg-rose-950/20 p-2">
-          <button class="flex-1 rounded bg-slate-700 py-2 text-xs" @click="uninstallTarget=null">取消</button>
-          <button class="flex-1 rounded bg-rose-700 py-2 text-xs font-bold text-white" @click="uninstall(item)">确认安全卸载</button>
-        </div>
+        <div class="mt-4"><button data-testid="world-package-start" class="w-full rounded bg-emerald-700 py-2 text-xs font-bold text-white hover:bg-emerald-600" @click="openStart(item)">▶ 创建新故事</button></div>
       </article>
     </div>
 
@@ -162,5 +171,6 @@ onMounted(() => refresh().catch(error => uiStore.showToast(error.message, 'error
         </div>
       </section>
     </div>
+    <WorldPackageManagerModal v-if="managerOpen" :packages="packages" @close="managerOpen=false" @refresh="refresh" />
   </div>
 </template>

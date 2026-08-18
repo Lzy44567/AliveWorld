@@ -16,7 +16,8 @@ function persistableConfig(globalSettings, settings, uiPreferences) {
 
 export const configStore = reactive({
   uiPreferences: {
-    showAdvancedSettings: savedConfig.uiPreferences?.showAdvancedSettings === true
+    showAdvancedSettings: savedConfig.uiPreferences?.showAdvancedSettings === true,
+    deleteWorldPackageStoriesByDefault: savedConfig.uiPreferences?.deleteWorldPackageStoriesByDefault === true
   },
   globalSettings: {
     apiKey: savedConfig.globalSettings?.apiKey || "", 

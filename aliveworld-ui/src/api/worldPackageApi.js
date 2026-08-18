@@ -21,6 +21,15 @@ export const worldPackageApi = {
   },
   inspect(file) { return sendFile('inspect', file); },
   install(file) { return sendFile('import', file); },
+  async installAndStart(file, saveName) {
+    const query = new URLSearchParams({ save_name: saveName });
+    const response = await fetch(`${BASE_URL}/import-and-start?${query}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/octet-stream' },
+      body: file,
+    });
+    return requireOk(response, '无法安装世界包并创建故事');
+  },
   async start(packageId, version, saveName) {
     return requireOk(await fetch(`${BASE_URL}/${encodeURIComponent(packageId)}/${encodeURIComponent(version)}/start`, {
       method: 'POST',
@@ -28,11 +37,11 @@ export const worldPackageApi = {
       body: JSON.stringify({ save_name: saveName }),
     }), '无法从世界包创建故事');
   },
-  async uninstall(packageId, version, mode = 'safe', confirmed = false) {
+  async uninstall(packageId, version, mode = 'safe', confirmed = false, deleteStoryPaths = []) {
     return requireOk(await fetch(`${BASE_URL}/${encodeURIComponent(packageId)}/${encodeURIComponent(version)}/uninstall`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mode, confirmed }),
+      body: JSON.stringify({ mode, confirmed, delete_story_paths: deleteStoryPaths }),
     }), '卸载世界包失败');
   },
 };

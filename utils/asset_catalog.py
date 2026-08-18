@@ -8,6 +8,7 @@ from typing import Dict, List, Optional
 import yaml
 
 from utils.file_io import BASE_DIR, CHAR_DIR, ENTITY_DIR, STYLE_DIR, WORLD_DIR
+from core.world_packages.provenance import system_tags_from_asset
 
 
 PERSONAL_DIRS: Dict[str, Path] = {
@@ -72,6 +73,7 @@ def list_asset_summaries(asset_type: str) -> List[Dict]:
             summaries[name] = {
                 "name": name,
                 "tags": tags,
+                "system_tags": system_tags_from_asset(data),
                 "description": data.get("description", data.get("motive", data.get("content", ""))),
                 "is_template": is_template,
                 "portrait": data.get("portrait") if asset_type == "characters" else None,
@@ -79,6 +81,9 @@ def list_asset_summaries(asset_type: str) -> List[Dict]:
         elif is_template:
             summaries[name]["is_template"] = True
             summaries[name]["tags"] = list(dict.fromkeys([*summaries[name]["tags"], *tags]))
+            summaries[name]["system_tags"] = list(dict.fromkeys([
+                *summaries[name].get("system_tags", []), *system_tags_from_asset(data)
+            ]))
     return [summaries[name] for name in sorted(summaries)]
 
 

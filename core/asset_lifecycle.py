@@ -12,6 +12,7 @@ import yaml
 
 from core.worldbook import normalize_worldbook, save_worldbook_atomic
 from core.world_packages.identity import assign_new_asset_id
+from core.world_packages.provenance import refresh_local_instance_id
 
 
 class AssetLifecycleError(ValueError):
@@ -103,6 +104,7 @@ def clone_yaml_asset(
     # A clone is a new logical asset. Keeping the source identity would make
     # package updates and safe uninstall treat two editable cards as one file.
     assign_new_asset_id(data)
+    refresh_local_instance_id(data)
     data.pop("is_template", None)
     if isinstance(data.get("tags"), list):
         data["tags"] = [tag for tag in data["tags"] if tag != "模板"]

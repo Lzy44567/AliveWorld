@@ -17,6 +17,7 @@ from core.image_generation.service import ImageTaskError
 from core.asset_lifecycle import AssetLifecycleError, clone_yaml_asset, find_yaml_asset, normalize_asset_name, rename_yaml_asset
 from core.worldbook_workshop_registry import retarget_workshops
 from core.asset_workshop_registry import retarget_asset_workshops
+from core.world_packages.provenance import refresh_local_instance_id, system_tags_from_asset
 
 router = APIRouter()
 
@@ -55,6 +56,7 @@ def get_local_assets(session_id: str):
                     if data:
                         data['is_active'] = data.get('is_active', True)
                         data['tags'] = data.get('tags', []) + ["本局独有"]
+                        data['system_tags'] = system_tags_from_asset(data)
                         items.append(data)
             except: pass
         return items
@@ -80,7 +82,12 @@ def pull_asset(session_id: str, payload: PullAssetRequest):
     local_file = os.path.join(local_dir, f"{payload.asset_name}.yml")
     
     try:
-        shutil.copy2(global_file, local_file)
+        data = yaml.safe_load(global_file.read_text(encoding='utf-8')) or {}
+        if isinstance(data, dict) and refresh_local_instance_id(data):
+            with open(local_file, 'w', encoding='utf-8') as file:
+                yaml.safe_dump(data, file, allow_unicode=True, sort_keys=False)
+        else:
+            shutil.copy2(global_file, local_file)
         return {"status": "success", "message": f"{payload.asset_name} 降临成功"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"拉取失败: {str(e)}")
