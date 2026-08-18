@@ -15,6 +15,7 @@ from api.v1.asset_workshop_routes import router as asset_workshop_router
 from api.v1.causal_ledger_routes import router as causal_ledger_router
 from api.v1.game_routes import router as game_router
 from api.v1.feedback_routes import router as feedback_router
+from api.v1.external_import_routes import router as external_import_router
 from api.v1.image_generation_routes import router as image_generation_router
 from api.v1.lobby_routes import router as lobby_router
 from api.v1.local_asset_routes import router as local_asset_router
@@ -57,6 +58,7 @@ def create_app(
     application.include_router(lobby_router, prefix="/api/v1/lobby", tags=["大厅与资产"])
     application.include_router(worldbook_workshop_router, prefix="/api/v1/worldbooks", tags=["世界书工坊"])
     application.include_router(world_package_router, prefix="/api/v1/world-packages", tags=["世界包与一键开始"])
+    application.include_router(external_import_router, prefix="/api/v1/external-assets", tags=["外部角色卡与世界书兼容"])
     application.include_router(image_generation_router, prefix="/api/v1/game", tags=["Game 异步生图"])
     application.include_router(story_memory_router, prefix="/api/v1/game", tags=["Game 分级故事记忆"])
     application.include_router(user_preference_router, prefix="/api/v1/preferences", tags=["用户偏好卡"])

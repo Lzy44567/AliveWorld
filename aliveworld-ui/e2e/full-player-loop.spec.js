@@ -198,6 +198,39 @@ test('玩家可导入世界包并一键建立带完整资产的独立故事', as
 });
 
 
+test('外部角色卡先显示兼容报告，再导入全局资产库', async ({ page, request }) => {
+  const name = '外部兼容测试角色';
+  await request.delete(`/api/v1/lobby/assets/characters/${encodeURIComponent(name)}`);
+  await page.goto('/');
+  await dismissStartupPrompt(page);
+  await page.getByTestId('tab-packages').click();
+  await page.getByTestId('world-package-manage').click();
+  const manager = page.getByRole('dialog', { name: '世界包管理' });
+  await manager.getByTestId('import-external-character').click();
+  const dialog = page.getByRole('dialog', { name: '导入外部角色卡' });
+  await dialog.getByTestId('external-asset-file').setInputFiles({
+    name: 'external-card.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify({
+      spec: 'chara_card_v2', spec_version: '2.0', data: {
+        name, description: '外部卡描述', personality: '沉着', first_mes: '她向玩家点头。',
+        tags: ['外部测试'], system_prompt: '外部系统提示仅保留', alternate_greetings: ['备用问候'],
+      },
+    })),
+  });
+  await expect(dialog.getByText('已原生映射')).toBeVisible();
+  await expect(dialog.getByText('降级处理')).toBeVisible();
+  await expect(dialog.getByText('仅保留，当前不执行')).toBeVisible();
+  await dialog.getByTestId('external-asset-import').click();
+  await expect(dialog).toBeHidden();
+  await manager.getByRole('button', { name: '✕' }).first().click();
+  await page.getByTestId('tab-character').click();
+  await page.getByRole('button', { name: '🌐 全局图鉴' }).click();
+  await expect(page.locator(`[data-asset-name="${name}"]`)).toBeVisible();
+  await request.delete(`/api/v1/lobby/assets/characters/${encodeURIComponent(name)}`);
+});
+
+
 test('正文可用同一行动重试，随后撤回恢复上一状态', async ({ page, request }) => {
   await loadStory(page);
   const storyText = page.getByText('前端正文测试成功。');

@@ -4,6 +4,7 @@ import { worldPackageApi } from '../../api/worldPackageApi';
 import { assetStore } from '../../store/assetStore';
 import { configStore } from '../../store/configStore';
 import { uiStore } from '../../store/uiStore';
+import ExternalAssetImportModal from './ExternalAssetImportModal.vue';
 
 const props = defineProps({ packages: { type: Array, default: () => [] } });
 const emit = defineEmits(['close', 'refresh']);
@@ -12,6 +13,7 @@ const preview = ref(null);
 const pendingFile = ref(null);
 const uninstallTarget = ref(null);
 const selectedStoryPaths = ref([]);
+const externalImportKind = ref('');
 
 const chooseFile = async (event) => {
   const file = event.target.files?.[0];
@@ -95,6 +97,14 @@ const uninstall = async () => {
           <p class="w-full text-[10px] text-slate-600">默认关闭。它只改变复选框初态；删除前仍会显示故事并要求确认。</p>
         </div>
 
+        <section class="mt-3 rounded-xl border border-indigo-900/70 bg-indigo-950/20 p-3">
+          <div><h3 class="text-sm font-bold text-indigo-200">外部资产兼容导入</h3><p class="mt-1 text-[10px] leading-4 text-slate-500">支持 Character Card V2/V3 JSON、PNG 角色卡与常见 Lorebook JSON。导入前会显示降级和未支持字段。</p></div>
+          <div class="mt-3 flex flex-wrap gap-2">
+            <button data-testid="import-external-character" class="rounded-lg border border-indigo-700 bg-indigo-900/40 px-3 py-2 text-xs text-indigo-200 hover:bg-indigo-800" @click="externalImportKind='character'">⇩ 导入角色卡</button>
+            <button data-testid="import-external-lorebook" class="rounded-lg border border-cyan-700 bg-cyan-900/30 px-3 py-2 text-xs text-cyan-200 hover:bg-cyan-800" @click="externalImportKind='lorebook'">⇩ 导入世界书</button>
+          </div>
+        </section>
+
         <section v-if="preview" class="mt-3 rounded-xl border border-cyan-800 bg-cyan-950/20 p-3">
           <div class="flex justify-between gap-3">
             <div>
@@ -145,5 +155,6 @@ const uninstall = async () => {
         </div>
       </section>
     </div>
+    <ExternalAssetImportModal v-if="externalImportKind" :kind="externalImportKind" @close="externalImportKind=''" @imported="emit('refresh')" />
   </div>
 </template>
