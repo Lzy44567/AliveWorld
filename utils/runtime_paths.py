@@ -74,6 +74,7 @@ def prepare_runtime_layout(paths: RuntimePaths) -> None:
         "worldbooks",
         "workshops",
         "asset_workshops",
+        "world_packages",
         "cache",
         "models",
     ):
