@@ -20,6 +20,7 @@ from core.world_packages.archive import WorldPackageImporter
 from core.world_packages.identity import asset_id_from_data
 from core.world_packages.models import InstallRecord, PackageFormatError, WorldPackageManifest
 from core.world_packages.provenance import annotate_story_asset, package_system_tags, related_stories
+from core.world_packages.starter_state import normalize_initial_state
 
 
 STORY_ASSET_TYPES = frozenset({"worldbooks", "characters", "styles", "entities"})
@@ -42,6 +43,7 @@ class StoryStarter:
     world_premise: str
     opening: str
     story_settings: dict[str, Any]
+    initial_state: dict[str, Any]
     package_name: str
 
 
@@ -115,6 +117,7 @@ class WorldPackageService:
             "world_premise": manifest.description,
             "opening": f"【{manifest.name}】\n世界已经准备就绪。描述你的第一步行动。",
             "story_settings": dict(manifest.recommended_settings),
+            "initial_state": {},
         }
         preset = manifest.experience_preset
         starter["story_settings"].update(preset.get("defaults", {}))
@@ -130,14 +133,19 @@ class WorldPackageService:
                 raise PackageFormatError("世界包故事起点无法读取") from exc
             if not isinstance(loaded, dict):
                 raise PackageFormatError("世界包故事起点格式无效")
-            for key in starter:
+            for key in ("world_premise", "opening", "initial_state"):
                 if key in loaded:
                     starter[key] = loaded[key]
+            if "story_settings" in loaded:
+                if not isinstance(loaded["story_settings"], dict):
+                    raise PackageFormatError("世界包推荐设置格式无效")
+                starter["story_settings"].update(loaded["story_settings"])
         if not isinstance(starter["story_settings"], dict):
             raise PackageFormatError("世界包推荐设置格式无效")
         unknown_settings = set(starter["story_settings"]) - set(DEFAULT_STORY_SETTINGS)
         if unknown_settings:
             raise PackageFormatError(f"世界包起点包含不可写入的设置：{sorted(unknown_settings)[0]}")
+        initial_state = normalize_initial_state(starter["initial_state"])
 
         destination_root = Path(save_dir)
         copied: list[Path] = []
@@ -186,6 +194,7 @@ class WorldPackageService:
             world_premise=str(starter["world_premise"] or ""),
             opening=str(starter["opening"] or "").strip(),
             story_settings=dict(starter["story_settings"]),
+            initial_state=initial_state,
             package_name=manifest.name,
         )
 

@@ -53,7 +53,13 @@ class WorldPackageAuthoringTests(unittest.TestCase):
                 "author": "自动验收",
             },
             "assets": [{"type": "worldbooks", "name": "官方测试世界"}],
-            "starter": {"world_premise": "官方梗概", "opening": "官方开场", "story_settings": {}},
+            "starter": {
+                "world_premise": "官方梗概", "opening": "官方开场", "story_settings": {},
+                "initial_state": {
+                    "properties": {"当前时间": "测试纪元"},
+                    "bars": {"世界活性": {"current": 60, "max": 100, "color": "cyan"}},
+                },
+            },
         }, ensure_ascii=False), encoding="utf-8")
 
     def test_catalog_and_export_only_selected_assets_with_starter(self):
@@ -109,6 +115,45 @@ class WorldPackageAuthoringTests(unittest.TestCase):
             self.assertTrue(target.is_file())
             self.assertEqual(manifest["package_id"], "awpkg_" + "1" * 32)
             self.assertEqual(manifest["name"], "官方测试世界")
+
+    def test_official_starter_preserves_validated_initial_state(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            authoring = self._service(root)
+            self._add_official_definition(root)
+            target, manifest = authoring.export_official("official_demo")
+            package_service = WorldPackageService(root / "installed", root / "data")
+            record = package_service.importer.install(target)
+            save = root / "save"
+            save.mkdir()
+            starter = package_service.materialize_story(record.package_id, record.version, save)
+            self.assertEqual(starter.initial_state["properties"]["当前时间"], "测试纪元")
+            self.assertEqual(starter.initial_state["bars"]["世界活性"]["current"], 60)
+            self.assertEqual(starter.initial_state["bars"]["世界活性"]["change"], 0)
+
+    def test_starter_settings_extend_instead_of_erasing_experience_preset(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            service = self._service(root)
+            self._add_official_definition(root)
+            definition_path = root / "data" / "world_packages" / "official_demo.template.json"
+            definition = json.loads(definition_path.read_text(encoding="utf-8"))
+            definition["metadata"]["experience_preset"] = {
+                "defaults": {"entitiesEnabled": True, "worldbookCaptureEnabled": False},
+                "visibility": {"showEntityBubbles": True},
+                "required_capabilities": [], "locked_keys": [],
+            }
+            definition["starter"]["story_settings"] = {"showEntityBubbles": False}
+            definition_path.write_text(json.dumps(definition, ensure_ascii=False), encoding="utf-8")
+            target, _ = service.export_official("official_demo")
+            package_service = WorldPackageService(root / "installed", root / "data")
+            record = package_service.importer.install(target)
+            save = root / "save"
+            save.mkdir()
+            starter = package_service.materialize_story(record.package_id, record.version, save)
+            self.assertTrue(starter.story_settings["entitiesEnabled"])
+            self.assertFalse(starter.story_settings["worldbookCaptureEnabled"])
+            self.assertFalse(starter.story_settings["showEntityBubbles"])
 
     def test_authoring_routes_export_and_download_without_exposing_paths(self):
         with tempfile.TemporaryDirectory() as temp:

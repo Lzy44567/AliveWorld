@@ -1,0 +1,76 @@
+{
+  "official_id": "ash_ring_city",
+  "metadata": {
+    "package_id": "awpkg_94f4a5c5f3704df3888083cd63210000",
+    "version": "1.0.0",
+    "name": "烬环城：停炉前夜",
+    "author": "AliveWorld 官方世界",
+    "description": "一座依赖古代地炉生存的城市即将停炉检修，灰潮与迁徙同时逼近。你掌握一份可能改变能源秩序的原始记录；三个组织会在玩家视野之外继续调查、动员、交易和误判。",
+    "tags": ["官方世界", "工业奇幻", "多势力", "长篇", "活世界"],
+    "adult": false,
+    "license": "仅供 AliveWorld 演示与再创作",
+    "min_app_version": "1.6.0-dev.6",
+    "featured": true,
+    "scale": "大型世界",
+    "duration": "适合长篇",
+    "difficulty": "中等",
+    "highlights": ["三个组织会持续行动", "后果进入因果账本", "灰潮与城市状态随时间变化"],
+    "experience_preset": {
+      "defaults": {
+        "entitiesEnabled": true,
+        "aiSuggestions": true,
+        "worldbookCaptureEnabled": false,
+        "autoCompressMemory": true
+      },
+      "visibility": {
+        "showEntityNames": true,
+        "showEntityMotives": false,
+        "allowEntityEditing": false,
+        "showEntityBubbles": true,
+        "showInfluenceBubbles": true,
+        "showCausalLedger": false,
+        "showFutures": true,
+        "showDice": true
+      },
+      "required_capabilities": ["暗流实体", "暗流因果账本", "动态状态"],
+      "locked_keys": []
+    }
+  },
+  "assets": [
+    {"type": "worldbooks", "name": "烬环城：停炉前夜"},
+    {"type": "characters", "name": "温岑"},
+    {"type": "characters", "name": "苏弦"},
+    {"type": "characters", "name": "砾"},
+    {"type": "styles", "name": "烬环群像"},
+    {"type": "entities", "name": "中央炉务厅"},
+    {"type": "entities", "name": "下环互助会"},
+    {"type": "entities", "name": "黑帆运队"},
+    {"type": "entities", "name": "灰潮迁徙"}
+  ],
+  "starter": {
+    "world_premise": "玩家是烬环城下环第七中继站的新任值守员。年度停炉检修即将开始，西侧灰潮提前逼近。玩家刚从旧控制柜中取出一枚黑匣，其中保存着三年未经修饰的炉压与调度签名；如何验证、隐藏、交换或公开它完全由玩家决定。",
+    "opening": "停炉钟第一次响起时，第七中继站的主管道像一头睡不安稳的兽，在墙后发出低沉震动。\n\n控制台显示下环供热仍有百分之六十二，可你手边的机械压力表正在缓慢下坠。两组数字第一次如此明确地互相否定。\n\n刚从旧控制柜取出的黑匣还带着余温。门外，苏弦带着维修组要求查看实时读数；炉务厅审计工程师温岑则在另一侧递来一份范围含糊的检查令。更远处的检修井里，有人用扳手敲出黑帆运队的联络节奏。\n\n第二声停炉钟将在十分钟后响起。三方都在等你先开口。",
+    "story_settings": {},
+    "initial_state": {
+      "properties": {
+        "当前时间": "停炉前夜 21:50",
+        "所在位置": "下环·第七中继站控制室",
+        "持有物": "值守钥匙、未公开的炉压黑匣",
+        "灰潮预估": "18—30小时后抵达西侧道路"
+      },
+      "bars": {
+        "下环供热": {"current": 62, "max": 100, "color": "orange"},
+        "炉网稳定": {"current": 71, "max": 100, "color": "cyan"},
+        "灰潮逼近": {"current": 18, "max": 100, "color": "slate"}
+      },
+      "buffs": {
+        "停炉倒计时": {"description": "第二声停炉钟将在十分钟后响起；时间会随实际行动推进。", "duration": -1}
+      },
+      "npcs": {
+        "温岑": "持有限审计令，正在等待进入控制室",
+        "苏弦": "带维修组守在门外，要求查看真实读数",
+        "砾": "位于检修井下方，尚未公开露面"
+      }
+    }
+  }
+}

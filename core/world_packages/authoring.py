@@ -97,6 +97,7 @@ class WorldPackageAuthoringService:
                 })
             except (OSError, json.JSONDecodeError, AttributeError):
                 continue
+        results.sort(key=lambda item: (not bool(item.get("featured")), str(item.get("name", ""))))
         return results
 
     def export_official(self, official_id: str) -> tuple[Path, dict[str, Any]]:
@@ -178,6 +179,7 @@ class WorldPackageAuthoringService:
             "world_premise": str((starter or {}).get("world_premise", "")).strip(),
             "opening": str((starter or {}).get("opening", "")).strip(),
             "story_settings": dict((starter or {}).get("story_settings", {})),
+            "initial_state": dict((starter or {}).get("initial_state", {})),
         }
         package_id = str(metadata.get("package_id", "")).strip() or new_package_id()
         version = validate_version(metadata.get("version", "1.0.0"))

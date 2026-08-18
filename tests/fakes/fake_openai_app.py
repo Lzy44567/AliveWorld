@@ -110,6 +110,30 @@ def _response_for(kind: str, system: str, user: str) -> dict[str, Any] | str:
             "preference_observations": [],
         }
     if kind == "overseer":
+        if "中央炉务厅" in full:
+            return {
+                "undercurrent_events": [{
+                    "entity": "中央炉务厅",
+                    "action": "核对第七中继站的异常读数，并暂缓发出公开封锁令",
+                    "status": "已建立内部核查，但尚未确认玩家持有何种证据",
+                    "clues": ["一份带有限流签名的调度副本正送往第七站"],
+                }],
+                "new_entities": [],
+                "new_influences": [{
+                    "source_links": [{
+                        "entity": "中央炉务厅", "life_link_strength": 0.2,
+                        "on_source_death": "keep",
+                    }],
+                    "type": "persistent",
+                    "summary": "炉务厅对第七中继站启动分级核查",
+                    "condition": "玩家公开黑匣、进入受限炉线或调度核查人员抵达",
+                    "effect": "正文体现核查带来的询问、权限变化或可追踪线索，不直接判定玩家有罪",
+                    "consume_policy": {"mode": "never", "max_triggers": None},
+                    "tags": ["自动验收", "制度影响"],
+                }],
+                "update_influences": [], "delete_influences": [],
+                "update_entities": [], "delete_entities": [],
+            }
         return {
             "undercurrent_events": [], "new_entities": [], "new_influences": [],
             "update_influences": [], "delete_influences": [],

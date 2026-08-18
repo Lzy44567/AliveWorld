@@ -69,8 +69,14 @@ async function setLocalAssetEnabled(page, type, name, enabled) {
 
 
 async function dismissStartupPrompt(page) {
+  // 首次打开时，快速开始弹窗会在配置与资产检查结束后异步出现。
+  // 等待一个很短的稳定窗口，避免测试在弹窗出现前就开始点击底层界面。
+  await page.waitForTimeout(500);
   const snooze = page.getByRole('button', { name: '稍后再说' });
-  if (await snooze.isVisible().catch(() => false)) await snooze.click();
+  if (await snooze.isVisible().catch(() => false)) {
+    await snooze.click();
+    await expect(snooze).toBeHidden();
+  }
 }
 
 
@@ -293,7 +299,7 @@ test('官方演示世界可一键开局，工坊可选择资产并下载世界�
   await page.getByTestId('tab-packages').click();
   const official = page.getByTestId('official-world-packages');
   await expect(official).toContainText('雾港回声');
-  await official.getByTestId('official-world-start').click();
+  await official.locator('[data-official-id="mist_harbor_demo"]').getByTestId('official-world-start').click();
   const startDialog = page.getByRole('dialog', { name: '从世界包开始' });
   await startDialog.getByTestId('world-package-save-name').fill('雾港自动验收');
   await startDialog.getByTestId('world-package-confirm-start').click();
@@ -311,6 +317,41 @@ test('官方演示世界可一键开局，工坊可选择资产并下载世界�
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toBe('自动导出世界-1.0.0.aliveworld');
   await expect(page.getByText('世界包“自动导出世界”已通过隐私检查并导出')).toBeVisible();
+});
+
+
+test('大型官方世界一键建立实体与初始动态状态', async ({ page }) => {
+  await page.goto('/');
+  await dismissStartupPrompt(page);
+  await page.getByTestId('tab-packages').click();
+  const card = page.locator('[data-official-id="ash_ring_city"]');
+  await expect(card).toContainText('烬环城：停炉前夜');
+  await expect(card).toContainText('三个组织会持续行动');
+  await card.getByTestId('official-world-start').click();
+  const startDialog = page.getByRole('dialog', { name: '从世界包开始' });
+  await startDialog.getByTestId('world-package-save-name').fill('烬环自动验收');
+  const responsePromise = page.waitForResponse(response => response.url().includes('/official/ash_ring_city/start'));
+  await startDialog.getByTestId('world-package-confirm-start').click();
+  const response = await responsePromise;
+  const payload = await response.json();
+  expect(payload.state.bars['下环供热'].current).toBe(62);
+  expect(payload.state.properties['当前时间']).toBe('停炉前夜 21:50');
+  expect(payload.story_settings.entitiesEnabled).toBe(true);
+  expect(payload.story_settings.showInfluenceBubbles).toBe(true);
+  await expect(page.locator('[data-save-name="烬环自动验收"]')).toContainText('当前游玩');
+  await expect(page.getByText('下环供热', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: /让 AI 降临并初始化世界状态/ })).toHaveCount(0);
+  await page.getByTestId('story-action-input').fill('我先核对机械压力表，并要求门外两方暂时不要进入。');
+  await page.getByTestId('story-action-submit').click();
+  await expect(page.getByText('前端正文测试成功。')).toBeVisible();
+  // 玩家端气泡只公开实体名称；完整行动与因果内容由账本接口验证。
+  await expect(page.getByText(/暗流变化：\[中央炉务厅\]/)).toBeVisible();
+  const ledger = await (await page.request.get(`/api/v1/game/${payload.session_id}/causal-ledger`)).json();
+  expect(ledger.influences).toHaveLength(1);
+  expect(ledger.influences[0].summary).toBe('炉务厅对第七中继站启动分级核查');
+  const locals = await (await page.request.get(`/api/v1/game/${payload.session_id}/local_assets`)).json();
+  expect(locals.entities).toHaveLength(4);
+  expect(locals.entities.find(item => item.name === '中央炉务厅').influence_refs).toHaveLength(1);
 });
 
 

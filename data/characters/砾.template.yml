@@ -1,0 +1,9 @@
+name: 砾
+description: 黑帆运队的领路人，熟悉旧货运井和城外观测路。他把交易说得轻佻，却认真偿还救命之恩。砾希望在灰潮封路前运进过滤芯，也愿意把稀缺路线卖给出价更高的人。他知道一条通往第七中继站地下支线的入口，但不会无条件交出秘密。
+starting_scene: 砾从检修井递来一枚沾灰的过滤芯，声称主管线的异常并不是自然故障，并提出用一条消息交换临时通行签。
+is_player: false
+is_active: true
+is_template: true
+tags: [模板, 官方世界, 重要角色, 黑帆运队]
+_aliveworld:
+  asset_id: awasset_94f4a5c5f3704df3888083cd63210004

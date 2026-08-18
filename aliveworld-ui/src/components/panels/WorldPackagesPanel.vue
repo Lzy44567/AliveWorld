@@ -139,11 +139,19 @@ onMounted(() => refresh().catch(error => uiStore.showToast(error.message, 'error
       </div>
     </section>
 
-    <section v-if="officialPackages.length" class="mb-3 shrink-0 rounded-xl border border-amber-700/60 bg-amber-950/15 p-3" data-testid="official-world-packages">
-      <div class="mb-2 flex items-center justify-between"><div><h3 class="text-xs font-black text-amber-200">✨ 官方演示世界</h3><p class="mt-1 text-[10px] text-slate-500">无需先制作资产，建立独立故事后即可游玩</p></div></div>
-      <article v-for="item in officialPackages" :key="item.official_id" class="rounded-lg border border-amber-800/50 bg-slate-900/65 p-3">
-        <div class="flex items-start justify-between gap-2"><div><h4 class="text-sm font-bold text-slate-100">{{ item.name }}</h4><p class="mt-1 text-[10px] text-slate-500">v{{ item.version }} · {{ item.asset_count }} 项内容</p></div><span class="rounded bg-amber-950 px-1.5 py-0.5 text-[9px] text-amber-300">{{ item.installed ? '已安装' : '随游戏提供' }}</span></div>
-        <p class="mt-2 text-xs leading-5 text-slate-400">{{ item.description }}</p>
+    <section v-if="officialPackages.length" class="mb-3 max-h-[54vh] shrink-0 space-y-2 overflow-y-auto rounded-xl border border-amber-700/60 bg-amber-950/15 p-3 custom-scrollbar" data-testid="official-world-packages">
+      <div class="mb-2 flex items-center justify-between"><div><h3 class="text-xs font-black text-amber-200">✨ 官方世界</h3><p class="mt-1 text-[10px] text-slate-500">先看体验，再一键建立完整故事</p></div></div>
+      <article v-for="item in officialPackages" :key="item.official_id" class="rounded-lg border bg-slate-900/65 p-3" :class="item.featured ? 'border-cyan-700/70' : 'border-amber-800/50'" :data-official-id="item.official_id">
+        <div class="flex items-start justify-between gap-2"><div><div class="flex flex-wrap items-center gap-1"><h4 class="text-sm font-bold text-slate-100">{{ item.name }}</h4><span v-if="item.featured" class="rounded bg-cyan-950 px-1.5 py-0.5 text-[9px] text-cyan-300">推荐体验</span></div><p class="mt-1 text-[10px] text-slate-500">v{{ item.version }} · {{ item.asset_count }} 项内容</p></div><span class="rounded bg-amber-950 px-1.5 py-0.5 text-[9px] text-amber-300">{{ item.installed ? '已安装' : '随游戏提供' }}</span></div>
+        <div v-if="item.scale || item.duration || item.difficulty" class="mt-2 flex flex-wrap gap-1 text-[9px] text-slate-300">
+          <span v-if="item.scale" class="rounded border border-slate-700 px-1.5 py-0.5">{{ item.scale }}</span>
+          <span v-if="item.duration" class="rounded border border-slate-700 px-1.5 py-0.5">{{ item.duration }}</span>
+          <span v-if="item.difficulty" class="rounded border border-slate-700 px-1.5 py-0.5">{{ item.difficulty }}</span>
+        </div>
+        <p class="mt-2 line-clamp-4 text-xs leading-5 text-slate-400">{{ item.description }}</p>
+        <ul v-if="item.highlights?.length" class="mt-2 space-y-1 text-[10px] text-cyan-200/80">
+          <li v-for="highlight in item.highlights.slice(0, 3)" :key="highlight">✓ {{ highlight }}</li>
+        </ul>
         <button data-testid="official-world-start" class="mt-3 w-full rounded bg-amber-700 py-2 text-xs font-bold text-white hover:bg-amber-600" @click="openStart(item)">▶ 用此世界创建故事</button>
       </article>
     </section>

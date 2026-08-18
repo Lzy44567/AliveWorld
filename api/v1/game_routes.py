@@ -1,4 +1,5 @@
 # api/v1/game_routes.py
+import copy
 import uuid
 import shutil
 from fastapi import APIRouter, HTTPException
@@ -166,6 +167,7 @@ def start_prepared_game(
     world_premise: str = "",
     story_settings: dict[str, Any] | None = None,
     opening: str = "",
+    initial_state: dict[str, Any] | None = None,
 ):
     """Start a session after a trusted caller has materialized the save directory."""
     if not global_ai_engine:
@@ -180,6 +182,8 @@ def start_prepared_game(
         overseer_ai_engine=global_overseer_ai_engine,
         worldbook_capture_ai_engine=global_worldbook_capture_ai_engine,
     )
+    if initial_state:
+        game.state_mgr.state = copy.deepcopy(initial_state)
     if not opening:
         opening = "【时间线已建立】\n"
         if world_premise:

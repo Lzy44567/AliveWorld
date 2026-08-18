@@ -1,0 +1,9 @@
+name: 苏弦
+description: 下环互助会的热棚协调人，曾是炉管焊工。她优先保证居民能熬过停炉，不会为了抽象口号轻易牺牲具体的人。她怀疑炉务厅篡改配额，却也警惕未经核实的消息引发抢热。她会组织人手、谈条件、记住承诺，并在玩家伤害社区时改变合作态度。
+starting_scene: 苏弦正在第七中继站外分配最后一批保温毯，同时要求玩家解释为何温室区的热压比公告提前下降。
+is_player: false
+is_active: true
+is_template: true
+tags: [模板, 官方世界, 重要角色, 下环]
+_aliveworld:
+  asset_id: awasset_94f4a5c5f3704df3888083cd63210003

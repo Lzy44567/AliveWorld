@@ -51,7 +51,7 @@ const initWorldState = async () => {
       </div>
       <template v-else>
         <MessageBubble v-for="(msg, idx) in gameStore.chatLog" :key="msg.id || `legacy-${idx}`" :msg="msg" />
-        <div v-if="gameStore.chatLog.length === 1 && !gameStore.isProcessing" class="flex justify-center my-6 animate-pulse">
+        <div v-if="gameStore.chatLog.length === 1 && Object.keys(gameStore.dynamicBars).length === 0 && !gameStore.isProcessing" class="flex justify-center my-6 animate-pulse">
           <button @click="initWorldState" class="px-6 py-3 bg-indigo-600/80 hover:bg-indigo-500 text-white rounded-full font-bold shadow-lg shadow-indigo-900/50 transition border border-indigo-400/50 backdrop-blur">
             🌌 让 AI 降临并初始化世界状态
           </button>

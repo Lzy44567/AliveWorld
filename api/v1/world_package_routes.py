@@ -118,6 +118,7 @@ def start_official_package(official_id: str, payload: PackageStartPayload):
             world_premise=starter.world_premise,
             story_settings=starter.story_settings,
             opening=starter.opening,
+            initial_state=starter.initial_state,
         )
     except FileExistsError as exc:
         raise HTTPException(status_code=409, detail=f"已存在同名存档“{payload.save_name.strip()}”，请更换名称") from exc
@@ -227,6 +228,7 @@ async def import_and_start_package(request: Request, save_name: str):
             world_premise=starter.world_premise,
             story_settings=starter.story_settings,
             opening=starter.opening,
+            initial_state=starter.initial_state,
         )
     except FileExistsError as exc:
         raise HTTPException(status_code=409, detail=f"已存在同名存档“{save_name.strip()}”，请更换名称") from exc
@@ -274,6 +276,7 @@ def start_package_story(package_id: str, version: str, payload: PackageStartPayl
             world_premise=starter.world_premise,
             story_settings=settings,
             opening=starter.opening,
+            initial_state=starter.initial_state,
         )
     except PackageFormatError as exc:
         shutil.rmtree(save_dir, ignore_errors=True)
