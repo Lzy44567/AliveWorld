@@ -7,6 +7,7 @@ from core.model_response import failure_message
 from core.future_candidates import candidate_probability, choose_candidate, normalize_candidates
 from core.action_suggestions import action_suggestion_instruction
 from core.preference_learning import preference_context_instruction, preference_learning_instruction
+from core.player_agency import adjudication_context, normalize_action_adjudication, player_agency_instruction
 from core.story_length import story_length_instruction
 
 log = get_logger()
@@ -23,6 +24,7 @@ class DualTrackResolver(BaseResolutionStrategy):
         
         # 1. 变数发散
         react_p = pts.get('reaction_prompt', '').replace('{world_info}', active_world).replace('{character_info}', session.char_info)
+        react_p += "\n\n" + player_agency_instruction()
         usr_p1 = f"【情景】：\n{ctx}\n【状态】：{json.dumps(dyn_state, ensure_ascii=False)}\n【行动】：{player_action}"
         
         log.info(f"发送推演请求: {player_action[:15]}...")
@@ -40,6 +42,13 @@ class DualTrackResolver(BaseResolutionStrategy):
             except Exception:
                 return {"error": True, "stage": "reaction", "message": failure_message(invalid=True)}
         reactions = normalize_candidates(raw_candidates)
+        action_adjudication = normalize_action_adjudication(reaction_payload.get("action_adjudication"))
+        log.info(
+            "玩家行动事实裁定: accepted=%s contested=%s rejected=%s",
+            action_adjudication["accepted_facts"],
+            action_adjudication["contested_outcomes"],
+            action_adjudication["rejected_claims"],
+        )
 
         triggered_influences = session.undercurrent.causal_ledger.evaluate_checks(
             reaction_payload.get("influence_checks", [])
@@ -67,6 +76,7 @@ class DualTrackResolver(BaseResolutionStrategy):
         # 2. 剧情结算
         visible_world, _ = session.build_visible_world_info(player_action)
         settle_p = pts.get('settlement_prompt', '').replace('{world_info}', visible_world).replace('{character_info}', session.char_info).replace('{style_info}', session.style_info).replace('{word_limit}', str(session.word_limit))
+        settle_p += "\n\n" + player_agency_instruction(require_output=False)
         settle_p += "\n\n" + story_length_instruction(session.story_settings.get("targetStoryLength"))
         preference_context = getattr(session, "get_user_preference_context", lambda: "")()
         preference_prompt = preference_context_instruction(preference_context)
@@ -83,7 +93,11 @@ class DualTrackResolver(BaseResolutionStrategy):
                 f"- [{item['id']}] {item['summary']}；必须体现的后果：{item['effect']}；依据：{item['reason']}"
                 for item in triggered_influences
             )
-        usr_p2 = f"{usr_p1}\n【裁定变数】：{chosen['description']}\n【本回合必须兑现的暗流影响】：\n{influence_instruction}"
+        usr_p2 = (
+            f"{usr_p1}\n{adjudication_context(action_adjudication)}"
+            f"\n【裁定变数】：{chosen['description']}"
+            f"\n【本回合必须兑现的暗流影响】：\n{influence_instruction}"
+        )
         
         raw_settle, err2 = session.ai_engine.chat_json(settle_p, usr_p2, temp=0.8, max_tokens=max(3000, int(session.word_limit*3)), trace_label="剧情结算")
         
@@ -117,6 +131,7 @@ class DualTrackResolver(BaseResolutionStrategy):
 
         return {
             "reactions": reactions, "chosen_reaction": chosen,
+            "action_adjudication": action_adjudication,
             "settlement": settlement, "triggered_entries": triggered,
             "triggered_influences": triggered_influences,
         }

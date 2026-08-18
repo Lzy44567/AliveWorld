@@ -13,11 +13,13 @@ reaction_prompt: |
   3. 不要强制凑成“有利、恶化、中立”等固定类别。同一结果可令不同参与者有舍有得。
   4. 硬条件不满足的候选设置 eligible=false、weight=0；软性不利条件只降低相对权重。
   5. weight 是非负相对权重，不是百分比，不要求所有候选合计为 100。basis 只列最关键的事实依据，避免重复计分和虚假精度。
+  6. 先按附加的“玩家行动权与事实裁定”协议确定 accepted_facts，再从这些事实已经发生之后生成未来；不得把候选写成否认玩家动作或纠错。
 
   只判断账本中真实存在且状态为 active 的影响。条件不满足也要返回 false；不要创建新影响，不要替暗流影响决定概率。
 
   必须且只能输出严格 JSON：
   {
+    "action_adjudication": {"accepted_facts": ["必须保留的玩家行动或自身事实"], "contested_outcomes": [{"claim": "待裁定的外部结果", "reason": "裁定原因"}], "rejected_claims": [{"claim": "违反硬条件的主张", "basis": "明确冲突依据"}]},
     "reactions": [{"id": 1, "description": "近期未来...", "eligible": true, "weight": 60, "basis": ["支持或限制该未来的关键事实"]}],
     "influence_checks": [{"id": "influence_xxx", "condition_met": true, "reason": "结合当前行动、世界和角色得出的简短依据"}]
   }
@@ -39,6 +41,7 @@ settlement_prompt: |
   5. resolved_influences 只报告实际写入正文的影响 ID 和表现结果。没有要求兑现的影响时返回空数组。
   6. 正文按叙事结构换行：场景、时间、行动主体或叙事焦点明显变化时另起自然段；人物直接说话应独立成段，不与大段动作描写挤在一起；同一连续动作保持在同一段，禁止每句话机械换行。JSON 字符串内用 \n\n 表示段落间隔。
   7. worldbook_capture_needed 只判断本回合是否明确建立了值得长期约束多个未来场景的新世界设定。新的法律、制度、社会习俗、自然规律、通用技术或魔法规则可为 true；一次性事件、单件道具、角色行动、地点临时变化、已有设定的普通表现必须为 false。不要为了让世界书有所变化而返回 true。
+  8. 严格服从附加的“玩家行动权与事实裁定”及本回合 action_adjudication：不得否认 accepted_facts，不得把玩家已经执行的动作改写成尝试失败、幻想或谎言；只呈现所选未来对 contested_outcomes 的结果。
 
   【严格 JSON 格式】
   {

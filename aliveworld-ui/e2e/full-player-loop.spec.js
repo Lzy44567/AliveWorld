@@ -1,4 +1,8 @@
 import { test, expect } from '@playwright/test';
+import { readFileSync } from 'node:fs';
+
+
+const runtimeVersion = readFileSync(new URL('../../VERSION', import.meta.url), 'utf8').trim();
 
 
 const assetTabs = {
@@ -106,7 +110,8 @@ test('前端创建和载入全类资产，正文上下文启停可由假模型�
   await page.getByTestId('story-action-submit').click();
   await expect(page.getByText('前端正文测试成功。')).toBeVisible();
   await expect(page.getByText('自动测试正文1')).toBeVisible();
-  await expect(page.getByTestId('runtime-version')).toHaveText('v1.5.0-dev.20');
+  await expect(page.getByText('行动裁定就绪')).toBeVisible();
+  await expect(page.getByTestId('runtime-version')).toHaveText(`v${runtimeVersion}`);
   await expect(page.getByText('自动验收阶段')).toBeVisible();
   await expect(page.getByText('第1回合', { exact: true })).toBeVisible();
   await expect(page.getByText('自动验收进度')).toBeVisible();
@@ -413,6 +418,6 @@ test('反馈面板默认不附带私人日志并可生成本机安全预览', as
   await page.getByTestId('feedback-preview').click();
   const preview = page.getByTestId('feedback-preview-content');
   await expect(preview).toContainText('自动验收反馈');
-  await expect(preview).toContainText('AliveWorld：1.5.0-dev.20');
+  await expect(preview).toContainText(`AliveWorld：${runtimeVersion}`);
   await expect(preview).not.toContainText('玩家私人正文');
 });

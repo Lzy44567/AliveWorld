@@ -120,6 +120,7 @@ v2 不是“实体推演单功能升级”。它需要同时让玩家感受到�
 - v1.5-dev.18：已完成结构化日志分类、摘要折叠、详情脱敏和 LLM trace 关联；保留纯文本日志兼容层，并增加日志浏览器验收场景。Python 243 项、前端构建和 Edge 5 场景通过。
 - v1.5-dev.19：已把正文重试/撤回、世界书工坊草稿隔离与发布、生图首次失败后重试成功、页面重载后故事与局内资产恢复转换为真实 Edge 场景；新增隔离假 ComfyUI，只在测试进程中运行。Python 243 项、前端构建和 Edge 9 场景通过。
 - v1.5-dev.20：对外测试与发行准备。已完成声明式假模型、状态栏协议、稳定同名发行地址、启动更新提示、Windows 一键更新内核、真实双 EXE 构建，以及本机反馈摘要/诊断包；Python 264 项、前端 114 模块和 Edge 12 场景通过。dev.19 没有更新助手，最终实机更新应以人工安装 dev.20 后的 dev.20 → 后续 Release 验收。下一切片优先修复真实游玩暴露的玩家代理权与事实裁定，再补账本撤回、记忆压缩失败回退和其他资产工坊冲突保护。详细边界见 [`features/09_updates_and_onboarding.md`](features/09_updates_and_onboarding.md) 与 [`features/14_feedback_and_diagnostics.md`](features/14_feedback_and_diagnostics.md)。
+- v1.5-dev.21-a：正在修复真实游玩中的玩家行动权与事实裁定。未来推演不增加请求，在候选 JSON 中先拆分玩家已确定事实与待裁定外部结果，再把结构化裁定交给正文；详见 [`features/16_player_agency_and_fact_adjudication.md`](features/16_player_agency_and_fact_adjudication.md)。
 - 手机局域网访问继续后置：必须先完成配对鉴权、危险接口保护与移动正文布局，不以监听 `0.0.0.0` 冒充完成。
 - v1.5 Beta 前：真实模型质量、真实 ComfyUI 和便携包升级仍需人工抽查。
 - v1.5 Beta 后候选：先完成最近一回合的微调重演，再进入任意节点和持久化分支；不把现有最多 20 份整存档快照直接扩展成无限历史。详见 [`features/15_timeline_branching.md`](features/15_timeline_branching.md)。

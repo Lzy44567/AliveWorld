@@ -94,6 +94,8 @@ class PreferenceLearningContractTests(unittest.TestCase):
         prompt = preference_learning_instruction("")
         self.assertIn("不要在这里推断玩家真正喜欢什么", prompt)
         self.assertIn("角色台词", prompt)
+        self.assertIn("source_quote", prompt)
+        self.assertIn("逐字复制", prompt)
         self.assertIn("返回空数组", prompt)
         self.assertIn("preference_evidence", prompt)
 
@@ -101,12 +103,26 @@ class PreferenceLearningContractTests(unittest.TestCase):
         settlement = {"preference_observations": [{"statement": "测试"}]}
         self.assertEqual(preference_observations(settlement, enabled=False), [])
 
-    def test_evidence_contract_reads_only_new_neutral_field(self):
+    def test_evidence_contract_requires_exact_player_source_and_rewrites_summary(self):
         settlement = {
             "preference_observations": [{"statement": "旧推断"}],
-            "preference_evidence": [{"summary": "玩家连续选择观察群众反应"}],
+            "preference_evidence": [{
+                "source_quote": "观察群众反应", "summary": "模型声称玩家撒谎",
+                "diagnosticity": "strong", "signal_type": "choice",
+            }],
         }
-        self.assertEqual(preference_evidence(settlement, enabled=True)[0]["summary"], "玩家连续选择观察群众反应")
+        evidence = preference_evidence(
+            settlement, enabled=True, player_action="我施放法术并观察群众反应"
+        )[0]
+        self.assertEqual(evidence["summary"], "玩家本回合输入：观察群众反应")
+        self.assertEqual(evidence["diagnosticity"], "weak")
+        self.assertNotIn("撒谎", evidence["summary"])
+
+    def test_evidence_with_invented_source_quote_is_discarded(self):
+        settlement = {"preference_evidence": [{"source_quote": "玩家承认自己撒谎"}]}
+        self.assertEqual(
+            preference_evidence(settlement, enabled=True, player_action="我发射球状闪电"), []
+        )
 
     def test_confirmed_context_has_narrative_boundary(self):
         prompt = preference_context_instruction("- [x] 偏好：慢节奏")

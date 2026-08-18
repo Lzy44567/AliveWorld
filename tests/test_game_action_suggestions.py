@@ -24,6 +24,15 @@ class FakeResolver:
         }
 
 
+class RecordingAI:
+    def __init__(self):
+        self.requests = []
+
+    def chat_json(self, system_prompt, user_prompt, **kwargs):
+        self.requests.append((system_prompt, user_prompt, kwargs))
+        return '{"story_text":"球状闪电击中车门，车辆失控停下。","resolved_influences":[],"preference_evidence":[]}', None
+
+
 class GameActionSuggestionTests(unittest.TestCase):
     def test_turn_persists_suggestions_on_ai_message_and_save(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -79,6 +88,38 @@ class GameActionSuggestionTests(unittest.TestCase):
             self.assertEqual(restored.status, "active")
             self.assertEqual(restored.trigger_count, 0)
             self.assertEqual(session.undercurrent.causal_ledger.turn_count, 0)
+
+    def test_reroll_reuses_action_adjudication_instead_of_reinterpreting_player_fact(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            ai = RecordingAI()
+            session = GameSession(ai, "测试", temp_dir, {"entitiesEnabled": False})
+            session.start_new_game("", "开场")
+            session._take_snapshot()
+            session.history["chat_messages"].extend([
+                {"role": "user", "content": "我发射球状闪电摧毁囚车"},
+                {"role": "action_adjudication", "content": {
+                    "accepted_facts": ["玩家成功发射球状闪电"],
+                    "contested_outcomes": [{"claim": "囚车被摧毁", "reason": "外部结果"}],
+                    "rejected_claims": [],
+                }},
+                {"role": "reactions", "content": [
+                    {"id": 1, "description": "囚车侧翻", "eligible": True, "weight": 1, "basis": []},
+                    {"id": 2, "description": "囚车停车", "eligible": True, "weight": 1, "basis": []},
+                ]},
+                {"role": "influence_checks", "content": []},
+                {"role": "system", "content": "命运变数: 囚车侧翻"},
+                {"role": "ai", "content": "旧结果"},
+            ])
+
+            result = session.reroll_turn()
+
+            self.assertNotIn("error", result)
+            self.assertEqual(len(ai.requests), 1)
+            self.assertIn("已接受，正文不得否认：玩家成功发射球状闪电", ai.requests[0][1])
+            adjudication_messages = [
+                item for item in session.history["chat_messages"] if item.get("role") == "action_adjudication"
+            ]
+            self.assertEqual(adjudication_messages[-1]["content"]["accepted_facts"], ["玩家成功发射球状闪电"])
 
 
 if __name__ == "__main__":

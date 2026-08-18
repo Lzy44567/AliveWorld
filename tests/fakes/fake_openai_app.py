@@ -64,6 +64,11 @@ def _response_for(kind: str, system: str, user: str) -> dict[str, Any] | str:
     if kind == "reaction":
         influence_ids = list(dict.fromkeys(re.findall(r"influence_[A-Za-z0-9_-]+", full)))
         return {
+            "action_adjudication": {
+                "accepted_facts": ["自动验收玩家行动已被接受"],
+                "contested_outcomes": [],
+                "rejected_claims": [],
+            },
             "reactions": [{
                 "id": 1,
                 "description": "测试世界按既有事实继续运行",

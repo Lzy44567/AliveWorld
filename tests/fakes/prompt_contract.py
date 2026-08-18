@@ -28,6 +28,7 @@ BUILTIN_MARKERS = (
     PromptMarker("entity", "测试实体", "实体上下文就绪"),
     PromptMarker("gm_protocol", "游戏地下城主", "GM 提示词就绪"),
     PromptMarker("status_protocol", '"status_updates"', "状态栏规则就绪"),
+    PromptMarker("agency_protocol", "本回合行动事实裁定", "行动裁定就绪"),
 )
 
 
@@ -58,4 +59,3 @@ def next_story_index(prompt: str) -> int:
 
     indices = [int(match.group("index")) for match in STORY_INDEX_RE.finditer(prompt)]
     return max(indices, default=0) + 1
-

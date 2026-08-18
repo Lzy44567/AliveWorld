@@ -97,9 +97,13 @@ class GameSession:
         enabled = {category for category, setting in category_settings.items() if self.story_settings.get(setting, True)}
         return self.user_preferences.context(categories=enabled)
 
-    def _record_preference_evidence(self, settlement, turn_id):
+    def _record_preference_evidence(self, settlement, turn_id, player_action):
         added = self.user_preferences.record_evidence(
-            preference_evidence(settlement, enabled=self.story_settings.get("learnUserPreferences", True)),
+            preference_evidence(
+                settlement,
+                enabled=self.story_settings.get("learnUserPreferences", True),
+                player_action=player_action,
+            ),
             save_name=self.save_name, turn_id=turn_id,
         )
         if added:
@@ -200,6 +204,7 @@ class GameSession:
         triggered_ids = {item.get("id") for item in result.get("triggered_influences", []) if isinstance(item, dict)}
         resolved_items = self.undercurrent.causal_ledger.resolve(resolutions, allowed_ids=triggered_ids)
         self.history["chat_messages"].append({"role": "reactions", "content": result['reactions']})
+        self.history["chat_messages"].append({"role": "action_adjudication", "content": result.get("action_adjudication", {})})
         self.history["chat_messages"].append({"role": "influence_checks", "content": result.get("triggered_influences", [])})
         self.history["chat_messages"].append({"role": "system", "content": f"命运变数: {result['chosen_reaction']['description']}"})
         
@@ -232,7 +237,9 @@ class GameSession:
             self.history.setdefault("story_turns", []), interpreted_action, story_text,
             source_message_ids=self._latest_story_message_ids(),
         )
-        self._record_preference_evidence(settlement, self.history["story_turns"][-1]["turn_id"])
+        self._record_preference_evidence(
+            settlement, self.history["story_turns"][-1]["turn_id"], interpreted_action
+        )
         if self.story_settings["worldbookCaptureEnabled"] and capture_requested(settlement):
             self.worldbook_capture.schedule(
                 self.save_dir_path, interpreted_action, story_text,
@@ -247,11 +254,12 @@ class GameSession:
     def reroll_turn(self):
         if not self.snapshots: return {"error": True}
         
-        action, reactions, old_desc, triggered_influences = "", [], "", []
+        action, reactions, old_desc, triggered_influences, action_adjudication = "", [], "", [], {}
         for msg in reversed(self.history["chat_messages"]):
             if msg.get("role") == "user" and not action: action = msg.get("content")
             if msg.get("role") == "reactions" and not reactions: reactions = msg.get("content")
             if msg.get("role") == "influence_checks" and not triggered_influences: triggered_influences = msg.get("content")
+            if msg.get("role") == "action_adjudication" and not action_adjudication: action_adjudication = msg.get("content")
             if msg.get("role") == "system" and "命运变数" in msg.get("content", "") and not old_desc: old_desc = msg["content"].replace("命运变数: ", "")
             if action and reactions and old_desc: break 
         
@@ -267,6 +275,7 @@ class GameSession:
         chosen = choose_candidate(reactions, exclude_description=old_desc)
         
         self.history["chat_messages"].append({"role": "reactions", "content": reactions})
+        self.history["chat_messages"].append({"role": "action_adjudication", "content": action_adjudication})
         self.history["chat_messages"].append({"role": "influence_checks", "content": triggered_influences})
         self.history["chat_messages"].append({"role": "system", "content": f"命运变数: {chosen['description']}"})
         
@@ -274,9 +283,11 @@ class GameSession:
         active_world, _ = self.build_active_world_info(interpreted_action)
         
         from core.prompts import load_system_prompts
+        from core.player_agency import adjudication_context, normalize_action_adjudication, player_agency_instruction
         pts = load_system_prompts()
         visible_world, _ = self.build_visible_world_info(interpreted_action)
         settle_p = pts.get('settlement_prompt', '').replace('{world_info}', visible_world).replace('{character_info}', self.ctx_mgr.char_info).replace('{style_info}', self.ctx_mgr.style_info)
+        settle_p += "\n\n" + player_agency_instruction(require_output=False)
         settle_p += "\n\n" + story_length_instruction(self.story_settings.get("targetStoryLength"))
         suggestion_prompt = action_suggestion_instruction(self.story_settings.get("aiSuggestions", True))
         if suggestion_prompt:
@@ -292,7 +303,8 @@ class GameSession:
             f"- [{item['id']}] {item['summary']}；必须体现的后果：{item['effect']}；依据：{item['reason']}"
             for item in triggered_influences
         ) or "（本回合没有满足条件的暗流影响）"
-        usr_p2 = f"【情景】：\n{self.get_context_text()}\n【状态】：{json.dumps(self.state_mgr.get_dynamic_state(), ensure_ascii=False)}\n【行动】：{interpreted_action}\n【裁定变数】：{chosen['description']}\n【本回合必须兑现的暗流影响】：\n{influence_instruction}"
+        action_adjudication = normalize_action_adjudication(action_adjudication)
+        usr_p2 = f"【情景】：\n{self.get_context_text()}\n【状态】：{json.dumps(self.state_mgr.get_dynamic_state(), ensure_ascii=False)}\n【行动】：{interpreted_action}\n{adjudication_context(action_adjudication)}\n【裁定变数】：{chosen['description']}\n【本回合必须兑现的暗流影响】：\n{influence_instruction}"
 
         raw_settle, err2 = self.ai_engine.chat_json(settle_p, usr_p2, temp=0.8, max_tokens=3000, trace_label="剧情重写")
         if err2 or not raw_settle:
@@ -332,7 +344,9 @@ class GameSession:
             self.history.setdefault("story_turns", []), interpreted_action, story_text,
             source_message_ids=self._latest_story_message_ids(),
         )
-        self._record_preference_evidence(settlement, self.history["story_turns"][-1]["turn_id"])
+        self._record_preference_evidence(
+            settlement, self.history["story_turns"][-1]["turn_id"], interpreted_action
+        )
         self.story_memory.schedule(
             self.history.get("story_turns", []),
             enabled=self.story_settings.get("autoCompressMemory", False),
