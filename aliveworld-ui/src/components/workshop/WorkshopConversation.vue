@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue';
 import { workshopStore } from '../../store/workshopStore';
+import CopyTextButton from '../common/CopyTextButton.vue';
 
 const operationLabel = operation => ({
   add_entry: '新增条目', update_entry: '修改条目', deactivate_entry: '关闭条目',
@@ -35,7 +36,7 @@ const waitingText = computed(() => ({
 
       <section class="min-h-0 flex-1 space-y-3 overflow-y-auto p-5 custom-scrollbar">
         <p v-if="workshopStore.activity==='loading'" class="text-sm text-slate-500">正在载入或恢复工坊草稿……</p>
-        <div v-for="(message,index) in workshopStore.messages" :key="index" class="w-fit max-w-[84%] whitespace-pre-wrap rounded-xl p-3 text-sm leading-relaxed" :class="message.role==='user'?'ml-auto bg-cyan-700 text-white':'bg-slate-800 text-slate-200'">{{ message.content }}<span v-if="message.failed" class="ml-2 text-xs text-rose-200">发送失败</span></div>
+        <div v-for="(message,index) in workshopStore.messages" :key="index" class="group relative w-fit max-w-[84%] whitespace-pre-wrap rounded-xl p-3 pr-14 text-sm leading-relaxed select-text cursor-text" :class="message.role==='user'?'ml-auto bg-cyan-700 text-white':'bg-slate-800 text-slate-200'">{{ message.content }}<span v-if="message.failed" class="ml-2 text-xs text-rose-200">发送失败</span><CopyTextButton :text="message.content" class="absolute right-2 top-2 opacity-70 group-hover:opacity-100" /></div>
         <div v-if="workshopStore.activity==='chat'" class="w-fit rounded-xl bg-slate-800 p-3 text-sm text-slate-400">{{ waitingText }}</div>
         <section v-if="workshopStore.proposed.length" class="rounded-xl border border-cyan-700/60 bg-cyan-950/25 p-3">
           <div class="flex items-center justify-between"><div><h3 class="text-xs font-bold text-cyan-300">AI 拟议修改 · 尚未写入</h3><p class="mt-1 text-[10px] text-slate-500">先审阅，再写入工坊草稿。</p></div><button class="rounded bg-cyan-700 px-3 py-1.5 text-xs font-bold text-white" @click="workshopStore.submitProposal">提交方案</button></div>

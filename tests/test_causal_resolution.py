@@ -43,7 +43,7 @@ class CausalResolutionTests(unittest.TestCase):
             "consume_policy": {"mode": "on_success"},
         })
         ai = SequenceAI([
-            '{"action_adjudication":{"accepted_facts":["玩家进入城门"],"contested_outcomes":[],"rejected_claims":[]},"reactions":[{"id":1,"description":"守卫靠近","weight":100}],"influence_checks":[{"id":"%s","condition_met":true,"reason":"玩家进入城门"}]}' % influence.id,
+            '{"action_adjudication":{"accepted_facts":["玩家进入城门"],"contested_outcomes":[],"rejected_claims":[]},"reactions":[{"id":1,"description":"守卫靠近","weight":100,"fact_checks":[{"fact":"玩家进入城门","compatible":true,"reason":"从进城后继续"}]}],"influence_checks":[{"id":"%s","condition_met":true,"reason":"玩家进入城门"}]}' % influence.id,
             '{"story_text":"守卫拦住了玩家。","resolved_influences":[{"id":"%s","result":"守卫开始盘查"}]}' % influence.id,
         ])
         session = FakeSession(ai, ledger)
@@ -63,6 +63,7 @@ class CausalResolutionTests(unittest.TestCase):
         self.assertIn("玩家行动权与事实裁定", ai.requests[1][0])
         self.assertIn("已接受，正文不得否认：玩家进入城门", ai.requests[1][1])
         self.assertEqual(result["action_adjudication"]["accepted_facts"], ["玩家进入城门"])
+        self.assertEqual(result["chosen_reaction"]["description"], "守卫靠近")
         self.assertEqual(result["settlement"]["resolved_influences"][0]["id"], influence.id)
 
     def test_settlement_suggestions_can_be_returned_with_same_request(self):

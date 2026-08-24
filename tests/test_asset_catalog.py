@@ -14,6 +14,10 @@ class AssetCatalogTests(unittest.TestCase):
         self.assertTrue(summary["is_template"])
         self.assertIn("模板", summary["tags"])
 
+    def test_package_templates_can_be_hidden_from_personal_asset_catalog(self):
+        self.assertNotIn("中央炉务厅", list_asset_names("entities", include_templates=False))
+        self.assertTrue(all(not item["is_template"] for item in list_asset_summaries("entities", include_templates=False)))
+
 
 if __name__ == "__main__":
     unittest.main()

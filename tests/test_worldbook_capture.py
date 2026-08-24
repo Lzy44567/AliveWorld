@@ -4,7 +4,7 @@ from pathlib import Path
 
 import yaml
 
-from core.worldbook_capture import WorldbookCaptureService, capture_requested
+from core.worldbook_capture import WorldbookCaptureService, capture_requested, common_sense_command_mode
 
 
 class FakeAI:
@@ -24,6 +24,14 @@ class WorldbookCaptureTests(unittest.TestCase):
         self.assertFalse(capture_requested({"worldbook_capture_needed": "true"}))
         self.assertFalse(capture_requested({}))
         self.assertFalse(capture_requested(None))
+        self.assertTrue(capture_requested({"worldbook_capture_needed": False}, "常识改变：所有人认为蓝雨很正常"))
+        self.assertTrue(capture_requested({}, "常识恢复"))
+        self.assertFalse(capture_requested({}, "我们讨论了一部常识改变题材的漫画"))
+
+    def test_common_sense_command_detection_is_explicit(self):
+        self.assertEqual(common_sense_command_mode("常识改变：公众裸体是正常礼仪"), "change")
+        self.assertEqual(common_sense_command_mode("常识恢复：公众礼仪"), "restore")
+        self.assertEqual(common_sense_command_mode("我想研究常识改变题材"), "")
 
     def write_book(self, directory, data=None):
         path = Path(directory) / "worldbooks" / "world.yml"
@@ -40,6 +48,49 @@ class WorldbookCaptureTests(unittest.TestCase):
             saved = yaml.safe_load(path.read_text(encoding="utf-8"))
             self.assertIn("AI推断", saved["entries"][0]["tags"])
             self.assertNotIn("待确认", saved["entries"][0]["tags"])
+
+    def test_common_sense_change_command_adds_a_confirmed_rule_and_marks_origin(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = self.write_book(temp_dir)
+            ai = FakeAI('{"candidates":[{"operation":"add","name":"蓝雨常识","content":"此后所有自然降雨呈蓝色","risk":"low","scope":"natural_law","confidence":"high","reason":"玩家的改变已在正文中生效"}]}')
+            result = WorldbookCaptureService(ai).capture(
+                path, "常识改变：从现在起自然降雨是蓝色", "天空落下蓝色雨滴，所有人都将其视为一直如此。", review_all=False,
+            )
+            self.assertEqual([item["name"] for item in result["added"]], ["蓝雨常识"])
+            self.assertIn("常识改变", result["added"][0]["tags"])
+
+    def test_common_sense_restore_can_only_update_or_retire_an_existing_change(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = self.write_book(temp_dir, {"name": "世界", "entries": [{"id": "entry_blue", "name": "蓝雨常识", "content": "自然降雨呈蓝色", "tags": ["常识改变"]}]})
+            ai = FakeAI('{"candidates":[{"operation":"retire","target_entry_id":"entry_blue","name":"蓝雨常识","content":"自然降雨呈蓝色","risk":"low","scope":"natural_law","confidence":"high","reason":"常识恢复已生效"}]}')
+            result = WorldbookCaptureService(ai).capture(path, "常识恢复：自然降雨", "人们恢复了雨水原本无色的常识。", review_all=False)
+            self.assertEqual(result["added"], [])
+            self.assertEqual(result["pending"][0]["pending_operation"], "retire")
+            self.assertIn("常识恢复", result["pending"][0]["tags"])
+
+    def test_common_sense_restore_rejects_a_new_entry_even_if_model_proposes_one(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = self.write_book(temp_dir)
+            ai = FakeAI('{"candidates":[{"operation":"add","name":"恢复事件","content":"大家恢复常识","risk":"low","scope":"social_system","confidence":"high"}]}')
+            result = WorldbookCaptureService(ai).capture(path, "常识恢复", "能力生效", review_all=False)
+            self.assertEqual(result["added"], [])
+            self.assertEqual(result["pending"], [])
+
+    def test_existing_rule_update_and_retirement_wait_for_player_confirmation(self):
+        for operation in ("update", "retire"):
+            with self.subTest(operation=operation), tempfile.TemporaryDirectory() as temp_dir:
+                path = self.write_book(temp_dir, {"name": "世界", "entries": [{"id": "entry_old", "name": "旧常识", "content": "雨是透明的"}]})
+                ai = FakeAI('{"candidates":[{"operation":"%s","target_entry_id":"entry_old","name":"旧常识","content":"雨变成蓝色","risk":"low","scope":"natural_law","confidence":"high","reason":"玩家明确改变"}]}' % operation)
+                result = WorldbookCaptureService(ai).capture(path, "改变常识", "规则改变生效", review_all=False)
+                self.assertEqual(result["added"], [])
+                self.assertEqual(len(result["pending"]), 1)
+                proposal = result["pending"][0]
+                self.assertNotEqual(proposal["id"], "entry_old")
+                self.assertEqual(proposal["pending_operation"], operation)
+                self.assertEqual(proposal["replaces_entry_id"], "entry_old")
+                saved = yaml.safe_load(path.read_text(encoding="utf-8"))
+                self.assertEqual(saved["entries"][0]["content"], "雨是透明的")
+                self.assertIn("待确认", saved["entries"][1]["tags"])
 
     def test_review_mode_and_high_risk_candidate_stay_pending(self):
         for review_all, risk in ((True, "low"), (False, "high")):

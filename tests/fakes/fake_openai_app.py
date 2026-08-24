@@ -75,6 +75,11 @@ def _response_for(kind: str, system: str, user: str) -> dict[str, Any] | str:
                 "eligible": True,
                 "weight": 100,
                 "basis": ["自动验收固定候选"],
+                "fact_checks": [{
+                    "fact": "自动验收玩家行动已被接受",
+                    "compatible": True,
+                    "reason": "固定候选保留已接受行动",
+                }],
             }],
             "influence_checks": [
                 {"id": item, "condition_met": False, "reason": "自动验收默认不触发"}

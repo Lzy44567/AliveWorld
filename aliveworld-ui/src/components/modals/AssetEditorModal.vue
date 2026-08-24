@@ -40,7 +40,26 @@ const { confirmDeleteId, requestDelete, cancelDelete } = useDeleteConfirmation()
 const removeWorldEntry = (idx) => { form.value.entries.splice(idx, 1); cancelDelete(); };
 const entryTags = (entry) => typeof entry.tags === 'string' ? entry.tags.split(/[,，]/).map(tag => tag.trim()).filter(Boolean) : (entry.tags || []);
 const isPendingEntry = (entry) => entryTags(entry).includes('待确认');
-const acceptPendingEntry = (entry) => {
+const acceptPendingEntry = (entry, index) => {
+  const operation = entry.pending_operation;
+  const targetId = entry.replaces_entry_id;
+  if (operation && targetId) {
+    const targetIndex = form.value.entries.findIndex((item, idx) => idx !== index && item.id === targetId);
+    if (targetIndex < 0) return uiStore.showToast('原条目已经不存在，请拒绝该提案后重新生成', 'error');
+    if (operation === 'retire') {
+      form.value.entries = form.value.entries.filter((_, idx) => idx !== index && idx !== targetIndex);
+      return;
+    }
+    const accepted = { ...entry, tags: entryTags(entry).filter(tag => tag !== '待确认'), is_active: true };
+    delete accepted.pending_operation;
+    delete accepted.replaces_entry_id;
+    delete accepted.proposal_reason;
+    accepted.id = targetId;
+    const remaining = form.value.entries.filter((_, idx) => idx !== index && idx !== targetIndex);
+    remaining.splice(Math.min(targetIndex, remaining.length), 0, accepted);
+    form.value.entries = remaining;
+    return;
+  }
   entry.tags = entryTags(entry).filter(tag => tag !== '待确认').join(', ');
   entry.is_active = true;
 };
@@ -175,7 +194,7 @@ const saveContent = async () => {
                 </div>
                 <div v-if="isPendingEntry(entry)" class="mt-3 flex items-center justify-between rounded-lg border border-amber-700/60 bg-amber-950/30 p-2">
                   <span class="text-[10px] text-amber-300">此AI候选尚未参与正文检索</span>
-                  <div class="flex gap-2"><button type="button" @click="acceptPendingEntry(entry)" class="rounded bg-emerald-700 px-2 py-1 text-[10px] font-bold text-white">接受并启用</button><button type="button" @click="rejectPendingEntry(idx)" class="rounded bg-rose-800 px-2 py-1 text-[10px] font-bold text-white">拒绝并删除</button></div>
+                  <div class="flex gap-2"><button type="button" @click="acceptPendingEntry(entry, idx)" class="rounded bg-emerald-700 px-2 py-1 text-[10px] font-bold text-white">{{ entry.pending_operation === 'retire' ? '确认废止' : entry.pending_operation === 'update' ? '接受修改' : '接受并启用' }}</button><button type="button" @click="rejectPendingEntry(idx)" class="rounded bg-rose-800 px-2 py-1 text-[10px] font-bold text-white">拒绝并删除</button></div>
                 </div>
               </div>
             </div>

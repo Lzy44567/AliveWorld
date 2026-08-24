@@ -22,6 +22,8 @@ SYSTEM_TAGS = {
     "待删除": "已自动停用、等待玩家确认删除的条目。",
 }
 
+RECENT_RETRIEVAL_CHARS = 4000
+
 AXIOM_PREFIX = re.compile(r"^\s*(?:(?:\d+|[一二三四五六七八九十]+)[.、．)]|[-*•])\s*")
 
 
@@ -43,6 +45,14 @@ def normalize_tags(value: Any) -> list[str]:
     return result
 
 
+def build_retrieval_query(context_text: Any, action: Any, *, recent_chars: int = RECENT_RETRIEVAL_CHARS) -> str:
+    """Use current action and recent prose, not every keyword ever mentioned."""
+    context = str(context_text or "")
+    action_text = str(action or "").strip()
+    window = context[-max(500, int(recent_chars)):]
+    return f"{window}\n【当前行动】{action_text}".strip()
+
+
 def _entry_id(name: str, content: str) -> str:
     digest = hashlib.sha1(f"{name}\n{content}".encode("utf-8")).hexdigest()[:12]
     return f"entry_{digest}"
@@ -54,7 +64,7 @@ def normalize_entry(raw: Any) -> dict[str, Any]:
     content = str(raw.get("content", "")).strip()
     tags = normalize_tags(raw.get("tags", []))
     active = raw.get("is_active", True) is not False and "待删除" not in tags
-    return {
+    normalized = {
         "id": str(raw.get("id") or _entry_id(name, content)),
         "name": name,
         "keys": str(raw.get("keys", "")).replace("，", ",").strip(),
@@ -62,6 +72,11 @@ def normalize_entry(raw: Any) -> dict[str, Any]:
         "tags": tags,
         "is_active": active,
     }
+    if str(raw.get("pending_operation", "")) in {"update", "retire"}:
+        normalized["pending_operation"] = str(raw["pending_operation"])
+        normalized["replaces_entry_id"] = str(raw.get("replaces_entry_id", ""))
+        normalized["proposal_reason"] = str(raw.get("proposal_reason", "")).strip()
+    return normalized
 
 
 def normalize_worldbook(raw: Any) -> dict[str, Any]:

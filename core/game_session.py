@@ -18,6 +18,7 @@ from core.story_memory import StoryMemoryManager, normalize_story_turns
 from core.user_preferences import UserPreferenceRepository
 from core.preference_learning import preference_evidence
 from core.preference_analysis import PreferenceAnalysisService
+from core.player_agency import adjudication_context, normalize_action_adjudication, player_agency_instruction
 from utils.sys_logger import get_logger
 
 log = get_logger()
@@ -231,7 +232,7 @@ class GameSession:
         self._sync_entities_to_local()
         for ev in events: self.history["chat_messages"].append({"role": "undercurrent", "content": f"🌌 潜流涌动: {ev}"})
         
-        self.state_mgr.apply_updates(settlement)
+        self.state_mgr.apply_updates(settlement, story_text=story_text, player_action=interpreted_action)
         self.history["context_history"].append(f"玩家：{interpreted_action}\n结果：{story_text}")
         self.story_memory.append_turn(
             self.history.setdefault("story_turns", []), interpreted_action, story_text,
@@ -240,7 +241,7 @@ class GameSession:
         self._record_preference_evidence(
             settlement, self.history["story_turns"][-1]["turn_id"], interpreted_action
         )
-        if self.story_settings["worldbookCaptureEnabled"] and capture_requested(settlement):
+        if self.story_settings["worldbookCaptureEnabled"] and capture_requested(settlement, interpreted_action):
             self.worldbook_capture.schedule(
                 self.save_dir_path, interpreted_action, story_text,
                 review_all=self.story_settings["worldbookCaptureReview"],
@@ -271,7 +272,10 @@ class GameSession:
         self.undercurrent.causal_ledger.advance_turn()
         self.history["chat_messages"].append({"role": "user", "content": action})
         
-        reactions = normalize_candidates(reactions)
+        reactions = normalize_candidates(
+            reactions,
+            required_facts=normalize_action_adjudication(action_adjudication)["accepted_facts"],
+        )
         chosen = choose_candidate(reactions, exclude_description=old_desc)
         
         self.history["chat_messages"].append({"role": "reactions", "content": reactions})
@@ -283,11 +287,12 @@ class GameSession:
         active_world, _ = self.build_active_world_info(interpreted_action)
         
         from core.prompts import load_system_prompts
-        from core.player_agency import adjudication_context, normalize_action_adjudication, player_agency_instruction
+        from core.story_continuity import continuity_instruction
         pts = load_system_prompts()
         visible_world, _ = self.build_visible_world_info(interpreted_action)
         settle_p = pts.get('settlement_prompt', '').replace('{world_info}', visible_world).replace('{character_info}', self.ctx_mgr.char_info).replace('{style_info}', self.ctx_mgr.style_info)
         settle_p += "\n\n" + player_agency_instruction(require_output=False)
+        settle_p += "\n\n" + continuity_instruction()
         settle_p += "\n\n" + story_length_instruction(self.story_settings.get("targetStoryLength"))
         suggestion_prompt = action_suggestion_instruction(self.story_settings.get("aiSuggestions", True))
         if suggestion_prompt:
@@ -338,7 +343,7 @@ class GameSession:
         self._sync_entities_to_local()
         for ev in events: self.history["chat_messages"].append({"role": "undercurrent", "content": f"🌌 潜流涌动: {ev}"})
                 
-        self.state_mgr.apply_updates(settlement)
+        self.state_mgr.apply_updates(settlement, story_text=story_text, player_action=interpreted_action)
         self.history["context_history"].append(f"玩家：{interpreted_action}\n结果：{story_text}")
         self.story_memory.append_turn(
             self.history.setdefault("story_turns", []), interpreted_action, story_text,
@@ -359,6 +364,7 @@ class GameSession:
             "context_history": copy.deepcopy(self.history["context_history"]), "undercurrent": self.undercurrent.export_state(),
             "story_turns": copy.deepcopy(self.history.get("story_turns", [])),
             "action_suggestions": copy.deepcopy(self.action_suggestions),
+            "state_meta": copy.deepcopy(self.state_mgr.export_metadata()),
         })
         if len(self.snapshots) > 20: self.snapshots.pop(0)
 
@@ -372,6 +378,7 @@ class GameSession:
         for turn_id in removed_turn_ids:
             self.user_preferences.remove_turn_evidence(save_name=self.save_name, turn_id=turn_id)
         self.state_mgr.state = snap["state"]
+        self.state_mgr.load_metadata(snap.get("state_meta"))
         self.history["chat_messages"] = snap["chat_messages"]
         self.history["context_history"] = snap["context_history"]
         self.history["story_turns"] = snap.get("story_turns") or normalize_story_turns(snap.get("context_history", []))
@@ -389,6 +396,7 @@ class GameSession:
             "state": self.state, "history": self.history, "undercurrent": self.undercurrent.export_state(), "snapshots": self.snapshots,
             "action_suggestions": self.action_suggestions,
             "story_memory": self.story_memory.export_state(),
+            "state_meta": self.state_mgr.export_metadata(),
         }
 
     def load_save_data(self, data, *, save_dir_path=None):
@@ -405,6 +413,7 @@ class GameSession:
         self.word_limit = normalize_target_story_length(self.story_settings["targetStoryLength"])
         self.entity_repository = EntityRepository(self.save_dir_path)
         self.state_mgr.state, self.history = data.get('state', self.state), data.get('history', self.history)
+        self.state_mgr.load_metadata(data.get("state_meta"))
         self.history.setdefault("context_history", [])
         if not self.history.get("story_turns"):
             self.history["story_turns"] = normalize_story_turns(self.history.get("context_history", []))

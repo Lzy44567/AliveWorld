@@ -48,6 +48,17 @@ class FutureCandidateTests(unittest.TestCase):
 
         self.assertEqual(choose_candidate(candidates, exclude_description="旧结果")["id"], 2)
 
+    def test_candidate_missing_or_failing_an_accepted_fact_cannot_enter_random_pool(self):
+        fact = "没有保安巡逻或到场"
+        candidates = normalize_candidates([
+            {"id": 1, "description": "保安破门", "weight": 100, "fact_checks": []},
+            {"id": 2, "description": "保安破门", "weight": 100, "fact_checks": [{"fact": fact, "compatible": False, "reason": "与候选冲突"}]},
+            {"id": 3, "description": "封闭房间内继续对峙", "weight": 10, "fact_checks": [{"fact": fact, "compatible": True, "reason": "不引入保安"}]},
+        ], required_facts=[fact])
+
+        self.assertEqual([item["eligible"] for item in candidates], [False, False, True])
+        self.assertEqual(choose_candidate(candidates)["id"], 3)
+
 
 if __name__ == "__main__":
     unittest.main()

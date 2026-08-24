@@ -30,10 +30,29 @@ def _clean_weight(value: Any, *, eligible: bool) -> float:
     return min(weight, MAX_WEIGHT)
 
 
-def normalize_candidates(raw_candidates: Any) -> list[dict[str, Any]]:
+def _clean_fact_checks(value: Any) -> list[dict[str, Any]]:
+    if not isinstance(value, list):
+        return []
+    result = []
+    for item in value[:16]:
+        if not isinstance(item, dict):
+            continue
+        fact = str(item.get("fact", "")).strip()
+        if not fact:
+            continue
+        result.append({
+            "fact": fact[:500],
+            "compatible": item.get("compatible") is True,
+            "reason": str(item.get("reason", "")).strip()[:500],
+        })
+    return result
+
+
+def normalize_candidates(raw_candidates: Any, *, required_facts: Any = None) -> list[dict[str, Any]]:
     """Return safe candidates while retaining ineligible items for debug UI."""
     if not isinstance(raw_candidates, list):
         raw_candidates = []
+    facts = [str(item).strip() for item in (required_facts or []) if str(item).strip()][:12]
 
     normalized = []
     for index, raw in enumerate(raw_candidates, start=1):
@@ -42,13 +61,19 @@ def normalize_candidates(raw_candidates: Any) -> list[dict[str, Any]]:
         description = str(raw.get("description", "")).strip()
         if not description:
             continue
-        eligible = raw.get("eligible", True) is not False
+        fact_checks = _clean_fact_checks(raw.get("fact_checks", []))
+        checks_by_fact = {item["fact"]: item for item in fact_checks}
+        facts_verified = not facts or all(
+            checks_by_fact.get(fact, {}).get("compatible") is True for fact in facts
+        )
+        eligible = raw.get("eligible", True) is not False and facts_verified
         normalized.append({
             "id": raw.get("id", index),
             "description": description,
             "eligible": eligible,
             "weight": _clean_weight(raw.get("weight", DEFAULT_WEIGHT), eligible=eligible),
             "basis": _clean_basis(raw.get("basis", [])),
+            "fact_checks": fact_checks,
         })
 
     if normalized and any(item["eligible"] and item["weight"] > 0 for item in normalized):
@@ -60,6 +85,7 @@ def normalize_candidates(raw_candidates: Any) -> list[dict[str, Any]]:
         "eligible": True,
         "weight": DEFAULT_WEIGHT,
         "basis": ["模型没有返回可进入随机池的有效候选"],
+        "fact_checks": [{"fact": fact, "compatible": True, "reason": "安全回退保持既有事实"} for fact in facts],
     }]
 
 

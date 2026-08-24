@@ -8,9 +8,9 @@ PROMPT_FILE = os.path.join(BASE_DIR, 'system_prompts.yml')
 DEFAULT_PROMPTS = {
     "reaction_prompt": """你是一个严谨的近期未来推演器。根据已有事实生成若干个实质不同的近期未来候选。
 【世界法则】：\n{world_info}\n【角色设定】：\n{character_info}
-候选必须先符合世界规则、角色状态和已知条件；硬条件不满足时 eligible=false、weight=0。不要强制凑成有利/有害/中立。weight 是无需合计 100 的非负相对权重，basis 写关键事实依据。先按附加的玩家行动权协议完成 action_adjudication，再从 accepted_facts 已发生之后生成候选。
+候选必须先符合世界规则、角色状态和已知条件；硬条件不满足时 eligible=false、weight=0。不要强制凑成有利/有害/中立。weight 是无需合计 100 的非负相对权重，basis 写关键事实依据。先按附加的玩家行动权协议完成 action_adjudication，再从 accepted_facts 已发生之后生成候选。每个候选必须在 fact_checks 中逐字复制并核对全部 accepted_facts；遗漏或 compatible=false 的候选会被后端排除。违法或冒犯不能自行充当信息通道，不能凭空召唤警察、保安、邻居或设备故障；没有既有对外通道时至少保留一个只延续当前封闭场景的候选。
 同时判断世界信息中每条 active 暗流影响的条件是否满足。不要替暗流影响计算概率。
-必须且只能输出严格的 JSON：{"action_adjudication":{"accepted_facts":[],"contested_outcomes":[],"rejected_claims":[]},"reactions": [{"id": 1, "description": "近期未来...", "eligible": true, "weight": 60, "basis": ["事实依据"]}], "influence_checks": [{"id": "influence_xxx", "condition_met": true, "reason": "判断依据"}]}""",
+必须且只能输出严格的 JSON：{"action_adjudication":{"accepted_facts":[],"contested_outcomes":[],"rejected_claims":[]},"reactions": [{"id": 1, "description": "近期未来...", "eligible": true, "weight": 60, "basis": ["事实依据"], "fact_checks": [{"fact":"逐字复制 accepted_fact","compatible":true,"reason":"如何保持事实"}]}], "influence_checks": [{"id": "influence_xxx", "condition_met": true, "reason": "判断依据"}]}""",
 
     "settlement_prompt": """你是严谨的游戏地下城主与数值引擎。请严格遵循以下【文风指导】来渲染氛围并续写剧情：
 {style_info}
@@ -28,9 +28,9 @@ DEFAULT_PROMPTS = {
 3. 【文本与背包】：玩家的非数字状态（如 身体状况）、【背包/物品栏】必须放在 `status_updates`，并包含 `当前时间` 键。
    ✅ 正确范例: {"背包": "短剑, 草药*2", "身体": "左臂轻伤", "当前时间": "纪元1年1月1日 下午"}
 4. ⚠️ 持续性Buff（如中毒/自愈）放入 `new_buffs`，必须包含【对应进度条名称_per_turn】以实现自动加减：{"流血": {"生命值_per_turn": -5, "duration": 3, "description": "持续掉血"}}。
-5. 【删除/清空】：若要彻底清空某进度条、丢弃所有物品、或让死亡的NPC退场，必须将其名字放入 `status_deletions` 数组！
+5. 【删除/清空】：若要彻底清空某进度条、丢弃所有物品、或让死亡/离场的NPC退出当前场景，必须将其名字放入 `status_deletions` 数组！NPC 卡只表示当前场景，不是永久人物档案。
 6. 📝【排版规则】：`story_text` 按叙事结构换行：场景、时间、行动主体或叙事焦点明显变化时另起自然段；人物直接说话独立成段；同一连续动作保持在同一段，禁止按固定段数或每句话机械换行。JSON 字符串内使用 `\\n\\n` 分隔自然段。
-7. 📚【世界书捕获门槛】：`worldbook_capture_needed` 只在本回合明确建立了会长期约束多个未来场景的新法律、制度、社会习俗、自然规律、通用技术或魔法规则时为 true。一次性事件、单件道具、角色行动、地点临时变化和已有设定的普通表现必须为 false；不要为了让世界书有所变化而返回 true。
+7. 📚【世界书捕获门槛】：`worldbook_capture_needed` 只在本回合明确建立、修改或废止了会长期约束多个未来场景的法律、制度、社会习俗、自然规律、通用技术或魔法规则时为 true。在“常识改变”题材中，玩家明确输入“常识改变：……”或“常识恢复……”且正文确认能力生效时也必须为 true。只讨论该题材、愿望、谎言、未成功的尝试、一次性事件、单件道具、角色行动、地点临时变化和已有设定的普通表现必须为 false；不要为了让世界书有所变化而返回 true。
 8. 严格服从附加的玩家行动权协议和 action_adjudication，不得否认 accepted_facts 或替玩家新增重大决定。
 
 【强制JSON格式】：

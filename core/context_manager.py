@@ -1,6 +1,6 @@
 # core/context_manager.py
 import os, glob, yaml
-from core.worldbook import WorldbookRetriever, normalize_worldbook
+from core.worldbook import WorldbookRetriever, build_retrieval_query, normalize_worldbook
 from core.worldbook_embeddings import embedding_manager
 from utils.sys_logger import get_logger
 
@@ -51,7 +51,7 @@ class ContextManager:
 
     def build_visible_world_info(self, context_text, action):
         active = self.world_info_base + "\n"
-        search = context_text + "\n" + action
+        search = build_retrieval_query(context_text, action)
         hits, omitted = self.worldbook_retriever.retrieve(self.world_entries, search)
         triggered = []
         for hit in hits:

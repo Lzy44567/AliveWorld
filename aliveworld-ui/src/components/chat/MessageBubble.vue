@@ -8,6 +8,7 @@ import { gameApi } from '../../api/gameApi';
 import { assetStore } from '../../store/assetStore';
 import { formatUndercurrentDebug } from '../../utils/entityVisibility';
 import MessageImagePanel from './MessageImagePanel.vue';
+import CopyTextButton from '../common/CopyTextButton.vue';
 
 const props = defineProps({
   msg: {
@@ -19,6 +20,16 @@ const props = defineProps({
 const entityDebugText = computed(() => {
   if (props.msg.role !== 'undercurrent') return '';
   return formatUndercurrentDebug(props.msg.content, effectiveStorySettings.value, assetStore.entities.local);
+});
+
+const copyableText = computed(() => {
+  if (props.msg.role === 'reactions' && Array.isArray(props.msg.content)) {
+    return props.msg.content.map((item, index) => `${index + 1}. ${item.description}${item.basis?.length ? `\n依据：${item.basis.join('；')}` : ''}`).join('\n\n');
+  }
+  if (props.msg.role === 'influence' && props.msg.content && typeof props.msg.content === 'object') {
+    return `暗流影响：${props.msg.content.summary || ''}\n结果：${props.msg.content.result || ''}`;
+  }
+  return entityDebugText.value || gameStore.formatContent(props.msg.content);
 });
 
 const doReroll = async () => {
@@ -50,11 +61,11 @@ const doReroll = async () => {
   <div class="flex flex-col" :data-message-role="msg.role" :data-message-id="msg.id || ''" :class="msg.role === 'user' ? 'items-end' : 'items-start'">
     
     <!-- 🎲 动态未来候选折叠面板 -->
-    <div v-if="msg.role === 'reactions' && effectiveStorySettings.showFutures" class="w-full max-w-[85%] bg-amber-950/60 border border-amber-700/50 rounded-xl overflow-hidden backdrop-blur-md shadow-lg mb-2">
+    <div v-if="msg.role === 'reactions' && effectiveStorySettings.showFutures" class="w-full max-w-[85%] bg-amber-950/60 border border-amber-700/50 rounded-xl overflow-hidden backdrop-blur-md shadow-lg mb-2 select-text">
       <details class="group">
         <summary class="cursor-pointer px-4 py-2.5 text-xs text-amber-400 font-bold flex justify-between items-center hover:bg-amber-900/50 transition select-none">
           <span>🎲 观测到 {{ msg.content.length }} 种时间线</span>
-          <span class="group-open:rotate-180 transition">▼</span>
+          <span class="ml-auto flex items-center gap-2"><CopyTextButton :text="copyableText" /><span class="group-open:rotate-180 transition">▼</span></span>
         </summary>
         <div class="px-4 py-3 border-t border-amber-900/50 space-y-2">
           <div v-for="r in msg.content" :key="r.id" class="flex items-start gap-3 text-xs bg-black/40 p-2 rounded hover:bg-black/60 transition" :class="r.eligible === false ? 'text-slate-500' : 'text-amber-200'">
@@ -71,31 +82,30 @@ const doReroll = async () => {
     </div>
 
     <!-- 🎯 命运掷骰裁定结果 -->
-    <div v-else-if="msg.role === 'system' && effectiveStorySettings.showDice" class="text-xs text-rose-400 mb-2 px-4 py-2 bg-rose-950/80 border border-rose-700/50 rounded-lg backdrop-blur-md italic shadow-md max-w-[85%] flex justify-between items-center group">
+    <div v-else-if="msg.role === 'system' && effectiveStorySettings.showDice" class="text-xs text-rose-400 mb-2 px-4 py-2 bg-rose-950/80 border border-rose-700/50 rounded-lg backdrop-blur-md italic shadow-md max-w-[85%] flex justify-between items-center gap-2 group select-text">
       <span>{{ msg.content }}</span>
-      <button v-if="effectiveStorySettings.allowReroll" @click="doReroll" class="hidden group-hover:block px-3 py-1 bg-rose-800 hover:bg-rose-600 text-white rounded text-[10px] font-bold transition ml-4 shadow shrink-0">
-        🔄 重掷
-      </button>
+      <span class="flex shrink-0 items-center gap-2"><CopyTextButton :text="copyableText" /><button v-if="effectiveStorySettings.allowReroll" @click="doReroll" class="hidden group-hover:block px-3 py-1 bg-rose-800 hover:bg-rose-600 text-white rounded text-[10px] font-bold transition shadow">🔄 重掷</button></span>
     </div>
 
     <!-- 🌌 暗流实体推演结果 -->
-    <div v-else-if="entityDebugText" class="text-xs text-purple-400 mb-2 px-4 py-2 bg-purple-950/60 border border-purple-800/50 rounded-lg backdrop-blur-md italic shadow-md max-w-[85%] shadow-purple-900/20">
-      <span class="flex items-center gap-2"><span>👾</span> {{ entityDebugText }}</span>
+    <div v-else-if="entityDebugText" class="text-xs text-purple-400 mb-2 px-4 py-2 bg-purple-950/60 border border-purple-800/50 rounded-lg backdrop-blur-md italic shadow-md max-w-[85%] shadow-purple-900/20 select-text">
+      <span class="flex items-center gap-2"><span>👾</span><span class="flex-1">{{ entityDebugText }}</span><CopyTextButton :text="copyableText" /></span>
     </div>
 
-    <div v-else-if="msg.role === 'influence' && effectiveStorySettings.showInfluenceBubbles" class="text-xs text-fuchsia-300 mb-2 px-4 py-2 bg-fuchsia-950/50 border border-fuchsia-800/50 rounded-lg max-w-[85%]">
-      <div class="font-bold">🕸️ 暗流影响已触发</div>
+    <div v-else-if="msg.role === 'influence' && effectiveStorySettings.showInfluenceBubbles" class="relative text-xs text-fuchsia-300 mb-2 px-4 py-2 pr-14 bg-fuchsia-950/50 border border-fuchsia-800/50 rounded-lg max-w-[85%] select-text">
+      <CopyTextButton :text="copyableText" class="absolute right-2 top-2" /><div class="font-bold">🕸️ 暗流影响已触发</div>
       <div class="mt-1">{{ msg.content.summary }}</div>
       <div class="mt-1 text-fuchsia-400/80">结果：{{ msg.content.result }}</div>
       <div class="mt-1 font-mono text-[9px] text-slate-500">{{ msg.content.id }}</div>
     </div>
 
     <!-- 💬 玩家与 AI 对话正文 -->
-    <div v-else-if="msg.role === 'user' || msg.role === 'ai'" :class="msg.role === 'user' ? 'w-fit min-w-24 max-w-[85%]' : 'w-full max-w-[85%]'">
-      <div class="rounded-2xl p-5 whitespace-pre-wrap leading-relaxed shadow-2xl text-[15px] backdrop-blur-md"
+    <div v-else-if="msg.role === 'user' || msg.role === 'ai'" class="group relative" :class="msg.role === 'user' ? 'w-fit min-w-24 max-w-[85%]' : 'w-full max-w-[85%]'">
+      <div class="rounded-2xl p-5 pr-16 whitespace-pre-wrap leading-relaxed shadow-2xl text-[15px] backdrop-blur-md select-text cursor-text"
            :class="msg.role === 'user' ? 'bg-indigo-600/95 text-white rounded-br-sm' : 'bg-slate-900/90 border border-slate-600 text-slate-200 rounded-bl-sm'">
         {{ gameStore.formatContent(msg.content) }}
       </div>
+      <CopyTextButton :text="copyableText" class="absolute right-2 top-2 opacity-70 group-hover:opacity-100" />
       <MessageImagePanel v-if="msg.role === 'ai'" :message="msg" />
     </div>
 

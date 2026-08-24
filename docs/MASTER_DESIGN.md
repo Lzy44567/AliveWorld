@@ -30,6 +30,8 @@
 
 `v1.6` 的产品目标不是继续增加自由配置项，而是把现有能力组织成可分享、可安装、可一键开玩的完整世界包。世界包与玩家存档分离，具备稳定 ID、依赖、版本、隐私扫描、冲突预览和安全卸载；首版仅做本地文件分享，通过 QQ、Discord 或 GitHub 等现有渠道传播，不提前建设社区服务器。详细设计见 [`features/13_world_packages.md`](features/13_world_packages.md)。
 
+`v1.6.0-dev.8` 根据真实游玩日志补齐剧情连续性与场景状态边界：外部介入必须存在已建立的信息通道，局部未发现不能升级为绝对不存在；左侧 NPC 雷达按当前场景自动退场但不删除人物资料；世界书既有规则的修改/废止只生成待确认提案。详细契约见 [`features/17_story_continuity_and_scene_state.md`](features/17_story_continuity_and_scene_state.md)。
+
 对外测试前以 `v1.5.0-dev.20` 增加游戏内反馈与诊断：默认只整理版本、环境、错误摘要和 trace ID；截图、完整日志及任何故事内容均需玩家主动选择，API Key 永不导出。玩家可复制摘要到 QQ/Discord、导出本地诊断包，或打开预填 GitHub Issue；GitHub 不可达不能阻断本地反馈。详见 [`features/14_feedback_and_diagnostics.md`](features/14_feedback_and_diagnostics.md)。
 
 模型兼容扩展区分“模型适配预设”和“内容提示词预设”：前者解决 system/JSON/prefill/参数差异，后者承载玩家自定义创作约束。预设按任务选择并经独立消息组装器注入，不与 API Key、核心提示词或世界包静默混写。详见 [`features/15_prompt_presets.md`](features/15_prompt_presets.md)。

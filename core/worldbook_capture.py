@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import re
 import threading
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -24,7 +26,9 @@ CAPTURE_PROMPT = """你是世界书设定捕获器。阅读一个已经完成的
 世界书不是剧情摘抄簿。一次出现、能在未来派上用场或具有特殊功能，不等于值得写入世界观。
 不要捕获：一次性动作、当前伤势、临时地点状态、角色计划、幕后行动、普通剧情摘要、单件特殊道具、角色或暗流实体资料、实体制造的陷阱与线索。这些分别属于正文、状态、角色卡、实体库或因果账本。
 可以捕获：预计长期约束许多场景的法律、制度、社会习俗、自然规律、通用技术/魔法规则。稳定地点、独特物品或人物传闻只能作为待确认候选，不能自动升格为世界事实。
-只允许提出全新条目，不修改或删除已有条目，不创造绝对规则。与现有条目重复或冲突时不要输出。
+允许识别三种操作：add 新增世界常识、update 修改已有世界常识、retire 废止已有世界常识。update/retire 必须引用当前世界书中准确的 target_entry_id；系统会强制等待玩家确认，不能直接改写既有事实。不要创造绝对规则。与现有条目重复且没有变化时不要输出。
+“常识改变”在这里还指一种特定故事题材：主角能让群体把新的伦理、观念、规则或公序良俗视为一直如此。玩家输入“常识改变：……”时，先看本回合正文是否明确确认能力生效；若生效，对新主题用 add，对已有同主题规则的替换用 update。玩家输入“常识恢复”或“常识恢复：……”时，只能对先前改变的对应条目提出 update（恢复旧内容）或 retire（删除新增的改变规则），绝不能再 add 一条“恢复事件”。这两个命令是高价值捕获信号，但仍不能把未成功的尝试写成事实。
+普通角色对白、谎言、愿望、讨论“常识改变”题材和一次性行动不等于世界规则已经改变。没有明确命令时，不得假定玩家拥有这种权限。
 
 scope 必须从以下枚举选择：world_rule、social_system、natural_law、technology_magic_rule、stable_location、unique_item、character_entity、event_detail。
 confidence 必须为 high、medium 或 low。只有正文明确建立、并且可跨多个场景持续约束世界时才可写 high；由单回合细节推测出的内容不得写 high。
@@ -32,7 +36,7 @@ confidence 必须为 high、medium 或 low。只有正文明确建立、并且�
 严格输出 JSON：
 {
   "candidates": [
-    {"name":"条目名","content":"稳定设定","keys":"可选明确触发词","tags":["AI推断"],"risk":"low|high","scope":"上述枚举","confidence":"high|medium|low","reason":"为何属于长期世界设定"}
+    {"operation":"add|update|retire","target_entry_id":"仅修改/废止时填写","name":"条目名","content":"稳定设定","keys":"可选明确触发词","tags":["AI推断"],"risk":"low|high","scope":"上述枚举","confidence":"high|medium|low","reason":"为何属于长期世界设定"}
   ]
 }
 """
@@ -45,10 +49,24 @@ AUTO_CAPTURE_SCOPES = {
 }
 NEVER_CAPTURE_SCOPES = {"event_detail"}
 
+COMMON_SENSE_CHANGE = re.compile(r"(?:^|[\n。！？（(])\s*常识改变\s*[：:]", re.IGNORECASE)
+COMMON_SENSE_RESTORE = re.compile(r"(?:^|[\n。！？（(])\s*常识(?:恢复|复原)(?:\s*[：:].*)?(?:$|[\n。！？）)])", re.IGNORECASE)
 
-def capture_requested(settlement: dict[str, Any] | None) -> bool:
-    """Only an explicit JSON boolean may spend a second model request."""
-    return isinstance(settlement, dict) and settlement.get("worldbook_capture_needed") is True
+
+def common_sense_command_mode(player_action: Any) -> str:
+    text = str(player_action or "").strip()
+    if COMMON_SENSE_RESTORE.search(text):
+        return "restore"
+    if COMMON_SENSE_CHANGE.search(text):
+        return "change"
+    return ""
+
+
+def capture_requested(settlement: dict[str, Any] | None, player_action: Any = "") -> bool:
+    """Spend a capture request for an AI signal or an explicit genre command."""
+    return (
+        isinstance(settlement, dict) and settlement.get("worldbook_capture_needed") is True
+    ) or bool(common_sense_command_mode(player_action))
 
 
 def _path_lock(path: Path) -> threading.Lock:
@@ -95,8 +113,10 @@ class WorldbookCaptureService:
                 log.warning("世界书异步捕获无法读取目标: %s", exc)
                 return {"added": [], "pending": [], "skipped": ["读取失败"]}
 
+            command_mode = common_sense_command_mode(player_action)
             prompt = (
                 f"【当前世界书】\n{json.dumps(book, ensure_ascii=False)}\n"
+                f"【常识改变命令模式】\n{command_mode or '无'}\n"
                 f"【玩家行动】\n{player_action}\n【本回合正文】\n{story_text}"
             )
             raw, error = self.ai_engine.chat_json(CAPTURE_PROMPT, prompt, temp=0.3, trace_label="世界书异步捕获")
@@ -111,15 +131,56 @@ class WorldbookCaptureService:
 
             existing_names = {entry.get("name", "").casefold() for entry in book.get("entries", [])}
             existing_contents = {entry.get("content", "").strip() for entry in book.get("entries", [])}
+            existing_by_id = {entry.get("id"): entry for entry in book.get("entries", []) if entry.get("id")}
+            pending_operations = {
+                (entry.get("pending_operation"), entry.get("replaces_entry_id"))
+                for entry in book.get("entries", []) if entry.get("pending_operation")
+            }
             added, pending, skipped = [], [], []
             for raw_candidate in payload.get("candidates", []) if isinstance(payload.get("candidates"), list) else []:
                 if not isinstance(raw_candidate, dict):
                     continue
                 tags = normalize_tags(raw_candidate.get("tags", []))
+                operation = str(raw_candidate.get("operation", "add")).strip().lower() or "add"
+                if command_mode == "restore" and operation not in {"update", "retire"}:
+                    skipped.append(str(raw_candidate.get("name", "常识恢复不得新增条目")))
+                    continue
+                if command_mode == "change" and "常识改变" not in tags:
+                    tags.append("常识改变")
+                if command_mode == "restore" and "常识恢复" not in tags:
+                    tags.append("常识恢复")
                 scope = str(raw_candidate.get("scope", "")).strip()
                 confidence = str(raw_candidate.get("confidence", "")).strip()
                 if scope in NEVER_CAPTURE_SCOPES:
                     skipped.append(str(raw_candidate.get("name", "剧情细节")))
+                    continue
+                if operation in {"update", "retire"}:
+                    target_id = str(raw_candidate.get("target_entry_id", "")).strip()
+                    target = existing_by_id.get(target_id)
+                    if not target or (operation, target_id) in pending_operations:
+                        skipped.append(str(raw_candidate.get("name") or target_id or "无效变更"))
+                        continue
+                    proposal_tags = normalize_tags([*target.get("tags", []), *tags, "AI推断", "待确认"])
+                    proposal = normalize_entry({
+                        **target,
+                        **(raw_candidate if operation == "update" else {}),
+                        "id": "",
+                        "name": str(raw_candidate.get("name") or target.get("name", "")).strip(),
+                        "content": str(raw_candidate.get("content") or target.get("content", "")).strip(),
+                        "keys": str(raw_candidate.get("keys") or target.get("keys", "")).strip(),
+                        "tags": proposal_tags,
+                        "is_active": False,
+                        "pending_operation": operation,
+                        "replaces_entry_id": target_id,
+                        "proposal_reason": str(raw_candidate.get("reason", "")).strip(),
+                    })
+                    proposal["id"] = f"proposal_{uuid.uuid4().hex[:12]}"
+                    book.setdefault("entries", []).append(proposal)
+                    pending_operations.add((operation, target_id))
+                    pending.append(proposal)
+                    continue
+                if operation != "add":
+                    skipped.append(str(raw_candidate.get("name", "未知操作")))
                     continue
                 high_risk = raw_candidate.get("risk") != "low" or "绝对规则" in tags
                 safe_to_auto_add = scope in AUTO_CAPTURE_SCOPES and confidence == "high" and not high_risk

@@ -1,5 +1,6 @@
 # core/state_manager.py
 import copy
+from core.npc_presence import NpcPresenceTracker
 
 class StateManager:
     def __init__(self):
@@ -9,8 +10,9 @@ class StateManager:
             "buffs": {}, 
             "npcs": {}
         }
+        self.npc_presence = NpcPresenceTracker()
 
-    def apply_updates(self, result):
+    def apply_updates(self, result, *, story_text="", player_action=""):
         # 1. 增添新 Buffs
         for bn, bd in result.get('new_buffs', {}).items():
             if isinstance(bd, dict): 
@@ -67,10 +69,11 @@ class StateManager:
         for bn, bar in self.state['bars'].items():
             bar['current'] = max(0, min(bar['current'], bar.get("max", 100)))
                 
-        # 6. 结算 NPC 状态
-        for k, v in result.get('npc_states', {}).items():
-            if isinstance(v, dict): v = ", ".join([f"{dk}:{dv}" for dk, dv in v.items()])
-            self.state['npcs'][k] = str(v)
+        # 6. 结算当前场景 NPC；历史人物资料仍保留在角色卡与正文中。
+        self.state['npcs'] = self.npc_presence.reconcile(
+            self.state.get('npcs', {}), result.get('npc_states', {}),
+            story_text=story_text, player_action=player_action,
+        )
             
         # 7. 结算一般文本属性与时间
         for k, v in result.get('status_updates', {}).items(): 
@@ -83,9 +86,17 @@ class StateManager:
         for k in dels:
             for group in ['properties', 'bars', 'buffs', 'npcs']: 
                 self.state[group].pop(k, None)
+            self.npc_presence.absent_turns.pop(k, None)
 
     def get_dynamic_state(self):
         return { 
             "bars": self.state['bars'], "properties": self.state['properties'], 
             "buffs": self.state['buffs'], "npcs": self.state['npcs'] 
         }
+
+    def export_metadata(self):
+        return {"npc_presence": self.npc_presence.export_state()}
+
+    def load_metadata(self, value):
+        value = value if isinstance(value, dict) else {}
+        self.npc_presence.load_state(value.get("npc_presence"))

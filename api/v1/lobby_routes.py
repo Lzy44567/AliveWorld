@@ -50,7 +50,9 @@ class LegacyMigrationPayload(BaseModel):
 
 @router.get("/assets")
 async def get_lobby_assets():
-    asset_meta = {asset_type: list_asset_summaries(asset_type) for asset_type in DIR_MAP}
+    # Official/package templates are managed by the world-package catalog. They
+    # remain available to authoring, but must not impersonate personal assets.
+    asset_meta = {asset_type: list_asset_summaries(asset_type, include_templates=False) for asset_type in DIR_MAP}
     return {
         "worldbooks": [item["name"] for item in asset_meta["worldbooks"]],
         "styles": [item["name"] for item in asset_meta["styles"]],

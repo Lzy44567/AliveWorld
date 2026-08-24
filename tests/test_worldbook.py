@@ -3,7 +3,7 @@ import tempfile
 from pathlib import Path
 import yaml
 
-from core.worldbook import WorldbookRetriever, normalize_entry, normalize_worldbook, save_worldbook_atomic
+from core.worldbook import WorldbookRetriever, build_retrieval_query, normalize_entry, normalize_worldbook, save_worldbook_atomic
 
 
 class WorldbookDomainTests(unittest.TestCase):
@@ -65,6 +65,16 @@ class WorldbookDomainTests(unittest.TestCase):
         ], "玩家进入校园")
         self.assertEqual(selected[0].entry["name"], "学校制度")
         self.assertIn("语义:0.820", selected[0].reasons)
+
+    def test_retrieval_query_does_not_keep_ancient_keywords_alive_forever(self):
+        query = build_retrieval_query("旧关键词" + ("无关近期正文" * 1000), "当前行动", recent_chars=500)
+        self.assertNotIn("旧关键词", query)
+        self.assertIn("当前行动", query)
+
+    def test_current_action_is_never_cut_from_retrieval_query(self):
+        action = "玩家现在进入禁闭室"
+        query = build_retrieval_query("很长的过去" * 1000, action, recent_chars=500)
+        self.assertTrue(query.endswith(action))
 
     def test_atomic_save_writes_normalized_worldbook_without_temp_file(self):
         with tempfile.TemporaryDirectory() as temp_dir:

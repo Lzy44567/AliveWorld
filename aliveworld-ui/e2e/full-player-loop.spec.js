@@ -405,6 +405,16 @@ test('生图执行失败保留任务卡，点击重试后成功交付图片', as
 });
 
 
+test('正文气泡可以拖选并通过按钮复制', async ({ page }) => {
+  await loadStory(page);
+  const latest = page.locator('[data-message-role="ai"]').last();
+  await expect(latest.getByTestId('copy-text')).toBeVisible();
+  expect(await latest.locator('.select-text').evaluate(element => getComputedStyle(element).userSelect)).not.toBe('none');
+  await latest.getByTestId('copy-text').click();
+  await expect(page.getByText('内容已复制')).toBeVisible();
+});
+
+
 test('页面重载后可重新唤醒故事并恢复正文、局内资产和图片任务', async ({ page }) => {
   await loadStory(page);
   await expect(page.getByText('我继续进行第二次自动验收。')).toBeVisible();

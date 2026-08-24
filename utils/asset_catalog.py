@@ -53,11 +53,11 @@ def _find_by_name(directory: Optional[Path], asset_name: str, templates_only: bo
     return candidates[0] if candidates else None
 
 
-def list_asset_names(asset_type: str) -> List[str]:
-    return [summary["name"] for summary in list_asset_summaries(asset_type)]
+def list_asset_names(asset_type: str, *, include_templates: bool = True) -> List[str]:
+    return [summary["name"] for summary in list_asset_summaries(asset_type, include_templates=include_templates)]
 
 
-def list_asset_summaries(asset_type: str) -> List[Dict]:
+def list_asset_summaries(asset_type: str, *, include_templates: bool = True) -> List[Dict]:
     directory = personal_asset_dir(asset_type)
     if not directory or not directory.exists():
         return []
@@ -69,6 +69,8 @@ def list_asset_summaries(asset_type: str) -> List[Dict]:
             continue
         tags = data.get("tags", []) if isinstance(data.get("tags", []), list) else []
         is_template = _is_template(path)
+        if is_template and not include_templates:
+            continue
         if name not in summaries:
             summaries[name] = {
                 "name": name,
