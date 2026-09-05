@@ -10,6 +10,7 @@ from core.preference_learning import preference_context_instruction, preference_
 from core.player_agency import adjudication_context, normalize_action_adjudication, player_agency_instruction
 from core.story_length import story_length_instruction
 from core.story_continuity import continuity_instruction
+from core.world_rule_commands import resolution_instruction
 
 log = get_logger()
 
@@ -27,6 +28,9 @@ class DualTrackResolver(BaseResolutionStrategy):
         react_p = pts.get('reaction_prompt', '').replace('{world_info}', active_world).replace('{character_info}', session.char_info)
         react_p += "\n\n" + player_agency_instruction()
         react_p += "\n\n" + continuity_instruction()
+        rule_command_prompt = resolution_instruction(player_action)
+        if rule_command_prompt:
+            react_p += "\n\n" + rule_command_prompt
         usr_p1 = f"【情景】：\n{ctx}\n【状态】：{json.dumps(dyn_state, ensure_ascii=False)}\n【行动】：{player_action}"
         
         log.info(f"发送推演请求: {player_action[:15]}...")
@@ -83,6 +87,8 @@ class DualTrackResolver(BaseResolutionStrategy):
         settle_p = pts.get('settlement_prompt', '').replace('{world_info}', visible_world).replace('{character_info}', session.char_info).replace('{style_info}', session.style_info).replace('{word_limit}', str(session.word_limit))
         settle_p += "\n\n" + player_agency_instruction(require_output=False)
         settle_p += "\n\n" + continuity_instruction()
+        if rule_command_prompt:
+            settle_p += "\n\n" + rule_command_prompt
         settle_p += "\n\n" + story_length_instruction(session.story_settings.get("targetStoryLength"))
         preference_context = getattr(session, "get_user_preference_context", lambda: "")()
         preference_prompt = preference_context_instruction(preference_context)

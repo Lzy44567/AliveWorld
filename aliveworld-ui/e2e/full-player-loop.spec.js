@@ -127,6 +127,12 @@ test('前端创建和载入全类资产，正文上下文启停可由假模型�
   await page.getByTestId('new-game-submit').click();
   await expect(page.getByTestId('new-game-modal')).toBeHidden();
 
+  await openResourceLibrary(page, 'assets');
+  await page.getByTestId('resource-asset-world').click();
+  await page.getByRole('button', { name: '🛡️ 本局专属' }).click();
+  await expect(page.locator('[data-asset-name="本局自动设定"]')).toBeVisible();
+  await closeResourceLibrary(page);
+
   await loadAsset(page, 'characters', '测试角色卡');
   await loadAsset(page, 'worldbooks', '测试世界书');
   await loadAsset(page, 'styles', '测试文风');

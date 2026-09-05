@@ -4,16 +4,21 @@ from pathlib import Path
 
 import yaml
 
-from core.worldbook_capture import WorldbookCaptureService, capture_requested, common_sense_command_mode
+from core.world_rule_commands import world_rule_command_mode
+from core.worldbook_capture import WorldbookCaptureService, capture_requested
 
 
 class FakeAI:
     def __init__(self, response):
         self.response = response
         self.calls = 0
+        self.last_system_prompt = ""
+        self.last_user_prompt = ""
 
-    def chat_json(self, *_args, **_kwargs):
+    def chat_json(self, system_prompt, user_prompt, **_kwargs):
         self.calls += 1
+        self.last_system_prompt = system_prompt
+        self.last_user_prompt = user_prompt
         return self.response, None
 
 
@@ -29,9 +34,9 @@ class WorldbookCaptureTests(unittest.TestCase):
         self.assertFalse(capture_requested({}, "我们讨论了一部常识改变题材的漫画"))
 
     def test_common_sense_command_detection_is_explicit(self):
-        self.assertEqual(common_sense_command_mode("常识改变：公众裸体是正常礼仪"), "change")
-        self.assertEqual(common_sense_command_mode("常识恢复：公众礼仪"), "restore")
-        self.assertEqual(common_sense_command_mode("我想研究常识改变题材"), "")
+        self.assertEqual(world_rule_command_mode("常识改变：公众裸体是正常礼仪"), "change")
+        self.assertEqual(world_rule_command_mode("常识恢复：公众礼仪"), "restore")
+        self.assertEqual(world_rule_command_mode("我想研究常识改变题材"), "")
 
     def write_book(self, directory, data=None):
         path = Path(directory) / "worldbooks" / "world.yml"
@@ -136,11 +141,21 @@ class WorldbookCaptureTests(unittest.TestCase):
             self.assertEqual(result["pending"], [])
             self.assertEqual(len(yaml.safe_load(path.read_text(encoding="utf-8"))["entries"]), 0)
 
-    def test_schedule_skips_when_no_active_worldbook(self):
+    def test_schedule_creates_a_fallback_when_no_worldbook_exists(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             ai = FakeAI('{"candidates":[]}')
-            self.assertFalse(WorldbookCaptureService(ai).schedule(temp_dir, "行动", "正文", review_all=False))
-            self.assertEqual(ai.calls, 0)
+            self.assertTrue(WorldbookCaptureService(ai).schedule(temp_dir, "行动", "正文", review_all=False))
+            self.assertEqual(len(list((Path(temp_dir) / "worldbooks").glob("*.yml"))), 1)
+
+    def test_command_rules_are_only_added_to_the_capture_request_when_triggered(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = self.write_book(temp_dir)
+            ai = FakeAI('{"candidates":[]}')
+            service = WorldbookCaptureService(ai)
+            service.capture(path, "普通行动", "普通正文", review_all=False)
+            self.assertNotIn("显式规则变更命令", ai.last_user_prompt)
+            service.capture(path, "常识改变：雨是蓝色", "改变生效", review_all=False)
+            self.assertIn("显式规则变更命令", ai.last_user_prompt)
 
 
 if __name__ == "__main__":

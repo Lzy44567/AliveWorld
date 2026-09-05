@@ -91,6 +91,24 @@ class CausalResolutionTests(unittest.TestCase):
         self.assertNotIn("行动建议", ai.requests[1][0])
         self.assertNotIn("action_suggestions", ai.requests[1][0])
 
+    def test_world_rule_command_instruction_is_dynamic_not_always_on(self):
+        for action, expected in (
+            ("等待", False),
+            ("我们讨论常识改变题材", False),
+            ("常识改变：所有人认为蓝雨正常", True),
+        ):
+            with self.subTest(action=action):
+                ledger = CausalLedger()
+                ai = SequenceAI([
+                    '{"reactions":[{"id":1,"description":"继续","weight":100}],"influence_checks":[]}',
+                    '{"story_text":"正文。","resolved_influences":[],"worldbook_capture_needed":false}',
+                ])
+                session = FakeSession(ai, ledger)
+                with patch("core.resolution_engine.load_system_prompts", return_value={"reaction_prompt": "基础", "settlement_prompt": "基础"}):
+                    DualTrackResolver().resolve(session, action)
+                prompts = "\n".join(request[0] for request in ai.requests)
+                self.assertEqual("显式世界规则变更意图" in prompts, expected)
+
     def test_non_matching_and_unknown_influences_are_not_passed(self):
         ledger = CausalLedger()
         influence = ledger.add({"summary": "远方陷阱", "condition": "进入森林", "effect": "陷阱触发"})

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import re
 import threading
 import uuid
 from pathlib import Path
@@ -12,7 +11,9 @@ from typing import Any
 import yaml
 
 from core.ai_engine import robust_json_parse
+from core.auto_worldbook import select_capture_worldbook
 from core.worldbook import normalize_entry, normalize_tags, normalize_worldbook, save_worldbook_atomic
+from core.world_rule_commands import capture_instruction, world_rule_command_mode
 from utils.sys_logger import get_logger
 
 
@@ -27,9 +28,6 @@ CAPTURE_PROMPT = """你是世界书设定捕获器。阅读一个已经完成的
 不要捕获：一次性动作、当前伤势、临时地点状态、角色计划、幕后行动、普通剧情摘要、单件特殊道具、角色或暗流实体资料、实体制造的陷阱与线索。这些分别属于正文、状态、角色卡、实体库或因果账本。
 可以捕获：预计长期约束许多场景的法律、制度、社会习俗、自然规律、通用技术/魔法规则。稳定地点、独特物品或人物传闻只能作为待确认候选，不能自动升格为世界事实。
 允许识别三种操作：add 新增世界常识、update 修改已有世界常识、retire 废止已有世界常识。update/retire 必须引用当前世界书中准确的 target_entry_id；系统会强制等待玩家确认，不能直接改写既有事实。不要创造绝对规则。与现有条目重复且没有变化时不要输出。
-“常识改变”在这里还指一种特定故事题材：主角能让群体把新的伦理、观念、规则或公序良俗视为一直如此。玩家输入“常识改变：……”时，先看本回合正文是否明确确认能力生效；若生效，对新主题用 add，对已有同主题规则的替换用 update。玩家输入“常识恢复”或“常识恢复：……”时，只能对先前改变的对应条目提出 update（恢复旧内容）或 retire（删除新增的改变规则），绝不能再 add 一条“恢复事件”。这两个命令是高价值捕获信号，但仍不能把未成功的尝试写成事实。
-普通角色对白、谎言、愿望、讨论“常识改变”题材和一次性行动不等于世界规则已经改变。没有明确命令时，不得假定玩家拥有这种权限。
-
 scope 必须从以下枚举选择：world_rule、social_system、natural_law、technology_magic_rule、stable_location、unique_item、character_entity、event_detail。
 confidence 必须为 high、medium 或 low。只有正文明确建立、并且可跨多个场景持续约束世界时才可写 high；由单回合细节推测出的内容不得写 high。
 
@@ -49,24 +47,11 @@ AUTO_CAPTURE_SCOPES = {
 }
 NEVER_CAPTURE_SCOPES = {"event_detail"}
 
-COMMON_SENSE_CHANGE = re.compile(r"(?:^|[\n。！？（(])\s*常识改变\s*[：:]", re.IGNORECASE)
-COMMON_SENSE_RESTORE = re.compile(r"(?:^|[\n。！？（(])\s*常识(?:恢复|复原)(?:\s*[：:].*)?(?:$|[\n。！？）)])", re.IGNORECASE)
-
-
-def common_sense_command_mode(player_action: Any) -> str:
-    text = str(player_action or "").strip()
-    if COMMON_SENSE_RESTORE.search(text):
-        return "restore"
-    if COMMON_SENSE_CHANGE.search(text):
-        return "change"
-    return ""
-
-
 def capture_requested(settlement: dict[str, Any] | None, player_action: Any = "") -> bool:
     """Spend a capture request for an AI signal or an explicit genre command."""
     return (
         isinstance(settlement, dict) and settlement.get("worldbook_capture_needed") is True
-    ) or bool(common_sense_command_mode(player_action))
+    ) or bool(world_rule_command_mode(player_action))
 
 
 def _path_lock(path: Path) -> threading.Lock:
@@ -81,18 +66,10 @@ class WorldbookCaptureService:
 
     @staticmethod
     def first_active_worldbook(save_dir: str) -> Path | None:
-        directory = Path(save_dir) / "worldbooks"
-        for path in sorted(directory.glob("*.yml")) if directory.exists() else []:
-            try:
-                data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-                if data.get("is_active", True):
-                    return path
-            except (OSError, yaml.YAMLError):
-                continue
-        return None
+        return select_capture_worldbook(save_dir)
 
     def schedule(self, save_dir: str, player_action: str, story_text: str, *, review_all: bool) -> bool:
-        path = self.first_active_worldbook(save_dir)
+        path = select_capture_worldbook(save_dir, create_fallback=True)
         if not path or not self.ai_engine or not story_text.strip():
             return False
         thread = threading.Thread(
@@ -113,10 +90,14 @@ class WorldbookCaptureService:
                 log.warning("世界书异步捕获无法读取目标: %s", exc)
                 return {"added": [], "pending": [], "skipped": ["读取失败"]}
 
-            command_mode = common_sense_command_mode(player_action)
+            command_mode = world_rule_command_mode(player_action)
+            command_instruction = capture_instruction(player_action)
+            command_section = (
+                f"【本回合附加捕获规则】\n{command_instruction}\n" if command_instruction else ""
+            )
             prompt = (
                 f"【当前世界书】\n{json.dumps(book, ensure_ascii=False)}\n"
-                f"【常识改变命令模式】\n{command_mode or '无'}\n"
+                f"{command_section}"
                 f"【玩家行动】\n{player_action}\n【本回合正文】\n{story_text}"
             )
             raw, error = self.ai_engine.chat_json(CAPTURE_PROMPT, prompt, temp=0.3, trace_label="世界书异步捕获")

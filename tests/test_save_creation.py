@@ -1,7 +1,7 @@
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from fastapi import HTTPException
 
@@ -30,6 +30,29 @@ class SaveCreationTests(unittest.TestCase):
         self.assertEqual(raised.exception.status_code, 409)
         self.assertIn("已存在同名存档", raised.exception.detail)
         self.assertIn("旧故事", raised.exception.detail)
+
+    def test_blank_story_creation_materializes_a_save_local_worldbook(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            save = Path(temporary) / "Save_blank"
+            for folder in ("worldbooks", "styles", "characters", "entities"):
+                (save / folder).mkdir(parents=True, exist_ok=True)
+            game = MagicMock()
+            game.export_save_data.return_value = {}
+            with (
+                patch.object(game_routes, "global_ai_engine", object()),
+                patch.object(game_routes, "GameSession", return_value=game),
+                patch.object(game_routes, "save_game_data"),
+                patch.object(game_routes, "_session_payload", return_value={"ok": True}),
+            ):
+                result = game_routes.start_prepared_game(
+                    save_name="空白故事", save_dir_path=str(save), world_premise="",
+                )
+
+            books = list((save / "worldbooks").glob("*.yml"))
+            self.assertEqual(result, {"ok": True})
+            self.assertEqual(len(books), 1)
+            data = __import__("yaml").safe_load(books[0].read_text(encoding="utf-8"))
+            self.assertTrue(data["is_auto_capture_book"])
 
 
 if __name__ == "__main__":

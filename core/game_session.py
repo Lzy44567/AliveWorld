@@ -288,11 +288,15 @@ class GameSession:
         
         from core.prompts import load_system_prompts
         from core.story_continuity import continuity_instruction
+        from core.world_rule_commands import resolution_instruction
         pts = load_system_prompts()
         visible_world, _ = self.build_visible_world_info(interpreted_action)
         settle_p = pts.get('settlement_prompt', '').replace('{world_info}', visible_world).replace('{character_info}', self.ctx_mgr.char_info).replace('{style_info}', self.ctx_mgr.style_info)
         settle_p += "\n\n" + player_agency_instruction(require_output=False)
         settle_p += "\n\n" + continuity_instruction()
+        rule_command_prompt = resolution_instruction(interpreted_action)
+        if rule_command_prompt:
+            settle_p += "\n\n" + rule_command_prompt
         settle_p += "\n\n" + story_length_instruction(self.story_settings.get("targetStoryLength"))
         suggestion_prompt = action_suggestion_instruction(self.story_settings.get("aiSuggestions", True))
         if suggestion_prompt:

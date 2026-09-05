@@ -13,6 +13,7 @@ from core.model_connections.runtime import model_runtime
 from core.session_manager import active_sessions
 from core.story_settings import normalize_story_settings
 from core.asset_lifecycle import AssetLifecycleError, normalize_asset_name
+from core.auto_worldbook import select_capture_worldbook
 from utils.file_io import init_save_folder, get_all_saves, save_game_data
 from utils.runtime_paths import PATHS
 
@@ -173,6 +174,9 @@ def start_prepared_game(
     if not global_ai_engine:
         shutil.rmtree(save_dir_path, ignore_errors=True)
         raise HTTPException(status_code=500, detail="请先在设置中配置可用的大语言模型 API")
+    # A blank story still needs a save-local target for later setting capture.
+    # Authored/package worldbooks take precedence and suppress this fallback.
+    select_capture_worldbook(save_dir_path, create_fallback=True)
     session_id = str(uuid.uuid4())
     game = GameSession(
         global_ai_engine, save_name, save_dir_path=save_dir_path,
