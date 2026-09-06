@@ -14,6 +14,10 @@ class StoryContinuityContractTests(unittest.TestCase):
         self.assertIn("不得只为绕过", prompt)
         self.assertIn("不能替代报警", prompt)
         self.assertIn("所有未来候选", prompt)
+        self.assertIn("谁在何时通过什么可用通道", prompt)
+        self.assertIn("因果条件不成立", prompt)
+        self.assertIn("外部力量不是默认反派", prompt)
+        self.assertIn("多数候选", prompt)
 
     def test_contract_scopes_npc_radar_to_current_scene(self):
         prompt = continuity_instruction()

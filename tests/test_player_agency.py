@@ -11,6 +11,10 @@ class PlayerAgencyContractTests(unittest.TestCase):
         self.assertIn("囚车是否摧毁", prompt)
         self.assertIn("不得把整句降级", prompt)
         self.assertIn("不得擅自改成", prompt)
+        self.assertIn("拒绝投降", prompt)
+        self.assertIn("不得借", prompt)
+        self.assertIn("NPC 的怀疑只是角色认知", prompt)
+        self.assertIn("把选择权交还玩家", prompt)
 
     def test_adjudication_is_normalized_and_rendered_for_settlement(self):
         raw = {
