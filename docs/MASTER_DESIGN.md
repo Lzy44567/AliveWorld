@@ -40,6 +40,8 @@
 
 模型兼容扩展区分“模型适配预设”和“内容提示词预设”：前者解决 system/JSON/prefill/参数差异，后者承载玩家自定义创作约束。预设按任务选择并经独立消息组装器注入，不与 API Key、核心提示词或世界包静默混写。详见 [`features/15_prompt_presets.md`](features/15_prompt_presets.md)。
 
+2026-09-06 的组件审计确认，提示词仍分散在 `system_prompts.yml`、剧情拼接函数和各领域 Agent 模块中；现有 `/prompts` 写接口只覆盖少数 YAML 内容且没有版本、作用域或开发者权限，不能直接包装成正式编辑器。下一架构切片先建立提示词切片注册表、统一组装器和来源 manifest，并以真实游玩中的警察无信息通道介入、替玩家投降作为首批回归。随后再提供密码保护的提示词工作台、模型/内容预设和生图转写三态。物理随机、实体推演与状态栏的插件化列为协议优先的 P2 演进：首版只运行声明式安全原语，不允许工坊 AI 直接生成并执行任意代码。完整设计见 [`features/19_prompt_studio_and_plugin_kernel.md`](features/19_prompt_studio_and_plugin_kernel.md)，实际完成度见 [`COMPONENT_STATUS_2026-09-06.md`](COMPONENT_STATUS_2026-09-06.md)。
+
 发行前自动验收采用“现有正式 API + 隔离假模型服务 + 浏览器端到端 + 少量真实服务人工验收”四层结构。不会在发行版加入可任意操纵文件和存档的万能测试后门；日志逐步升级为按正文、工坊、暗流、记忆、偏好和生图分类的可折叠结构。详见 [`features/12_automated_acceptance_testing.md`](features/12_automated_acceptance_testing.md)。
 
 ## 对象边界
