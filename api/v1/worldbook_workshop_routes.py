@@ -10,7 +10,10 @@ from core.worldbook_workshop import WorkshopError, WorldbookWorkshop
 from core.worldbook_workshop_agent import WorldbookWorkshopAgent
 from core.worldbook_embeddings import embedding_manager
 from core.worldbook import normalize_worldbook
-from core.worldbook_workshop_registry import WORKSHOP_DIR, active_workshops
+from core.worldbook_workshop_registry import (
+    WORKSHOP_DIR, active_workshops, list_worldbook_workshop_history,
+    load_worldbook_workshop,
+)
 from utils.asset_catalog import resolve_asset_path
 from utils.file_io import DATA_DIR, WORLD_DIR
 
@@ -68,14 +71,8 @@ def toggle_embeddings(payload: EmbeddingToggleRequest):
 
 
 def _get(workshop_id: str) -> WorldbookWorkshop:
-    workshop = active_workshops.get(workshop_id)
+    workshop = load_worldbook_workshop(workshop_id)
     if workshop:
-        return workshop
-    path = WORKSHOP_DIR / f"{workshop_id}.json"
-    if path.exists():
-        import json
-        workshop = WorldbookWorkshop.from_dict(json.loads(path.read_text(encoding="utf-8")))
-        active_workshops[workshop_id] = workshop
         return workshop
     raise HTTPException(status_code=404, detail="世界书工坊会话不存在")
 
@@ -125,13 +122,14 @@ def start_workshop(payload: StartWorkshopRequest):
     source = yaml.safe_load(source_path.read_text(encoding="utf-8")) or {}
     current_book = normalize_worldbook(source)
     resumed, stale_count = _find_resumable(source_path, current_book)
+    history = list_worldbook_workshop_history(source_path)
     if resumed:
         active_workshops[resumed.id] = resumed
-        return {**_payload(resumed), "resumed": True, "stale_drafts_preserved": stale_count}
+        return {**_payload(resumed), "resumed": True, "stale_drafts_preserved": stale_count, "history": history}
     workshop = WorldbookWorkshop(str(uuid.uuid4()), source_path, source)
     active_workshops[workshop.id] = workshop
     workshop.save_session(WORKSHOP_DIR)
-    return {**_payload(workshop), "resumed": False, "stale_drafts_preserved": stale_count}
+    return {**_payload(workshop), "resumed": False, "stale_drafts_preserved": stale_count, "history": history}
 
 
 @router.get("/workshops/{workshop_id}")
@@ -155,6 +153,8 @@ def apply_operations(workshop_id: str, payload: ApplyOperationsRequest):
 @router.post("/workshops/{workshop_id}/chat")
 def chat_workshop(workshop_id: str, payload: WorkshopChatRequest):
     workshop = _get(workshop_id)
+    if workshop.published:
+        raise HTTPException(status_code=409, detail="这轮工坊已经发布，请开启新一轮后再修改")
     from core.model_connections.runtime import get_task_engine
     engine = get_task_engine("workshop")
     if not engine:
@@ -203,6 +203,8 @@ def undo_workshop(workshop_id: str):
 @router.post("/workshops/{workshop_id}/publish")
 def publish_workshop(workshop_id: str, payload: PublishRequest):
     workshop = _get(workshop_id)
+    if workshop.published:
+        raise HTTPException(status_code=409, detail="这轮工坊已经发布，请开启新一轮后再修改")
     target = workshop.target_path
     if payload.worldbook_name:
         safe_name = "".join(char for char in payload.worldbook_name if char.isalnum() or char in " _-").strip()

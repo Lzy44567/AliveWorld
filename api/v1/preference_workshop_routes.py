@@ -12,6 +12,7 @@ from core.preference_workshop_registry import (
     WORKSHOP_DIR,
     active_preference_workshops,
     find_resumable,
+    list_preference_workshop_history,
     load_preference_workshop,
 )
 from core.session_manager import active_sessions
@@ -62,16 +63,17 @@ def _engine():
 @router.post("/start")
 def start_workshop(payload: StartPayload):
     profile = repository.load()
+    history = list_preference_workshop_history()
     resumed, rebased = find_resumable(profile)
     if resumed:
         active_preference_workshops[resumed.id] = resumed
-        return {**_payload(resumed), "resumed": True, "rebased": rebased}
+        return {**_payload(resumed), "resumed": True, "rebased": rebased, "history": history}
     game = active_sessions.get(payload.session_id) if payload.session_id else None
     include_sensitive = bool(game and game.story_settings.get("analyzeSensitivePreferences", False))
     workshop = PreferenceWorkshop(str(uuid4()), profile, include_sensitive=include_sensitive)
     active_preference_workshops[workshop.id] = workshop
     workshop.save_session(WORKSHOP_DIR)
-    return {**_payload(workshop), "resumed": False, "rebased": False}
+    return {**_payload(workshop), "resumed": False, "rebased": False, "history": history}
 
 
 @router.get("/{workshop_id}")
@@ -82,6 +84,8 @@ def get_workshop(workshop_id: str):
 @router.post("/{workshop_id}/chat")
 def chat_workshop(workshop_id: str, payload: ChatPayload):
     workshop = _get(workshop_id)
+    if workshop.published:
+        raise HTTPException(status_code=409, detail="这轮工坊已经发布，请开启新一轮后再修改")
     engine = _engine()
     if not engine:
         raise HTTPException(status_code=500, detail="未找到可用的偏好分析模型")

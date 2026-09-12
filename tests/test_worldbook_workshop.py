@@ -94,9 +94,10 @@ class WorldbookWorkshopTests(unittest.TestCase):
             loaded.publish()
             self.assertTrue(loaded.published)
             self.assertFalse(loaded.dirty)
-            loaded.apply_operations([{"op": "update_overview", "overview": "发布后的新草稿"}])
-            self.assertFalse(loaded.published)
-            self.assertTrue(loaded.dirty)
+            with self.assertRaises(WorkshopError):
+                loaded.apply_operations([{"op": "update_overview", "overview": "发布后的新草稿"}])
+            self.assertTrue(loaded.published)
+            self.assertFalse(loaded.dirty)
 
     def test_proposal_is_validated_persisted_and_does_not_modify_draft(self):
         with tempfile.TemporaryDirectory() as temp_dir:

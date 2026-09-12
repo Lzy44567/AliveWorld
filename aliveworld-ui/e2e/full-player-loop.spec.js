@@ -297,17 +297,24 @@ test('世界书工坊修改先进入草稿，发布后成为正式资产并可�
   await overview.fill('dev.19 工坊发布专项概述。');
   await expect(page.getByTestId('workshop-publish')).toBeEnabled({ timeout: 10_000 });
 
+  const conversation = page.getByTestId('workshop-conversation');
+  await page.locator('textarea[placeholder*="Ctrl+Enter"]').fill('请记录这轮工坊讨论，供发布后回看。');
+  await page.getByRole('button', { name: '发送', exact: true }).click();
+  await expect(conversation).toContainText('请记录这轮工坊讨论，供发布后回看。');
+
   const before = await (await request.get('/api/v1/lobby/assets/worldbooks/%E6%B5%8B%E8%AF%95%E4%B8%96%E7%95%8C%E4%B9%A6')).json();
   expect(before.parsed.overview).not.toBe('dev.19 工坊发布专项概述。');
 
   await page.getByTestId('workshop-publish').click();
   await expect(page.getByText('工坊草稿已发布')).toBeVisible();
+  await expect(page.getByTestId('workshop-new-round')).toBeVisible();
   const published = await (await request.get('/api/v1/lobby/assets/worldbooks/%E6%B5%8B%E8%AF%95%E4%B8%96%E7%95%8C%E4%B9%A6')).json();
   expect(published.parsed.overview).toBe('dev.19 工坊发布专项概述。');
 
   await page.getByRole('button', { name: '🎮 游戏' }).click();
   await page.getByRole('button', { name: '🧰 工坊' }).click();
   await page.locator('[data-workshop-asset-name="测试世界书"]').click();
+  await expect(page.getByTestId('workshop-history')).toContainText('请记录这轮工坊讨论，供发布后回看。');
   await expect(page.locator('section').filter({ hasText: '世界概述' }).locator('textarea').first())
     .toHaveValue('dev.19 工坊发布专项概述。');
 });

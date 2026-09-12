@@ -52,6 +52,7 @@ export const workshopStore = reactive({
   workshopId: '',
   draft: null,
   messages: [],
+  history: [],
   suggestions: [],
   proposed: [],
   pending: [],
@@ -99,6 +100,7 @@ export const workshopStore = reactive({
     this.workshopId = data.workshop_id || this.workshopId;
     this.draft = data.draft ?? this.draft;
     this.messages = data.messages || this.messages;
+    if (Object.prototype.hasOwnProperty.call(data, 'history')) this.history = data.history || [];
     this.suggestions = data.suggested_actions || [];
     this.proposed = data.proposed || [];
     this.pending = data.pending || [];
@@ -149,6 +151,7 @@ export const workshopStore = reactive({
     this.workshopId = '';
     this.draft = null;
     this.messages = [];
+    this.history = [];
     this.suggestions = [];
     this.proposed = [];
     this.pending = [];
@@ -179,6 +182,10 @@ export const workshopStore = reactive({
       this.busy = false;
       this.activity = '';
     }
+  },
+
+  async startNewRound() {
+    await this.start(this.assetName, this.scope);
   },
 
   async send(text = this.input) {

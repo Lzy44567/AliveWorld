@@ -111,6 +111,10 @@ class PreferenceWorkshop:
             self.published = False
         self.updated_at = _now()
 
+    def assert_editable(self) -> None:
+        if self.published:
+            raise PreferenceWorkshopError("这轮工坊已经发布，请开启新一轮后再修改")
+
     def _validate(self, raw: Any) -> dict[str, Any]:
         if not isinstance(raw, dict) or raw.get("op") not in ALLOWED_OPERATIONS:
             raise PreferenceWorkshopError("偏好工坊拒绝了未授权操作")
@@ -146,6 +150,7 @@ class PreferenceWorkshop:
         self.snapshots = self.snapshots[-50:]
 
     def propose_operations(self, operations: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        self.assert_editable()
         self.proposed = [self._validate(item) for item in operations]
         if self.proposed:
             self.touch()
@@ -155,6 +160,7 @@ class PreferenceWorkshop:
         self.proposed = []
 
     def apply_operations(self, operations: list[dict[str, Any]], *, confirm_high_risk: bool = False) -> dict[str, Any]:
+        self.assert_editable()
         applied = []
         for raw in operations:
             operation = self._validate(raw)
@@ -170,6 +176,7 @@ class PreferenceWorkshop:
         return {"applied": applied, "pending": deepcopy(self.pending), "draft": deepcopy(self.draft)}
 
     def approve(self, operation_id: str) -> None:
+        self.assert_editable()
         for index, operation in enumerate(self.pending):
             if operation.get("operation_id") == operation_id:
                 self._snapshot()
@@ -181,6 +188,7 @@ class PreferenceWorkshop:
         raise PreferenceWorkshopError("待确认操作不存在")
 
     def reject(self, operation_id: str) -> None:
+        self.assert_editable()
         before = len(self.pending)
         self.pending = [item for item in self.pending if item.get("operation_id") != operation_id]
         if len(self.pending) == before:
@@ -188,6 +196,7 @@ class PreferenceWorkshop:
         self.touch()
 
     def undo(self) -> None:
+        self.assert_editable()
         if not self.snapshots:
             raise PreferenceWorkshopError("没有可撤销的工坊修改")
         snapshot = self.snapshots.pop()
@@ -196,6 +205,7 @@ class PreferenceWorkshop:
         self.touch()
 
     def publish(self, repository: UserPreferenceRepository) -> dict[str, Any]:
+        self.assert_editable()
         current = repository.load()
         merged = deepcopy(current.get("preferences", []))
         for operation in self.operations:

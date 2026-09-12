@@ -110,6 +110,10 @@ class AssetWorkshop:
             self.published = False
         self.updated_at = _now()
 
+    def assert_editable(self) -> None:
+        if self.published:
+            raise AssetWorkshopError("这轮工坊已经发布，请开启新一轮后再修改")
+
     def _validate(self, raw: Any, *, actor: str) -> dict[str, Any]:
         if not isinstance(raw, dict) or raw.get("op") != "update_fields":
             raise AssetWorkshopError("资产工坊拒绝了未授权操作")
@@ -130,6 +134,7 @@ class AssetWorkshop:
         }
 
     def propose_operations(self, operations: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        self.assert_editable()
         self.proposed = [self._validate(item, actor="ai") for item in operations]
         if self.proposed:
             self.touch()
@@ -139,6 +144,7 @@ class AssetWorkshop:
         self.proposed = []
 
     def apply_operations(self, operations: list[dict[str, Any]], *, actor: str = "player") -> dict[str, Any]:
+        self.assert_editable()
         validated = [self._validate(item, actor=actor) for item in operations]
         for operation in validated:
             updated = normalize_asset(self.asset_type, {**self.draft, **operation["changes"]})
@@ -152,6 +158,7 @@ class AssetWorkshop:
         return {"applied": validated, "draft": deepcopy(self.draft)}
 
     def undo(self) -> None:
+        self.assert_editable()
         if not self.snapshots:
             raise AssetWorkshopError("没有可撤销的工坊修改")
         snapshot = self.snapshots.pop()
@@ -160,6 +167,7 @@ class AssetWorkshop:
         self.touch()
 
     def publish(self) -> Path:
+        self.assert_editable()
         if "模板" in self.draft.get("tags", []) or self.target_path.name.endswith(".template.yml"):
             raise AssetWorkshopError("模板资产不能直接发布，请先克隆为个人资产")
         current = yaml.safe_load(self.target_path.read_text(encoding="utf-8")) or {}

@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 from core.asset_workshop import AssetWorkshop, asset_revision, normalize_asset
+from core.workshop_history import published_history
 from utils.file_io import DATA_DIR
 
 
@@ -65,3 +66,12 @@ def find_resumable(asset_type: str, target_path: Path, source: dict) -> AssetWor
             if workshop.dirty and not workshop.published and workshop.source_revision == current_revision:
                 candidates.append(workshop)
     return max(candidates, key=lambda item: item.updated_at) if candidates else None
+
+
+def list_asset_workshop_history(asset_type: str, target_path: Path) -> list[dict]:
+    target = target_path.resolve()
+    return published_history(
+        WORKSHOP_DIR,
+        load_asset_workshop,
+        lambda item: item.asset_type == asset_type and item.target_path.resolve() == target,
+    )

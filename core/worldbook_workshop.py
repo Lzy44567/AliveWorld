@@ -71,6 +71,10 @@ class WorldbookWorkshop:
             self.published = False
         self.updated_at = datetime.now(timezone.utc).isoformat()
 
+    def assert_editable(self) -> None:
+        if self.published:
+            raise WorkshopError("这轮工坊已经发布，请开启新一轮后再修改")
+
     def _snapshot(self) -> None:
         self.snapshots.append(copy.deepcopy(self.draft))
         if len(self.snapshots) > 50:
@@ -100,6 +104,7 @@ class WorldbookWorkshop:
         return operation
 
     def apply_operations(self, operations: list[dict[str, Any]], *, confirm_high_risk: bool = False) -> dict[str, Any]:
+        self.assert_editable()
         validated = [self._validate(item) for item in operations]
         applied, pending = [], []
         for operation in validated:
@@ -143,6 +148,7 @@ class WorldbookWorkshop:
 
     def propose_operations(self, operations: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Validate and persist an AI plan without mutating the worldbook draft."""
+        self.assert_editable()
         self.proposed = [self._validate(item) for item in operations]
         if self.proposed:
             self.touch()
@@ -188,6 +194,7 @@ class WorldbookWorkshop:
             self.draft["entries"].pop(index)
 
     def approve(self, operation_id: str) -> dict[str, Any]:
+        self.assert_editable()
         for index, operation in enumerate(self.pending):
             if operation["operation_id"] == operation_id:
                 self._snapshot()
@@ -198,12 +205,14 @@ class WorldbookWorkshop:
         raise WorkshopError("待确认操作不存在")
 
     def reject(self, operation_id: str) -> None:
+        self.assert_editable()
         before = len(self.pending)
         self.pending = [item for item in self.pending if item["operation_id"] != operation_id]
         if len(self.pending) == before:
             raise WorkshopError("待确认操作不存在")
 
     def undo(self) -> dict[str, Any]:
+        self.assert_editable()
         if not self.snapshots:
             raise WorkshopError("没有可撤销的工坊修改")
         self.draft = self.snapshots.pop()
@@ -211,6 +220,7 @@ class WorldbookWorkshop:
         return copy.deepcopy(self.draft)
 
     def publish(self, output_path: Path | None = None) -> Path:
+        self.assert_editable()
         path = Path(output_path or self.target_path)
         save_worldbook_atomic(path, self.draft)
         self.source_revision = worldbook_revision(self.draft)

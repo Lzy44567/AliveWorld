@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 from core.preference_workshop import PreferenceWorkshop
+from core.workshop_history import published_history
 from utils.file_io import DATA_DIR
 
 
@@ -46,3 +47,7 @@ def find_resumable(profile: dict) -> tuple[PreferenceWorkshop | None, bool]:
         except ValueError:
             continue
     return None, False
+
+
+def list_preference_workshop_history() -> list[dict]:
+    return published_history(WORKSHOP_DIR, load_preference_workshop, lambda _item: True)

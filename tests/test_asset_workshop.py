@@ -50,6 +50,13 @@ class AssetWorkshopTests(unittest.TestCase):
         saved = yaml.safe_load(path.read_text(encoding="utf-8"))
         self.assertEqual(saved["portrait"]["task_id"], "portrait-1")
 
+    def test_published_session_is_read_only(self):
+        workshop, _ = self.make_workshop()
+        workshop.apply_operations([{"op": "update_fields", "changes": {"description": "发布内容"}}])
+        workshop.publish()
+        with self.assertRaises(AssetWorkshopError):
+            workshop.apply_operations([{"op": "update_fields", "changes": {"description": "不应写入"}}])
+
     def test_publish_rejects_stale_source(self):
         workshop, path = self.make_workshop()
         workshop.apply_operations([{

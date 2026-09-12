@@ -92,7 +92,7 @@ The codebase is moderately well modularized, not “completely independent by fi
 | --- | --- | --- | --- |
 | 0 | Complete | Skill validator passed; repository protocol and goal committed as `64a0e4c` | Keep this ledger current after every slice |
 | 1 | Complete | Frontend production build: 124 modules; Playwright/Edge: 17/17 passed | Commit navigation, scrolling, selection, copy and export changes |
-| 2 | Not started | — | Trace publish persistence and lifecycle files |
+| 2 | Complete | 327/327 Python tests; frontend build 124 modules; targeted Edge publish/reopen flow 2/2 passed | Commit immutable workshop history slice |
 | 3 | Not started | `features/19_prompt_studio_and_plugin_kernel.md` contains prior design | Narrow design to prompt studio only and map existing prompt sources |
 | 4 | Not started | Single foreground stores observed | Map API locks, request ownership, and UI task keys |
 | 5 | Not started | — | Integrate only after slices 1-4 pass |
@@ -104,3 +104,10 @@ The codebase is moderately well modularized, not “completely independent by fi
 - Ordinary player/AI bubbles remain selectable and no longer display copy controls. Special diagnostic/future bubbles retain explicit copy affordances where their structured content is otherwise harder to select coherently.
 - Logs remain local and already redacted by the backend. Per-entry and batch export serialize the currently returned safe log records in the browser; no export request uploads content.
 - Playwright now prefers the repository virtual environment automatically, falling back to system Python only when it is absent.
+
+## Slice 2 implementation notes
+
+- Existing per-workshop JSON files are the durable source of both drafts and completed records. Published records are projected through `core/workshop_history.py`; no second copy of the same transcript is created.
+- A published workshop is now terminal and read-only at both domain and API boundaries. “Continue” creates a distinct session against the latest formal asset, preventing an old published draft from silently becoming editable again.
+- Reopening any supported asset returns all matching published conversations newest-first. The central workspace displays them as collapsible read-only rounds while keeping the current draft separate.
+- History projection whitelists only role and content from player/assistant conversation messages. Internal/system records, drafts, model credentials, and request prompts are not exposed as chat history.

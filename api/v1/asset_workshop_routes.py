@@ -12,6 +12,7 @@ from core.asset_workshop import AssetWorkshop, AssetWorkshopError
 from core.asset_workshop_agent import AssetWorkshopAgent
 from core.asset_workshop_registry import (
     WORKSHOP_DIR, active_asset_workshops, find_resumable, load_asset_workshop,
+    list_asset_workshop_history,
 )
 from core.asset_lifecycle import AssetLifecycleError, find_yaml_asset
 from core.session_manager import active_sessions
@@ -84,12 +85,13 @@ def start_workshop(payload: StartPayload):
     target = _target(payload)
     source = yaml.safe_load(target.read_text(encoding="utf-8")) or {}
     resumed = find_resumable(payload.asset_type, target, source)
+    history = list_asset_workshop_history(payload.asset_type, target)
     if resumed:
-        return {**_payload(resumed), "resumed": True}
+        return {**_payload(resumed), "resumed": True, "history": history}
     workshop = AssetWorkshop(str(uuid4()), payload.asset_type, target, source)
     active_asset_workshops[workshop.id] = workshop
     workshop.save_session(WORKSHOP_DIR)
-    return {**_payload(workshop), "resumed": False}
+    return {**_payload(workshop), "resumed": False, "history": history}
 
 
 @router.get("/{workshop_id}")
@@ -100,6 +102,8 @@ def get_workshop(workshop_id: str):
 @router.post("/{workshop_id}/chat")
 def chat_workshop(workshop_id: str, payload: ChatPayload):
     workshop = _get(workshop_id)
+    if workshop.published:
+        raise HTTPException(status_code=409, detail="这轮工坊已经发布，请开启新一轮后再修改")
     engine = _engine()
     if not engine:
         raise HTTPException(status_code=500, detail="尚未配置可用的大语言模型")
