@@ -100,9 +100,14 @@ async function loadStory(page, name = '自动验收故事') {
   await page.getByTestId('tab-saves').click();
   const card = page.locator(`[data-save-name="${name}"]`);
   await expect(card).toBeVisible();
+  const loadResponse = page.waitForResponse(response =>
+    new URL(response.url()).pathname === '/api/v1/game/load' && response.request().method() === 'POST'
+  );
   await card.getByTestId('save-load').click();
+  const payload = await (await loadResponse).json();
   await expect(page.getByTestId('story-action-input')).toBeEnabled();
   await expect.poll(() => page.locator('#chat-container').evaluate(element => element.scrollHeight - element.scrollTop - element.clientHeight)).toBeLessThan(12);
+  return payload;
 }
 
 
@@ -363,6 +368,17 @@ test('世界书工坊修改先进入草稿，发布后成为正式资产并可�
   await page.getByRole('button', { name: '🎮 游戏' }).click();
   await page.getByRole('button', { name: '🧰 工坊' }).click();
   await page.locator('[data-workshop-asset-name="测试世界书"]').click();
+  await expect(page.getByTestId('workshop-conversation')).toContainText('请记录这轮工坊讨论，供发布后回看。');
+  await expect.poll(() => page.getByTestId('workshop-conversation').evaluate(
+    element => element.scrollHeight - element.scrollTop - element.clientHeight
+  )).toBeLessThan(12);
+
+  // A real application reload discards the in-memory published context.  The
+  // next selection must project the persisted session back as read-only history.
+  await page.reload();
+  await dismissStartupPrompt(page);
+  await page.getByRole('button', { name: '🧰 工坊' }).click();
+  await page.locator('[data-workshop-asset-name="测试世界书"]').click();
   await expect(page.getByTestId('workshop-history')).toContainText('请记录这轮工坊讨论，供发布后回看。');
   await expect(page.locator('section').filter({ hasText: '世界概述' }).locator('textarea').first())
     .toHaveValue('dev.19 工坊发布专项概述。');
@@ -521,13 +537,14 @@ test('正文气泡可以拖选且普通气泡不显示复制按钮', async ({ pa
 
 
 test('页面重载后可重新唤醒故事并恢复正文、局内资产和图片任务', async ({ page }) => {
-  await loadStory(page);
+  const loaded = await loadStory(page);
   await expect(page.getByText('我继续进行第二次自动验收。')).toBeVisible();
   const restoredReplies = page.locator('[data-message-role="ai"]');
   await expect(restoredReplies.filter({ hasText: '前端正文测试成功。' }).first()).toBeVisible();
   await expect(restoredReplies.filter({ hasText: '自动测试正文2' })).toBeVisible();
-  await expect(page.getByText('第2回合', { exact: true })).toBeVisible();
-  await expect(page.getByText('2/5')).toBeVisible();
+  await expect(page.getByText(loaded.state.properties['当前时间'], { exact: true })).toBeVisible();
+  const progress = loaded.state.bars['自动验收进度'];
+  await expect(page.getByText(`${progress.current}/${progress.max}`)).toBeVisible();
   await expect(page.locator('[data-message-role="ai"] img')).toBeVisible({ timeout: 10_000 });
   await page.getByTestId('tab-character').click();
   await page.getByRole('button', { name: '🛡️ 本局专属' }).click();
