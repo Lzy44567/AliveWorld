@@ -13,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 
 from api.v1.asset_workshop_routes import router as asset_workshop_router
 from api.v1.causal_ledger_routes import router as causal_ledger_router
+from api.v1.developer_routes import router as developer_router
 from api.v1.game_routes import router as game_router
 from api.v1.feedback_routes import router as feedback_router
 from api.v1.external_import_routes import router as external_import_router
@@ -49,7 +50,7 @@ def create_app(
             allow_origins=allowed_origins,
             allow_credentials=False,
             allow_methods=["GET", "POST", "DELETE"],
-            allow_headers=["Content-Type"],
+            allow_headers=["Content-Type", "Authorization"],
         )
 
     application.include_router(game_router, prefix="/api/v1/game", tags=["Game 推演核心"])
@@ -74,6 +75,7 @@ def create_app(
     )
     application.include_router(update_router, prefix="/api/v1/updates", tags=["版本更新"])
     application.include_router(feedback_router, prefix="/api/v1/feedback", tags=["反馈与诊断"])
+    application.include_router(developer_router, prefix="/api/v1/developer", tags=["本地开发者工具"])
     application.include_router(
         model_connection_router,
         prefix="/api/v1/model-connections",

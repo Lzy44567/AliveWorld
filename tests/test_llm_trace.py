@@ -23,7 +23,10 @@ class LLMTraceTests(unittest.TestCase):
         logger.setLevel(logging.INFO)
         logger.addHandler(handler)
         try:
-            trace_id = begin_llm_trace("测试阶段", "test-model", "世界书标记", "玩家行动", "json")
+            trace_id = begin_llm_trace(
+                "测试阶段", "test-model", "世界书标记", "玩家行动", "json",
+                [{"sliceId": "story.future.core", "contentHash": "abc123"}],
+            )
             finish_llm_trace("测试阶段", trace_id, response='{"ok": true}')
         finally:
             logger.removeHandler(handler)
@@ -37,6 +40,10 @@ class LLMTraceTests(unittest.TestCase):
         self.assertEqual(len(handler.records), 2)
         self.assertEqual(handler.records[0].aw_trace_id, handler.records[1].aw_trace_id)
         self.assertEqual(handler.records[0].aw_phase, "request")
+        self.assertEqual(
+            handler.records[0].aw_details["prompt_manifest"][0]["sliceId"],
+            "story.future.core",
+        )
         self.assertEqual(handler.records[1].aw_status, "success")
 
 

@@ -92,9 +92,9 @@ The codebase is moderately well modularized, not “completely independent by fi
 | --- | --- | --- | --- |
 | 0 | Complete | Skill validator passed; repository protocol and goal committed as `64a0e4c` | Keep this ledger current after every slice |
 | 1 | Complete | Frontend production build: 124 modules; Playwright/Edge: 17/17 passed | Commit navigation, scrolling, selection, copy and export changes |
-| 2 | Complete | 327/327 Python tests; frontend build 124 modules; targeted Edge publish/reopen flow 2/2 passed | Commit immutable workshop history slice |
-| 3 | Not started | `features/19_prompt_studio_and_plugin_kernel.md` contains prior design | Narrow design to prompt studio only and map existing prompt sources |
-| 4 | Not started | Single foreground stores observed | Map API locks, request ownership, and UI task keys |
+| 2 | Complete | 327/327 Python tests; frontend build 124 modules; targeted Edge publish/reopen flow 2/2 passed; commit `458b1bc` | Preserve immutable workshop history contract |
+| 3 | Complete | Prompt/auth/API/composition/trace 15/15; frontend build 126 modules; Edge override/restore 1/1 | Commit prompt studio slice |
+| 4 | In progress | Single foreground stores observed | Map API locks, request ownership, and UI task keys |
 | 5 | Not started | — | Integrate only after slices 1-4 pass |
 
 ## Slice 1 implementation notes
@@ -111,3 +111,11 @@ The codebase is moderately well modularized, not “completely independent by fi
 - A published workshop is now terminal and read-only at both domain and API boundaries. “Continue” creates a distinct session against the latest formal asset, preventing an old published draft from silently becoming editable again.
 - Reopening any supported asset returns all matching published conversations newest-first. The central workspace displays them as collapsible read-only rounds while keeping the current draft separate.
 - History projection whitelists only role and content from player/assistant conversation messages. Internal/system records, drafts, model credentials, and request prompts are not exposed as chat history.
+
+## Slice 3 implementation notes
+
+- Built-in prompt sources remain in their owning YAML/Python modules. `PromptSlice` is a registry and composition boundary, not a second copy of every prompt.
+- Only the six story future/settlement core, agency, and continuity slices are editable in the first migration. Dynamic length/preferences/suggestions and unmigrated world/workshop families are visible but read-only.
+- Overrides are atomically saved under the portable user-data tree and selected at composition time. The old unprotected bulk YAML endpoint returns 410.
+- Developer passwords use salted PBKDF2-SHA256 hashes. Unlock tokens are ephemeral and protect against accidental access, not users with filesystem/process control.
+- Request traces record the ordered slice manifest and hashes so a defect can be tied to the actual composition without duplicating prompt bodies into metadata.

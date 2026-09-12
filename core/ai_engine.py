@@ -62,9 +62,9 @@ class AIEngine:
         self.client = OpenAI(api_key=config['api_key'], base_url=config['base_url'])
         self.model = config['model']
 
-    def chat_json(self, system_prompt, user_prompt, temp=0.8, max_tokens=None, trace_label="json"):
+    def chat_json(self, system_prompt, user_prompt, temp=0.8, max_tokens=None, trace_label="json", prompt_manifest=None):
         """强制 JSON 输出模式（主线 DM 用）"""
-        trace_id = begin_llm_trace(trace_label, self.model, system_prompt, user_prompt, "json")
+        trace_id = begin_llm_trace(trace_label, self.model, system_prompt, user_prompt, "json", prompt_manifest)
         try:
             kwargs = {"model": self.model, "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}], "temperature": temp, "response_format": {"type": "json_object"}}
             if max_tokens: kwargs["max_tokens"] = max_tokens
@@ -91,9 +91,9 @@ class AIEngine:
             finish_llm_trace(trace_label, trace_id, error=str(e))
             return "", str(e)
 
-    def chat_text(self, system_prompt, user_prompt, temp=0.8, trace_label="text"):
+    def chat_text(self, system_prompt, user_prompt, temp=0.8, trace_label="text", prompt_manifest=None):
         """纯文本输出模式（暗流实体引擎用）"""
-        trace_id = begin_llm_trace(trace_label, self.model, system_prompt, user_prompt, "text")
+        trace_id = begin_llm_trace(trace_label, self.model, system_prompt, user_prompt, "text", prompt_manifest)
         try:
             res = self.client.chat.completions.create(
                 model=self.model, 

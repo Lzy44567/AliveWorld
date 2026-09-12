@@ -11,7 +11,6 @@ from typing import Optional, Dict, Any
 from utils.file_io import DATA_DIR, CHAR_DIR, STYLE_DIR, WORLD_DIR, ENTITY_DIR, SAVE_DIR, get_all_saves
 from utils.asset_catalog import list_asset_names, list_asset_summaries, personal_asset_dir, resolve_asset_path, resolve_template_path
 from utils.sys_logger import read_logs_parsed
-from core.prompts import PROMPT_FILE, load_system_prompts
 from core.worldbook import normalize_worldbook, save_worldbook_atomic
 from core.asset_lifecycle import AssetLifecycleError, clone_yaml_asset, normalize_asset_name, rename_yaml_asset
 from core.save_lifecycle import clone_save, rename_save
@@ -270,17 +269,11 @@ async def delete_save(save_name: str):
             raise HTTPException(status_code=500, detail="粉碎目录失败")
     raise HTTPException(status_code=404)
 
-# ============ 🚀 问题 5 新增：提示词配置端点 ============
+# 旧接口故意保留为明确的 410，避免旧客户端继续无鉴权覆盖发行基线。
 @router.get("/prompts")
 async def get_all_prompts():
-    try: return load_system_prompts()
-    except Exception as e: raise HTTPException(status_code=500, detail=str(e))
+    raise HTTPException(status_code=410, detail="旧提示词接口已停用；请使用受保护的提示词工作台")
 
 @router.post("/prompts")
 async def save_all_prompts(payload: SavePromptsPayload):
-    try:
-        with open(PROMPT_FILE, 'w', encoding='utf-8') as f:
-            yaml.safe_dump(payload.prompts, f, allow_unicode=True, sort_keys=False)
-        return {"status": "success"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"保存提示词失败: {str(e)}")
+    raise HTTPException(status_code=410, detail="旧提示词接口已停用；请使用受保护的提示词工作台")

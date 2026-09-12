@@ -450,6 +450,32 @@ test('高级设置默认隐藏并可由总开关统一显示', async ({ page }) 
 });
 
 
+test('开发者密码保护真实提示词切片并支持覆盖与恢复', async ({ page }) => {
+  await page.goto('/');
+  await dismissStartupPrompt(page);
+  await page.getByRole('button', { name: '⚙️ 设置', exact: true }).click();
+  await page.getByRole('button', { name: '🧰 开发者模式' }).click();
+  await expect(page.getByTestId('developer-settings')).toBeVisible();
+  await page.getByTestId('developer-password').fill('aliveworld-e2e');
+  const confirmation = page.getByPlaceholder('再次输入密码');
+  if (await confirmation.isVisible().catch(() => false)) await confirmation.fill('aliveworld-e2e');
+  await page.getByRole('button', { name: /设置并解锁|解锁/ }).click();
+  const futureCore = page.locator('[data-prompt-slice="story.future.core"]');
+  await expect(futureCore).toBeVisible();
+  await futureCore.click();
+  const editor = page.getByTestId('prompt-slice-editor');
+  const baseline = await editor.inputValue();
+  await editor.fill(`${baseline}\n开发者工作台自动验收规则`);
+  await page.getByRole('button', { name: '保存新覆盖版本' }).click();
+  await expect(page.getByText('已保存为新的本地覆盖版本。')).toBeVisible();
+  await expect(futureCore).toContainText('本地覆盖 v1');
+  page.once('dialog', dialog => dialog.accept());
+  await page.getByRole('button', { name: '恢复官方基线' }).click();
+  await expect(page.getByText('已恢复官方基线。')).toBeVisible();
+  await expect(futureCore).toContainText('官方基线');
+});
+
+
 test('接口可从卡片直接启停并发现模型列表', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: '⚙️ 设置', exact: true }).click();

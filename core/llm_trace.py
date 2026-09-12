@@ -13,7 +13,7 @@ from utils.sys_logger import get_logger
 log = get_logger()
 
 
-def begin_llm_trace(label, model, system_prompt, user_prompt, response_mode):
+def begin_llm_trace(label, model, system_prompt, user_prompt, response_mode, prompt_manifest=None):
     trace_id = uuid4().hex[:8]
     log.info(
         "LLM 请求 [%s] id=%s model=%s mode=%s\n[SYSTEM]\n%s\n[USER]\n%s",
@@ -34,6 +34,7 @@ def begin_llm_trace(label, model, system_prompt, user_prompt, response_mode):
                 "response_mode": response_mode,
                 "system": system_prompt,
                 "user": user_prompt,
+                "prompt_manifest": prompt_manifest or [],
             },
         },
     )

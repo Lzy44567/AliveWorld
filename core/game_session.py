@@ -286,28 +286,31 @@ class GameSession:
         self._refresh_local_context()
         active_world, _ = self.build_active_world_info(interpreted_action)
         
+        from core.prompt_studio import compose_prompt
         from core.prompts import load_system_prompts
-        from core.story_continuity import continuity_instruction
         from core.world_rule_commands import resolution_instruction
-        pts = load_system_prompts()
         visible_world, _ = self.build_visible_world_info(interpreted_action)
-        settle_p = pts.get('settlement_prompt', '').replace('{world_info}', visible_world).replace('{character_info}', self.ctx_mgr.char_info).replace('{style_info}', self.ctx_mgr.style_info)
-        settle_p += "\n\n" + player_agency_instruction(require_output=False)
-        settle_p += "\n\n" + continuity_instruction()
+        pts = load_system_prompts()
         rule_command_prompt = resolution_instruction(interpreted_action)
-        if rule_command_prompt:
-            settle_p += "\n\n" + rule_command_prompt
-        settle_p += "\n\n" + story_length_instruction(self.story_settings.get("targetStoryLength"))
         suggestion_prompt = action_suggestion_instruction(self.story_settings.get("aiSuggestions", True))
-        if suggestion_prompt:
-            settle_p += "\n\n【玩家行动建议要求】\n" + suggestion_prompt
         from core.preference_learning import preference_context_instruction, preference_learning_instruction
         preference_context = self.get_user_preference_context()
         preference_prompt = preference_context_instruction(preference_context)
-        if preference_prompt:
-            settle_p += "\n\n" + preference_prompt
-        if self.story_settings.get("learnUserPreferences", True):
-            settle_p += "\n\n" + preference_learning_instruction(preference_context)
+        settle_prompt = compose_prompt(
+            "story.settlement",
+            {"world_info": visible_world, "character_info": self.ctx_mgr.char_info,
+             "style_info": self.ctx_mgr.style_info, "word_limit": self.word_limit},
+            include={"story.settlement.core", "story.settlement.player_agency", "story.settlement.continuity"},
+            runtime_parts=[
+                ("story.settlement.world_rule_command", rule_command_prompt, "runtime"),
+                ("story.settlement.length", story_length_instruction(self.story_settings.get("targetStoryLength")), "runtime"),
+                ("story.settlement.suggestions", ("【玩家行动建议要求】\n" + suggestion_prompt) if suggestion_prompt else "", "runtime"),
+                ("story.settlement.preference_context", preference_prompt, "runtime"),
+                ("story.settlement.preference_learning", preference_learning_instruction(preference_context) if self.story_settings.get("learnUserPreferences", True) else "", "runtime"),
+            ],
+            baselines={"story.settlement.core": pts.get("settlement_prompt", "")},
+        )
+        settle_p = settle_prompt.text
         influence_instruction = "\n".join(
             f"- [{item['id']}] {item['summary']}；必须体现的后果：{item['effect']}；依据：{item['reason']}"
             for item in triggered_influences
@@ -315,7 +318,10 @@ class GameSession:
         action_adjudication = normalize_action_adjudication(action_adjudication)
         usr_p2 = f"【情景】：\n{self.get_context_text()}\n【状态】：{json.dumps(self.state_mgr.get_dynamic_state(), ensure_ascii=False)}\n【行动】：{interpreted_action}\n{adjudication_context(action_adjudication)}\n【裁定变数】：{chosen['description']}\n【本回合必须兑现的暗流影响】：\n{influence_instruction}"
 
-        raw_settle, err2 = self.ai_engine.chat_json(settle_p, usr_p2, temp=0.8, max_tokens=3000, trace_label="剧情重写")
+        raw_settle, err2 = self.ai_engine.chat_json(
+            settle_p, usr_p2, temp=0.8, max_tokens=3000, trace_label="剧情重写",
+            prompt_manifest=settle_prompt.manifest,
+        )
         if err2 or not raw_settle:
             self.rollback()
             return {"error": True, "message": failure_message(err2, empty=not raw_settle and not err2)}
