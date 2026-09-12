@@ -1,6 +1,6 @@
 <!-- src/components/chat/ChatBoard.vue -->
 <script setup>
-import { onMounted, watch, nextTick } from 'vue';
+import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { gameStore } from '../../store/gameStore';
 import { configStore } from '../../store/configStore';
 import { uiStore } from '../../store/uiStore';
@@ -8,17 +8,23 @@ import { gameApi } from '../../api/gameApi';
 import MessageBubble from './MessageBubble.vue';
 import ChatInput from './ChatInput.vue';
 import { imageStore } from '../../store/imageStore';
+import { useBottomAnchoredScroll } from '../../composables/useBottomAnchoredScroll';
 
-// 自动滚动到底部
-const scrollToBottom = () => {
-  nextTick(() => {
-    const c = document.getElementById('chat-container');
-    if (c) c.scrollTop = c.scrollHeight;
-  });
-};
+const { container, positioned, updateFollowState, jumpToBottom, prepareAtBottom } = useBottomAnchoredScroll();
+const content = ref(null);
+let contentObserver = null;
 
-onMounted(scrollToBottom);
-watch(() => gameStore.chatLog, scrollToBottom, { deep: true });
+onMounted(async () => {
+  await prepareAtBottom();
+  await nextTick();
+  if (content.value && window.ResizeObserver) {
+    contentObserver = new ResizeObserver(() => jumpToBottom());
+    contentObserver.observe(content.value);
+  }
+});
+onBeforeUnmount(() => contentObserver?.disconnect());
+watch(() => gameStore.sessionId, prepareAtBottom, { flush: 'post' });
+watch(() => gameStore.chatLog.length, () => jumpToBottom(), { flush: 'post' });
 watch(() => gameStore.sessionId, async (sessionId) => {
   imageStore.reset();
   if (sessionId) await imageStore.load(sessionId).catch(() => {});
@@ -44,7 +50,8 @@ const initWorldState = async () => {
 <template>
   <main class="flex-1 flex flex-col relative z-0 bg-aw_bg overflow-hidden">
     <div class="absolute inset-0 z-0 opacity-15 pointer-events-none"><img :src="gameStore.currentScene.img" class="w-full h-full object-cover blur-sm"></div>
-    <div class="flex-1 overflow-y-auto p-4 md:p-8 space-y-6 pb-4 z-10 custom-scrollbar scroll-smooth" id="chat-container">
+    <div ref="container" class="flex-1 overflow-y-auto p-4 md:p-8 pb-4 z-10 custom-scrollbar" :class="positioned?'opacity-100':'opacity-0'" id="chat-container" @scroll.passive="updateFollowState" @load.capture="jumpToBottom()">
+      <div ref="content" class="min-h-full space-y-6">
       <div v-if="!gameStore.sessionId" class="h-full flex items-center justify-center flex-col text-center">
          <h2 class="text-4xl font-bold text-slate-300 mb-4 tracking-widest">A L I V E W O R L D</h2>
          <p class="text-slate-500">世界的齿轮尚未转动，请新建或载入档案。</p>
@@ -58,6 +65,7 @@ const initWorldState = async () => {
         </div>
         <div v-if="gameStore.isProcessing" class="text-emerald-400 text-sm font-bold italic animate-pulse">🧠 主引擎双轨推演中...</div>
       </template>
+      </div>
     </div>
     <ChatInput />
   </main>

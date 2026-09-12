@@ -1,4 +1,12 @@
 import { defineConfig } from '@playwright/test';
+import { existsSync } from 'node:fs';
+
+const virtualEnvPython = process.platform === 'win32'
+  ? '../.venv/Scripts/python.exe'
+  : '../.venv/bin/python';
+const pythonCommand = existsSync(new URL(virtualEnvPython, import.meta.url))
+  ? `"${virtualEnvPython}"`
+  : 'python';
 
 export default defineConfig({
   testDir: './e2e',
@@ -17,7 +25,7 @@ export default defineConfig({
     video: 'retain-on-failure',
   },
   webServer: {
-    command: 'python ../tools/testing/e2e_server.py',
+    command: `${pythonCommand} ../tools/testing/e2e_server.py`,
     url: 'http://127.0.0.1:18766/api/health',
     timeout: 30_000,
     reuseExistingServer: false,

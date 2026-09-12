@@ -7,13 +7,13 @@ const runtimeVersion = readFileSync(new URL('../../VERSION', import.meta.url), '
 
 
 const assetTabs = {
-  characters: 'resource-asset-character',
-  worldbooks: 'resource-asset-world',
-  styles: 'resource-asset-style',
-  entities: 'resource-asset-entity',
+  characters: 'tab-character',
+  worldbooks: 'tab-world',
+  styles: 'tab-style',
+  entities: 'tab-entity',
 };
 
-async function openResourceLibrary(page, section = 'assets') {
+async function openResourceLibrary(page, section = 'images') {
   if (!await page.getByTestId('resource-library').isVisible().catch(() => false)) {
     await page.getByTestId('open-resource-library').click();
   }
@@ -27,7 +27,6 @@ async function closeResourceLibrary(page) {
 }
 
 async function openAssetEditor(page, type) {
-  await openResourceLibrary(page, 'assets');
   await page.getByTestId(assetTabs[type]).click();
   await page.getByRole('button', { name: '🌐 全局图鉴' }).click();
   await page.getByTestId('asset-new').click();
@@ -59,30 +58,25 @@ async function createAsset(page, type, name) {
   await editor.getByTestId('asset-editor-save').click();
   await expect(editor).toBeHidden();
   await expect(page.locator(`[data-asset-name="${name}"]`)).toBeVisible();
-  await closeResourceLibrary(page);
 }
 
 
 async function loadAsset(page, type, name) {
-  await openResourceLibrary(page, 'assets');
   await page.getByTestId(assetTabs[type]).click();
   await page.getByRole('button', { name: '🌐 全局图鉴' }).click();
   const card = page.locator(`[data-asset-name="${name}"]`);
   await expect(card).toBeVisible();
   await card.getByRole('button', { name: /载入局内/ }).click();
-  await closeResourceLibrary(page);
 }
 
 
 async function setLocalAssetEnabled(page, type, name, enabled) {
-  await openResourceLibrary(page, 'assets');
   await page.getByTestId(assetTabs[type]).click();
   await page.getByRole('button', { name: '🛡️ 本局专属' }).click();
   const card = page.locator(`[data-asset-name="${name}"]`);
   await expect(card).toBeVisible();
   const toggle = card.getByRole('switch');
   if ((await toggle.getAttribute('aria-checked')) !== String(enabled)) await toggle.click();
-  await closeResourceLibrary(page);
 }
 
 
@@ -101,13 +95,14 @@ async function dismissStartupPrompt(page) {
 async function loadStory(page, name = '自动验收故事') {
   await page.goto('/');
   await dismissStartupPrompt(page);
-  await expect(page.getByTestId('tab-character')).toHaveCount(0);
+  await expect(page.getByTestId('tab-character')).toBeVisible();
   await expect(page.getByTestId('open-resource-library')).toBeVisible();
   await page.getByTestId('tab-saves').click();
   const card = page.locator(`[data-save-name="${name}"]`);
   await expect(card).toBeVisible();
   await card.getByTestId('save-load').click();
   await expect(page.getByTestId('story-action-input')).toBeEnabled();
+  await expect.poll(() => page.locator('#chat-container').evaluate(element => element.scrollHeight - element.scrollTop - element.clientHeight)).toBeLessThan(12);
 }
 
 
@@ -127,11 +122,9 @@ test('前端创建和载入全类资产，正文上下文启停可由假模型�
   await page.getByTestId('new-game-submit').click();
   await expect(page.getByTestId('new-game-modal')).toBeHidden();
 
-  await openResourceLibrary(page, 'assets');
-  await page.getByTestId('resource-asset-world').click();
+  await page.getByTestId('tab-world').click();
   await page.getByRole('button', { name: '🛡️ 本局专属' }).click();
   await expect(page.locator('[data-asset-name="本局自动设定"]')).toBeVisible();
-  await closeResourceLibrary(page);
 
   await loadAsset(page, 'characters', '测试角色卡');
   await loadAsset(page, 'worldbooks', '测试世界书');
@@ -210,11 +203,10 @@ test('玩家可导入世界包并一键建立带完整资产的独立故事', as
   await expect(manager).toContainText('🔒 来源：自动验收世界包');
   await manager.getByRole('button', { name: '✕' }).click();
 
-  await page.getByTestId('resource-tab-assets').click();
-  await page.getByTestId('resource-asset-world').click();
+  await closeResourceLibrary(page);
+  await page.getByTestId('tab-world').click();
   await page.getByRole('button', { name: '🛡️ 本局专属' }).click();
   await expect(page.locator('[data-asset-name="世界包测试世界"]')).toBeVisible();
-  await closeResourceLibrary(page);
   await request.delete('http://127.0.0.1:18765/__test__/requests');
   await page.getByTestId('story-action-input').fill('验证世界包资产。');
   await page.getByTestId('story-action-submit').click();
@@ -257,8 +249,8 @@ test('外部角色卡先显示兼容报告，再导入全局资产库', async ({
   await dialog.getByTestId('external-asset-import').click();
   await expect(dialog).toBeHidden();
   await manager.getByRole('button', { name: '✕' }).first().click();
-  await page.getByTestId('resource-tab-assets').click();
-  await page.getByTestId('resource-asset-character').click();
+  await closeResourceLibrary(page);
+  await page.getByTestId('tab-character').click();
   await page.getByRole('button', { name: '🌐 全局图鉴' }).click();
   await expect(page.locator(`[data-asset-name="${name}"]`)).toBeVisible();
   await request.delete(`/api/v1/lobby/assets/characters/${encodeURIComponent(name)}`);
@@ -411,13 +403,11 @@ test('生图执行失败保留任务卡，点击重试后成功交付图片', as
 });
 
 
-test('正文气泡可以拖选并通过按钮复制', async ({ page }) => {
+test('正文气泡可以拖选且普通气泡不显示复制按钮', async ({ page }) => {
   await loadStory(page);
   const latest = page.locator('[data-message-role="ai"]').last();
-  await expect(latest.getByTestId('copy-text')).toBeVisible();
+  await expect(latest.getByTestId('copy-text')).toHaveCount(0);
   expect(await latest.locator('.select-text').evaluate(element => getComputedStyle(element).userSelect)).not.toBe('none');
-  await latest.getByTestId('copy-text').click();
-  await expect(page.getByText('内容已复制')).toBeVisible();
 });
 
 
@@ -430,14 +420,12 @@ test('页面重载后可重新唤醒故事并恢复正文、局内资产和图�
   await expect(page.getByText('第2回合', { exact: true })).toBeVisible();
   await expect(page.getByText('2/5')).toBeVisible();
   await expect(page.locator('[data-message-role="ai"] img')).toBeVisible({ timeout: 10_000 });
-  await openResourceLibrary(page, 'assets');
-  await page.getByTestId('resource-asset-character').click();
+  await page.getByTestId('tab-character').click();
   await page.getByRole('button', { name: '🛡️ 本局专属' }).click();
   await expect(page.locator('[data-asset-name="测试角色卡"]')).toBeVisible();
-  await page.getByTestId('resource-asset-style').click();
+  await page.getByTestId('tab-style').click();
   await page.getByRole('button', { name: '🛡️ 本局专属' }).click();
   await expect(page.locator('[data-asset-name="测试文风"]')).toBeVisible();
-  await closeResourceLibrary(page);
   await page.getByTestId('tab-saves').click();
   await expect(page.locator('[data-save-name="自动验收故事"]')).toContainText('当前游玩');
 });
@@ -489,16 +477,26 @@ test('生图工作流显示映射报告并独立保存配置档案', async ({ pa
 });
 
 
-test('运行日志按任务分类、折叠详情并关联同一次模型调用', async ({ page }) => {
+test('运行日志从最新处打开，可选择、复制、逐条或批量导出并追踪调用', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: /日志/ }).click();
   await expect(page.getByRole('dialog', { name: '运行日志' })).toBeVisible();
   await page.getByRole('button', { name: '正文', exact: true }).click();
-  const entries = page.locator('details');
+  const entries = page.getByTestId('log-entry');
   await expect(entries.first()).toBeVisible();
+  await expect.poll(() => page.locator('#terminal-log-container').evaluate(element => element.scrollHeight - element.scrollTop - element.clientHeight)).toBeLessThan(12);
+  expect(await entries.first().locator('pre').evaluateAll(elements => elements.length ? getComputedStyle(elements[0]).userSelect : 'text')).not.toBe('none');
+  await expect(entries.first().getByTestId('copy-log-entry')).toBeVisible();
+  const singleDownload = page.waitForEvent('download');
+  await entries.first().getByTestId('export-log-entry').click();
+  expect((await singleDownload).suggestedFilename()).toMatch(/^AliveWorld-log-/);
+  await entries.first().getByRole('checkbox', { name: '选择这条日志' }).check();
+  const batchDownload = page.waitForEvent('download');
+  await page.getByTestId('export-selected-logs').click();
+  expect((await batchDownload).suggestedFilename()).toMatch(/^AliveWorld-logs-/);
   await entries.first().locator('summary').click();
   await expect(entries.first().locator('pre')).toBeVisible();
-  const traceButton = entries.first().locator('summary button').first();
+  const traceButton = entries.first().getByTestId('trace-log-entry');
   if (await traceButton.count()) {
     const traceId = await traceButton.textContent();
     await traceButton.click();

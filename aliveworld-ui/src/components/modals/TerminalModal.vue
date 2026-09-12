@@ -3,12 +3,16 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { uiStore } from '../../store/uiStore';
 import { assetApi } from '../../api/assetApi';
 import LogEntryCard from '../log-viewer/LogEntryCard.vue';
+import { downloadJson } from '../../utils/download';
+import { useBottomAnchoredScroll } from '../../composables/useBottomAnchoredScroll';
 
 const logs = ref([]);
 const loading = ref(false);
 const activeCategory = ref('');
 const activeTrace = ref('');
 const query = ref('');
+const selectedIds = ref(new Set());
+const { container, positioned, updateFollowState, jumpToBottom, prepareAtBottom } = useBottomAnchoredScroll();
 let pollTimer = null;
 
 const categories = [
@@ -21,16 +25,43 @@ const visibleLogs = computed(() => {
   if (!needle) return logs.value;
   return logs.value.filter(item => `${item.task} ${item.summary} ${item.trace_id}`.toLowerCase().includes(needle));
 });
+const logKey = item => item.id || [item.time, item.task, item.phase, item.summary].join(':');
+const selectedLogs = computed(() => logs.value.filter(item => selectedIds.value.has(logKey(item))));
 
 const fetchLogs = async ({ quiet = false } = {}) => {
   if (!quiet) loading.value = true;
   try {
     const res = await assetApi.getSystemLogs({ category:activeCategory.value, traceId:activeTrace.value, limit:800 });
+    const firstLoad = !positioned.value;
     logs.value = res.logs || [];
+    const currentIds = new Set(logs.value.map(logKey));
+    selectedIds.value = new Set([...selectedIds.value].filter(id => currentIds.has(id)));
+    if (firstLoad) await prepareAtBottom();
+    else await jumpToBottom();
   } catch (err) { console.error('无法拉取后端日志', err); }
   finally { loading.value = false; }
 };
 const selectTrace = traceId => { activeTrace.value = traceId || ''; };
+const toggleSelection = id => {
+  const next = new Set(selectedIds.value);
+  if (next.has(id)) next.delete(id); else next.add(id);
+  selectedIds.value = next;
+};
+const toggleVisible = () => {
+  const ids = visibleLogs.value.map(logKey);
+  const allSelected = ids.length && ids.every(id => selectedIds.value.has(id));
+  const next = new Set(selectedIds.value);
+  ids.forEach(id => allSelected ? next.delete(id) : next.add(id));
+  selectedIds.value = next;
+};
+const exportSelected = () => {
+  if (!selectedLogs.value.length) return;
+  downloadJson(`AliveWorld-logs-${new Date().toISOString().replace(/[:.]/g, '-')}`, {
+    exported_at: new Date().toISOString(),
+    count: selectedLogs.value.length,
+    logs: selectedLogs.value,
+  });
+};
 watch([activeCategory, activeTrace], () => fetchLogs());
 onMounted(() => {
   fetchLogs();
@@ -55,12 +86,16 @@ onUnmounted(() => { if (pollTimer) window.clearInterval(pollTimer); });
           <button v-if="activeTrace" @click="activeTrace=''" class="rounded-lg border border-indigo-700 bg-indigo-950/40 px-3 text-[11px] text-indigo-200">退出关联追踪 {{ activeTrace }}</button>
           <button @click="fetchLogs()" :disabled="loading" class="rounded-lg bg-slate-700 px-3 text-xs font-bold text-slate-200 disabled:opacity-50">{{ loading?'刷新中…':'刷新' }}</button>
         </div>
+        <div class="mt-2 flex items-center justify-between gap-3 text-[10px] text-slate-500">
+          <button @click="toggleVisible" class="rounded border border-slate-700 px-2 py-1 hover:text-slate-200">选择/取消当前 {{ visibleLogs.length }} 条</button>
+          <div class="flex items-center gap-2"><span>已选 {{ selectedLogs.length }} 条</span><button data-testid="export-selected-logs" @click="exportSelected" :disabled="!selectedLogs.length" class="rounded bg-emerald-900/60 px-3 py-1 text-emerald-200 disabled:opacity-30">导出所选 JSON</button></div>
+        </div>
       </header>
 
-      <div id="terminal-log-container" class="custom-scrollbar flex-1 overflow-y-auto p-4">
+      <div ref="container" id="terminal-log-container" class="custom-scrollbar flex-1 overflow-y-auto p-4 select-text" :class="positioned?'opacity-100':'opacity-0'" @scroll.passive="updateFollowState">
         <div v-if="!visibleLogs.length" class="grid h-full place-items-center text-sm text-slate-600">当前筛选条件下没有日志</div>
         <div v-else class="space-y-2">
-          <LogEntryCard v-for="log in visibleLogs" :key="log.id" :entry="log" :trace-active="activeTrace===log.trace_id" @select-trace="selectTrace" />
+          <LogEntryCard v-for="log in visibleLogs" :key="logKey(log)" :entry="log" :trace-active="activeTrace===log.trace_id" :selected="selectedIds.has(logKey(log))" @select-trace="selectTrace" @toggle-selection="toggleSelection" />
         </div>
       </div>
     </section>

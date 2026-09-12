@@ -100,12 +100,11 @@ const doReroll = async () => {
     </div>
 
     <!-- 💬 玩家与 AI 对话正文 -->
-    <div v-else-if="msg.role === 'user' || msg.role === 'ai'" class="group relative" :class="msg.role === 'user' ? 'w-fit min-w-24 max-w-[85%]' : 'w-full max-w-[85%]'">
-      <div class="rounded-2xl p-5 pr-16 whitespace-pre-wrap leading-relaxed shadow-2xl text-[15px] backdrop-blur-md select-text cursor-text"
+    <div v-else-if="msg.role === 'user' || msg.role === 'ai'" class="relative" :class="msg.role === 'user' ? 'w-fit min-w-24 max-w-[85%]' : 'w-full max-w-[85%]'">
+      <div class="rounded-2xl p-5 whitespace-pre-wrap leading-relaxed shadow-2xl text-[15px] backdrop-blur-md select-text cursor-text"
            :class="msg.role === 'user' ? 'bg-indigo-600/95 text-white rounded-br-sm' : 'bg-slate-900/90 border border-slate-600 text-slate-200 rounded-bl-sm'">
         {{ gameStore.formatContent(msg.content) }}
       </div>
-      <CopyTextButton :text="copyableText" class="absolute right-2 top-2 opacity-70 group-hover:opacity-100" />
       <MessageImagePanel v-if="msg.role === 'ai'" :message="msg" />
     </div>
 

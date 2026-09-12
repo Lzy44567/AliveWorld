@@ -4,13 +4,10 @@ import { uiStore } from '../../store/uiStore';
 import { gameStore } from '../../store/gameStore';
 import { imageApi } from '../../api/imageApi';
 import { assetStore } from '../../store/assetStore';
-import AssetPanel from '../panels/AssetPanel.vue';
 import WorldPackagesPanel from '../panels/WorldPackagesPanel.vue';
-import EntityRuntimeToggle from '../controls/EntityRuntimeToggle.vue';
 
 const close = () => {
   uiStore.modals.gallery = false;
-  if (['character', 'world', 'style', 'entity'].includes(uiStore.rightTab)) uiStore.rightTab = 'saves';
 };
 const filter = ref('all');
 const libraryView = ref(gameStore.sessionId ? 'local' : 'all');
@@ -22,21 +19,8 @@ const section = computed({
   get: () => uiStore.resourceLibrarySection,
   set: value => { uiStore.resourceLibrarySection = value; },
 });
-const assetTypes = [
-  { id: 'character', label: '🎭 角色卡' },
-  { id: 'world', label: '🌍 世界书' },
-  { id: 'style', label: '📜 文风卡' },
-  { id: 'entity', label: '👾 暗流实体' },
-];
-const selectAssetType = type => {
-  uiStore.rightTab = type;
-  section.value = 'assets';
-};
 const openSection = value => {
   section.value = value;
-  if (value === 'assets' && !assetTypes.some(item => item.id === uiStore.rightTab)) {
-    uiStore.rightTab = 'character';
-  }
 };
 let refreshHandle = null;
 const completed = computed(() => libraryTasks.value.filter(task =>
@@ -77,10 +61,10 @@ const removeTask = async task => {
   <div class="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
     <div data-testid="resource-library" class="flex h-[82vh] w-full max-w-6xl flex-col overflow-hidden rounded-xl border border-slate-600 bg-aw_panel shadow-2xl slide-up">
       <div class="flex justify-between border-b border-slate-700 bg-slate-900/80 p-4">
-        <div><h2 class="flex items-center gap-2 text-lg font-bold text-amber-400">🗂️ 资源库</h2><p class="text-[10px] text-slate-500">统一总览图片、卡片资产与世界包；当前故事只保留正在使用的副本</p></div><button data-testid="resource-library-close" @click="close" class="text-xl text-slate-400 hover:text-white">✕</button>
+        <div><h2 class="flex items-center gap-2 text-lg font-bold text-amber-400">🗂️ 资源库</h2><p class="text-[10px] text-slate-500">集中管理图片与低频世界包；角色、世界书、文风和暗流卡片在游戏右栏使用</p></div><button data-testid="resource-library-close" @click="close" class="text-xl text-slate-400 hover:text-white">✕</button>
       </div>
       <div class="flex gap-2 border-b border-slate-700 bg-slate-950/70 px-6 py-2">
-        <button v-for="item in [{id:'images',label:'🖼️ 图片与立绘'},{id:'assets',label:'🗃️ 卡片资产'},{id:'packages',label:'🌌 世界包'}]" :key="item.id" :data-testid="`resource-tab-${item.id}`" @click="openSection(item.id)" class="rounded-lg px-5 py-2 text-xs font-bold transition" :class="section===item.id?'bg-cyan-800 text-white':'text-slate-400 hover:bg-slate-800 hover:text-white'">{{ item.label }}</button>
+        <button v-for="item in [{id:'images',label:'🖼️ 图片与立绘'},{id:'packages',label:'🌌 世界包'}]" :key="item.id" :data-testid="`resource-tab-${item.id}`" @click="openSection(item.id)" class="rounded-lg px-5 py-2 text-xs font-bold transition" :class="section===item.id?'bg-cyan-800 text-white':'text-slate-400 hover:bg-slate-800 hover:text-white'">{{ item.label }}</button>
       </div>
       <div v-if="section==='images'" class="flex flex-wrap items-center gap-2 border-b border-slate-800 px-6 py-3">
         <div class="mr-2 flex rounded-lg border border-slate-700 bg-slate-950 p-1"><button @click="libraryView='local'" :disabled="!gameStore.sessionId" class="rounded px-4 py-1 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-35" :class="libraryView==='local'?'bg-slate-700 text-white':'text-slate-400'">🛡️ 本局</button><button @click="libraryView='all'" class="rounded px-4 py-1 text-xs font-bold" :class="libraryView==='all'?'bg-slate-700 text-white':'text-slate-400'">🌐 全局（全部图片）</button></div>
@@ -95,13 +79,6 @@ const removeTask = async task => {
             <div class="p-2"><div class="flex items-center justify-between gap-2 text-[10px]"><span class="text-amber-300">{{ task.context_snapshot?.test_task ? '接口测试图' : {character_portrait:'角色立绘',character_cg:'角色 CG',scene_cg:'场景 CG'}[task.intent] }}</span><span class="truncate text-slate-500">{{ task.scope_name }}</span></div><div class="mt-1 truncate text-[9px] text-slate-500">{{ task.character_ids?.join('、') || task.context_snapshot?.story_text || task.id }}</div><button v-if="canSetPortrait(task)" @click="setPortrait(task)" class="mt-2 w-full rounded bg-fuchsia-900/50 py-1 text-[10px] text-fuchsia-200 hover:bg-fuchsia-700">设为本局立绘</button><p v-if="task.context_snapshot?.asset_portrait" class="mt-2 text-[9px] text-slate-500">角色卡持有的全局立绘资产</p><div v-else class="mt-2 flex justify-end gap-1 text-[10px]"><button @click="regenerate(task)" class="rounded bg-fuchsia-900/50 px-2 py-1 text-fuchsia-200">重新生成</button><template v-if="deleteConfirmId===`${task.scope_id}:${task.id}`"><button @click="removeTask(task)" class="rounded bg-rose-700 px-2 py-1 text-white">确认删除</button><button @click="deleteConfirmId=''" class="rounded bg-slate-700 px-2 py-1">取消</button></template><button v-else @click="deleteConfirmId=`${task.scope_id}:${task.id}`" class="rounded bg-rose-950/50 px-2 py-1 text-rose-300">删除</button></div></div>
           </article>
         </div>
-      </div>
-      <div v-else-if="section==='assets'" class="flex min-h-0 flex-1 flex-col bg-slate-900/30">
-        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 px-6 py-3">
-          <div class="flex flex-wrap gap-2"><button v-for="item in assetTypes" :key="item.id" :data-testid="`resource-asset-${item.id}`" @click="selectAssetType(item.id)" class="rounded-lg border px-4 py-1.5 text-xs font-bold" :class="uiStore.rightTab===item.id?'border-indigo-500 bg-indigo-950/60 text-indigo-200':'border-slate-700 text-slate-400 hover:border-slate-500'">{{ item.label }}</button></div>
-          <div v-if="uiStore.rightTab==='entity'" class="flex items-center gap-2"><button v-if="uiStore.assetScope==='local'" @click="uiStore.ledgerSourceFilter=''; uiStore.modals.causalLedger=true" class="rounded border border-fuchsia-800 bg-fuchsia-950/40 px-3 py-1.5 text-xs text-fuchsia-300">因果账本</button><EntityRuntimeToggle /></div>
-        </div>
-        <div class="flex min-h-0 flex-1 p-6"><AssetPanel layout="grid" /></div>
       </div>
       <div v-else class="flex min-h-0 flex-1 bg-slate-900/30 p-6"><WorldPackagesPanel /></div>
     </div>

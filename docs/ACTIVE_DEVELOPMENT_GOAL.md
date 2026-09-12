@@ -90,9 +90,17 @@ The codebase is moderately well modularized, not “completely independent by fi
 
 | Slice | State | Evidence | Next action |
 | --- | --- | --- | --- |
-| 0 | In progress | Active goal and handoff protocol drafted | Validate Skill, document architecture, run doc checks, commit |
-| 1 | Not started | — | Inspect resource-library/right-sidebar routing and view containers |
+| 0 | Complete | Skill validator passed; repository protocol and goal committed as `64a0e4c` | Keep this ledger current after every slice |
+| 1 | Complete | Frontend production build: 124 modules; Playwright/Edge: 17/17 passed | Commit navigation, scrolling, selection, copy and export changes |
 | 2 | Not started | — | Trace publish persistence and lifecycle files |
 | 3 | Not started | `features/19_prompt_studio_and_plugin_kernel.md` contains prior design | Narrow design to prompt studio only and map existing prompt sources |
 | 4 | Not started | Single foreground stores observed | Map API locks, request ownership, and UI task keys |
 | 5 | Not started | — | Integrate only after slices 1-4 pass |
+
+## Slice 1 implementation notes
+
+- The resource library now owns images and world packages only. The right sidebar owns stories, worldbooks, characters, styles, entities, and local story settings.
+- `useBottomAnchoredScroll` supplies immediate initial positioning and follow-only-when-near-bottom behavior. Story content additionally observes late image sizing so loaded images cannot leave the viewport above the newest message.
+- Ordinary player/AI bubbles remain selectable and no longer display copy controls. Special diagnostic/future bubbles retain explicit copy affordances where their structured content is otherwise harder to select coherently.
+- Logs remain local and already redacted by the backend. Per-entry and batch export serialize the currently returned safe log records in the browser; no export request uploads content.
+- Playwright now prefers the repository virtual environment automatically, falling back to system Python only when it is absent.
