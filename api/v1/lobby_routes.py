@@ -14,7 +14,10 @@ from utils.sys_logger import read_logs_parsed
 from core.worldbook import normalize_worldbook, save_worldbook_atomic
 from core.asset_lifecycle import AssetLifecycleError, clone_yaml_asset, normalize_asset_name, rename_yaml_asset
 from core.save_lifecycle import clone_save, rename_save
-from core.session_manager import active_sessions
+from core.session_manager import (
+    MutationBusyError, active_sessions, mutation_guard, retarget_session,
+    save_identity, unregister_session,
+)
 from core.entity_repository import EntityRepository
 from core.image_generation.models import TERMINAL_STATUSES
 from core.image_generation.repository import ImageTaskRepository
@@ -219,10 +222,14 @@ async def clone_save_route(save_name: str, payload: AssetLifecyclePayload):
     saves = get_all_saves()
     if save_name not in saves:
         raise HTTPException(status_code=404, detail="存档不存在")
+    source_dir = saves[save_name]["_save_dir"]
     try:
-        new_name = normalize_asset_name(payload.new_name)
-        target = clone_save(saves[save_name]["_save_dir"], new_name)
-        return {"status": "success", "name": new_name, "path": str(target)}
+        with mutation_guard("story", save_identity(source_dir)):
+            new_name = normalize_asset_name(payload.new_name)
+            target = clone_save(source_dir, new_name)
+            return {"status": "success", "name": new_name, "path": str(target)}
+    except MutationBusyError as exc:
+        raise HTTPException(status_code=409, detail="故事仍在推演，完成后才能克隆") from exc
     except AssetLifecycleError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
@@ -232,22 +239,26 @@ async def rename_save_route(save_name: str, payload: AssetLifecyclePayload):
     if save_name not in saves:
         raise HTTPException(status_code=404, detail="存档不存在")
     source_dir = saves[save_name]["_save_dir"]
-    # Renaming while an image task is running would invalidate the runner's paths.
-    for game in active_sessions.values():
-        if Path(game.save_dir_path).resolve() == Path(source_dir).resolve():
-            if any(task.status not in TERMINAL_STATUSES for task in ImageTaskRepository(source_dir).list()):
-                raise HTTPException(status_code=409, detail="当前存档仍有生图任务运行，请完成或取消后重命名")
     try:
-        new_name = normalize_asset_name(payload.new_name)
-        target = rename_save(source_dir, new_name)
-        retarget_workshops(source_dir, target, recursive=True)
-        retarget_asset_workshops(source_dir, target, recursive=True)
-        for game in active_sessions.values():
-            if Path(game.save_dir_path).resolve() == Path(source_dir).resolve():
+        with mutation_guard("story", save_identity(source_dir)):
+            matching = [
+                (session_id, game) for session_id, game in active_sessions.items()
+                if Path(game.save_dir_path).resolve() == Path(source_dir).resolve()
+            ]
+            if matching and any(task.status not in TERMINAL_STATUSES for task in ImageTaskRepository(source_dir).list()):
+                raise HTTPException(status_code=409, detail="当前存档仍有生图任务运行，请完成或取消后重命名")
+            new_name = normalize_asset_name(payload.new_name)
+            target = rename_save(source_dir, new_name)
+            retarget_workshops(source_dir, target, recursive=True)
+            retarget_asset_workshops(source_dir, target, recursive=True)
+            for session_id, game in matching:
                 game.save_name = new_name
                 game.save_dir_path = str(target)
                 game.entity_repository = EntityRepository(target)
-        return {"status": "success", "name": new_name, "path": str(target)}
+                retarget_session(session_id, source_dir, str(target))
+            return {"status": "success", "name": new_name, "path": str(target)}
+    except MutationBusyError as exc:
+        raise HTTPException(status_code=409, detail="故事仍在推演，完成后才能重命名") from exc
     except AssetLifecycleError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
@@ -263,8 +274,17 @@ async def delete_save(save_name: str):
     save_dir = saves[save_name].get('_save_dir')
     if save_dir and os.path.exists(save_dir) and os.path.isdir(save_dir):
         try:
-            shutil.rmtree(save_dir)  # 🚀 物理递归毁灭本存档子文件夹，绝不残留
-            return {"status": "success"}
+            with mutation_guard("story", save_identity(save_dir)):
+                matching_ids = [
+                    session_id for session_id, game in active_sessions.items()
+                    if Path(game.save_dir_path).resolve() == Path(save_dir).resolve()
+                ]
+                shutil.rmtree(save_dir)
+                for session_id in matching_ids:
+                    unregister_session(session_id)
+                return {"status": "success"}
+        except MutationBusyError as exc:
+            raise HTTPException(status_code=409, detail="故事仍在推演，完成后才能删除") from exc
         except Exception as e: 
             raise HTTPException(status_code=500, detail="粉碎目录失败")
     raise HTTPException(status_code=404)

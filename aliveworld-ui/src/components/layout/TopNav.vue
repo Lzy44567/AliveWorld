@@ -49,7 +49,7 @@ onBeforeUnmount(() => {
         <button class="rounded-full px-4 py-1 transition" :class="uiStore.appMode==='game'?'bg-emerald-700 text-white':'text-slate-500 hover:text-slate-300'" @click="uiStore.appMode='game'">🎮 游戏</button>
         <button class="rounded-full px-4 py-1 transition" :class="uiStore.appMode==='workshop'?'bg-cyan-700 text-white':'text-slate-500 hover:text-slate-300'" @click="uiStore.appMode='workshop'">🧰 工坊</button>
       </div>
-      <div v-if="gameStore.currentSaveName && uiStore.appMode==='game'" class="flex max-w-[22vw] items-center gap-1.5 rounded-full border border-indigo-800/70 bg-indigo-950/40 px-3 py-1 text-xs text-indigo-200" :title="`当前存档：${gameStore.currentSaveName}`"><span>📂</span><span class="truncate">{{ gameStore.currentSaveName }}</span><span v-if="gameStore.isProcessing" class="text-amber-400">推演中</span></div>
+      <div v-if="gameStore.currentSaveName && uiStore.appMode==='game'" class="flex max-w-[22vw] items-center gap-1.5 rounded-full border border-indigo-800/70 bg-indigo-950/40 px-3 py-1 text-xs text-indigo-200" :title="`当前存档：${gameStore.currentSaveName}`"><span>📂</span><span class="truncate">{{ gameStore.currentSaveName }}</span><span v-if="gameStore.isProcessing" class="text-amber-400">推演中</span><span v-if="gameStore.runningCount>1" class="text-cyan-300">另有 {{ gameStore.runningCount-1 }} 项</span></div>
     </div>
     
     <div class="flex items-center gap-3">

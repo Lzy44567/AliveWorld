@@ -17,21 +17,9 @@ export const WORKSHOP_TYPES = [
 
 const MODE_MAP = {
   worldbooks: [
-    {
-      id: 'create',
-      label: '从一句话创建',
-      description: '根据一句核心想法、题材与偏好，协作建立概述、公理和首批条目。',
-    },
-    {
-      id: 'expand',
-      label: '拓展新领域',
-      description: '横向补充尚未覆盖的地区、制度、文化、职业或生活细节。',
-    },
-    {
-      id: 'evolve',
-      label: '演化已有设定',
-      description: '从已有公理与规则推导逻辑后果，检查关联、缺口和冲突。',
-    },
+    { id: 'create', label: '从一句话创建', description: '根据一句核心想法、题材与偏好，协作建立概述、公理和首批条目。' },
+    { id: 'expand', label: '拓展新领域', description: '横向补充尚未覆盖的地区、制度、文化、职业或生活细节。' },
+    { id: 'evolve', label: '演化已有设定', description: '从已有公理与规则推导逻辑后果，检查关联、缺口和冲突。' },
   ],
   preferences: [
     { id: 'discover', label: '探索偏好', description: '讨论玩家行为背后的多种可能动机，形成可验证假设。' },
@@ -45,232 +33,216 @@ const MODE_MAP = {
   ],
 };
 
+function newContext(mode = 'expand') {
+  return {
+    workshopId: '', draft: null, messages: [], history: [], suggestions: [],
+    proposed: [], pending: [], dirty: false, published: false,
+    busy: false, activity: '', input: '', commitChanges: false, mode,
+    task: { status: 'idle', kind: '', error: '', startedAt: '', finishedAt: '' },
+  };
+}
+
+const idle = newContext();
+
 export const workshopStore = reactive({
-  type: 'worldbooks',
-  scope: 'global',
-  assetName: '',
-  workshopId: '',
-  draft: null,
-  messages: [],
-  history: [],
-  suggestions: [],
-  proposed: [],
-  pending: [],
-  dirty: false,
-  published: false,
-  busy: false,
-  activity: '',
-  input: '',
-  commitChanges: false,
-  mode: 'expand',
-  search: '',
-  initialized: false,
-  localSessionId: '',
+  type: 'worldbooks', scope: 'global', assetName: '', search: '', initialized: false,
+  localSessionId: '', contexts: {}, activeContextKey: '',
 
-  get typeInfo() {
-    return WORKSHOP_TYPES.find(item => item.id === this.type) || WORKSHOP_TYPES[0];
-  },
+  get context() { return this.contexts[this.activeContextKey] || idle; },
+  get workshopId() { return this.context.workshopId; }, set workshopId(value) { this.context.workshopId = value || ''; },
+  get draft() { return this.context.draft; }, set draft(value) { this.context.draft = value; },
+  get messages() { return this.context.messages; }, set messages(value) { this.context.messages = value || []; },
+  get history() { return this.context.history; }, set history(value) { this.context.history = value || []; },
+  get suggestions() { return this.context.suggestions; }, set suggestions(value) { this.context.suggestions = value || []; },
+  get proposed() { return this.context.proposed; }, set proposed(value) { this.context.proposed = value || []; },
+  get pending() { return this.context.pending; }, set pending(value) { this.context.pending = value || []; },
+  get dirty() { return this.context.dirty; }, set dirty(value) { this.context.dirty = Boolean(value); },
+  get published() { return this.context.published; }, set published(value) { this.context.published = Boolean(value); },
+  get busy() { return this.context.busy; }, set busy(value) { this.context.busy = Boolean(value); },
+  get activity() { return this.context.activity; }, set activity(value) { this.context.activity = value || ''; },
+  get input() { return this.context.input; }, set input(value) { this.context.input = value || ''; },
+  get commitChanges() { return this.context.commitChanges; }, set commitChanges(value) { this.context.commitChanges = Boolean(value); },
+  get mode() { return this.context.mode; }, set mode(value) { this.context.mode = value || this.modes[0].id; },
 
-  get modes() {
-    return MODE_MAP[this.type] || MODE_MAP.asset;
-  },
-
-  get activeMode() {
-    return this.modes.find(item => item.id === this.mode) || this.modes[0];
-  },
-
+  get typeInfo() { return WORKSHOP_TYPES.find(item => item.id === this.type) || WORKSHOP_TYPES[0]; },
+  get modes() { return MODE_MAP[this.type] || MODE_MAP.asset; },
+  get activeMode() { return this.modes.find(item => item.id === this.mode) || this.modes[0]; },
   get assets() {
     if (this.type === 'preferences') return [];
     const list = assetStore[this.typeInfo.store]?.[this.scope] || [];
     const keyword = this.search.trim().toLowerCase();
-    return keyword
-      ? list.filter(item => [item.name, ...(item.tags || [])].join(' ').toLowerCase().includes(keyword))
-      : list;
+    return keyword ? list.filter(item => [item.name, ...(item.tags || [])].join(' ').toLowerCase().includes(keyword)) : list;
   },
+  get hasSession() { return Boolean(gameStore.sessionId); },
+  get localScopeLabel() { return gameStore.currentSaveName || gameStore.sessionId || '未载入故事'; },
+  get runningCount() { return Object.values(this.contexts).filter(item => item.busy).length; },
 
-  get hasSession() {
-    return Boolean(gameStore.sessionId);
+  identity(type = this.type, scope = this.scope, name = this.assetName, sessionId = gameStore.sessionId || '') {
+    return [type, scope, scope === 'local' ? sessionId : 'global', name || (type === 'preferences' ? 'profile' : '')].join('::');
   },
-
-  get localScopeLabel() {
-    return gameStore.currentSaveName || gameStore.sessionId || '未载入故事';
+  taskForAsset(type, scope, name, sessionId = gameStore.sessionId || '') {
+    return this.contexts[this.identity(type, scope, name, sessionId)]?.task || { status: 'idle' };
   },
-
-  sync(data) {
-    this.workshopId = data.workshop_id || this.workshopId;
-    this.draft = data.draft ?? this.draft;
-    this.messages = data.messages || this.messages;
-    if (Object.prototype.hasOwnProperty.call(data, 'history')) this.history = data.history || [];
-    this.suggestions = data.suggested_actions || [];
-    this.proposed = data.proposed || [];
-    this.pending = data.pending || [];
-    this.dirty = Boolean(data.dirty);
-    this.published = Boolean(data.published);
+  runningForType(type) {
+    return Object.entries(this.contexts).filter(([key, value]) => key.startsWith(`${type}::`) && value.busy).length;
   },
+  activateContext(name = this.assetName, scope = this.scope, force = false) {
+    this.assetName = name;
+    this.scope = scope;
+    const key = this.identity();
+    if (force || !this.contexts[key]) this.contexts[key] = newContext(this.modes[0].id);
+    this.activeContextKey = key;
+    return this.contexts[key];
+  },
+  markTask(context, status, kind = context.task.kind, error = '') {
+    context.task = {
+      ...context.task, status, kind, error,
+      startedAt: status === 'running' ? new Date().toISOString() : context.task.startedAt,
+      finishedAt: ['completed', 'failed'].includes(status) ? new Date().toISOString() : '',
+    };
+  },
+  syncInto(context, data) {
+    context.workshopId = data.workshop_id || context.workshopId;
+    context.draft = data.draft ?? context.draft;
+    context.messages = data.messages || context.messages;
+    if (Object.prototype.hasOwnProperty.call(data, 'history')) context.history = data.history || [];
+    context.suggestions = data.suggested_actions || [];
+    context.proposed = data.proposed || [];
+    context.pending = data.pending || [];
+    context.dirty = Boolean(data.dirty);
+    context.published = Boolean(data.published);
+  },
+  sync(data) { this.syncInto(this.context, data); },
 
   async initialize() {
     if (!this.initialized) await assetStore.fetchAssets();
     await this.syncStoryScope();
     this.initialized = true;
   },
-
   async syncStoryScope() {
     const sessionId = gameStore.sessionId || '';
     if (sessionId === this.localSessionId) return;
     this.localSessionId = sessionId;
-    if (this.scope === 'local') {
-      this.assetName = '';
-      this.resetSession();
-    }
+    if (this.scope === 'local') { this.assetName = ''; this.activeContextKey = ''; }
     await assetStore.fetchLocalAssets(sessionId);
     if (!sessionId && this.scope === 'local') this.scope = 'global';
   },
-
   async selectType(type) {
-    if (this.busy || this.type === type) return;
-    this.type = type;
-    this.search = '';
-    this.assetName = '';
-    this.resetSession();
-    this.mode = this.modes[0].id;
+    if (this.type === type) return;
+    this.type = type; this.search = ''; this.assetName = ''; this.activeContextKey = '';
     if (type === 'preferences') await this.start('', 'global');
   },
-
   async setScope(scope) {
     if (scope === 'local' && !gameStore.sessionId) return;
-    this.scope = scope;
-    this.assetName = '';
-    this.resetSession();
+    this.scope = scope; this.assetName = ''; this.activeContextKey = '';
     if (scope === 'local') {
       this.localSessionId = gameStore.sessionId;
       await assetStore.fetchLocalAssets(gameStore.sessionId);
     }
   },
+  resetSession() { this.activeContextKey = ''; },
 
-  resetSession() {
-    this.workshopId = '';
-    this.draft = null;
-    this.messages = [];
-    this.history = [];
-    this.suggestions = [];
-    this.proposed = [];
-    this.pending = [];
-    this.dirty = false;
-    this.published = false;
-    this.input = '';
-  },
-
-  async start(name = '', scope = this.scope) {
-    if (this.busy) return;
-    this.scope = scope;
-    this.assetName = name;
-    this.resetSession();
-    this.busy = true;
-    this.activity = 'loading';
+  async start(name = '', scope = this.scope, force = false) {
+    this.scope = scope; this.assetName = name;
+    const key = this.identity();
+    const existing = this.contexts[key];
+    if (existing && !force) { this.activeContextKey = key; return; }
+    const context = this.activateContext(name, scope, force);
+    if (context.busy) return;
+    context.busy = true; context.activity = 'loading'; this.markTask(context, 'running', 'load');
+    const type = this.type;
+    const sessionId = scope === 'local' ? gameStore.sessionId : '';
     try {
-      const sessionId = scope === 'local' ? gameStore.sessionId : '';
       let data;
-      if (this.type === 'worldbooks') data = await worldbookWorkshopApi.start(name, sessionId || null);
-      else if (this.type === 'preferences') data = await preferenceWorkshopApi.start(gameStore.sessionId || '');
-      else data = await assetWorkshopApi.start(this.type, name, sessionId);
-      this.sync(data);
+      if (type === 'worldbooks') data = await worldbookWorkshopApi.start(name, sessionId || null);
+      else if (type === 'preferences') data = await preferenceWorkshopApi.start(gameStore.sessionId || '');
+      else data = await assetWorkshopApi.start(type, name, sessionId);
+      this.syncInto(context, data); this.markTask(context, 'completed');
       if (data.resumed) uiStore.showToast('已恢复尚未发布的工坊草稿');
       if (data.rebased) uiStore.showToast('草稿已安全合并到最新正式偏好卡');
     } catch (error) {
-      uiStore.showToast(error.message, 'error');
-    } finally {
-      this.busy = false;
-      this.activity = '';
-    }
+      this.markTask(context, 'failed', 'load', error.message); uiStore.showToast(error.message, 'error');
+    } finally { context.busy = false; context.activity = ''; }
   },
-
-  async startNewRound() {
-    await this.start(this.assetName, this.scope);
-  },
+  async startNewRound() { await this.start(this.assetName, this.scope, true); },
 
   async send(text = this.input) {
     const message = String(text || '').trim();
-    if (!message || this.busy || !this.workshopId) return;
-    this.input = '';
-    this.messages = [...this.messages, { role: 'user', content: message, optimistic: true }];
-    this.busy = true;
-    this.activity = 'chat';
+    const context = this.context;
+    if (!message || context.busy || !context.workshopId) return;
+    context.input = '';
+    context.messages = [...context.messages, { role: 'user', content: message, optimistic: true }];
+    context.busy = true; context.activity = 'chat'; this.markTask(context, 'running', 'chat');
+    const type = this.type, mode = context.mode, commitChanges = context.commitChanges, workshopId = context.workshopId;
     try {
       let data;
-      if (this.type === 'worldbooks') data = await worldbookWorkshopApi.chat(this.workshopId, message, this.mode, this.commitChanges);
-      else if (this.type === 'preferences') data = await preferenceWorkshopApi.chat(this.workshopId, message, this.mode, this.commitChanges);
-      else data = await assetWorkshopApi.chat(this.workshopId, message, this.mode, this.commitChanges);
-      this.sync(data);
+      if (type === 'worldbooks') data = await worldbookWorkshopApi.chat(workshopId, message, mode, commitChanges);
+      else if (type === 'preferences') data = await preferenceWorkshopApi.chat(workshopId, message, mode, commitChanges);
+      else data = await assetWorkshopApi.chat(workshopId, message, mode, commitChanges);
+      this.syncInto(context, data); this.markTask(context, 'completed');
     } catch (error) {
-      this.messages = this.messages.map(item => item.optimistic ? { ...item, failed: true } : item);
-      uiStore.showToast(error.message, 'error');
-    } finally {
-      this.busy = false;
-      this.activity = '';
-    }
+      context.messages = context.messages.map(item => item.optimistic ? { ...item, failed: true } : item);
+      this.markTask(context, 'failed', 'chat', error.message); uiStore.showToast(error.message, 'error');
+    } finally { context.busy = false; context.activity = ''; }
   },
 
   async applyOperations(operations, confirmHighRisk = false) {
-    if (!this.workshopId || this.busy) return false;
-    this.busy = true;
+    const context = this.context;
+    if (!context.workshopId || context.busy) return false;
+    context.busy = true; this.markTask(context, 'running', 'apply');
+    const type = this.type, workshopId = context.workshopId;
     try {
       let data;
-      if (this.type === 'worldbooks') data = await worldbookWorkshopApi.operations(this.workshopId, operations, confirmHighRisk);
-      else if (this.type === 'preferences') data = await preferenceWorkshopApi.operations(this.workshopId, operations, confirmHighRisk);
-      else data = await assetWorkshopApi.operations(this.workshopId, operations);
-      this.sync(data);
-      return true;
+      if (type === 'worldbooks') data = await worldbookWorkshopApi.operations(workshopId, operations, confirmHighRisk);
+      else if (type === 'preferences') data = await preferenceWorkshopApi.operations(workshopId, operations, confirmHighRisk);
+      else data = await assetWorkshopApi.operations(workshopId, operations);
+      this.syncInto(context, data); this.markTask(context, 'completed'); return true;
     } catch (error) {
-      uiStore.showToast(error.message, 'error');
-      return false;
-    } finally {
-      this.busy = false;
-    }
+      this.markTask(context, 'failed', 'apply', error.message); uiStore.showToast(error.message, 'error'); return false;
+    } finally { context.busy = false; }
   },
-
-  async submitProposal() {
-    if (this.proposed.length) await this.applyOperations(this.proposed, false);
-  },
-
+  async submitProposal() { if (this.proposed.length) await this.applyOperations(this.proposed, false); },
   async decide(operationId, approve) {
+    const context = this.context, type = this.type, workshopId = context.workshopId;
+    if (!workshopId || context.busy) return;
+    context.busy = true; this.markTask(context, 'running', 'review');
     try {
-      let data;
-      const api = this.type === 'worldbooks' ? worldbookWorkshopApi : preferenceWorkshopApi;
-      data = approve ? await api.approve(this.workshopId, operationId) : await api.reject(this.workshopId, operationId);
-      this.sync(data);
-    } catch (error) { uiStore.showToast(error.message, 'error'); }
+      const api = type === 'worldbooks' ? worldbookWorkshopApi : preferenceWorkshopApi;
+      const data = approve ? await api.approve(workshopId, operationId) : await api.reject(workshopId, operationId);
+      this.syncInto(context, data); this.markTask(context, 'completed');
+    } catch (error) { this.markTask(context, 'failed', 'review', error.message); uiStore.showToast(error.message, 'error'); }
+    finally { context.busy = false; }
   },
-
   async undo() {
-    if (!this.workshopId) return;
+    const context = this.context, type = this.type, workshopId = context.workshopId;
+    if (!workshopId || context.busy) return;
+    context.busy = true; this.markTask(context, 'running', 'undo');
     try {
-      const api = this.type === 'worldbooks'
-        ? worldbookWorkshopApi : this.type === 'preferences'
-          ? preferenceWorkshopApi : assetWorkshopApi;
-      this.sync(await api.undo(this.workshopId));
-    } catch (error) { uiStore.showToast(error.message, 'error'); }
+      const api = type === 'worldbooks' ? worldbookWorkshopApi : type === 'preferences' ? preferenceWorkshopApi : assetWorkshopApi;
+      this.syncInto(context, await api.undo(workshopId)); this.markTask(context, 'completed');
+    } catch (error) { this.markTask(context, 'failed', 'undo', error.message); uiStore.showToast(error.message, 'error'); }
+    finally { context.busy = false; }
   },
-
   async publish() {
-    if (!this.workshopId || this.pending.length) {
-      if (this.pending.length) uiStore.showToast('请先处理待确认修改', 'error');
+    const context = this.context, type = this.type, workshopId = context.workshopId, assetName = this.assetName;
+    if (!workshopId || context.pending.length || context.busy) {
+      if (context.pending.length) uiStore.showToast('请先处理待确认修改', 'error');
       return;
     }
-    this.busy = true;
+    context.busy = true; this.markTask(context, 'running', 'publish');
     try {
       let data;
-      if (this.type === 'worldbooks') data = await worldbookWorkshopApi.publish(this.workshopId, this.assetName || null);
-      else if (this.type === 'preferences') data = await preferenceWorkshopApi.publish(this.workshopId);
-      else data = await assetWorkshopApi.publish(this.workshopId);
-      this.sync(data);
+      if (type === 'worldbooks') data = await worldbookWorkshopApi.publish(workshopId, assetName || null);
+      else if (type === 'preferences') data = await preferenceWorkshopApi.publish(workshopId);
+      else data = await assetWorkshopApi.publish(workshopId);
+      this.syncInto(context, data); this.markTask(context, 'completed');
       await assetStore.fetchAssets();
-      if (this.type === 'preferences') await preferenceStore.refresh();
+      if (type === 'preferences') await preferenceStore.refresh();
       if (gameStore.sessionId) await assetStore.fetchLocalAssets(gameStore.sessionId);
       uiStore.showToast('工坊草稿已发布');
-    } catch (error) { uiStore.showToast(error.message, 'error'); }
-    finally { this.busy = false; }
+    } catch (error) { this.markTask(context, 'failed', 'publish', error.message); uiStore.showToast(error.message, 'error'); }
+    finally { context.busy = false; }
   },
-
   async saveFields(changes) {
     if (this.type === 'worldbooks') {
       const operations = [];
@@ -281,13 +253,11 @@ export const workshopStore = reactive({
     if (this.type === 'preferences') return false;
     return this.applyOperations([{ op: 'update_fields', changes, reason: '玩家在工坊左栏直接编辑' }], true);
   },
-
   prepareWorldbookEntryPrompt(entry) {
     if (this.type !== 'worldbooks' || !entry) return;
     this.mode = 'evolve';
     this.input = `请和我讨论并修改指定条目“${entry.name}”（entry_id: ${entry.id}）。先说明它与世界概述、公理及其他条目的关系和修改取舍；未达成一致前不要写入。我的要求是：`;
   },
-
   prepareWorldbookAxiomPrompt(axiom, index) {
     if (this.type !== 'worldbooks') return;
     this.mode = 'evolve';

@@ -223,6 +223,55 @@ test('玩家可导入世界包并一键建立带完整资产的独立故事', as
 });
 
 
+test('切换故事不会丢失后台推演，响应只写回发起它的故事', async ({ page }) => {
+  await loadStory(page, '自动验收故事');
+  await page.route('**/api/v1/game/*/action', async route => {
+    const action = JSON.parse(route.request().postData() || '{}').action || '';
+    await new Promise(resolve => setTimeout(resolve, action.includes('慢故事') ? 1200 : 150));
+    await route.continue();
+  });
+
+  await page.getByTestId('story-action-input').fill('慢故事后台并发验收。');
+  await page.getByTestId('story-action-submit').click();
+  await page.getByTestId('tab-saves').click();
+  await expect(page.locator('[data-save-name="自动验收故事"]')).toContainText('推演中');
+  await page.locator('[data-save-name="世界包一键故事"]').getByTestId('save-load').click();
+  await expect(page.getByTestId('story-action-input')).toBeEnabled();
+  await page.getByTestId('story-action-input').fill('快故事后台并发验收。');
+  await page.getByTestId('story-action-submit').click();
+  await expect(page.getByText('快故事后台并发验收。')).toBeVisible();
+  await expect(page.getByTestId('story-action-submit')).toBeEnabled({ timeout: 10_000 });
+
+  await page.getByTestId('tab-saves').click();
+  await expect(page.locator('[data-save-name="自动验收故事"]')).toContainText('已完成', { timeout: 10_000 });
+  await page.locator('[data-save-name="自动验收故事"]').getByTestId('save-load').click();
+  await expect(page.getByText('慢故事后台并发验收。')).toBeVisible();
+  await expect(page.getByText('前端正文测试成功。').last()).toBeVisible();
+});
+
+
+test('一个故事失败不会污染另一个故事的成功状态', async ({ page }) => {
+  await loadStory(page, '自动验收故事');
+  await page.route('**/api/v1/game/*/action', async route => {
+    const action = JSON.parse(route.request().postData() || '{}').action || '';
+    if (action.includes('故意失败')) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      await route.fulfill({ status: 502, contentType: 'application/json', body: JSON.stringify({ detail: '自动验收隔离失败' }) });
+    } else await route.continue();
+  });
+  await page.getByTestId('story-action-input').fill('故意失败的故事请求。');
+  await page.getByTestId('story-action-submit').click();
+  await page.getByTestId('tab-saves').click();
+  await page.locator('[data-save-name="世界包一键故事"]').getByTestId('save-load').click();
+  await page.getByTestId('story-action-input').fill('另一个故事应当成功。');
+  await page.getByTestId('story-action-submit').click();
+  await expect(page.getByTestId('story-action-submit')).toBeEnabled({ timeout: 10_000 });
+  await page.getByTestId('tab-saves').click();
+  await expect(page.locator('[data-save-name="自动验收故事"]')).toContainText('失败', { timeout: 10_000 });
+  await expect(page.locator('[data-save-name="世界包一键故事"]')).toContainText('已完成');
+});
+
+
 test('外部角色卡先显示兼容报告，再导入全局资产库', async ({ page, request }) => {
   const name = '外部兼容测试角色';
   await request.delete(`/api/v1/lobby/assets/characters/${encodeURIComponent(name)}`);
@@ -317,6 +366,59 @@ test('世界书工坊修改先进入草稿，发布后成为正式资产并可�
   await expect(page.getByTestId('workshop-history')).toContainText('请记录这轮工坊讨论，供发布后回看。');
   await expect(page.locator('section').filter({ hasText: '世界概述' }).locator('textarea').first())
     .toHaveValue('dev.19 工坊发布专项概述。');
+});
+
+
+test('切换工坊对象不会中断回复且结果回到原资产', async ({ page }) => {
+  await page.goto('/');
+  await dismissStartupPrompt(page);
+  await page.route('**/api/v1/asset-workshops/*/chat', async route => {
+    const message = JSON.parse(route.request().postData() || '{}').message || '';
+    await new Promise(resolve => setTimeout(resolve, message.includes('慢工坊') ? 1100 : 120));
+    await route.continue();
+  });
+  await page.getByRole('button', { name: '🧰 工坊' }).click();
+  await page.getByRole('button', { name: /角色卡/ }).last().click();
+  const character = page.locator('[data-workshop-asset-name="测试角色卡"]');
+  await expect(character).toBeVisible();
+  await character.click();
+  await page.locator('textarea[placeholder*="Ctrl+Enter"]').fill('慢工坊角色并发验收。');
+  await page.getByRole('button', { name: '发送', exact: true }).click();
+  await expect(character).toContainText('处理中');
+
+  await page.getByRole('button', { name: /文风卡/ }).last().click();
+  const style = page.locator('[data-workshop-asset-name="测试文风"]');
+  await expect(style).toBeVisible();
+  await style.click();
+  await page.locator('textarea[placeholder*="Ctrl+Enter"]').fill('快工坊文风并发验收。');
+  await page.getByRole('button', { name: '发送', exact: true }).click();
+  await expect(page.getByTestId('workshop-conversation')).toContainText('本轮讨论已记录', { timeout: 10_000 });
+
+  await page.getByRole('button', { name: /角色卡/ }).last().click();
+  await expect(character).toContainText('已完成', { timeout: 10_000 });
+  await character.click();
+  await expect(page.getByTestId('workshop-conversation')).toContainText('慢工坊角色并发验收。');
+  await expect(page.getByTestId('workshop-conversation')).toContainText('本轮讨论已记录');
+});
+
+
+test('故事推演与工坊对话可以同时等待且互不覆盖', async ({ page }) => {
+  await loadStory(page, '自动验收故事');
+  await page.route('**/api/v1/game/*/action', async route => {
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    await route.continue();
+  });
+  await page.getByTestId('story-action-input').fill('故事与工坊并发验收。');
+  await page.getByTestId('story-action-submit').click();
+  await page.getByRole('button', { name: '🧰 工坊' }).click();
+  await page.getByRole('button', { name: /角色卡/ }).last().click();
+  await page.locator('[data-workshop-asset-name="测试角色卡"]').click();
+  await page.locator('textarea[placeholder*="Ctrl+Enter"]').fill('与正文同时运行的工坊请求。');
+  await page.getByRole('button', { name: '发送', exact: true }).click();
+  await expect(page.getByTestId('workshop-conversation')).toContainText('本轮讨论已记录', { timeout: 10_000 });
+  await page.getByRole('button', { name: '🎮 游戏' }).click();
+  await expect(page.getByText('故事与工坊并发验收。')).toBeVisible();
+  await expect(page.getByTestId('story-action-submit')).toBeEnabled({ timeout: 10_000 });
 });
 
 

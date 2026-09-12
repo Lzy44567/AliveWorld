@@ -11,6 +11,7 @@ import { onboardingStore } from '../../store/onboardingStore';
 const prefill = uiStore.newGamePrefill || {};
 if (prefill.name) assetStore.newSaveName = prefill.name;
 const newSaveDesc = ref(prefill.worldPremise || "");
+const creating = ref(false);
 const resetPrefill = () => {
   uiStore.newGamePrefill = { name: '', worldPremise: '', fromOnboarding: false };
 };
@@ -21,14 +22,11 @@ const close = () => {
 
 const startNewGame = async () => {
   if (!assetStore.newSaveName.trim()) return uiStore.showToast("存档名不能为空！", "error"); 
-  gameStore.isProcessing = true;
+  if (creating.value) return;
+  creating.value = true;
   try {
     const data = await gameApi.startGame({ save_name: assetStore.newSaveName, world_premise: newSaveDesc.value, story_settings: configStore.settings });
-    gameStore.sessionId = data.session_id;
-    gameStore.currentSaveName = assetStore.newSaveName;
-    gameStore.chatLog = data.chat_messages;
-    gameStore.setActionSuggestions(data.action_suggestions);
-    gameStore.syncState(data.state);
+    gameStore.registerSession(data, assetStore.newSaveName);
     configStore.applyStoryConfig(data);
     
     close();
@@ -40,7 +38,7 @@ const startNewGame = async () => {
     uiStore.showToast("新世界已降临");
   } catch (err) {
     uiStore.showToast(err.message || "创世失败", "error");
-  } finally { gameStore.isProcessing = false; }
+  } finally { creating.value = false; }
 };
 </script>
 <template>
@@ -56,7 +54,7 @@ const startNewGame = async () => {
           <label class="text-xs font-bold text-slate-400 block mb-1">🌌 宇宙主导向简述 (选填)</label>
           <textarea data-testid="new-game-premise" v-model="newSaveDesc" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-emerald-500 h-24 resize-none shadow-inner"></textarea>
         </div>
-        <button data-testid="new-game-submit" @click="startNewGame" :disabled="gameStore.isProcessing" class="w-full py-4 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-bold shadow-lg disabled:opacity-50 transition text-lg mt-2">降临新世界</button>
+        <button data-testid="new-game-submit" @click="startNewGame" :disabled="creating" class="w-full py-4 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-bold shadow-lg disabled:opacity-50 transition text-lg mt-2">{{ creating ? '正在建立…' : '降临新世界' }}</button>
       </div>
     </div>
   </div>

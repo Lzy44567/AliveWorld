@@ -17,6 +17,7 @@ from core.asset_workshop_registry import (
 from core.asset_lifecycle import AssetLifecycleError, find_yaml_asset
 from core.session_manager import active_sessions
 from utils.asset_catalog import resolve_asset_path
+from api.v1.route_guards import guarded_workshop
 
 
 router = APIRouter()
@@ -100,6 +101,7 @@ def get_workshop(workshop_id: str):
 
 
 @router.post("/{workshop_id}/chat")
+@guarded_workshop
 def chat_workshop(workshop_id: str, payload: ChatPayload):
     workshop = _get(workshop_id)
     if workshop.published:
@@ -119,6 +121,7 @@ def chat_workshop(workshop_id: str, payload: ChatPayload):
 
 
 @router.post("/{workshop_id}/operations")
+@guarded_workshop
 def apply_operations(workshop_id: str, payload: OperationsPayload):
     workshop = _get(workshop_id)
     try:
@@ -131,6 +134,7 @@ def apply_operations(workshop_id: str, payload: OperationsPayload):
 
 
 @router.post("/{workshop_id}/undo")
+@guarded_workshop
 def undo_workshop(workshop_id: str):
     workshop = _get(workshop_id)
     try:
@@ -142,6 +146,7 @@ def undo_workshop(workshop_id: str):
 
 
 @router.post("/{workshop_id}/publish")
+@guarded_workshop
 def publish_workshop(workshop_id: str):
     workshop = _get(workshop_id)
     try:

@@ -61,11 +61,7 @@ const install = async () => {
 };
 
 const applyStartedStory = async (data, name) => {
-  gameStore.sessionId = data.session_id;
-  gameStore.currentSaveName = name;
-  gameStore.chatLog = data.chat_messages || [];
-  gameStore.setActionSuggestions(data.action_suggestions);
-  gameStore.syncState(data.state);
+  gameStore.registerSession(data, name);
   configStore.applyStoryConfig(data);
   await assetStore.fetchAssets();
   await assetStore.fetchLocalAssets(data.session_id);
@@ -75,7 +71,7 @@ const applyStartedStory = async (data, name) => {
 
 const installAndStart = async () => {
   if (!pendingFile.value || !saveName.value.trim() || preview.value?.status === 'version_collision') return;
-  gameStore.isProcessing = true;
+  busy.value = true;
   try {
     const name = saveName.value.trim();
     const data = await worldPackageApi.installAndStart(pendingFile.value, name);
@@ -85,7 +81,7 @@ const installAndStart = async () => {
     await refresh();
     uiStore.showToast('世界包已安装，故事已建立');
   } catch (error) { uiStore.showToast(error.message || '安装并开始失败', 'error'); }
-  finally { gameStore.isProcessing = false; }
+  finally { busy.value = false; }
 };
 
 const openStart = (item) => {
@@ -95,7 +91,7 @@ const openStart = (item) => {
 
 const startStory = async () => {
   if (!startTarget.value || !saveName.value.trim()) return;
-  gameStore.isProcessing = true;
+  busy.value = true;
   try {
     const data = startTarget.value.official_id
       ? await worldPackageApi.startOfficial(startTarget.value.official_id, saveName.value.trim())
@@ -105,7 +101,7 @@ const startStory = async () => {
     uiStore.rightTab = 'saves';
     uiStore.showToast('世界包故事已建立，可以直接开始游玩');
   } catch (error) { uiStore.showToast(error.message || '一键开始失败', 'error'); }
-  finally { gameStore.isProcessing = false; }
+  finally { busy.value = false; }
 };
 
 onMounted(() => refresh().catch(error => uiStore.showToast(error.message, 'error')));

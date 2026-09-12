@@ -28,7 +28,7 @@ function createAsset() {
     <div class="min-w-[400px] border-b border-slate-800 bg-slate-900 p-2">
       <div class="grid grid-cols-5 gap-1">
         <button v-for="item in WORKSHOP_TYPES" :key="item.id" class="rounded-lg px-2 py-2 text-center transition" :class="workshopStore.type===item.id?'bg-cyan-900/60 text-cyan-200':'text-slate-500 hover:bg-slate-800'" :title="item.label" @click="workshopStore.selectType(item.id)">
-          <span class="block text-lg">{{ item.icon }}</span><span class="text-[9px]">{{ item.label }}</span>
+          <span class="relative block text-lg">{{ item.icon }}<span v-if="workshopStore.runningForType(item.id)" class="absolute right-1 top-0 h-2 w-2 rounded-full bg-amber-400"></span></span><span class="text-[9px]">{{ item.label }}</span>
         </button>
       </div>
     </div>
@@ -42,7 +42,7 @@ function createAsset() {
       </div>
       <template v-if="workshopStore.type==='preferences'">
         <button class="rounded-xl border p-4 text-left" :class="workshopStore.workshopId?'border-fuchsia-700 bg-fuchsia-950/25':'border-slate-700 bg-slate-900/50 hover:border-fuchsia-800'" @click="workshopStore.start('', 'global')">
-          <div class="font-bold text-fuchsia-200">🪞 我的用户偏好卡</div>
+          <div class="flex justify-between font-bold text-fuchsia-200"><span>🪞 我的用户偏好卡</span><span v-if="workshopStore.taskForAsset('preferences','global','').status==='running'" class="text-[9px] text-amber-300">处理中</span></div>
           <p class="mt-2 text-[10px] leading-relaxed text-slate-500">结合自述和已采集证据探索、修正与平衡偏好；正式偏好只在发布后变化。</p>
         </button>
       </template>
@@ -58,7 +58,7 @@ function createAsset() {
         <input v-model="workshopStore.search" class="mb-3 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-200" placeholder="搜索名称或标签……" />
         <div class="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1 custom-scrollbar">
           <button v-for="item in workshopStore.assets" :key="item.name" :data-workshop-asset-name="item.name" class="w-full rounded-xl border p-3 text-left transition" :class="workshopStore.assetName===item.name?'border-cyan-600 bg-cyan-950/30':'border-slate-700 bg-slate-900/55 hover:border-cyan-900'" @click="workshopStore.start(item.name)">
-            <div class="truncate text-xs font-bold text-slate-200">{{ item.name }}</div>
+            <div class="flex items-center justify-between gap-2"><div class="truncate text-xs font-bold text-slate-200">{{ item.name }}</div><span v-if="workshopStore.taskForAsset(workshopStore.type,workshopStore.scope,item.name).status==='running'" class="text-[9px] text-amber-300">处理中</span><span v-else-if="workshopStore.taskForAsset(workshopStore.type,workshopStore.scope,item.name).status==='completed'" class="text-[9px] text-cyan-300">已完成</span><span v-else-if="workshopStore.taskForAsset(workshopStore.type,workshopStore.scope,item.name).status==='failed'" class="text-[9px] text-rose-300" :title="workshopStore.taskForAsset(workshopStore.type,workshopStore.scope,item.name).error">失败</span></div>
             <div v-if="workshopStore.scope==='local'" class="mt-1 text-[9px] text-cyan-400/80">📂 {{ workshopStore.localScopeLabel }}</div>
             <div class="mt-2 flex flex-wrap gap-1"><span v-for="tag in item.tags" :key="tag" class="rounded bg-slate-800 px-1 text-[9px] text-slate-500">{{ tag }}</span></div>
             <p class="mt-2 line-clamp-2 text-[10px] text-slate-500">{{ item.desc }}</p>

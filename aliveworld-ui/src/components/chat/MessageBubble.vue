@@ -34,14 +34,17 @@ const copyableText = computed(() => {
 
 const doReroll = async () => {
   if (!gameStore.sessionId || gameStore.isProcessing) return;
-  gameStore.isProcessing = true;
+  const sessionId = gameStore.sessionId;
+  if (!gameStore.beginTask(sessionId, 'reroll')) return;
   try {
-    const res = await gameApi.rerollTurn(gameStore.sessionId, {
+    const res = await gameApi.rerollTurn(sessionId, {
       entities_enabled: effectiveStorySettings.value.entitiesEnabled
     });
-    gameStore.chatLog = res.chat_messages;
-    gameStore.syncState(res.state);
-    gameStore.setActionSuggestions(res.action_suggestions);
+    gameStore.finishTask(sessionId, context => {
+      context.chatLog = res.chat_messages;
+      gameStore.syncState(res.state, sessionId);
+      gameStore.setActionSuggestions(res.action_suggestions, sessionId);
+    });
     
     // 自动滚动到底部
     setTimeout(() => {
@@ -49,10 +52,10 @@ const doReroll = async () => {
       if (c) c.scrollTop = c.scrollHeight;
     }, 100);
   } catch (e) {
+    gameStore.failTask(sessionId, e);
     uiStore.showToast("命运已成定局，此处无法重掷", "error");
   } finally {
-    gameStore.isProcessing = false;
-    assetStore.fetchLocalAssets(gameStore.sessionId); // 刷新实体库
+    if (gameStore.sessionId === sessionId) assetStore.fetchLocalAssets(sessionId); // 刷新实体库
   }
 };
 </script>

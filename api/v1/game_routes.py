@@ -10,7 +10,10 @@ from core.game_session import GameSession
 from core.ai_engine import AIEngine
 from core.model_connections.repository import ConnectionRepository
 from core.model_connections.runtime import model_runtime
-from core.session_manager import active_sessions
+from core.session_manager import (
+    MutationBusyError, active_sessions, existing_session, mutation_guard,
+    register_session, save_identity,
+)
 from core.story_settings import normalize_story_settings
 from core.asset_lifecycle import AssetLifecycleError, normalize_asset_name
 from core.auto_worldbook import select_capture_worldbook
@@ -195,7 +198,7 @@ def start_prepared_game(
         opening += "当前世界犹如一张白纸。你可以随时从右侧“万象资产”中拉取角色、世界书或文风进入本局..."
     
     game.start_new_game(world_premise=world_premise, opening=opening.strip())
-    active_sessions[session_id] = game
+    register_session(session_id, game)
     save_game_data(game.save_dir_path, game.export_save_data())
     return _session_payload(session_id, game)
 
@@ -207,6 +210,13 @@ def load_game(payload: LoadRequest):
     runtime_save_dir = str(save_data.get("_save_dir") or "")
     if not runtime_save_dir:
         raise HTTPException(status_code=500, detail="无法确定当前存档目录")
+    existing = existing_session(runtime_save_dir)
+    if existing:
+        try:
+            with mutation_guard("story", save_identity(runtime_save_dir)):
+                return _session_payload(*existing)
+        except MutationBusyError as exc:
+            raise HTTPException(status_code=409, detail="该故事仍在后台完成上一项操作，请稍后再次载入") from exc
     session_id = str(uuid.uuid4())
     
     game = GameSession(
@@ -217,24 +227,32 @@ def load_game(payload: LoadRequest):
         worldbook_capture_ai_engine=global_worldbook_capture_ai_engine,
     )
     game.load_save_data(save_data, save_dir_path=runtime_save_dir)
-    active_sessions[session_id] = game
+    register_session(session_id, game)
     # Repair the stale path before the next turn, even if the player only loads
     # and immediately closes the application.
     save_game_data(game.save_dir_path, game.export_save_data())
     return _session_payload(session_id, game)
 
+
+def _run_story_mutation(game, operation):
+    try:
+        with mutation_guard("story", save_identity(game.save_dir_path)):
+            return operation()
+    except MutationBusyError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
 @router.post("/{session_id}/action")
 def process_turn(session_id: str, payload: ActionRequest):
     game = active_sessions.get(session_id)
     if not game: raise HTTPException(status_code=404, detail="会话失效")
-    if payload.plot_compass is not None: game.plot_compass = payload.plot_compass
-        
-    history_len = len(game.history["chat_messages"])
-    result = game.process_turn(payload.action)
-    if result and result.get('error'): raise HTTPException(status_code=502, detail=result.get("message", "推演失败，本回合未保存。"))
-    
-    save_game_data(game.save_dir_path, game.export_save_data())
-    return {"chat_messages": game.history["chat_messages"][history_len:], "state": game.state, "is_game_over": game.is_game_over, "action_suggestions": game.action_suggestions}
+    def operation():
+        if payload.plot_compass is not None: game.plot_compass = payload.plot_compass
+        history_len = len(game.history["chat_messages"])
+        result = game.process_turn(payload.action)
+        if result and result.get('error'): raise HTTPException(status_code=502, detail=result.get("message", "推演失败，本回合未保存。"))
+        save_game_data(game.save_dir_path, game.export_save_data())
+        return {"chat_messages": game.history["chat_messages"][history_len:], "state": game.state, "is_game_over": game.is_game_over, "action_suggestions": game.action_suggestions}
+    return _run_story_mutation(game, operation)
 
 
 def _latest_player_turn(game):
@@ -253,67 +271,68 @@ def _interaction_context(turn):
 def undo_turn(session_id: str):
     game = active_sessions.get(session_id)
     if not game: raise HTTPException(status_code=404, detail="会话失效")
-    previous_turn = _latest_player_turn(game)
-    if not game.rollback(): raise HTTPException(status_code=400, detail="无法撤回")
-    game.record_preference_interaction(
-        "undo",
-        "玩家撤回了刚完成的故事回合；仅能确定玩家不接受这次整体结果，具体原因未知。",
-        _interaction_context(previous_turn),
-        related_turn_id=previous_turn.get("turn_id") if previous_turn else None,
-    )
-    save_game_data(game.save_dir_path, game.export_save_data())
-    return {"chat_messages": game.history["chat_messages"], "state": game.state, "action_suggestions": game.action_suggestions}
+    def operation():
+        previous_turn = _latest_player_turn(game)
+        if not game.rollback(): raise HTTPException(status_code=400, detail="无法撤回")
+        game.record_preference_interaction(
+            "undo", "玩家撤回了刚完成的故事回合；仅能确定玩家不接受这次整体结果，具体原因未知。",
+            _interaction_context(previous_turn), related_turn_id=previous_turn.get("turn_id") if previous_turn else None,
+        )
+        save_game_data(game.save_dir_path, game.export_save_data())
+        return {"chat_messages": game.history["chat_messages"], "state": game.state, "action_suggestions": game.action_suggestions}
+    return _run_story_mutation(game, operation)
 
 @router.post("/{session_id}/retry")
 def retry_turn(session_id: str, payload: ActionRequest):
     game = active_sessions.get(session_id)
     if not game: raise HTTPException(status_code=404, detail="会话失效")
-    previous_turn = _latest_player_turn(game)
-    if not game.rollback(): raise HTTPException(status_code=400, detail="无历史")
-    if payload.plot_compass is not None: game.plot_compass = payload.plot_compass
-        
-    result = game.process_turn(payload.action)
-    if result and result.get('error'): raise HTTPException(status_code=502, detail=result.get("message", "推演失败，本回合未保存。"))
-    game.record_preference_interaction(
-        "retry",
-        "玩家保留行动意图并要求重新生成该回合；原因可能是文风、内容、角色表现或单纯输出质量。",
-        _interaction_context(previous_turn),
-        related_turn_id=previous_turn.get("turn_id") if previous_turn else None,
-    )
-    save_game_data(game.save_dir_path, game.export_save_data())
-    return {"full_chat": game.history["chat_messages"], "state": game.state, "action_suggestions": game.action_suggestions}
+    def operation():
+        previous_turn = _latest_player_turn(game)
+        if not game.rollback(): raise HTTPException(status_code=400, detail="无历史")
+        if payload.plot_compass is not None: game.plot_compass = payload.plot_compass
+        result = game.process_turn(payload.action)
+        if result and result.get('error'): raise HTTPException(status_code=502, detail=result.get("message", "推演失败，本回合未保存。"))
+        game.record_preference_interaction(
+            "retry", "玩家保留行动意图并要求重新生成该回合；原因可能是文风、内容、角色表现或单纯输出质量。",
+            _interaction_context(previous_turn), related_turn_id=previous_turn.get("turn_id") if previous_turn else None,
+        )
+        save_game_data(game.save_dir_path, game.export_save_data())
+        return {"full_chat": game.history["chat_messages"], "state": game.state, "action_suggestions": game.action_suggestions}
+    return _run_story_mutation(game, operation)
 
 # 🚀 核心：重掷未来专用接口
 @router.post("/{session_id}/reroll")
 def reroll_turn(session_id: str, payload: EntityRuntimeRequest):
     game = active_sessions.get(session_id)
     if not game: raise HTTPException(status_code=404, detail="会话失效")
-    previous_turn = _latest_player_turn(game)
-    if payload.entities_enabled is not None:
-        game.story_settings["entitiesEnabled"] = payload.entities_enabled
-    res = game.reroll_turn()
-    if not res or res.get("error"): raise HTTPException(status_code=400, detail="无法重掷")
-    game.record_preference_interaction(
-        "reroll",
-        "玩家要求重新抽取未来结果；可能是不喜欢情节，也可能只是希望获得更有利的随机结果。",
-        _interaction_context(previous_turn),
-        related_turn_id=previous_turn.get("turn_id") if previous_turn else None,
-    )
-    save_game_data(game.save_dir_path, game.export_save_data())
-    return res
+    def operation():
+        previous_turn = _latest_player_turn(game)
+        if payload.entities_enabled is not None:
+            game.story_settings["entitiesEnabled"] = payload.entities_enabled
+        res = game.reroll_turn()
+        if not res or res.get("error"): raise HTTPException(status_code=400, detail="无法重掷")
+        game.record_preference_interaction(
+            "reroll", "玩家要求重新抽取未来结果；可能是不喜欢情节，也可能只是希望获得更有利的随机结果。",
+            _interaction_context(previous_turn), related_turn_id=previous_turn.get("turn_id") if previous_turn else None,
+        )
+        save_game_data(game.save_dir_path, game.export_save_data())
+        return res
+    return _run_story_mutation(game, operation)
 
 @router.post("/{session_id}/story_config")
 def update_story_config(session_id: str, payload: StoryConfigPayload):
     game = active_sessions.get(session_id)
     if not game: raise HTTPException(status_code=404, detail="会话失效")
-    game.world_premise = payload.world_premise
-    game.plot_compass = payload.plot_compass
-    game.story_settings = normalize_story_settings(payload.story_settings)
-    game.word_limit = game.story_settings["targetStoryLength"]
-    if not game.story_settings["aiSuggestions"]:
-        game.action_suggestions = []
-    save_game_data(game.save_dir_path, game.export_save_data())
-    return _story_config_payload(game)
+    def operation():
+        game.world_premise = payload.world_premise
+        game.plot_compass = payload.plot_compass
+        game.story_settings = normalize_story_settings(payload.story_settings)
+        game.word_limit = game.story_settings["targetStoryLength"]
+        if not game.story_settings["aiSuggestions"]:
+            game.action_suggestions = []
+        save_game_data(game.save_dir_path, game.export_save_data())
+        return _story_config_payload(game)
+    return _run_story_mutation(game, operation)
 
 def _story_config_payload(game):
     return {

@@ -16,6 +16,7 @@ from core.worldbook_workshop_registry import (
 )
 from utils.asset_catalog import resolve_asset_path
 from utils.file_io import DATA_DIR, WORLD_DIR
+from api.v1.route_guards import guarded_workshop
 
 
 router = APIRouter()
@@ -138,6 +139,7 @@ def get_workshop(workshop_id: str):
 
 
 @router.post("/workshops/{workshop_id}/operations")
+@guarded_workshop
 def apply_operations(workshop_id: str, payload: ApplyOperationsRequest):
     workshop = _get(workshop_id)
     try:
@@ -151,6 +153,7 @@ def apply_operations(workshop_id: str, payload: ApplyOperationsRequest):
 
 
 @router.post("/workshops/{workshop_id}/chat")
+@guarded_workshop
 def chat_workshop(workshop_id: str, payload: WorkshopChatRequest):
     workshop = _get(workshop_id)
     if workshop.published:
@@ -168,6 +171,7 @@ def chat_workshop(workshop_id: str, payload: WorkshopChatRequest):
 
 
 @router.post("/workshops/{workshop_id}/pending/{operation_id}/approve")
+@guarded_workshop
 def approve_operation(workshop_id: str, operation_id: str):
     workshop = _get(workshop_id)
     try:
@@ -179,6 +183,7 @@ def approve_operation(workshop_id: str, operation_id: str):
 
 
 @router.delete("/workshops/{workshop_id}/pending/{operation_id}")
+@guarded_workshop
 def reject_operation(workshop_id: str, operation_id: str):
     workshop = _get(workshop_id)
     try:
@@ -190,6 +195,7 @@ def reject_operation(workshop_id: str, operation_id: str):
 
 
 @router.post("/workshops/{workshop_id}/undo")
+@guarded_workshop
 def undo_workshop(workshop_id: str):
     workshop = _get(workshop_id)
     try:
@@ -201,6 +207,7 @@ def undo_workshop(workshop_id: str):
 
 
 @router.post("/workshops/{workshop_id}/publish")
+@guarded_workshop
 def publish_workshop(workshop_id: str, payload: PublishRequest):
     workshop = _get(workshop_id)
     if workshop.published:

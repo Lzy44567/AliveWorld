@@ -94,8 +94,8 @@ The codebase is moderately well modularized, not “completely independent by fi
 | 1 | Complete | Frontend production build: 124 modules; Playwright/Edge: 17/17 passed | Commit navigation, scrolling, selection, copy and export changes |
 | 2 | Complete | 327/327 Python tests; frontend build 124 modules; targeted Edge publish/reopen flow 2/2 passed; commit `458b1bc` | Preserve immutable workshop history contract |
 | 3 | Complete | Prompt/auth/API/composition/trace 15/15; frontend build 126 modules; Edge override/restore 1/1 | Commit prompt studio slice |
-| 4 | In progress | Single foreground stores observed | Map API locks, request ownership, and UI task keys |
-| 5 | Not started | — | Integrate only after slices 1-4 pass |
+| 4 | Complete | Keyed lock/session tests 3/3; frontend build 126 modules; deterministic concurrency Edge flows 6/6 | Commit keyed concurrency slice |
+| 5 | In progress | Slices 0-4 implemented | Run full suites, update human changelog, audit requirements and commit |
 
 ## Slice 1 implementation notes
 
@@ -119,3 +119,11 @@ The codebase is moderately well modularized, not “completely independent by fi
 - Overrides are atomically saved under the portable user-data tree and selected at composition time. The old unprotected bulk YAML endpoint returns 410.
 - Developer passwords use salted PBKDF2-SHA256 hashes. Unlock tokens are ephemeral and protect against accidental access, not users with filesystem/process control.
 - Request traces record the ordered slice manifest and hashes so a defect can be tied to the actual composition without duplicating prompt bodies into metadata.
+
+## Slice 4 implementation notes
+
+- `core/session_manager.py` owns active-session identity and aggregate mutation guards. API route modules translate conflicts to HTTP 409; domain objects remain unaware of HTTP and frontend state.
+- The frontend game store is a keyed context collection rather than a single foreground record. Story responses, failures, status bars, suggestions, last actions and draft input are committed by origin session.
+- The workshop store uses the same keyed-context idea across all five workshop types while keeping domain-specific API adapters separate. Selecting another asset changes only the active key and does not discard the pending Promise or its context.
+- Story settings autosave captures the originating session and an immutable payload snapshot. Save lifecycle operations share the story lock and retarget the session index after rename.
+- Provider request limits remain governed by connection configuration. This slice guarantees application ownership and write integrity, not unlimited external throughput.

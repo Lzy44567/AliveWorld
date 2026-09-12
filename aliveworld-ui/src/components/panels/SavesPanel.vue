@@ -32,14 +32,16 @@ const filteredSaves = computed(() => {
 
 // 读取存档
 const loadSave = async (saveName) => {
-  gameStore.isProcessing = true;
+  const cached = gameStore.activateSave(saveName);
+  if (cached) {
+    configStore.applyStoryConfig(cached.storyConfig || {});
+    await assetStore.fetchLocalAssets(cached.sessionId);
+    return;
+  }
+  gameStore.loadingSaves[saveName] = true;
   try {
     const data = await gameApi.loadGame(saveName);
-    gameStore.sessionId = data.session_id;
-    gameStore.currentSaveName = saveName;
-    gameStore.chatLog = data.chat_messages || [];
-    gameStore.setActionSuggestions(data.action_suggestions);
-    gameStore.syncState(data.state);
+    gameStore.registerSession(data, saveName);
     configStore.applyStoryConfig(data);
     
     // 恢复基础设定显示（尽管 V2 已经弱化了全局强绑定，但用于兜底显示）
@@ -52,7 +54,7 @@ const loadSave = async (saveName) => {
   } catch (err) {
     alert("读取时间线失败！");
   } finally {
-    gameStore.isProcessing = false;
+    delete gameStore.loadingSaves[saveName];
   }
 };
 
@@ -91,7 +93,7 @@ const confirmLifecycle = async (newName) => {
   try {
     const result = await assetApi.lifecycleSave(save.name, action, newName);
     if (action === 'rename' && gameStore.currentSaveName === save.name) {
-      gameStore.currentSaveName = result.name;
+      gameStore.renameSave(save.name, result.name);
     }
     lifecycle.value = { open: false, action: 'clone', save: null };
     await assetStore.fetchAssets();
@@ -126,7 +128,7 @@ const confirmLifecycle = async (newName) => {
       <div v-for="save in filteredSaves" :key="save.id" :data-save-name="save.name" class="bg-aw_panel border rounded-xl p-3 transition group shadow" :class="gameStore.currentSaveName===save.name?'border-emerald-500 ring-1 ring-emerald-500/30':'border-slate-700 hover:border-indigo-500'">
         
         <div class="flex justify-between items-start mb-2">
-          <h4 class="text-sm font-bold text-slate-200 group-hover:text-indigo-400">{{ save.name }} <span v-if="gameStore.currentSaveName===save.name" class="ml-1 rounded bg-emerald-950 px-1.5 py-0.5 text-[9px] text-emerald-300">当前游玩</span></h4>
+          <h4 class="text-sm font-bold text-slate-200 group-hover:text-indigo-400">{{ save.name }} <span v-if="gameStore.currentSaveName===save.name" class="ml-1 rounded bg-emerald-950 px-1.5 py-0.5 text-[9px] text-emerald-300">当前游玩</span><span v-if="gameStore.taskForSave(save.name).status==='running'" class="ml-1 rounded bg-amber-950 px-1.5 py-0.5 text-[9px] text-amber-300">推演中</span><span v-else-if="gameStore.taskForSave(save.name).status==='completed'" class="ml-1 rounded bg-cyan-950 px-1.5 py-0.5 text-[9px] text-cyan-300">已完成</span><span v-else-if="gameStore.taskForSave(save.name).status==='failed'" class="ml-1 rounded bg-rose-950 px-1.5 py-0.5 text-[9px] text-rose-300" :title="gameStore.taskForSave(save.name).error">失败</span></h4>
           <span class="text-[9px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded border border-slate-700">{{ save.type }}</span>
         </div>
         
@@ -134,7 +136,7 @@ const confirmLifecycle = async (newName) => {
         
         <!-- 操作按钮栏 -->
         <div class="flex gap-2 relative" data-save-actions>
-          <button data-testid="save-load" @click="loadSave(save.name)" class="flex-1 bg-indigo-600/20 hover:bg-indigo-600 text-indigo-300 hover:text-white text-[10px] py-1.5 rounded font-bold transition">▶ 唤醒</button>
+          <button data-testid="save-load" @click="loadSave(save.name)" :disabled="gameStore.taskForSave(save.name).status==='loading'" class="flex-1 bg-indigo-600/20 hover:bg-indigo-600 text-indigo-300 hover:text-white text-[10px] py-1.5 rounded font-bold transition disabled:opacity-50">{{ gameStore.taskForSave(save.name).status==='loading'?'载入中…':'▶ 唤醒' }}</button>
           <div v-if="confirmDeleteId !== save.name" class="relative" data-save-actions>
             <button @click.stop="openMenuId = openMenuId === save.name ? '' : save.name" class="h-full w-10 rounded border border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700" aria-label="存档管理" :aria-expanded="openMenuId === save.name">•••</button>
             <div v-if="openMenuId === save.name" class="absolute right-0 top-full z-20 mt-2 w-32 overflow-hidden rounded-lg border border-slate-600 bg-slate-900 p-1 shadow-2xl">

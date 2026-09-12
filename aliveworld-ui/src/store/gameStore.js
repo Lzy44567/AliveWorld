@@ -1,57 +1,137 @@
-// src/store/gameStore.js
 import { reactive } from 'vue';
 
+function emptyContext(sessionId = null, saveName = null) {
+  return {
+    sessionId, saveName, isProcessing: false, chatLog: [],
+    dynamicBars: {}, properties: {}, npcs: {}, buffs: {}, aiSuggestions: [],
+    lastAction: '', draftInput: '', storyConfig: null,
+    task: { status: 'idle', kind: '', startedAt: '', finishedAt: '', error: '' },
+  };
+}
+
+const idle = emptyContext();
+
 export const gameStore = reactive({
-  sessionId: null,
-  currentSaveName: null, 
-  isProcessing: false,
-  chatLog: [],
-  
-  dynamicBars: {}, 
-  properties: {}, 
-  npcs: {}, 
-  buffs: {},
-  
-  aiSuggestions: [], 
-  currentScene: { 
-    name: "未知界域", 
-    img: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=400&auto=format&fit=crop" 
+  contexts: {}, saveSessions: {}, activeSessionId: null, loadingSaves: {},
+  currentScene: {
+    name: '未知界域',
+    img: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=400&auto=format&fit=crop',
   },
-  mapNodes: [], 
-  companions: [], 
-  currentSpeakerSprite: "", 
-  isSpeakerActive: false,
+  mapNodes: [], companions: [], currentSpeakerSprite: '', isSpeakerActive: false,
+
+  get currentContext() { return this.contexts[this.activeSessionId] || idle; },
+  get sessionId() { return this.activeSessionId; },
+  set sessionId(value) { this.activeSessionId = value || null; },
+  get currentSaveName() { return this.currentContext.saveName; },
+  set currentSaveName(value) { this.currentContext.saveName = value || null; },
+  get isProcessing() { return this.currentContext.isProcessing; },
+  set isProcessing(value) { this.currentContext.isProcessing = Boolean(value); },
+  get chatLog() { return this.currentContext.chatLog; },
+  set chatLog(value) { this.currentContext.chatLog = Array.isArray(value) ? value : []; },
+  get dynamicBars() { return this.currentContext.dynamicBars; },
+  set dynamicBars(value) { this.currentContext.dynamicBars = value || {}; },
+  get properties() { return this.currentContext.properties; },
+  set properties(value) { this.currentContext.properties = value || {}; },
+  get npcs() { return this.currentContext.npcs; },
+  set npcs(value) { this.currentContext.npcs = value || {}; },
+  get buffs() { return this.currentContext.buffs; },
+  set buffs(value) { this.currentContext.buffs = value || {}; },
+  get aiSuggestions() { return this.currentContext.aiSuggestions; },
+  set aiSuggestions(value) { this.currentContext.aiSuggestions = value || []; },
+  get lastAction() { return this.currentContext.lastAction; },
+  set lastAction(value) { this.currentContext.lastAction = value || ''; },
+  get draftInput() { return this.currentContext.draftInput; },
+  set draftInput(value) { this.currentContext.draftInput = value || ''; },
+  get runningCount() { return Object.values(this.contexts).filter(item => item.isProcessing).length; },
 
   formatContent(content) {
-    if (!content) return "";
+    if (!content) return '';
     if (Array.isArray(content)) return content;
     if (typeof content !== 'string') return JSON.stringify(content);
     return content.replace(/\\n/g, '\n');
   },
 
-  syncState(newState) {
-    if (!newState) return;
-    
-    // 🚀 修复 Buff 不显示的 Bug：使用扩展运算符强制触发 Vue 的深层响应式！
-    if (newState.bars) this.dynamicBars = { ...newState.bars };
-    if (newState.properties) this.properties = { ...newState.properties };
-    if (newState.npcs) this.npcs = { ...newState.npcs };
-    if (newState.buffs) this.buffs = { ...newState.buffs };
+  registerSession(data, saveName, { activate = true } = {}) {
+    const sessionId = data.session_id;
+    if (!sessionId) throw new Error('后端未返回故事会话 ID');
+    const previousId = this.saveSessions[saveName];
+    const previous = this.contexts[previousId];
+    const context = previous && previousId === sessionId ? previous : emptyContext(sessionId, saveName);
+    context.sessionId = sessionId;
+    context.saveName = saveName;
+    context.chatLog = data.chat_messages || context.chatLog;
+    context.aiSuggestions = this.normalizeSuggestions(data.action_suggestions);
+    context.storyConfig = data;
+    this.contexts[sessionId] = context;
+    this.saveSessions[saveName] = sessionId;
+    if (activate) this.activeSessionId = sessionId;
+    this.syncState(data.state, sessionId);
+    return context;
   },
 
-  setActionSuggestions(items) {
-    this.aiSuggestions = Array.isArray(items) ? items.filter(item => typeof item === 'string' && item.trim()).slice(0, 4) : [];
+  activateSave(saveName) {
+    const sessionId = this.saveSessions[saveName];
+    if (!sessionId || !this.contexts[sessionId]) return null;
+    this.activeSessionId = sessionId;
+    return this.contexts[sessionId];
   },
 
-  reset() {
-    this.sessionId = null;
-    this.currentSaveName = null;
-    this.chatLog = [];
-    this.dynamicBars = {}; 
-    this.properties = {}; 
-    this.npcs = {}; 
-    this.buffs = {};
+  contextFor(sessionId) { return this.contexts[sessionId] || null; },
+  taskForSave(saveName) {
+    if (this.loadingSaves[saveName]) return { status: 'loading', kind: 'load' };
+    return this.contexts[this.saveSessions[saveName]]?.task || { status: 'idle' };
+  },
+
+  beginTask(sessionId, kind) {
+    const context = this.contextFor(sessionId);
+    if (!context || context.isProcessing) return null;
+    context.isProcessing = true;
+    context.task = { status: 'running', kind, startedAt: new Date().toISOString(), finishedAt: '', error: '' };
+    return context;
+  },
+
+  finishTask(sessionId, update) {
+    const context = this.contextFor(sessionId);
+    if (!context) return;
+    if (typeof update === 'function') update(context);
+    context.isProcessing = false;
+    context.task = { ...context.task, status: 'completed', finishedAt: new Date().toISOString(), error: '' };
+  },
+
+  failTask(sessionId, error) {
+    const context = this.contextFor(sessionId);
+    if (!context) return;
+    context.isProcessing = false;
+    context.task = { ...context.task, status: 'failed', finishedAt: new Date().toISOString(), error: String(error?.message || error || '操作失败') };
+  },
+
+  normalizeSuggestions(items) {
+    return Array.isArray(items) ? items.filter(item => typeof item === 'string' && item.trim()).slice(0, 4) : [];
+  },
+  setActionSuggestions(items, sessionId = this.sessionId) {
+    const context = this.contextFor(sessionId);
+    if (context) context.aiSuggestions = this.normalizeSuggestions(items);
+  },
+  syncState(newState, sessionId = this.sessionId) {
+    const context = this.contextFor(sessionId);
+    if (!newState || !context) return;
+    if (newState.bars) context.dynamicBars = { ...newState.bars };
+    if (newState.properties) context.properties = { ...newState.properties };
+    if (newState.npcs) context.npcs = { ...newState.npcs };
+    if (newState.buffs) context.buffs = { ...newState.buffs };
+  },
+  renameSave(oldName, newName) {
+    const sessionId = this.saveSessions[oldName];
+    if (!sessionId) return;
+    delete this.saveSessions[oldName];
+    this.saveSessions[newName] = sessionId;
+    if (this.contexts[sessionId]) this.contexts[sessionId].saveName = newName;
+  },
+  reset(saveName = this.currentSaveName) {
+    const sessionId = saveName ? this.saveSessions[saveName] : this.activeSessionId;
+    if (sessionId) delete this.contexts[sessionId];
+    if (saveName) delete this.saveSessions[saveName];
+    if (this.activeSessionId === sessionId) this.activeSessionId = null;
     this.companions = [];
-    this.aiSuggestions = [];
-  }
+  },
 });

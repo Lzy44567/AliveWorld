@@ -32,18 +32,23 @@ watch(() => gameStore.sessionId, async (sessionId) => {
 
 const initWorldState = async () => {
   if (!gameStore.sessionId || gameStore.isProcessing) return;
-  gameStore.isProcessing = true;
+  const sessionId = gameStore.sessionId;
+  if (!gameStore.beginTask(sessionId, 'initialize')) return;
   try {
-    const res = await gameApi.processAction(gameStore.sessionId, {
+    const res = await gameApi.processAction(sessionId, {
       action: "【系统指令：世界初始化】请根据宇宙法则建立状态条(dynamic_bars)与人物属性(status_updates)，需包含'当前时间'属性，不要续写剧情。",
       plot_compass: configStore.story.plotCompass
     });
     const newMsgs = res.chat_messages.filter(m => m.role !== 'user');
-    gameStore.chatLog.push(...newMsgs);
-    gameStore.syncState(res.state);
-    gameStore.setActionSuggestions(res.action_suggestions);
-  } catch (err) { uiStore.showToast("初始化失败", "error");
-  } finally { gameStore.isProcessing = false; }
+    gameStore.finishTask(sessionId, context => {
+      context.chatLog.push(...newMsgs);
+      gameStore.syncState(res.state, sessionId);
+      gameStore.setActionSuggestions(res.action_suggestions, sessionId);
+    });
+  } catch (err) {
+    gameStore.failTask(sessionId, err);
+    uiStore.showToast("初始化失败", "error");
+  }
 };
 </script>
 

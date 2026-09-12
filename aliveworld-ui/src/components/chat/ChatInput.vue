@@ -1,6 +1,6 @@
 <!-- src/components/chat/ChatInput.vue -->
 <script setup>
-import { ref, watch } from 'vue';
+import { watch } from 'vue';
 import { gameStore } from '../../store/gameStore';
 import { configStore, effectiveStorySettings } from '../../store/configStore';
 import { gameApi } from '../../api/gameApi';
@@ -10,21 +10,20 @@ import { preferenceApi } from '../../api/preferenceApi';
 import { preferenceStore } from '../../store/preferenceStore';
 import { parsePreferenceMeta } from '../../utils/preferenceMeta';
 
-const userInput = ref("");
-const lastAction = ref("");
 watch(() => effectiveStorySettings.value.aiSuggestions, (enabled) => {
   if (!enabled) gameStore.setActionSuggestions([]);
 });
 
 const submitAction = async (text = null) => {
-  const rawInput = text || userInput.value.trim();
+  const rawInput = text || gameStore.draftInput.trim();
   if (!rawInput || !gameStore.sessionId || gameStore.isProcessing) return;
+  const sessionId = gameStore.sessionId;
   const { action: finalAction, declarations } = parsePreferenceMeta(rawInput);
   if (!finalAction && !declarations.length) return;
 
   for (const declaration of declarations) {
     try {
-      await preferenceApi.declare(declaration, gameStore.sessionId);
+      await preferenceApi.declare(declaration, sessionId);
     } catch (error) {
       uiStore.showToast(error.message, 'error');
     }
@@ -33,69 +32,79 @@ const submitAction = async (text = null) => {
     preferenceStore.refresh().catch(() => {});
     uiStore.showToast(finalAction ? '偏好已记录，继续执行本回合行动' : '偏好已记录，不消耗故事回合');
   }
-  userInput.value = "";
+  gameStore.draftInput = "";
   if (!finalAction) return;
   
-  gameStore.chatLog.push({ role: "user", content: finalAction });
-  lastAction.value = finalAction;
-  gameStore.isProcessing = true;
-  gameStore.setActionSuggestions([]);
+  const context = gameStore.beginTask(sessionId, 'turn');
+  if (!context) return;
+  context.chatLog.push({ role: "user", content: finalAction });
+  context.lastAction = finalAction;
+  gameStore.setActionSuggestions([], sessionId);
   scrollToBottom();
   
   try {
-    const res = await gameApi.processAction(gameStore.sessionId, {
+    const res = await gameApi.processAction(sessionId, {
       action: finalAction,
       plot_compass: configStore.story.plotCompass
     });
     
     const newMsgs = res.chat_messages.filter(m => m.role !== 'user');
-    gameStore.chatLog.push(...newMsgs);
-    gameStore.syncState(res.state);
-    gameStore.setActionSuggestions(res.action_suggestions);
+    gameStore.finishTask(sessionId, target => {
+      target.chatLog.push(...newMsgs);
+      gameStore.syncState(res.state, sessionId);
+      gameStore.setActionSuggestions(res.action_suggestions, sessionId);
+    });
   } catch (err) {
-    gameStore.chatLog.push({ role: "system", content: `⚠️ ${err.message || '推演失败，本回合未保存。'}` });
+    context.chatLog.push({ role: "system", content: `⚠️ ${err.message || '推演失败，本回合未保存。'}` });
+    gameStore.failTask(sessionId, err);
   } finally {
-    gameStore.isProcessing = false;
-    assetStore.fetchLocalAssets(gameStore.sessionId);
+    if (context.isProcessing) gameStore.failTask(sessionId, '请求未正常完成');
+    if (gameStore.sessionId === sessionId) assetStore.fetchLocalAssets(sessionId);
     preferenceStore.refresh().catch(() => {});
-    scrollToBottom();
+    if (gameStore.sessionId === sessionId) scrollToBottom();
   }
 };
 
 const undoTurn = async () => {
   if (!gameStore.sessionId || gameStore.isProcessing) return;
-  gameStore.isProcessing = true;
+  const sessionId = gameStore.sessionId;
+  if (!gameStore.beginTask(sessionId, 'undo')) return;
   try {
-    const res = await gameApi.undoTurn(gameStore.sessionId);
-    gameStore.chatLog = res.chat_messages;
-    gameStore.syncState(res.state);
-    gameStore.setActionSuggestions(res.action_suggestions);
+    const res = await gameApi.undoTurn(sessionId);
+    gameStore.finishTask(sessionId, context => {
+      context.chatLog = res.chat_messages;
+      gameStore.syncState(res.state, sessionId);
+      gameStore.setActionSuggestions(res.action_suggestions, sessionId);
+    });
   } catch (err) {
-    // 撤回失败静默处理
+    gameStore.failTask(sessionId, err);
   } finally {
-    gameStore.isProcessing = false;
-    assetStore.fetchLocalAssets(gameStore.sessionId);
-    scrollToBottom();
+    if (gameStore.sessionId === sessionId) assetStore.fetchLocalAssets(sessionId);
+    if (gameStore.sessionId === sessionId) scrollToBottom();
   }
 };
 
 const retryTurn = async () => {
-  if (!gameStore.sessionId || gameStore.isProcessing || !lastAction.value) return;
-  gameStore.isProcessing = true;
+  if (!gameStore.sessionId || gameStore.isProcessing || !gameStore.lastAction) return;
+  const sessionId = gameStore.sessionId;
+  const lastAction = gameStore.lastAction;
+  if (!gameStore.beginTask(sessionId, 'retry')) return;
   try {
-    const res = await gameApi.retryTurn(gameStore.sessionId, {
-      action: lastAction.value,
+    const res = await gameApi.retryTurn(sessionId, {
+      action: lastAction,
       plot_compass: configStore.story.plotCompass
     });
-    gameStore.chatLog = res.full_chat;
-    gameStore.syncState(res.state);
-    gameStore.setActionSuggestions(res.action_suggestions);
+    gameStore.finishTask(sessionId, context => {
+      context.chatLog = res.full_chat;
+      gameStore.syncState(res.state, sessionId);
+      gameStore.setActionSuggestions(res.action_suggestions, sessionId);
+    });
   } catch (err) {
-    alert("重试失败");
+    gameStore.failTask(sessionId, err);
+    uiStore.showToast(err.message || '重试失败', 'error');
   } finally {
-    gameStore.isProcessing = false;
-    assetStore.fetchLocalAssets(gameStore.sessionId);
-    scrollToBottom();
+    if (gameStore.sessionId === sessionId) assetStore.fetchLocalAssets(sessionId);
+    if (gameStore.sessionId === sessionId) scrollToBottom();
   }
 };
 
@@ -109,8 +118,8 @@ const scrollToBottom = () => {
 };
 
 const insertPreference = () => {
-  userInput.value = userInput.value.trim()
-    ? `${userInput.value.trim()} [[偏好：]]`
+  gameStore.draftInput = gameStore.draftInput.trim()
+    ? `${gameStore.draftInput.trim()} [[偏好：]]`
     : '/偏好 ';
 };
 </script>
@@ -126,7 +135,7 @@ const insertPreference = () => {
       </div>
 
       <div class="relative flex gap-3 drop-shadow-2xl">
-        <input data-testid="story-action-input" v-model="userInput" @keyup.enter="submitAction()" :disabled="!gameStore.sessionId" class="flex-1 bg-slate-900 border border-slate-600 rounded-xl px-5 py-4 outline-none focus:border-indigo-500 text-slate-100 placeholder-slate-500 shadow-inner text-base" placeholder="描述你的行动，或输入 A / 1 并补充要求..." />
+        <input data-testid="story-action-input" v-model="gameStore.draftInput" @keyup.enter="submitAction()" :disabled="!gameStore.sessionId" class="flex-1 bg-slate-900 border border-slate-600 rounded-xl px-5 py-4 outline-none focus:border-indigo-500 text-slate-100 placeholder-slate-500 shadow-inner text-base" placeholder="描述你的行动，或输入 A / 1 并补充要求..." />
 
         <button @click="insertPreference" :disabled="!gameStore.sessionId || gameStore.isProcessing" class="px-3 py-2 rounded-xl border border-fuchsia-800/70 bg-fuchsia-950/40 text-xs text-fuchsia-200 hover:bg-fuchsia-900/50 disabled:opacity-40" title="插入玩家偏好说明；这部分不会成为角色台词">🪞 偏好</button>
         

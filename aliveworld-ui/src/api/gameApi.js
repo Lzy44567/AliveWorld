@@ -12,7 +12,10 @@ export const gameApi = {
   },
   async loadGame(saveName) {
     const res = await fetch(`${API_URL}/load`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ save_name: saveName }) });
-    if (!res.ok) throw new Error("载入失败");
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.detail || "载入失败");
+    }
     return res.json();
   },
   async processAction(sessionId, payload) {
@@ -76,18 +79,27 @@ export const gameApi = {
   },
   async undoTurn(sessionId) {
     const res = await fetch(`${API_URL}/${sessionId}/undo`, { method: 'POST' });
-    if (!res.ok) throw new Error("撤回失败");
+    if (!res.ok) {
+      const payload = await res.json().catch(() => ({}));
+      throw new Error(payload.detail || "撤回失败");
+    }
     return res.json();
   },
   async retryTurn(sessionId, payload) {
     const res = await fetch(`${API_URL}/${sessionId}/retry`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-    if (!res.ok) throw new Error("重试失败");
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.detail || "重试失败");
+    }
     return res.json();
   },
   // 🚀 新增：专门为了“重掷未来”开辟的端点
   async rerollTurn(sessionId, payload) {
     const res = await fetch(`${API_URL}/${sessionId}/reroll`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-    if (!res.ok) throw new Error("重掷失败");
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.detail || "重掷失败");
+    }
     return res.json();
   },
   async pullAsset(sessionId, payload) {
