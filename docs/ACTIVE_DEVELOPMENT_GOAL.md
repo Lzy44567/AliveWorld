@@ -19,7 +19,7 @@ Deliver one coherent, testable development node in which:
 7. implementation notes and release notes are categorized by feature area;
 8. another AI session can resume from repository evidence rather than the prior chat transcript.
 
-The version remains `1.6.0-dev.10` until these slices are integrated and release readiness is reviewed. No GitHub push or Release is part of this goal unless separately authorized.
+The integrated node is versioned `1.6.0-dev.11`. On 2026-09-13 the user explicitly authorized a Windows portable build, GitHub push, and prerelease so it can be updated and tested.
 
 ## Architecture finding
 
@@ -95,7 +95,7 @@ The codebase is moderately well modularized, not “completely independent by fi
 | 2 | Complete | 327/327 Python tests; frontend build 124 modules; targeted Edge publish/reopen flow 2/2 passed; commit `458b1bc` | Preserve immutable workshop history contract |
 | 3 | Complete | Prompt/auth/API/composition/trace 15/15; frontend build 126 modules; Edge override/restore 1/1 | Commit prompt studio slice |
 | 4 | Complete | Keyed lock/session tests 3/3; frontend build 126 modules; deterministic concurrency Edge flows 6/6 | Commit keyed concurrency slice |
-| 5 | Complete | Python 338/338; frontend build 126 modules; Playwright/Edge 22/22; categorized changelogs and current component audit updated | Commit the integration evidence; version/package/push remain a separate user decision |
+| 5 | Release in progress | Python 338/338; frontend build 126 modules; Playwright/Edge 22/22; categorized changelogs and current component audit updated | Build and smoke-test `1.6.0-dev.11`, then push/tag/publish the authorized prerelease |
 
 ## Slice 1 implementation notes
 
