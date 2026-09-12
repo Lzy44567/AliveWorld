@@ -95,7 +95,7 @@ The codebase is moderately well modularized, not “completely independent by fi
 | 2 | Complete | 327/327 Python tests; frontend build 124 modules; targeted Edge publish/reopen flow 2/2 passed; commit `458b1bc` | Preserve immutable workshop history contract |
 | 3 | Complete | Prompt/auth/API/composition/trace 15/15; frontend build 126 modules; Edge override/restore 1/1 | Commit prompt studio slice |
 | 4 | Complete | Keyed lock/session tests 3/3; frontend build 126 modules; deterministic concurrency Edge flows 6/6 | Commit keyed concurrency slice |
-| 5 | Release in progress | Python 338/338; frontend build 126 modules; Playwright/Edge 22/22; categorized changelogs and current component audit updated | Build and smoke-test `1.6.0-dev.11`, then push/tag/publish the authorized prerelease |
+| 5 | Complete / release ready | Python 338/338; frontend build 126 modules; Playwright/Edge 22/22; portable verification passed; packaged health reports `1.6.0-dev.11` and `packaged=true` | Push development branch and main, tag and publish the authorized prerelease |
 
 ## Slice 1 implementation notes
 
