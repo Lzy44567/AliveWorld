@@ -22,7 +22,7 @@
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\run_checks.ps1
 ```
 
-它会运行 Python 单元测试、前端可见性测试和前端生产构建。网络、真实 API 和真实模型不在自动检查范围内。
+它会优先使用仓库 `.venv\Scripts\python.exe`（不存在时才使用系统 `python`），并运行 Python 单元测试、前端可见性测试和前端生产构建。这样迁移电脑或系统 Python 版本后，不会误用缺少项目依赖的解释器。网络、真实 API 和真实模型不在自动检查范围内。
 
 ## 玩家界面端到端验收
 

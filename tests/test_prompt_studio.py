@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 
 from core.prompt_studio import PromptOverrideStore, compose_prompt, require_slice, validate_template
+from core.prompt_variables import VARIABLES, list_variables, resolve_variable
 
 
 class PromptStudioTests(unittest.TestCase):
@@ -42,6 +43,67 @@ class PromptStudioTests(unittest.TestCase):
             validate_template(definition, "只有 {world_info}")
         with self.assertRaisesRegex(ValueError, "未知变量"):
             validate_template(definition, "{world_info} {character_info} {secret}")
+
+    def test_canonical_variables_and_legacy_aliases_render_identically(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            store = PromptOverrideStore(Path(temporary) / "overrides.json")
+            store.save("story.future.core", "{{context.world}}；{{context.player_character}}")
+            canonical = compose_prompt(
+                "story.future",
+                {"context.world": "世界A", "context.player_character": "角色A"},
+                include={"story.future.core"}, store=store,
+            )
+            legacy = compose_prompt(
+                "story.future", {"world_info": "世界A", "character_info": "角色A"},
+                include={"story.future.core"}, store=store,
+            )
+            self.assertEqual(canonical.text, legacy.text)
+            self.assertEqual(canonical.text, "世界A；角色A")
+
+    def test_canonical_value_wins_and_whitespace_is_supported(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            store = PromptOverrideStore(Path(temporary) / "overrides.json")
+            store.save(
+                "story.future.core",
+                "世界={{   context.world   }}；角色={{context.player_character}}",
+            )
+            result = compose_prompt(
+                "story.future",
+                {
+                    "world_info": "旧调用值",
+                    "context.world": "规范值",
+                    "context.player_character": "角色",
+                },
+                include={"story.future.core"},
+                store=store,
+            )
+            self.assertEqual(result.text, "世界=规范值；角色=角色")
+
+    def test_variable_registry_has_unique_safe_metadata(self):
+        ids = [item.id for item in VARIABLES]
+        aliases = [alias for item in VARIABLES for alias in item.legacy_aliases]
+        self.assertEqual(len(ids), len(set(ids)))
+        self.assertEqual(len(aliases), len(set(aliases)))
+        self.assertTrue(all(item.description and item.allowed_tasks for item in VARIABLES))
+        self.assertFalse(any("key" in item.id.lower() or "password" in item.id.lower() for item in VARIABLES))
+        self.assertEqual(resolve_variable("world_info").id, "context.world")
+        self.assertEqual(list_variables()[0]["syntax"], "{{context.world}}")
+
+    def test_manifest_exposes_layers_and_stable_prefix_hashes(self):
+        first = compose_prompt(
+            "story.future", {"world_info": "世界A", "character_info": "角色A"},
+            include={"story.future.core"},
+            runtime_parts=[("story.future.runtime", "行动一", "runtime")],
+        )
+        second = compose_prompt(
+            "story.future", {"world_info": "世界A", "character_info": "角色A"},
+            include={"story.future.core"},
+            runtime_parts=[("story.future.runtime", "行动二", "runtime")],
+        )
+        self.assertEqual(first.manifest[0]["prefixHash"], second.manifest[0]["prefixHash"])
+        self.assertNotEqual(first.manifest[-1]["prefixHash"], second.manifest[-1]["prefixHash"])
+        self.assertEqual(first.manifest[0]["layer"], "engine")
+        self.assertEqual(first.manifest[-1]["cacheClass"], "turn")
 
     def test_unmigrated_slice_cannot_be_overridden(self):
         with tempfile.TemporaryDirectory() as temporary:

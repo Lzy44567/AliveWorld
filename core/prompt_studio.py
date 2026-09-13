@@ -15,6 +15,7 @@ from typing import Callable, Mapping
 from core.action_suggestions import action_suggestion_instruction
 from core.player_agency import player_agency_instruction
 from core.prompts import load_system_prompts
+from core.prompt_variables import normalize_values, render_variable, require_variable, resolve_variable
 from core.story_continuity import continuity_instruction
 from core.story_length import story_length_instruction
 from utils.runtime_paths import PATHS
@@ -31,6 +32,9 @@ class PromptSlice:
     editable: bool
     variables: tuple[str, ...]
     default_factory: Callable[[], str]
+    layer: str = "feature"
+    cache_class: str = "static"
+    required: bool = False
 
 
 def _yaml_prompt(key: str) -> Callable[[], str]:
@@ -40,27 +44,28 @@ def _yaml_prompt(key: str) -> Callable[[], str]:
 SLICES: tuple[PromptSlice, ...] = (
     PromptSlice("story.future.core", "story.future", "近期未来核心", "system", 100,
                 "生成候选未来、行动裁定与暗流条件判断。", True,
-                ("world_info", "character_info"), _yaml_prompt("reaction_prompt")),
+                ("context.world", "context.player_character"), _yaml_prompt("reaction_prompt"),
+                "engine", "session", True),
     PromptSlice("story.future.player_agency", "story.future", "玩家行动权", "system", 200,
                 "区分玩家可确定事实与需要世界裁定的外部结果。", True, (),
-                lambda: player_agency_instruction()),
+                lambda: player_agency_instruction(), "engine", "static", True),
     PromptSlice("story.future.continuity", "story.future", "剧情连续性", "system", 300,
                 "约束信息通道、客观事实与外部介入。", True, (), continuity_instruction),
     PromptSlice("story.settlement.core", "story.settlement", "正文结算核心", "system", 100,
                 "续写正文并返回状态、世界书捕获等结构字段。", True,
-                ("style_info", "world_info", "character_info"),
-                _yaml_prompt("settlement_prompt")),
+                ("context.style", "context.world", "context.player_character"),
+                _yaml_prompt("settlement_prompt"), "engine", "session", True),
     PromptSlice("story.settlement.player_agency", "story.settlement", "玩家行动权", "system", 200,
                 "禁止正文替玩家新增重大决定。", True, (),
-                lambda: player_agency_instruction(require_output=False)),
+                lambda: player_agency_instruction(require_output=False), "engine", "static", True),
     PromptSlice("story.settlement.continuity", "story.settlement", "剧情连续性", "system", 300,
                 "保持事实、信息通道和场景对象连续。", True, (), continuity_instruction),
     PromptSlice("story.settlement.length", "story.settlement", "正文篇幅", "system", 500,
-                "根据单局设置动态生成篇幅要求。", False, ("target_story_length",),
-                lambda: story_length_instruction(500)),
+                "根据单局设置动态生成篇幅要求。", False, ("settings.story_length",),
+                lambda: story_length_instruction(500), "feature", "configuration"),
     PromptSlice("story.settlement.suggestions", "story.settlement", "快捷行动", "system", 800,
-                "仅在启用快捷行动按钮时动态加入。", False, ("enabled",),
-                lambda: action_suggestion_instruction(True)),
+                "仅在启用快捷行动按钮时动态加入。", False, ("settings.action_suggestions",),
+                lambda: action_suggestion_instruction(True), "feature", "configuration"),
     PromptSlice("world.capture.runtime", "world.capture", "世界观设定捕获", "system", 100,
                 "当前由世界书捕获模块维护；尚未迁移到可编辑注册表。", False, (), lambda: ""),
     PromptSlice("workshop.runtime", "workshop", "工坊协作", "system", 100,
@@ -68,7 +73,8 @@ SLICES: tuple[PromptSlice, ...] = (
 )
 
 SLICE_BY_ID = {item.id: item for item in SLICES}
-_VARIABLE_RE = re.compile(r"(?<!\{)\{([a-zA-Z_][a-zA-Z0-9_]*)\}(?!\})")
+_CANONICAL_VARIABLE_RE = re.compile(r"\{\{\s*([a-z][a-z0-9_.]*)\s*\}\}")
+_LEGACY_VARIABLE_RE = re.compile(r"(?<!\{)\{([a-zA-Z_][a-zA-Z0-9_]*)\}(?!\})")
 
 
 def _atomic_json(path: Path, value: object) -> None:
@@ -131,7 +137,14 @@ def require_slice(slice_id: str) -> PromptSlice:
 
 
 def template_variables(content: str) -> set[str]:
-    return set(_VARIABLE_RE.findall(content))
+    found: set[str] = set()
+    for name in _CANONICAL_VARIABLE_RE.findall(content):
+        definition = resolve_variable(name)
+        found.add(definition.id if definition else name)
+    for name in _LEGACY_VARIABLE_RE.findall(content):
+        definition = resolve_variable(name)
+        found.add(definition.id if definition else name)
+    return found
 
 
 def validate_template(definition: PromptSlice, content: str) -> None:
@@ -166,6 +179,10 @@ def slice_view(definition: PromptSlice, store: PromptOverrideStore | None = None
         "description": definition.description,
         "editable": definition.editable,
         "variables": list(definition.variables),
+        "variableDetails": [require_variable(item).view() for item in definition.variables],
+        "layer": definition.layer,
+        "cacheClass": definition.cache_class,
+        "required": definition.required,
         "baseline": baseline,
         "active": active,
         "source": "override" if override else "builtin",
@@ -190,7 +207,8 @@ def compose_prompt(
     baselines: Mapping[str, str] | None = None,
 ) -> ComposedPrompt:
     store = store or PromptOverrideStore()
-    parts: list[tuple[int, str, str, str, int | None]] = []
+    normalized_variables = normalize_values(dict(variables))
+    parts: list[tuple[int, str, str, str, int | None, str, str, str]] = []
     for definition in SLICES:
         if definition.task != task or (include is not None and definition.id not in include):
             continue
@@ -200,21 +218,29 @@ def compose_prompt(
         if not view["active"]:
             continue
         rendered = view["active"]
-        for name in definition.variables:
-            rendered = rendered.replace("{" + name + "}", str(variables.get(name, "")))
-        parts.append((definition.priority, definition.id, rendered, view["source"], view["overrideVersion"]))
+        for variable_id in definition.variables:
+            rendered = render_variable(
+                rendered, require_variable(variable_id), normalized_variables.get(variable_id, "")
+            )
+        parts.append((
+            definition.priority, definition.id, rendered, view["source"], view["overrideVersion"],
+            definition.layer, definition.slot, definition.cache_class,
+        ))
     for index, (part_id, content, reason) in enumerate(runtime_parts or [], start=1):
         if content:
-            parts.append((900 + index, part_id, content, reason, None))
+            parts.append((900 + index, part_id, content, reason, None, "runtime", "system", "turn"))
     parts.sort(key=lambda item: (item[0], item[1]))
-    manifest = [
-        {
+    manifest = []
+    prefix_parts: list[str] = []
+    for item in parts:
+        prefix_parts.append(item[2])
+        manifest.append({
             "sliceId": item[1], "source": item[3], "overrideVersion": item[4],
+            "layer": item[5], "slot": item[6], "cacheClass": item[7],
             "estimatedTokens": _estimate_tokens(item[2]),
             "contentHash": hashlib.sha256(item[2].encode("utf-8")).hexdigest()[:16],
-        }
-        for item in parts
-    ]
+            "prefixHash": hashlib.sha256("\n\n".join(prefix_parts).encode("utf-8")).hexdigest()[:16],
+        })
     return ComposedPrompt("\n\n".join(item[2] for item in parts), manifest)
 
 

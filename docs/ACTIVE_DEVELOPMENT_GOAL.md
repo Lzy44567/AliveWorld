@@ -1,6 +1,6 @@
 # Active development goal
 
-Updated: 2026-09-13
+Updated: 2026-09-14
 
 ## Current dev.12 patch
 
@@ -9,7 +9,8 @@ Updated: 2026-09-13
 - Completion evidence: production frontend build, targeted Playwright assertions for special bubbles and expanded editing, documentation review, and a Git commit.
 - Next verifiable slice after this patch: a read-only `PromptVariableRegistry` with searchable hover/click help, legacy aliases and composition-equivalence tests; then add layer/cache metadata before splitting the state-bar contract from `story.settlement.core`.
 - Design record: [`features/20_prompt_layers_variable_registry_and_backlog_audit.md`](features/20_prompt_layers_variable_registry_and_backlog_audit.md).
-- Status: complete. Frontend production build passed with 126 modules and the complete Playwright/Edge suite passed 22/22; runtime prompt text was intentionally left unchanged.
+- Status: complete. Canonical variables, legacy aliases, safe metadata API, searchable explanations, cursor insertion and prefix hashes are implemented without changing runtime prompt text or model-call count. Python regression passed 342/342, the production frontend build passed with 126 modules, and the complete Playwright/Edge suite passed 22/22.
+- Next verifiable slice: design and lock byte-level equivalence fixtures for extracting `story.state.contract` and `story.state.guidance` from the settlement core; do not implement content presets or rearrange prompt order in the same slice.
 
 The completed dev.11 release node remains recorded below as historical evidence.
 

@@ -1,6 +1,6 @@
 # 更新日志
 
-## [v1.6.0-dev.12] - 2026-09-13 - Expanded editor and prompt architecture audit
+## [v1.6.0-dev.12] - 2026-09-14 - Expanded editor and prompt architecture audit
 
 ### Frontend
 
@@ -12,11 +12,14 @@
 
 - Added the prompt layer, variable registry, state-slice migration and v1.5—v1.6 backlog design record without changing runtime prompt composition.
 - Defined accessible variable help, module contribution contracts, preset authority, sensitive-value boundaries and provider-neutral stable-prefix caching.
+- Implemented the first canonical prompt-variable registry with legacy aliases, task-scoped validation, searchable hover/click help and cursor insertion.
+- Prompt manifests now expose layer, slot, cache class and cumulative prefix hashes without exposing rendered prompt content or claiming provider cache hits.
 
 ### Verification
 
+- Python regression passed 342/342.
 - Frontend production build passed with 126 transformed modules.
-- Full Playwright/Edge acceptance passed 22/22.
+- Full Playwright/Edge acceptance passed 22/22, including variable search, help, cursor insertion and prompt restoration.
 
 ## [v1.6.0-dev.11] - 2026-09-13 - 游戏工作区、并发与开发接手协议
 

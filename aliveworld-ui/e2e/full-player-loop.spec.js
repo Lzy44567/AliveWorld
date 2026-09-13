@@ -587,6 +587,16 @@ test('开发者密码保护真实提示词切片并支持覆盖与恢复', async
   await futureCore.click();
   const editor = page.getByTestId('prompt-slice-editor');
   const baseline = await editor.inputValue();
+  const variableBrowser = page.getByTestId('prompt-variable-browser');
+  await variableBrowser.getByText(/变量表/).click();
+  await page.getByTestId('prompt-variable-search').fill('玩家角色');
+  const variableHelp = variableBrowser.getByRole('button', { name: /玩家角色设定/ }).first();
+  await expect(variableHelp).toHaveAttribute('title', /当前由玩家扮演的角色资料/);
+  await editor.focus();
+  await editor.press('Control+End');
+  await variableBrowser.getByRole('button', { name: '插入变量：玩家角色设定' }).click();
+  await expect(editor).toHaveValue(`${baseline}{{context.player_character}}`);
+  await editor.fill(baseline);
   await editor.locator('..').getByTestId('expand-textarea').click();
   await expect(page.getByTestId('expanded-textarea-dialog')).toBeVisible();
   await page.getByTestId('expanded-textarea-close').click();

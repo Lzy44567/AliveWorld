@@ -27,6 +27,11 @@ class DeveloperRoutesTests(unittest.TestCase):
                 listing = client.get("/api/v1/developer/prompts", headers=headers)
                 self.assertEqual(listing.status_code, 200)
                 item = next(value for value in listing.json()["slices"] if value["id"] == "story.future.core")
+                variable = next(value for value in listing.json()["variables"] if value["id"] == "context.world")
+                self.assertEqual(variable["syntax"], "{{context.world}}")
+                self.assertNotIn("value", variable)
+                self.assertEqual(item["variableDetails"][0]["label"], "世界与当前因果上下文")
+                self.assertEqual(item["layer"], "engine")
                 changed = item["baseline"] + "\n附加测试规则"
                 saved = client.put(
                     "/api/v1/developer/prompts/story.future.core",

@@ -12,7 +12,21 @@ defineProps({
 const model = defineModel({ type: String, default: '' });
 const attrs = useAttrs();
 const expanded = ref(false);
+const inlineEditor = ref(null);
 const expandedEditor = ref(null);
+
+async function insertText(text) {
+  const editor = expanded.value ? expandedEditor.value : inlineEditor.value;
+  const start = editor?.selectionStart ?? model.value.length;
+  const end = editor?.selectionEnd ?? start;
+  model.value = `${model.value.slice(0, start)}${text}${model.value.slice(end)}`;
+  await nextTick();
+  const activeEditor = expanded.value ? expandedEditor.value : inlineEditor.value;
+  activeEditor?.focus();
+  activeEditor?.setSelectionRange(start + text.length, start + text.length);
+}
+
+defineExpose({ insertText });
 
 watch(expanded, async value => {
   if (!value) return;
@@ -23,7 +37,7 @@ watch(expanded, async value => {
 
 <template>
   <div class="group/expandable-textarea relative min-w-0" :class="wrapperClass">
-    <textarea v-model="model" v-bind="attrs" :aria-label="attrs['aria-label'] || label" :placeholder="placeholder" :class="textareaClass" class="block w-full pr-10" />
+    <textarea ref="inlineEditor" v-model="model" v-bind="attrs" :aria-label="attrs['aria-label'] || label" :placeholder="placeholder" :class="textareaClass" class="block w-full pr-10" />
     <span
       role="button"
       tabindex="0"
