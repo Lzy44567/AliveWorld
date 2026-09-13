@@ -68,7 +68,7 @@ const doReroll = async () => {
       <details class="group">
         <summary class="cursor-pointer px-4 py-2.5 text-xs text-amber-400 font-bold flex justify-between items-center hover:bg-amber-900/50 transition select-none">
           <span>🎲 观测到 {{ msg.content.length }} 种时间线</span>
-          <span class="ml-auto flex items-center gap-2"><CopyTextButton :text="copyableText" /><span class="group-open:rotate-180 transition">▼</span></span>
+          <span class="ml-auto group-open:rotate-180 transition">▼</span>
         </summary>
         <div class="px-4 py-3 border-t border-amber-900/50 space-y-2">
           <div v-for="r in msg.content" :key="r.id" class="flex items-start gap-3 text-xs bg-black/40 p-2 rounded hover:bg-black/60 transition" :class="r.eligible === false ? 'text-slate-500' : 'text-amber-200'">
@@ -87,7 +87,7 @@ const doReroll = async () => {
     <!-- 🎯 命运掷骰裁定结果 -->
     <div v-else-if="msg.role === 'system' && effectiveStorySettings.showDice" class="text-xs text-rose-400 mb-2 px-4 py-2 bg-rose-950/80 border border-rose-700/50 rounded-lg backdrop-blur-md italic shadow-md max-w-[85%] flex justify-between items-center gap-2 group select-text">
       <span>{{ msg.content }}</span>
-      <span class="flex shrink-0 items-center gap-2"><CopyTextButton :text="copyableText" /><button v-if="effectiveStorySettings.allowReroll" @click="doReroll" class="hidden group-hover:block px-3 py-1 bg-rose-800 hover:bg-rose-600 text-white rounded text-[10px] font-bold transition shadow">🔄 重掷</button></span>
+      <button v-if="effectiveStorySettings.allowReroll" @click="doReroll" class="hidden shrink-0 group-hover:block px-3 py-1 bg-rose-800 hover:bg-rose-600 text-white rounded text-[10px] font-bold transition shadow">🔄 重掷</button>
     </div>
 
     <!-- 🌌 暗流实体推演结果 -->

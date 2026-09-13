@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue';
 import { feedbackApi } from '../../api/feedbackApi';
+import ExpandableTextarea from '../common/ExpandableTextarea.vue';
 
 const categories = [
   ['bug', '功能错误'], ['ui', '界面与交互'], ['model', '模型与网络'],
@@ -81,14 +82,14 @@ async function openIssue() {
     </label>
     <div class="grid gap-3 sm:grid-cols-2">
       <label class="text-sm text-slate-300">实际发生了什么
-        <textarea v-model="form.actual" rows="4" class="mt-1 w-full resize-y rounded-lg border border-slate-600 bg-slate-950 px-3 py-2"></textarea>
+        <ExpandableTextarea v-model="form.actual" label="实际发生了什么" rows="4" textarea-class="mt-1 resize-y rounded-lg border border-slate-600 bg-slate-950 px-3 py-2" />
       </label>
       <label class="text-sm text-slate-300">你期望看到什么
-        <textarea v-model="form.expected" rows="4" class="mt-1 w-full resize-y rounded-lg border border-slate-600 bg-slate-950 px-3 py-2"></textarea>
+        <ExpandableTextarea v-model="form.expected" label="你期望看到什么" rows="4" textarea-class="mt-1 resize-y rounded-lg border border-slate-600 bg-slate-950 px-3 py-2" />
       </label>
     </div>
     <label class="block text-sm text-slate-300">复现步骤（可选）
-      <textarea v-model="form.steps" rows="3" class="mt-1 w-full resize-y rounded-lg border border-slate-600 bg-slate-950 px-3 py-2"></textarea>
+      <ExpandableTextarea v-model="form.steps" label="反馈：复现步骤" rows="3" textarea-class="mt-1 resize-y rounded-lg border border-slate-600 bg-slate-950 px-3 py-2" />
     </label>
 
     <details v-if="context.recent_events?.length" class="rounded-xl border border-slate-700 bg-slate-900/40 p-3">

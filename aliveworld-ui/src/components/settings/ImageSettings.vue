@@ -5,6 +5,7 @@ import { uiStore } from '../../store/uiStore';
 import { imageApi } from '../../api/imageApi';
 import { connectionStore } from '../../store/connectionStore';
 import WorkflowProfileEditor from './WorkflowProfileEditor.vue';
+import ExpandableTextarea from '../common/ExpandableTextarea.vue';
 
 const checking = ref(false);
 const testing = ref(false);
@@ -143,7 +144,7 @@ onBeforeUnmount(() => { if (testPollHandle) window.clearInterval(testPollHandle)
         <option v-for="item in checkpoints" :key="item" :value="item">{{ item }}</option>
       </select>
     </label>
-    <label v-if="needsCheckpoint && configStore.globalSettings.imageCheckpoint" class="block"><span class="field-label">当前模型特性说明（可选）</span><textarea v-model="currentModelProfile" rows="2" class="field-input resize-y" placeholder="例如：偏好 Danbooru 英文标签、适合动漫人物、推荐的起始标签……" /></label>
+    <label v-if="needsCheckpoint && configStore.globalSettings.imageCheckpoint" class="block"><span class="field-label">当前模型特性说明（可选）</span><ExpandableTextarea v-model="currentModelProfile" label="当前生图模型特性" rows="2" textarea-class="field-input resize-y" placeholder="例如：偏好 Danbooru 英文标签、适合动漫人物、推荐的起始标签……" /></label>
     <p v-if="needsCheckpoint" class="-mt-3 text-[10px] text-slate-500">内置工作流没有预设模型，因此需要从本机选择。导入工作流默认使用其自身模型，不会被这里覆盖。</p>
     <label class="block"><span class="field-label">工作流</span>
       <select v-model="configStore.globalSettings.imageWorkflowId" class="field-input">
@@ -153,8 +154,8 @@ onBeforeUnmount(() => { if (testPollHandle) window.clearInterval(testPollHandle)
     <label class="action secondary inline-block cursor-pointer">{{ importing ? '导入中…' : '导入 ComfyUI API 工作流 JSON' }}<input type="file" accept="application/json,.json" class="hidden" :disabled="importing" @change="importWorkflow" /></label>
     <p class="text-[10px] text-slate-500">导入后会显示节点识别报告。宽高、张数等可选字段缺失时沿用工作流原值；正向提示词缺失时仅允许按原样测试。</p>
     <WorkflowProfileEditor v-if="configStore.globalSettings.imageWorkflowId" :workflow-id="configStore.globalSettings.imageWorkflowId" @loaded="workflowDetail=$event" />
-    <label class="block"><span class="field-label">默认负面提示词</span><textarea v-model="configStore.globalSettings.imageNegativePrompt" rows="3" class="field-input resize-y" /></label>
-    <label class="block"><span class="field-label">画风偏好提示（可空）</span><textarea v-model="configStore.globalSettings.imageStylePreference" rows="2" class="field-input resize-y" placeholder="例如：柔和厚涂、电影光影……" /></label>
+    <label class="block"><span class="field-label">默认负面提示词</span><ExpandableTextarea v-model="configStore.globalSettings.imageNegativePrompt" label="默认负面提示词" rows="3" textarea-class="field-input resize-y" /></label>
+    <label class="block"><span class="field-label">画风偏好提示（可空）</span><ExpandableTextarea v-model="configStore.globalSettings.imageStylePreference" label="画风偏好提示" rows="2" textarea-class="field-input resize-y" placeholder="例如：柔和厚涂、电影光影……" /></label>
     <label class="block"><span class="field-label">画面表现尺度（可空）</span><input v-model="configStore.globalSettings.imagePresentationLevel" class="field-input" placeholder="例如：唯美、若隐若现、露点……" /></label>
     <div class="rounded-lg border border-amber-800/60 bg-amber-950/20 p-3 text-[11px] text-amber-200/80">
       测试图会真实占用显卡并生成一张 512×512 的“窗边蓝色蝴蝶结白猫”；它不调用大语言模型，也不代表默认画风。

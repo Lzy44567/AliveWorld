@@ -219,7 +219,7 @@ function deleteAxiom(index) {
       </div>
 
       <div v-if="axiomEditor?.index === -1" class="mt-3 rounded-xl border border-amber-700/70 bg-amber-950/20 p-3">
-        <textarea v-model="axiomEditor.text" autofocus class="field h-28" placeholder="输入一条新的世界公理"></textarea>
+        <ExpandableTextarea v-model="axiomEditor.text" autofocus label="新增世界公理" textarea-class="field h-28" placeholder="输入一条新的世界公理" />
         <div class="mt-2 flex justify-end gap-1">
           <button class="small-button bg-slate-800" @click="axiomEditor = null">取消</button>
           <button class="small-button bg-amber-700 text-white" @click="saveAxiom">添加公理</button>
@@ -233,7 +233,7 @@ function deleteAxiom(index) {
           class="rounded-xl border border-amber-900/45 bg-amber-950/15 p-3"
         >
           <template v-if="axiomEditor?.index === index">
-            <textarea v-model="axiomEditor.text" autofocus class="field h-28"></textarea>
+            <ExpandableTextarea v-model="axiomEditor.text" autofocus label="编辑世界公理" textarea-class="field h-28" />
             <div class="mt-2 flex justify-end gap-1">
               <button class="small-button bg-slate-800" @click="axiomEditor = null">取消</button>
               <button class="small-button bg-amber-700 text-white" @click="saveAxiom">保存</button>

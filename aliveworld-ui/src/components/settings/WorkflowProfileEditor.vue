@@ -2,6 +2,7 @@
 import { computed, reactive, ref, watch } from 'vue';
 import { imageApi } from '../../api/imageApi';
 import { uiStore } from '../../store/uiStore';
+import ExpandableTextarea from '../common/ExpandableTextarea.vue';
 
 const props = defineProps({ workflowId: { type: String, required: true } });
 const emit = defineEmits(['loaded']);
@@ -90,8 +91,8 @@ watch(() => props.workflowId, load, { immediate:true });
         </div>
       </details>
 
-      <label class="mt-4 block"><span class="field-label">玩家固定正向补充</span><textarea v-model="form.player_positive" rows="2" class="field-input resize-y" placeholder="长期附加在 AI 场景提示词之后；留空即可" /></label>
-      <label class="mt-3 block"><span class="field-label">玩家固定负面补充</span><textarea v-model="form.player_negative" rows="2" class="field-input resize-y" placeholder="长期附加在工作流和本次负面词之后" /></label>
+      <label class="mt-4 block"><span class="field-label">玩家固定正向补充</span><ExpandableTextarea v-model="form.player_positive" label="玩家固定正向补充" rows="2" textarea-class="field-input resize-y" placeholder="长期附加在 AI 场景提示词之后；留空即可" /></label>
+      <label class="mt-3 block"><span class="field-label">玩家固定负面补充</span><ExpandableTextarea v-model="form.player_negative" label="玩家固定负面补充" rows="2" textarea-class="field-input resize-y" placeholder="长期附加在工作流和本次负面词之后" /></label>
       <details class="mt-3 rounded-lg border border-slate-700 bg-slate-950/70 p-3">
         <summary class="cursor-pointer text-xs font-bold text-slate-300">预览提示词合成顺序</summary>
         <div class="mt-2 space-y-2 text-[10px] leading-relaxed"><p><b class="text-emerald-300">正向：</b>{{ previewPositive || '尚无内容' }}</p><p><b class="text-rose-300">负向：</b>{{ previewNegative || '尚无内容' }}</p><p class="text-slate-500">尖括号内容会在每次生成时替换为 AI 根据当前场景整理的结果；排列顺序不等于模型的确定权重。</p></div>

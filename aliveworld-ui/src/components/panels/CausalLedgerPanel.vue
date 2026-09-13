@@ -6,6 +6,7 @@ import { uiStore } from '../../store/uiStore';
 import { assetStore } from '../../store/assetStore';
 import { consumePolicyLabel, influenceStatusLabel, influenceTypeLabel, sourceDeathLabel } from '../../utils/causalLedgerLabels';
 import { useDeleteConfirmation } from '../../composables/useDeleteConfirmation';
+import ExpandableTextarea from '../common/ExpandableTextarea.vue';
 
 const props = defineProps({ initialSource: { type: String, default: '' } });
 
@@ -69,8 +70,8 @@ onMounted(refresh);
       <input v-model="form.summary" class="ledger-input col-span-2" placeholder="影响摘要">
       <select v-model="form.type" class="ledger-input"><option value="one_shot">一次性</option><option value="persistent">持续性</option><option value="evolving">可演化</option></select>
       <select v-model="form.consume" class="ledger-input"><option value="on_success">触发后消失</option><option value="on_attempt">判断后消失</option><option value="after_n">触发 N 次后消失</option><option value="never">持续保留</option></select>
-      <textarea v-model="form.condition" class="ledger-input col-span-2 h-14" placeholder="触发条件" />
-      <textarea v-model="form.effect" class="ledger-input col-span-2 h-14" placeholder="兑现后果" />
+      <ExpandableTextarea v-model="form.condition" label="暗流触发条件" wrapper-class="col-span-2" textarea-class="ledger-input h-14" placeholder="触发条件" />
+      <ExpandableTextarea v-model="form.effect" label="暗流兑现后果" wrapper-class="col-span-2" textarea-class="ledger-input h-14" placeholder="兑现后果" />
       <input v-model="form.sources" class="ledger-input col-span-2" placeholder="来源实体，逗号分隔">
       <label class="text-[10px] text-slate-400">生命关联 {{ form.strength }}<input type="range" min="0" max="1" step="0.1" v-model="form.strength" class="w-full"></label>
       <select v-model="form.death" class="ledger-input"><option value="remove">来源死亡时移除</option><option value="release">来源死亡时释放</option><option value="keep">来源死亡后保留</option></select>

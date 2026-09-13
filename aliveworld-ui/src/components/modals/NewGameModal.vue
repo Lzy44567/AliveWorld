@@ -7,6 +7,7 @@ import { gameStore } from '../../store/gameStore';
 import { gameApi } from '../../api/gameApi';
 import { configStore } from '../../store/configStore';
 import { onboardingStore } from '../../store/onboardingStore';
+import ExpandableTextarea from '../common/ExpandableTextarea.vue';
 
 const prefill = uiStore.newGamePrefill || {};
 if (prefill.name) assetStore.newSaveName = prefill.name;
@@ -52,7 +53,7 @@ const startNewGame = async () => {
         <div><label class="text-xs font-bold text-slate-400 block mb-1">📝 时间线命名</label><input data-testid="new-game-name" v-model="assetStore.newSaveName" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-emerald-500" /></div>
         <div>
           <label class="text-xs font-bold text-slate-400 block mb-1">🌌 宇宙主导向简述 (选填)</label>
-          <textarea data-testid="new-game-premise" v-model="newSaveDesc" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-emerald-500 h-24 resize-none shadow-inner"></textarea>
+          <ExpandableTextarea data-testid="new-game-premise" v-model="newSaveDesc" label="新故事世界梗概" textarea-class="bg-slate-900 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-emerald-500 h-24 resize-none shadow-inner" />
         </div>
         <button data-testid="new-game-submit" @click="startNewGame" :disabled="creating" class="w-full py-4 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-bold shadow-lg disabled:opacity-50 transition text-lg mt-2">{{ creating ? '正在建立…' : '降临新世界' }}</button>
       </div>

@@ -203,19 +203,19 @@ const saveContent = async () => {
         
         <template v-else-if="type === 'characters'">
           <div class="flex items-center gap-3 p-3 bg-indigo-900/20 border border-indigo-900/50 rounded-lg"><input type="checkbox" v-model="form.is_player" class="w-5 h-5 rounded bg-slate-900 border-slate-700 text-indigo-500"><div><p class="text-sm font-bold text-indigo-300">将此角色设为主役 (Is Player)</p></div></div>
-          <div><label class="text-xs text-slate-400 font-bold mb-1.5 block">背景与外观设定 (Description)</label><textarea data-testid="asset-description" v-model="form.desc" class="w-full h-40 bg-[#0d0d12] border border-slate-700 text-slate-300 p-4 rounded-lg text-sm"></textarea></div>
+          <div><label class="text-xs text-slate-400 font-bold mb-1.5 block">背景与外观设定 (Description)</label><ExpandableTextarea data-testid="asset-description" v-model="form.desc" label="角色背景与外观设定" textarea-class="h-40 bg-[#0d0d12] border border-slate-700 text-slate-300 p-4 rounded-lg text-sm" /></div>
         </template>
         
         <template v-else-if="type === 'entities'">
           <div class="grid grid-cols-2 gap-4">
-            <div><label class="text-xs text-slate-400 font-bold mb-1.5 block">动机 (Motive)<FieldHelp text="实体长期想实现什么，是 Overseer 判断行动方向的主要依据。" /></label><textarea data-testid="entity-motive" v-model="form.motive" class="w-full h-24 bg-[#0d0d12] border border-slate-700 text-slate-300 p-3 rounded-lg text-sm"></textarea></div>
-            <div><label class="text-xs text-slate-400 font-bold mb-1.5 block">当前状态 (Status)<FieldHelp text="实体此刻所处的客观状态，例如位置、资源、伤势、权力与处境。" /></label><textarea v-model="form.status" class="w-full h-24 bg-[#0d0d12] border border-slate-700 text-slate-300 p-3 rounded-lg text-sm"></textarea></div>
+            <div><label class="text-xs text-slate-400 font-bold mb-1.5 block">动机 (Motive)<FieldHelp text="实体长期想实现什么，是 Overseer 判断行动方向的主要依据。" /></label><ExpandableTextarea data-testid="entity-motive" v-model="form.motive" label="实体动机" textarea-class="h-24 bg-[#0d0d12] border border-slate-700 text-slate-300 p-3 rounded-lg text-sm" /></div>
+            <div><label class="text-xs text-slate-400 font-bold mb-1.5 block">当前状态 (Status)<FieldHelp text="实体此刻所处的客观状态，例如位置、资源、伤势、权力与处境。" /></label><ExpandableTextarea v-model="form.status" label="实体当前状态" textarea-class="h-24 bg-[#0d0d12] border border-slate-700 text-slate-300 p-3 rounded-lg text-sm" /></div>
           </div>
-          <div><label class="text-xs text-slate-400 font-bold mb-1.5 block">描述（供资产库浏览）</label><textarea v-model="form.desc" class="w-full h-20 bg-[#0d0d12] border border-slate-700 text-slate-300 p-3 rounded-lg text-sm"></textarea></div>
+          <div><label class="text-xs text-slate-400 font-bold mb-1.5 block">描述（供资产库浏览）</label><ExpandableTextarea v-model="form.desc" label="实体浏览描述" textarea-class="h-20 bg-[#0d0d12] border border-slate-700 text-slate-300 p-3 rounded-lg text-sm" /></div>
           <div class="grid grid-cols-3 gap-4">
-            <div><label class="text-xs text-slate-400 font-bold mb-1.5 block">机制（每行一项）<FieldHelp text="实体能够反复使用的手段、制度、能力或运作方式；比单次行动更稳定。" /></label><textarea v-model="form.mechanismsText" class="w-full h-28 bg-[#0d0d12] border border-slate-700 text-slate-300 p-3 rounded-lg text-xs"></textarea></div>
-            <div><label class="text-xs text-slate-400 font-bold mb-1.5 block">计划（每行一项）<FieldHelp text="实体准备执行但尚未完成的阶段性安排，会随剧情和状态调整。" /></label><textarea v-model="form.plansText" class="w-full h-28 bg-[#0d0d12] border border-slate-700 text-slate-300 p-3 rounded-lg text-xs"></textarea></div>
-            <div><label class="text-xs text-slate-400 font-bold mb-1.5 block">近期行动（每行一项）<FieldHelp text="实体最近已经做过的事情，用于避免失忆、重复行动或时间线冲突。" /></label><textarea v-model="form.recentActionsText" class="w-full h-28 bg-[#0d0d12] border border-slate-700 text-slate-300 p-3 rounded-lg text-xs"></textarea></div>
+            <div><label class="text-xs text-slate-400 font-bold mb-1.5 block">机制（每行一项）<FieldHelp text="实体能够反复使用的手段、制度、能力或运作方式；比单次行动更稳定。" /></label><ExpandableTextarea v-model="form.mechanismsText" label="实体机制" textarea-class="h-28 bg-[#0d0d12] border border-slate-700 text-slate-300 p-3 rounded-lg text-xs" /></div>
+            <div><label class="text-xs text-slate-400 font-bold mb-1.5 block">计划（每行一项）<FieldHelp text="实体准备执行但尚未完成的阶段性安排，会随剧情和状态调整。" /></label><ExpandableTextarea v-model="form.plansText" label="实体计划" textarea-class="h-28 bg-[#0d0d12] border border-slate-700 text-slate-300 p-3 rounded-lg text-xs" /></div>
+            <div><label class="text-xs text-slate-400 font-bold mb-1.5 block">近期行动（每行一项）<FieldHelp text="实体最近已经做过的事情，用于避免失忆、重复行动或时间线冲突。" /></label><ExpandableTextarea v-model="form.recentActionsText" label="实体近期行动" textarea-class="h-28 bg-[#0d0d12] border border-slate-700 text-slate-300 p-3 rounded-lg text-xs" /></div>
           </div>
           <div class="grid grid-cols-2 gap-4">
             <div class="border border-slate-700 rounded-lg p-3 space-y-3"><div class="flex items-center justify-between"><label class="text-xs text-slate-400 font-bold">触发器</label><button @click="addEntityTrigger" class="px-2 py-1 rounded bg-indigo-900/50 text-indigo-300 text-[10px]">+ 添加</button></div><div v-if="!form.triggers.length" class="text-xs text-slate-500">暂无触发器</div><div v-for="(trigger, idx) in form.triggers" :key="idx" class="grid grid-cols-[1fr_1fr_auto] gap-2"><input v-model="trigger.condition" placeholder="触发条件" class="min-w-0 bg-[#0d0d12] border border-slate-700 text-slate-300 px-2 py-1.5 rounded text-xs"><input v-model="trigger.result" placeholder="触发后果" class="min-w-0 bg-[#0d0d12] border border-slate-700 text-slate-300 px-2 py-1.5 rounded text-xs"><button @click="removeEntityTrigger(idx)" class="text-rose-400 px-1">✕</button></div></div>
@@ -225,7 +225,7 @@ const saveContent = async () => {
         </template>
 
         <template v-else>
-           <div><label class="text-xs text-slate-400 font-bold mb-1.5 block">设定正文 (Content)</label><textarea data-testid="asset-content" v-model="form.desc" class="w-full h-64 bg-[#0d0d12] border border-slate-700 text-slate-300 p-4 rounded-lg text-sm"></textarea></div>
+           <div><label class="text-xs text-slate-400 font-bold mb-1.5 block">设定正文 (Content)</label><ExpandableTextarea data-testid="asset-content" v-model="form.desc" label="设定正文" textarea-class="h-64 bg-[#0d0d12] border border-slate-700 text-slate-300 p-4 rounded-lg text-sm" /></div>
         </template>
       </div>
     </div>

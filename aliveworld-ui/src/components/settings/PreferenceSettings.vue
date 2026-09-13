@@ -7,6 +7,7 @@ import { preferenceStore } from '../../store/preferenceStore';
 import { workshopStore } from '../../store/workshopStore';
 import InlineDeleteConfirm from '../common/InlineDeleteConfirm.vue';
 import { useDeleteConfirmation } from '../../composables/useDeleteConfirmation';
+import ExpandableTextarea from '../common/ExpandableTextarea.vue';
 
 const loading = ref(false);
 const preferences = ref([]);
@@ -129,7 +130,7 @@ onMounted(refresh);
     <section class="rounded-xl border border-fuchsia-900/60 bg-fuchsia-950/20 p-3">
       <label class="text-xs font-bold text-fuchsia-200">先随手写一点</label>
       <p class="mt-1 text-[10px] text-slate-500">这会成为高先验方向，不是不可修改的绝对规则。</p>
-      <textarea v-model="declarationText" class="mt-2 h-20 w-full resize-none rounded-lg border border-slate-700 bg-slate-950 p-2 text-xs text-slate-200 outline-none focus:border-fuchsia-600" placeholder="例如：我喜欢角色展示力量后引起周围人的反应，但不希望每次都这样写。"></textarea>
+      <ExpandableTextarea v-model="declarationText" label="用户偏好声明" textarea-class="mt-2 h-20 resize-none rounded-lg border border-slate-700 bg-slate-950 p-2 text-xs text-slate-200 outline-none focus:border-fuchsia-600" placeholder="例如：我喜欢角色展示力量后引起周围人的反应，但不希望每次都这样写。" />
       <div class="mt-2 grid grid-cols-2 gap-2 md:grid-cols-3">
         <select v-model="declarationCategory" class="edit-input">
           <option v-for="(label, key) in categoryLabels" :key="key" :value="key">{{ label }}</option>

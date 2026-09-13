@@ -7,6 +7,7 @@ import { uiStore } from '../../store/uiStore';
 import { fileToDataUrl, imageApi } from '../../api/imageApi';
 import ImageGenerationOptions from '../image/ImageGenerationOptions.vue';
 import { imageFailureDetail } from '../../utils/imageErrors';
+import ExpandableTextarea from '../common/ExpandableTextarea.vue';
 
 const props = defineProps({ message: { type: Object, required: true } });
 const tasks = computed(() => imageStore.forMessage(props.message.id));
@@ -90,7 +91,7 @@ const removeTask = async task => {
     <button v-if="!showForm" @click="showForm=true" class="rounded border border-fuchsia-800/60 bg-fuchsia-950/20 px-2 py-1 text-[11px] text-fuchsia-300 hover:text-fuchsia-200">🎨 生成此处 CG</button>
     <div v-else class="space-y-3 rounded-xl border border-fuchsia-800/60 bg-slate-950/90 p-3">
       <div class="flex gap-2"><select v-model="intent" class="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-200"><option value="scene_cg">场景 CG</option><option value="character_cg">角色 CG</option></select><span class="self-center text-[10px] text-slate-500">留空也可一键生成；AI 会结合对应正文整理提示词</span></div>
-      <textarea v-model="prompt" rows="3" class="w-full resize-y rounded border border-slate-700 bg-slate-900 p-2 text-xs text-slate-200" placeholder="可选：用自然语言补充你特别想看到的画面；留空则忠实依据正文……" />
+      <ExpandableTextarea v-model="prompt" label="场景生图补充" rows="3" textarea-class="resize-y rounded border border-slate-700 bg-slate-900 p-2 text-xs text-slate-200" placeholder="可选：用自然语言补充你特别想看到的画面；留空则忠实依据正文……" />
       <ImageGenerationOptions v-model="options" />
       <div class="flex items-center gap-2"><select v-model="referenceRole" class="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-200"><option value="character">角色参考图</option><option value="style">画风参考图</option></select><label class="cursor-pointer rounded bg-slate-800 px-2 py-1 text-[10px] text-slate-300">选择参考图<input type="file" accept="image/png,image/jpeg,image/webp" multiple class="hidden" @change="chooseReferences" /></label><span class="truncate text-[10px] text-slate-500">{{ referenceFiles.length?referenceFiles.map(file=>file.name).join('、'):'未选择' }}</span></div>
       <p v-if="referenceFiles.length" class="text-[10px] text-amber-400/80">参考图会作为本局资产保存；当前内置基础工作流尚未接入参考图节点，因此暂时不会影响生成结果。</p>

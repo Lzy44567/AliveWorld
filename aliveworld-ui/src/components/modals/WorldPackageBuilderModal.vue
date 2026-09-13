@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { worldPackageApi } from '../../api/worldPackageApi';
 import { assetStore } from '../../store/assetStore';
 import { uiStore } from '../../store/uiStore';
+import ExpandableTextarea from '../common/ExpandableTextarea.vue';
 
 const DRAFT_KEY = 'aliveworld.world-package-builder.v1';
 const TYPE_META = {
@@ -92,9 +93,9 @@ onMounted(async () => {
             <label class="text-xs font-bold text-slate-300">作者<input v-model="form.author" class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 p-2.5 text-sm" placeholder="创作者名称" /></label>
             <label class="text-xs font-bold text-slate-300">版本<input v-model="form.version" class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 p-2.5 text-sm" placeholder="1.0.0" /></label>
           </div>
-          <label class="mt-3 block text-xs font-bold text-slate-300">体验简介<textarea v-model="form.description" class="mt-1 h-24 w-full rounded-lg border border-slate-700 bg-slate-900 p-2.5 text-sm" placeholder="告诉玩家会获得什么体验，不要堆内部技术术语。"></textarea></label>
-          <label class="mt-3 block text-xs font-bold text-slate-300">世界与故事梗概<textarea v-model="form.world_premise" class="mt-1 h-24 w-full rounded-lg border border-slate-700 bg-slate-900 p-2.5 text-sm" placeholder="新建故事时交给正文 AI 的背景；留空则使用体验简介。"></textarea></label>
-          <label class="mt-3 block text-xs font-bold text-slate-300">开场文本<textarea v-model="form.opening" class="mt-1 h-24 w-full rounded-lg border border-slate-700 bg-slate-900 p-2.5 text-sm" placeholder="玩家进入新故事后首先看到的开场。"></textarea></label>
+          <label class="mt-3 block text-xs font-bold text-slate-300">体验简介<ExpandableTextarea v-model="form.description" label="世界包体验简介" textarea-class="mt-1 h-24 rounded-lg border border-slate-700 bg-slate-900 p-2.5 text-sm" placeholder="告诉玩家会获得什么体验，不要堆内部技术术语。" /></label>
+          <label class="mt-3 block text-xs font-bold text-slate-300">世界与故事梗概<ExpandableTextarea v-model="form.world_premise" label="世界包世界与故事梗概" textarea-class="mt-1 h-24 rounded-lg border border-slate-700 bg-slate-900 p-2.5 text-sm" placeholder="新建故事时交给正文 AI 的背景；留空则使用体验简介。" /></label>
+          <label class="mt-3 block text-xs font-bold text-slate-300">开场文本<ExpandableTextarea v-model="form.opening" label="世界包开场文本" textarea-class="mt-1 h-24 rounded-lg border border-slate-700 bg-slate-900 p-2.5 text-sm" placeholder="玩家进入新故事后首先看到的开场。" /></label>
           <label class="mt-3 block text-xs font-bold text-slate-300">分类标签<input v-model="form.tags" class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 p-2.5 text-sm" placeholder="奇幻，悬疑，短篇" /></label>
           <div class="mt-3 grid grid-cols-2 gap-3">
             <label class="text-xs font-bold text-slate-300">许可证<input v-model="form.license" class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 p-2.5 text-sm" placeholder="unspecified" /></label>

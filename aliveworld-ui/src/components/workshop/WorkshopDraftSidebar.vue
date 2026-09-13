@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue';
 import { workshopStore } from '../../store/workshopStore';
 import { uiStore } from '../../store/uiStore';
 import WorldbookWorkshopDraft from './WorldbookWorkshopDraft.vue';
+import ExpandableTextarea from '../common/ExpandableTextarea.vue';
 
 const edit = ref({});
 const preferenceEditor = ref(null);
@@ -77,24 +78,24 @@ const addRelationship = () => { (edit.value.relationships ||= []).push({ target:
         </template>
         <template v-else-if="type==='characters'">
           <label class="mb-3 flex items-center gap-2 rounded border border-slate-700 p-2 text-xs text-slate-300"><input v-model="edit.is_player" type="checkbox">玩家扮演角色</label>
-          <label class="block"><span class="field-label">人物设定</span><textarea v-model="edit.description" class="field h-64"></textarea></label>
-          <label class="mt-3 block"><span class="field-label">登场情境</span><textarea v-model="edit.starting_scene" class="field h-24"></textarea></label>
+          <label class="block"><span class="field-label">人物设定</span><ExpandableTextarea v-model="edit.description" label="人物设定" textarea-class="field h-64" /></label>
+          <label class="mt-3 block"><span class="field-label">登场情境</span><ExpandableTextarea v-model="edit.starting_scene" label="登场情境" textarea-class="field h-24" /></label>
         </template>
         <template v-else-if="type==='styles'">
-          <label class="block"><span class="field-label">文风规范</span><textarea v-model="edit.content" class="field h-[60vh]"></textarea></label>
+          <label class="block"><span class="field-label">文风规范</span><ExpandableTextarea v-model="edit.content" label="文风规范" textarea-class="field h-[60vh]" /></label>
         </template>
         <template v-else-if="type==='entities'">
-          <label class="block"><span class="field-label">描述</span><textarea v-model="edit.description" class="field h-20"></textarea></label>
-          <label class="mt-3 block"><span class="field-label">动机</span><textarea v-model="edit.motive" class="field h-24"></textarea></label>
-          <label class="mt-3 block"><span class="field-label">状态</span><textarea v-model="edit.status" class="field h-24"></textarea></label>
-          <label v-for="field in ['mechanisms','plans','recent_actions']" :key="field" class="mt-3 block"><span class="field-label">{{ {mechanisms:'机制',plans:'计划',recent_actions:'近期行动'}[field] }}（每行一项）</span><textarea :value="lines(field)" class="field h-24" @input="setLines(field,$event.target.value)"></textarea></label>
+          <label class="block"><span class="field-label">描述</span><ExpandableTextarea v-model="edit.description" label="实体描述" textarea-class="field h-20" /></label>
+          <label class="mt-3 block"><span class="field-label">动机</span><ExpandableTextarea v-model="edit.motive" label="实体动机" textarea-class="field h-24" /></label>
+          <label class="mt-3 block"><span class="field-label">状态</span><ExpandableTextarea v-model="edit.status" label="实体状态" textarea-class="field h-24" /></label>
+          <label v-for="field in ['mechanisms','plans','recent_actions']" :key="field" class="mt-3 block"><span class="field-label">{{ {mechanisms:'机制',plans:'计划',recent_actions:'近期行动'}[field] }}（每行一项）</span><ExpandableTextarea :model-value="lines(field)" :label="{mechanisms:'实体机制',plans:'实体计划',recent_actions:'实体近期行动'}[field]" textarea-class="field h-24" @update:model-value="setLines(field,$event)" /></label>
           <section class="mt-3 rounded border border-slate-700 p-2"><div class="flex justify-between text-[10px] font-bold text-slate-400"><span>触发器</span><button class="text-cyan-300" @click="addTrigger">＋添加</button></div><div v-for="(item,index) in edit.triggers||[]" :key="index" class="mt-2 grid grid-cols-[1fr_1fr_auto] gap-1"><input v-model="item.condition" class="field" placeholder="条件"><input v-model="item.result" class="field" placeholder="结果"><button class="text-rose-400" @click="edit.triggers.splice(index,1)">✕</button></div></section>
           <section class="mt-3 rounded border border-slate-700 p-2"><div class="flex justify-between text-[10px] font-bold text-slate-400"><span>关系</span><button class="text-cyan-300" @click="addRelationship">＋添加</button></div><div v-for="(item,index) in edit.relationships||[]" :key="index" class="mt-2 grid grid-cols-[1fr_1fr_auto] gap-1"><input v-model="item.target" class="field" placeholder="对象"><input v-model="item.relation" class="field" placeholder="关系"><button class="text-rose-400" @click="edit.relationships.splice(index,1)">✕</button></div></section>
           <label class="mt-3 block"><span class="field-label">重要性（0-1）</span><input v-model.number="edit.importance" type="number" min="0" max="1" step="0.1" class="field"></label>
         </template>
         <template v-else>
           <div class="mb-3 flex justify-end"><button class="rounded bg-fuchsia-900 px-2 py-1 text-[9px] text-fuchsia-200" @click="startPreference()">＋ 新增偏好</button></div>
-          <div v-if="preferenceEditor" class="mb-3 space-y-2 rounded-xl border border-fuchsia-700 bg-slate-950 p-2"><textarea v-model="preferenceEditor.statement" class="field h-24" placeholder="偏好表述"></textarea><div class="grid grid-cols-2 gap-1"><select v-model="preferenceEditor.category" class="field"><option v-for="item in ['story','adult','action','character','relationship','visual','boundary','other']" :key="item">{{ item }}</option></select><select v-model="preferenceEditor.polarity" class="field"><option value="prefer">希望出现</option><option value="avoid">希望回避</option></select></div><div class="flex justify-end gap-1"><button class="rounded bg-slate-800 px-2 py-1 text-[9px]" @click="preferenceEditor=null">取消</button><button class="rounded bg-fuchsia-700 px-2 py-1 text-[9px] text-white" @click="savePreference">保存到草稿</button></div></div>
+          <div v-if="preferenceEditor" class="mb-3 space-y-2 rounded-xl border border-fuchsia-700 bg-slate-950 p-2"><ExpandableTextarea v-model="preferenceEditor.statement" label="偏好表述" textarea-class="field h-24" placeholder="偏好表述" /><div class="grid grid-cols-2 gap-1"><select v-model="preferenceEditor.category" class="field"><option v-for="item in ['story','adult','action','character','relationship','visual','boundary','other']" :key="item">{{ item }}</option></select><select v-model="preferenceEditor.polarity" class="field"><option value="prefer">希望出现</option><option value="avoid">希望回避</option></select></div><div class="flex justify-end gap-1"><button class="rounded bg-slate-800 px-2 py-1 text-[9px]" @click="preferenceEditor=null">取消</button><button class="rounded bg-fuchsia-700 px-2 py-1 text-[9px] text-white" @click="savePreference">保存到草稿</button></div></div>
           <section v-for="item in edit" :key="item.id" class="mb-2 rounded-xl border border-slate-700 bg-slate-900/65 p-3"><div class="flex justify-between gap-2"><button class="text-left text-xs leading-relaxed text-slate-300 hover:text-fuchsia-300" @click="startPreference(item)">{{ item.statement }}</button><span class="shrink-0 text-[9px]" :class="item.status==='active'?'text-emerald-400':item.status==='candidate'?'text-amber-400':'text-slate-600'">{{ item.status==='active'?'生效':item.status==='candidate'?'候选':'停用' }}</span></div><div class="mt-2 text-[9px] text-slate-600">{{ item.category }} · 后验 {{ Math.round((item.posterior||item.confidence||0)*100) }}%</div><div class="mt-2 flex gap-2 text-[9px]"><button v-if="item.status!=='active'" class="text-emerald-400" @click="setPreferenceStatus(item,'active')">启用</button><button v-else class="text-slate-400" @click="setPreferenceStatus(item,'disabled')">停用</button><button class="text-rose-400" @click="deletePreference(item)">删除</button></div></section>
         </template>
       </template>

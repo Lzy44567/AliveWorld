@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue';
 import { developerApi } from '../../api/developerApi';
+import ExpandableTextarea from '../common/ExpandableTextarea.vue';
 
 const configured = ref(false);
 const unlocked = ref(false);
@@ -118,7 +119,7 @@ async function lock() {
             <p class="text-xs text-slate-500 mt-1">约 {{ selected.estimatedTokens }} tokens · 变量：{{ selected.variables.join('、') || '无' }}</p>
           </div>
           <div v-if="!selected.editable" class="rounded-lg border border-amber-700/50 bg-amber-950/20 p-3 text-sm text-amber-200">该切片仅登记来源，尚未接入安全覆盖；编辑不会被伪装成已生效。</div>
-          <textarea v-model="draft" data-testid="prompt-slice-editor" :readonly="!selected.editable" class="w-full min-h-[280px] rounded-lg border border-slate-600 bg-slate-950 p-3 font-mono text-xs leading-5 resize-y read-only:opacity-70"></textarea>
+          <ExpandableTextarea v-model="draft" data-testid="prompt-slice-editor" :readonly="!selected.editable" :label="`提示词：${selected.title}`" textarea-class="min-h-[280px] rounded-lg border border-slate-600 bg-slate-950 p-3 font-mono text-xs leading-5 resize-y read-only:opacity-70" />
           <details v-if="selected.source === 'override'" class="rounded-lg border border-slate-700 p-3">
             <summary class="cursor-pointer text-sm font-bold">对照官方基线</summary>
             <pre class="mt-3 whitespace-pre-wrap text-xs text-slate-400 max-h-48 overflow-auto select-text">{{ selected.baseline }}</pre>

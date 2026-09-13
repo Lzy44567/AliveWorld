@@ -1,6 +1,17 @@
 # Active development goal
 
-Updated: 2026-09-12
+Updated: 2026-09-13
+
+## Current dev.12 patch
+
+- Final goal: remove the remaining copy-button clutter, restore one reliable expanded editor for every ordinary multiline editing surface, and design—but do not yet implement—the next prompt architecture migration.
+- Phase goal: ship the UI corrections with browser evidence; record the v1.5—v1.6 backlog and identify the next verifiable slice.
+- Completion evidence: production frontend build, targeted Playwright assertions for special bubbles and expanded editing, documentation review, and a Git commit.
+- Next verifiable slice after this patch: `PromptVariableRegistry` plus composition-equivalence tests, before splitting the state-bar contract from `story.settlement.core`.
+- Design record: [`features/20_prompt_layers_variable_registry_and_backlog_audit.md`](features/20_prompt_layers_variable_registry_and_backlog_audit.md).
+- Status: complete. Frontend production build passed with 126 modules and the complete Playwright/Edge suite passed 22/22; runtime prompt text was intentionally left unchanged.
+
+The completed dev.11 release node remains recorded below as historical evidence.
 
 ## Mainline
 

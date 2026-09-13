@@ -2,6 +2,7 @@
 import { computed, onMounted, watch } from 'vue';
 import { workshopStore } from '../../store/workshopStore';
 import CopyTextButton from '../common/CopyTextButton.vue';
+import ExpandableTextarea from '../common/ExpandableTextarea.vue';
 import { useBottomAnchoredScroll } from '../../composables/useBottomAnchoredScroll';
 
 const { container, positioned, updateFollowState, jumpToBottom, prepareAtBottom } = useBottomAnchoredScroll();
@@ -82,7 +83,7 @@ const historyTime = value => {
       <footer v-if="!workshopStore.published" class="border-t border-slate-800 bg-slate-950/80 p-3">
         <div class="mb-2 flex items-center justify-between gap-3"><div class="flex rounded-lg border border-slate-700 bg-slate-900 p-0.5 text-[10px]"><button class="rounded px-2 py-1" :class="!workshopStore.commitChanges?'bg-cyan-800 text-white':'text-slate-500'" @click="workshopStore.commitChanges=false">先讨论方案</button><button class="rounded px-2 py-1" :class="workshopStore.commitChanges?'bg-emerald-800 text-white':'text-slate-500'" @click="workshopStore.commitChanges=true">允许 AI 修改草稿</button></div><span class="text-[10px] text-slate-500">{{ workshopStore.commitChanges?'低风险修改可进入草稿':'AI 只提出方案' }}</span></div>
         <div v-if="workshopStore.suggestions.length" class="mb-2 flex flex-wrap gap-1"><button v-for="item in workshopStore.suggestions" :key="item" class="rounded-full border border-cyan-800 px-2 py-1 text-[10px] text-cyan-300" @click="workshopStore.input=item">{{ item }}</button></div>
-        <div class="flex gap-2"><textarea v-model="workshopStore.input" class="h-20 flex-1 rounded-lg border border-slate-700 bg-slate-900 p-3 text-sm text-slate-200" :placeholder="`${workshopStore.activeMode.description} Ctrl+Enter 发送`" @keydown.ctrl.enter.prevent="workshopStore.send()"></textarea><button class="w-20 rounded-lg bg-cyan-700 text-sm font-bold text-white disabled:opacity-40" :disabled="workshopStore.busy" @click="workshopStore.send()">{{ workshopStore.busy?'处理中':'发送' }}</button></div>
+        <div class="flex gap-2"><ExpandableTextarea v-model="workshopStore.input" label="工坊消息" wrapper-class="flex-1" textarea-class="h-20 rounded-lg border border-slate-700 bg-slate-900 p-3 text-sm text-slate-200" :placeholder="`${workshopStore.activeMode.description} Ctrl+Enter 发送`" @keydown.ctrl.enter.prevent="workshopStore.send()" /><button class="w-20 rounded-lg bg-cyan-700 text-sm font-bold text-white disabled:opacity-40" :disabled="workshopStore.busy" @click="workshopStore.send()">{{ workshopStore.busy?'处理中':'发送' }}</button></div>
       </footer>
       <footer v-else class="border-t border-slate-800 bg-slate-950/80 p-3 text-center"><button data-testid="workshop-new-round-footer" class="rounded-lg bg-cyan-700 px-5 py-2 text-sm font-bold text-white" @click="workshopStore.startNewRound">开启新一轮讨论</button></footer>
     </template>

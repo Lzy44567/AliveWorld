@@ -1,5 +1,22 @@
 # 更新日志
 
+## [v1.6.0-dev.12] - 2026-09-13 - Expanded editor and prompt architecture audit
+
+### Frontend
+
+- `ExpandableTextarea` now forwards textarea attributes and keyboard listeners, uses a body-level full-screen dialog, supports Escape, and exposes stable accessibility/test labels.
+- All ordinary multiline editing surfaces reuse the component; dedicated already-full-screen world-axiom batch editing remains unchanged.
+- Future-candidate and selected-destiny bubbles no longer render `CopyTextButton`.
+
+### Architecture
+
+- Added the prompt layer, variable registry, state-slice migration and v1.5—v1.6 backlog design record without changing runtime prompt composition.
+
+### Verification
+
+- Frontend production build passed with 126 transformed modules.
+- Full Playwright/Edge acceptance passed 22/22.
+
 ## [v1.6.0-dev.11] - 2026-09-13 - 游戏工作区、并发与开发接手协议
 
 作者/环境：`codex-gpt5.6sol`

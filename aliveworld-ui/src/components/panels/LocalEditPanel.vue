@@ -3,6 +3,7 @@ import { gameStore } from '../../store/gameStore';
 import { configStore } from '../../store/configStore';
 import { useStoryConfigAutosave } from '../../composables/useStoryConfigAutosave';
 import StoryExperienceSettings from '../settings/StoryExperienceSettings.vue';
+import ExpandableTextarea from '../common/ExpandableTextarea.vue';
 
 const { saveState } = useStoryConfigAutosave();
 
@@ -18,13 +19,13 @@ const restoreDefaults = () => {
       <section class="bg-emerald-950/20 border border-emerald-800/50 p-4 rounded-xl">
         <h3 class="text-xs font-bold text-emerald-300 mb-2">🌌 宇宙主导向简述</h3>
         <p class="text-[10px] text-slate-400 mb-3">当前故事的基础世界观与开局前提；可代替一份简单世界书。</p>
-        <textarea v-model="configStore.story.worldPremise" class="story-textarea" placeholder="例如：现代都市中隐藏着少量超能力者……"></textarea>
+        <ExpandableTextarea v-model="configStore.story.worldPremise" label="宇宙主导向简述" textarea-class="story-textarea" placeholder="例如：现代都市中隐藏着少量超能力者……" />
       </section>
 
       <section class="bg-indigo-950/20 border border-indigo-800/50 p-4 rounded-xl">
         <h3 class="text-xs font-bold text-indigo-300 mb-2">🧭 主线剧情导向（Plot Compass）</h3>
         <p class="text-[10px] text-slate-400 mb-3">用于描述整个故事的剧情风格与发展风格。当前版本仅保存草案，具体推演逻辑将在后续版本单独设计。</p>
-        <textarea v-model="configStore.story.plotCompass" class="story-textarea" placeholder="例如：整体采用缓慢揭密、人物关系逐步反转的发展风格……"></textarea>
+        <ExpandableTextarea v-model="configStore.story.plotCompass" label="主线剧情导向" textarea-class="story-textarea" placeholder="例如：整体采用缓慢揭密、人物关系逐步反转的发展风格……" />
       </section>
 
       <StoryExperienceSettings />

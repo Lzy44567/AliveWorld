@@ -533,6 +533,9 @@ test('正文气泡可以拖选且普通气泡不显示复制按钮', async ({ pa
   const latest = page.locator('[data-message-role="ai"]').last();
   await expect(latest.getByTestId('copy-text')).toHaveCount(0);
   expect(await latest.locator('.select-text').evaluate(element => getComputedStyle(element).userSelect)).not.toBe('none');
+  await expect(page.locator('[data-message-role="reactions"]').first()).toBeVisible();
+  await expect(page.locator('[data-message-role="reactions"]').getByTestId('copy-text')).toHaveCount(0);
+  await expect(page.locator('[data-message-role="system"]').getByTestId('copy-text')).toHaveCount(0);
 });
 
 
@@ -584,6 +587,10 @@ test('开发者密码保护真实提示词切片并支持覆盖与恢复', async
   await futureCore.click();
   const editor = page.getByTestId('prompt-slice-editor');
   const baseline = await editor.inputValue();
+  await editor.locator('..').getByTestId('expand-textarea').click();
+  await expect(page.getByTestId('expanded-textarea-dialog')).toBeVisible();
+  await page.getByTestId('expanded-textarea-close').click();
+  await expect(page.getByTestId('expanded-textarea-dialog')).toHaveCount(0);
   await editor.fill(`${baseline}\n开发者工作台自动验收规则`);
   await page.getByRole('button', { name: '保存新覆盖版本' }).click();
   await expect(page.getByText('已保存为新的本地覆盖版本。')).toBeVisible();
@@ -616,11 +623,12 @@ test('接口可从卡片直接启停并发现模型列表', async ({ page }) => 
 
 test('生图工作流显示映射报告并独立保存配置档案', async ({ page }) => {
   await page.goto('/');
+  await dismissStartupPrompt(page);
   await page.getByRole('button', { name: '⚙️ 设置', exact: true }).click();
   await page.getByRole('button', { name: '🎨 生图配置' }).click();
   await expect(page.getByText('工作流配置档案', { exact: true })).toBeVisible();
   await expect(page.getByText('正向提示词', { exact: true }).first()).toBeVisible();
-  await page.getByLabel('玩家固定正向补充').fill('自动验收固定画风');
+  await page.getByRole('textbox', { name: '玩家固定正向补充', exact: true }).fill('自动验收固定画风');
   await page.getByRole('checkbox', { name: /允许覆盖工作流设定/ }).check();
   await page.getByRole('button', { name: '保存配置档案' }).click();
   await expect(page.getByText('工作流配置档案已保存')).toBeVisible();
