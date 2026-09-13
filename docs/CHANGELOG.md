@@ -11,6 +11,7 @@
 ### Architecture
 
 - Added the prompt layer, variable registry, state-slice migration and v1.5—v1.6 backlog design record without changing runtime prompt composition.
+- Defined accessible variable help, module contribution contracts, preset authority, sensitive-value boundaries and provider-neutral stable-prefix caching.
 
 ### Verification
 
