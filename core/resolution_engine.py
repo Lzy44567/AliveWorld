@@ -11,6 +11,7 @@ from core.preference_learning import preference_context_instruction, preference_
 from core.player_agency import adjudication_context, normalize_action_adjudication, player_agency_instruction
 from core.story_length import story_length_instruction
 from core.story_continuity import continuity_instruction
+from core.settlement_prompt_sections import settlement_prompt_baselines
 from core.world_rule_commands import resolution_instruction
 
 log = get_logger()
@@ -105,9 +106,10 @@ class DualTrackResolver(BaseResolutionStrategy):
             "story.settlement",
             {"world_info": visible_world, "character_info": session.char_info,
              "style_info": session.style_info, "word_limit": session.word_limit},
-            include={"story.settlement.core", "story.settlement.player_agency", "story.settlement.continuity"},
+            include={"story.settlement.core", "story.state.guidance", "story.state.contract",
+                     "story.settlement.player_agency", "story.settlement.continuity"},
             runtime_parts=settle_runtime,
-            baselines={"story.settlement.core": pts.get("settlement_prompt", "")},
+            baselines=settlement_prompt_baselines(pts.get("settlement_prompt", "")),
         )
         settle_p = settle_prompt.text
         influence_instruction = "（本回合没有满足条件的暗流影响）"

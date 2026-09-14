@@ -2,7 +2,20 @@
 
 Updated: 2026-09-14
 
-## Current dev.12 patch
+## Current dev.13 patch
+
+- Final goal: extract the settlement state guidance and output contract into independently observable prompt slices without adding a model request or changing the rendered settlement prompt, then make the verified Windows package/release workflow reproducible.
+- Phase 1: split `story.settlement.core`, `story.state.guidance`, and `story.state.contract` at stable contiguous boundaries; migrate any legacy full-core developer override atomically; lock composition equivalence and state-field coverage in tests.
+- Phase 2: add an explicit release orchestrator that verifies version/changelog/worktree/tooling, runs automated checks, builds the portable ZIP, extracts only the matching changelog section, and creates a GitHub prerelease only when `-Publish` is supplied.
+- Non-goals: no content-preset product UI, no prompt rewording/reordering, no additional LLM call, no real GitHub release in this development turn, and no state-data schema migration.
+- Recovery: prompt overrides remain versioned in `UserData`; legacy full-core overrides are split before the first dev.13 read and the original text is represented by the three resulting records. Release failures leave local package artifacts for diagnosis and never modify `UserData`.
+- Acceptance: exact rendered-prompt equivalence, required state-field regression, legacy override migration, release-script dry-run/preflight tests, Python suite, frontend build, complete Playwright suite, documentation, and a clean Git commit.
+- Status: complete. Prompt/release targeted tests passed 23/23, Python regression passed 351/351, the production frontend build passed with 126 modules, and Playwright/Edge passed 22/22. The release preflight passed against a clean dev.13 commit, generated the exact version notes, and classified the channel as pre-release; no package or online Release was created.
+- Next verifiable slice: return to the P0 worldbook mainline and define the task-neutral `world_change_events` short signal against the newly separated engine/state contracts before adding any content preset UI.
+
+The completed dev.12 node remains recorded below as historical evidence.
+
+## Completed dev.12 patch
 
 - Final goal: remove the remaining copy-button clutter, restore one reliable expanded editor for every ordinary multiline editing surface, and design—but do not yet implement—the next prompt architecture migration.
 - Phase goal: ship the UI corrections with browser evidence; record the v1.5—v1.6 backlog and identify the next verifiable slice.

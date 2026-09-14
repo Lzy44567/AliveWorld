@@ -45,6 +45,15 @@
 - 便携包必须解压到用户可写目录（例如非系统盘的游戏目录），不要放进 `Program Files`。未来若制作标准安装版，再切换到每用户数据目录。
 - 开发机必须通过 `build_windows_portable.bat` 构建。脚本会在 PyInstaller 重建 `dist/AliveWorld` 前后备份并恢复本地冒烟测试的 `UserData/`，同时在制作公开 ZIP 时明确排除该目录；不要裸跑 PyInstaller 作为日常构建命令。
 
+### dev.13 自动发布设计门
+
+- `build_windows_portable.bat` 继续只负责本地便携包，避免双击就产生线上副作用。
+- 新增发布编排脚本，顺序固定为：版本/更新日志/工作区/工具预检 → 自动回归 → 浏览器验收 → Windows 构建与包校验 → 提取当前版本更新日志 → 可选 GitHub Release。
+- 默认模式会真实验证和打包，但只生成发布说明与命令预览；只有显式传入 `-Publish` 才允许调用 `gh release create`。
+- 在线发布前必须确认 `gh` 已安装并登录、当前提交已存在于远端、同名 tag/Release 不存在、ZIP 与 SHA-256 文件名称匹配。脚本不替用户强推或改写 main。
+- GitHub fetch、tag 查询和 Release 创建对临时断线进行有限退避重试；创建请求返回不确定错误时先反查同名 Release，避免网络抖动导致重复发布。
+- 含 `dev`、`alpha`、`beta` 或 `rc` 的版本自动标为 pre-release；稳定语义版本才创建普通 Release。
+
 ## 多平台发行边界
 
 共享层继续使用 Python 领域逻辑、FastAPI API 和 Vue 前端；发行壳按平台分别构建：

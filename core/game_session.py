@@ -288,6 +288,7 @@ class GameSession:
         
         from core.prompt_studio import compose_prompt
         from core.prompts import load_system_prompts
+        from core.settlement_prompt_sections import settlement_prompt_baselines
         from core.world_rule_commands import resolution_instruction
         visible_world, _ = self.build_visible_world_info(interpreted_action)
         pts = load_system_prompts()
@@ -300,7 +301,8 @@ class GameSession:
             "story.settlement",
             {"world_info": visible_world, "character_info": self.ctx_mgr.char_info,
              "style_info": self.ctx_mgr.style_info, "word_limit": self.word_limit},
-            include={"story.settlement.core", "story.settlement.player_agency", "story.settlement.continuity"},
+            include={"story.settlement.core", "story.state.guidance", "story.state.contract",
+                     "story.settlement.player_agency", "story.settlement.continuity"},
             runtime_parts=[
                 ("story.settlement.world_rule_command", rule_command_prompt, "runtime"),
                 ("story.settlement.length", story_length_instruction(self.story_settings.get("targetStoryLength")), "runtime"),
@@ -308,7 +310,7 @@ class GameSession:
                 ("story.settlement.preference_context", preference_prompt, "runtime"),
                 ("story.settlement.preference_learning", preference_learning_instruction(preference_context) if self.story_settings.get("learnUserPreferences", True) else "", "runtime"),
             ],
-            baselines={"story.settlement.core": pts.get("settlement_prompt", "")},
+            baselines=settlement_prompt_baselines(pts.get("settlement_prompt", "")),
         )
         settle_p = settle_prompt.text
         influence_instruction = "\n".join(

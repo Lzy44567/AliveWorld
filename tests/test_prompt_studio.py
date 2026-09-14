@@ -111,6 +111,14 @@ class PromptStudioTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "尚不可编辑"):
                 store.save("world.capture.runtime", "不应保存")
 
+    def test_state_guidance_is_editable_but_state_contract_is_protected(self):
+        self.assertTrue(require_slice("story.state.guidance").editable)
+        self.assertFalse(require_slice("story.state.contract").editable)
+        with tempfile.TemporaryDirectory() as temporary:
+            store = PromptOverrideStore(Path(temporary) / "overrides.json")
+            with self.assertRaisesRegex(ValueError, "尚不可编辑"):
+                store.save("story.state.contract", "{}")
+
 
 if __name__ == "__main__":
     unittest.main()

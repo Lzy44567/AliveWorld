@@ -24,6 +24,28 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\run_checks.ps1
 
 它会优先使用仓库 `.venv\Scripts\python.exe`（不存在时才使用系统 `python`），并运行 Python 单元测试、前端可见性测试和前端生产构建。这样迁移电脑或系统 Python 版本后，不会误用缺少项目依赖的解释器。网络、真实 API 和真实模型不在自动检查范围内。
 
+## Windows 发布候选与自动发布
+
+开发者可在仓库根目录双击 `release_windows.bat`，或在 PowerShell 中执行：
+
+```powershell
+.\tools\release_windows.ps1
+```
+
+默认流程会要求 Git 工作区干净，自动运行上述检查、完整 Playwright 验收、Windows 双 EXE 构建、便携包校验，并从 `CHANGELOG.md` 精确生成当前 `VERSION` 的发布说明；它不会上传网络。只检查版本、日志和工作区时使用：
+
+```powershell
+.\tools\release_windows.ps1 -PreflightOnly
+```
+
+确认提交已经位于 `origin/main` 且 GitHub CLI 已登录后，才可显式执行：
+
+```powershell
+.\tools\release_windows.ps1 -PackageOnly -Publish
+```
+
+`-Publish` 会创建与 `VERSION` 同名的 tag/Release；开发、alpha、beta 和 rc 版本自动标为 pre-release。脚本不会自动强推、改写 main 或覆盖同名 Release。
+
 ## 玩家界面端到端验收
 
 首次使用需要在前端目录安装开发依赖；之后执行：

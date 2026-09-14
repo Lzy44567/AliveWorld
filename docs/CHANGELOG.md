@@ -1,5 +1,23 @@
 # 更新日志
 
+## [v1.6.0-dev.13] - 2026-09-14 - State prompt slices and release orchestration
+
+### Prompt architecture
+
+- Split the legacy settlement prompt into contiguous core, state-guidance and protected output-contract slices while preserving byte-for-byte composition and one settlement model call.
+- Added atomic migration for legacy full-core developer overrides and safe single-core fallback for unknown third-party layouts.
+
+### Release engineering
+
+- Added a Windows release orchestrator with clean-worktree/version/changelog checks, regression and browser acceptance, portable build verification, exact release-note extraction and explicit `-Publish` gating.
+- Development version advanced to `1.6.0-dev.13`; GitHub publication remains an explicit external action.
+
+### Verification
+
+- Targeted prompt-section, migration, causal-resolution and release-note tests passed 23/23.
+- Python regression passed 351/351, the frontend production build passed with 126 modules, and Playwright/Edge passed 22/22.
+- Clean-worktree release preflight generated the exact dev.13 notes and selected the pre-release channel; package build and online publication were intentionally not run.
+
 ## [v1.6.0-dev.12] - 2026-09-14 - Expanded editor and prompt architecture audit
 
 ### Frontend

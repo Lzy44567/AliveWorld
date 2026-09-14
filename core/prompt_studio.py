@@ -16,6 +16,7 @@ from core.action_suggestions import action_suggestion_instruction
 from core.player_agency import player_agency_instruction
 from core.prompts import load_system_prompts
 from core.prompt_variables import normalize_values, render_variable, require_variable, resolve_variable
+from core.settlement_prompt_sections import split_settlement_prompt
 from core.story_continuity import continuity_instruction
 from core.story_length import story_length_instruction
 from utils.runtime_paths import PATHS
@@ -41,6 +42,12 @@ def _yaml_prompt(key: str) -> Callable[[], str]:
     return lambda: str(load_system_prompts().get(key, "") or "")
 
 
+def _settlement_section(name: str) -> Callable[[], str]:
+    return lambda: getattr(
+        split_settlement_prompt(load_system_prompts().get("settlement_prompt", "")), name
+    )
+
+
 SLICES: tuple[PromptSlice, ...] = (
     PromptSlice("story.future.core", "story.future", "近期未来核心", "system", 100,
                 "生成候选未来、行动裁定与暗流条件判断。", True,
@@ -54,7 +61,13 @@ SLICES: tuple[PromptSlice, ...] = (
     PromptSlice("story.settlement.core", "story.settlement", "正文结算核心", "system", 100,
                 "续写正文并返回状态、世界书捕获等结构字段。", True,
                 ("context.style", "context.world", "context.player_character"),
-                _yaml_prompt("settlement_prompt"), "engine", "session", True),
+                _settlement_section("core"), "engine", "session", True),
+    PromptSlice("story.state.guidance", "story.settlement", "状态与系统指导", "system", 120,
+                "说明状态条、NPC、Buff、删除语义及与正文协作的更新时机。", True, (),
+                _settlement_section("state_guidance"), "feature", "static", True),
+    PromptSlice("story.state.contract", "story.settlement", "状态与结算输出契约", "system", 140,
+                "后端解析所依赖的严格 JSON 字段；首版只读，避免破坏存档事务。", False, (),
+                _settlement_section("state_contract"), "engine", "static", True),
     PromptSlice("story.settlement.player_agency", "story.settlement", "玩家行动权", "system", 200,
                 "禁止正文替玩家新增重大决定。", True, (),
                 lambda: player_agency_instruction(require_output=False), "engine", "static", True),
@@ -98,9 +111,42 @@ class PromptOverrideStore:
     def _read(self) -> dict:
         try:
             value = json.loads(self.path.read_text(encoding="utf-8"))
-            return value if isinstance(value, dict) else {"overrides": {}}
         except (OSError, json.JSONDecodeError):
             return {"overrides": {}}
+        data = value if isinstance(value, dict) else {"overrides": {}}
+        if self._migrate_legacy_settlement_override(data):
+            # A migration write failure must be visible; silently returning an
+            # empty store would temporarily discard the developer's override.
+            _atomic_json(self.path, data)
+        return data
+
+    @staticmethod
+    def _migrate_legacy_settlement_override(data: dict) -> bool:
+        overrides = data.get("overrides")
+        if not isinstance(overrides, dict):
+            return False
+        record = overrides.get("story.settlement.core")
+        if not isinstance(record, dict) or not isinstance(record.get("content"), str):
+            return False
+        sections = split_settlement_prompt(record["content"])
+        if not sections.split:
+            return False
+
+        try:
+            version = max(1, int(record.get("version", 1)))
+        except (TypeError, ValueError):
+            version = 1
+        migration = {"migratedFrom": "story.settlement.core@legacy-full"}
+        overrides["story.settlement.core"] = {
+            **record, "content": sections.core, **migration,
+        }
+        overrides.setdefault("story.state.guidance", {
+            "version": version, "content": sections.state_guidance, **migration,
+        })
+        overrides.setdefault("story.state.contract", {
+            "version": version, "content": sections.state_contract, **migration,
+        })
+        return True
 
     def get(self, slice_id: str) -> dict | None:
         value = self._read().get("overrides", {}).get(slice_id)
