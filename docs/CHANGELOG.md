@@ -1,5 +1,26 @@
 # 更新日志
 
+## [v1.6.0-dev.15] - 2026-09-15 - Stable rules and runtime projections
+
+### Prompt architecture
+
+- Removed character, style and world data from the built-in future and settlement system templates. Explicit user-message projections now carry assets, confirmed preferences, story history, retrieved world data, state, action, adjudication, selected future and triggered influences.
+- Ordered data from asset/session scope toward turn scope so unchanged prefixes are observable and more reusable; system prefixes remain unchanged when only story history, state, action or retrieved entries change.
+- Split confirmed preference data from its stable usage rules, unified normal/reroll settlement layout, and retained each path's trace label, output limit and model-call count.
+- Preserved legacy developer overrides: templates may still embed any subset of their old variables, and the request builder suppresses duplicate user projections for those values.
+
+### Diagnostics and compatibility
+
+- Registered the new runtime projections with type, owner, sensitivity, empty behavior and cache class.
+- Runtime prompt contributions now report truthful feature/configuration/turn metadata in request manifests instead of being classified uniformly as runtime turn data.
+- Updated fake-service browser assertions to verify that enabled assets are present in the user data layer and absent from the stable system layer.
+
+### Verification
+
+- Targeted prompt and causal-resolution tests passed 26/26; full Python regression passed 362/362.
+- One-command checks passed, including frontend behavior and the production build with 126 modules.
+- Playwright/Edge full player acceptance passed 22/22. No portable package or online release was created.
+
 ## [v1.6.0-dev.14] - 2026-09-15 - Shared story request planning
 
 ### Prompt architecture

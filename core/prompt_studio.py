@@ -36,6 +36,17 @@ class PromptSlice:
     layer: str = "feature"
     cache_class: str = "static"
     required: bool = False
+    required_variables: tuple[str, ...] | None = None
+
+
+@dataclass(frozen=True)
+class RuntimePromptPart:
+    id: str
+    content: str
+    source: str = "runtime"
+    layer: str = "feature"
+    slot: str = "system"
+    cache_class: str = "turn"
 
 
 def _yaml_prompt(key: str) -> Callable[[], str]:
@@ -52,7 +63,7 @@ SLICES: tuple[PromptSlice, ...] = (
     PromptSlice("story.future.core", "story.future", "近期未来核心", "system", 100,
                 "生成候选未来、行动裁定与暗流条件判断。", True,
                 ("context.world", "context.player_character"), _yaml_prompt("reaction_prompt"),
-                "engine", "session", True),
+                "engine", "static", True, ()),
     PromptSlice("story.future.player_agency", "story.future", "玩家行动权", "system", 200,
                 "区分玩家可确定事实与需要世界裁定的外部结果。", True, (),
                 lambda: player_agency_instruction(), "engine", "static", True),
@@ -61,7 +72,7 @@ SLICES: tuple[PromptSlice, ...] = (
     PromptSlice("story.settlement.core", "story.settlement", "正文结算核心", "system", 100,
                 "续写正文并返回状态、世界书捕获等结构字段。", True,
                 ("context.style", "context.world", "context.player_character"),
-                _settlement_section("core"), "engine", "session", True),
+                _settlement_section("core"), "engine", "static", True, ()),
     PromptSlice("story.state.guidance", "story.settlement", "状态与系统指导", "system", 120,
                 "说明状态条、NPC、Buff、删除语义及与正文协作的更新时机。", True, (),
                 _settlement_section("state_guidance"), "feature", "static", True),
@@ -199,7 +210,10 @@ def validate_template(definition: PromptSlice, content: str) -> None:
     actual = template_variables(content)
     allowed = set(definition.variables)
     unknown = actual - allowed
-    missing = allowed - actual
+    required = set(
+        definition.variables if definition.required_variables is None else definition.required_variables
+    )
+    missing = required - actual
     if unknown:
         raise ValueError("包含未知变量：" + "、".join(sorted(unknown)))
     if missing:
@@ -229,12 +243,31 @@ def slice_view(definition: PromptSlice, store: PromptOverrideStore | None = None
         "layer": definition.layer,
         "cacheClass": definition.cache_class,
         "required": definition.required,
+        "requiredVariables": list(
+            definition.variables if definition.required_variables is None else definition.required_variables
+        ),
         "baseline": baseline,
         "active": active,
         "source": "override" if override else "builtin",
         "overrideVersion": int(override.get("version", 0)) if override else None,
         "estimatedTokens": _estimate_tokens(active),
     }
+
+
+def active_slice_variables(
+    slice_id: str,
+    *,
+    store: PromptOverrideStore | None = None,
+    baselines: Mapping[str, str] | None = None,
+) -> set[str]:
+    """Inspect variables embedded by the active template before rendering."""
+    definition = require_slice(slice_id)
+    store = store or PromptOverrideStore()
+    view = slice_view(definition, store)
+    template = view["active"]
+    if baselines and slice_id in baselines and view["source"] == "builtin":
+        template = str(baselines[slice_id])
+    return template_variables(template)
 
 
 @dataclass(frozen=True)
@@ -264,7 +297,7 @@ class ModelRequestPlan:
     user_prompt: str
     prompt_manifest: list[dict]
     temperature: float
-    max_tokens: int
+    max_tokens: int | None
     trace_label: str
     mode: str
     contract_id: str
@@ -275,7 +308,7 @@ def plan_model_request(
     user_parts: Sequence[RequestMessagePart],
     *,
     temperature: float,
-    max_tokens: int,
+    max_tokens: int | None,
     trace_label: str,
     mode: str,
     contract_id: str,
@@ -318,7 +351,7 @@ def compose_prompt(
     variables: Mapping[str, object],
     *,
     include: set[str] | None = None,
-    runtime_parts: list[tuple[str, str, str]] | None = None,
+    runtime_parts: Sequence[tuple[str, str, str] | RuntimePromptPart] | None = None,
     store: PromptOverrideStore | None = None,
     baselines: Mapping[str, str] | None = None,
 ) -> ComposedPrompt:
@@ -342,9 +375,16 @@ def compose_prompt(
             definition.priority, definition.id, rendered, view["source"], view["overrideVersion"],
             definition.layer, definition.slot, definition.cache_class,
         ))
-    for index, (part_id, content, reason) in enumerate(runtime_parts or [], start=1):
-        if content:
-            parts.append((900 + index, part_id, content, reason, None, "runtime", "system", "turn"))
+    for index, raw_part in enumerate(runtime_parts or [], start=1):
+        part = (
+            raw_part if isinstance(raw_part, RuntimePromptPart)
+            else RuntimePromptPart(raw_part[0], raw_part[1], raw_part[2], "runtime", "system", "turn")
+        )
+        if part.content:
+            parts.append((
+                900 + index, part.id, part.content, part.source, None,
+                part.layer, part.slot, part.cache_class,
+            ))
     parts.sort(key=lambda item: (item[0], item[1]))
     manifest = []
     prefix_parts: list[str] = []

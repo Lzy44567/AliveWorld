@@ -13,11 +13,17 @@ from typing import Any, Literal, Mapping, Sequence
 
 from core.action_suggestions import action_suggestion_instruction
 from core.player_agency import adjudication_context, normalize_action_adjudication
-from core.preference_learning import preference_context_instruction, preference_learning_instruction
+from core.preference_learning import (
+    preference_context_data,
+    preference_context_guidance,
+    preference_learning_instruction,
+)
 from core.prompt_studio import (
     ModelRequestPlan,
     PromptOverrideStore,
     RequestMessagePart,
+    RuntimePromptPart,
+    active_slice_variables,
     compose_prompt,
     plan_model_request,
 )
@@ -26,7 +32,13 @@ from core.story_length import story_length_instruction
 
 
 SettlementMode = Literal["normal", "reroll"]
+FUTURE_CONTRACT_ID = "story.future.v1"
 SETTLEMENT_CONTRACT_ID = "story.settlement.v1"
+FUTURE_SLICES = {
+    "story.future.core",
+    "story.future.player_agency",
+    "story.future.continuity",
+}
 SETTLEMENT_SLICES = {
     "story.settlement.core",
     "story.state.guidance",
@@ -55,6 +67,90 @@ class SettlementRequestSnapshot:
     triggered_influences: Sequence[Mapping[str, Any]]
 
 
+@dataclass(frozen=True)
+class FutureRequestSnapshot:
+    baseline_prompt: str
+    context_text: str
+    dynamic_state: Mapping[str, Any]
+    player_action: str
+    visible_world: str
+    character_info: str
+    causal_context: str
+    rule_command_prompt: str
+
+
+def build_future_request(
+    snapshot: FutureRequestSnapshot,
+    *,
+    store: PromptOverrideStore | None = None,
+) -> ModelRequestPlan:
+    baselines = {"story.future.core": snapshot.baseline_prompt}
+    embedded = active_slice_variables(
+        "story.future.core", store=store, baselines=baselines,
+    )
+    legacy_world = (
+        snapshot.visible_world + "\n【隐藏的暗流因果】：\n" + snapshot.causal_context
+    )
+    system = compose_prompt(
+        "story.future",
+        {
+            "world_info": legacy_world,
+            "character_info": snapshot.character_info,
+        },
+        include=FUTURE_SLICES,
+        runtime_parts=[RuntimePromptPart(
+            "story.future.world_rule_command",
+            snapshot.rule_command_prompt,
+            layer="feature",
+            cache_class="turn",
+        )],
+        baselines=baselines,
+        store=store,
+    )
+    user_parts: list[RequestMessagePart] = []
+    if "context.player_character" not in embedded and snapshot.character_info:
+        user_parts.append(RequestMessagePart(
+            "context.player_character",
+            f"【玩家角色设定】：\n{snapshot.character_info}",
+            cache_class="asset",
+        ))
+    user_parts.append(RequestMessagePart(
+        "story.history", f"【情景】：\n{snapshot.context_text}",
+        "\n" if user_parts else "", "session",
+    ))
+    if "context.world" not in embedded:
+        if snapshot.visible_world:
+            user_parts.append(RequestMessagePart(
+                "context.world.visible",
+                f"【本回合可见世界资料】：\n{snapshot.visible_world}",
+                "\n",
+                "turn",
+            ))
+        if snapshot.causal_context:
+            user_parts.append(RequestMessagePart(
+                "runtime.causal_candidates",
+                f"【待判断的隐藏暗流因果】：\n{snapshot.causal_context}",
+                "\n",
+            ))
+    user_parts.extend((
+        RequestMessagePart(
+            "runtime.state",
+            f"【状态】：{json.dumps(snapshot.dynamic_state, ensure_ascii=False)}",
+            "\n",
+        ),
+        RequestMessagePart("story.player_action", f"【行动】：{snapshot.player_action}", "\n"),
+    ))
+    return plan_model_request(
+        system,
+        user_parts,
+        temperature=0.7,
+        max_tokens=None,
+        trace_label="变数推演",
+        mode="normal",
+        contract_id=FUTURE_CONTRACT_ID,
+    )
+
+
 def _influence_instruction(items: Sequence[Mapping[str, Any]]) -> str:
     return "\n".join(
         f"- [{item['id']}] {item['summary']}；必须体现的后果：{item['effect']}；依据：{item['reason']}"
@@ -62,38 +158,43 @@ def _influence_instruction(items: Sequence[Mapping[str, Any]]) -> str:
     ) or "（本回合没有满足条件的暗流影响）"
 
 
-def _runtime_parts(snapshot: SettlementRequestSnapshot) -> list[tuple[str, str, str]]:
+def _runtime_parts(snapshot: SettlementRequestSnapshot) -> list[RuntimePromptPart]:
     suggestion = action_suggestion_instruction(snapshot.story_settings.get("aiSuggestions", True))
-    preference = preference_context_instruction(snapshot.preference_context)
-    parts = {
-        "rule": ("story.settlement.world_rule_command", snapshot.rule_command_prompt, "runtime"),
-        "length": (
+    parts = [
+        RuntimePromptPart(
             "story.settlement.length",
             story_length_instruction(snapshot.story_settings.get("targetStoryLength")),
-            "runtime",
+            layer="feature",
+            cache_class="configuration",
         ),
-        "suggestions": (
-            "story.settlement.suggestions",
-            ("【玩家行动建议要求】\n" + suggestion) if suggestion else "",
-            "runtime",
+        RuntimePromptPart(
+            "story.settlement.preference_guidance",
+            preference_context_guidance(snapshot.preference_context),
+            layer="feature",
+            cache_class="configuration",
         ),
-        "preference": ("story.settlement.preference_context", preference, "runtime"),
-        "learning": (
+        RuntimePromptPart(
             "story.settlement.preference_learning",
             preference_learning_instruction(snapshot.preference_context)
             if snapshot.story_settings.get("learnUserPreferences", True)
             else "",
-            "runtime",
+            layer="feature",
+            cache_class="configuration",
         ),
-    }
-    # Preserve each legacy path byte-for-byte in M1. M2 may deliberately
-    # normalize this order behind new equivalence and behavior tests.
-    order = (
-        ("rule", "length", "preference", "learning", "suggestions")
-        if snapshot.mode == "normal"
-        else ("rule", "length", "suggestions", "preference", "learning")
-    )
-    return [parts[key] for key in order]
+        RuntimePromptPart(
+            "story.settlement.suggestions",
+            ("【玩家行动建议要求】\n" + suggestion) if suggestion else "",
+            layer="feature",
+            cache_class="configuration",
+        ),
+        RuntimePromptPart(
+            "story.settlement.world_rule_command",
+            snapshot.rule_command_prompt,
+            layer="feature",
+            cache_class="turn",
+        ),
+    ]
+    return parts
 
 
 def build_settlement_request(
@@ -103,6 +204,10 @@ def build_settlement_request(
 ) -> ModelRequestPlan:
     if snapshot.mode not in {"normal", "reroll"}:
         raise ValueError("未知正文结算模式")
+    baselines = settlement_prompt_baselines(snapshot.baseline_prompt)
+    embedded = active_slice_variables(
+        "story.settlement.core", store=store, baselines=baselines,
+    )
     system = compose_prompt(
         "story.settlement",
         {
@@ -113,14 +218,42 @@ def build_settlement_request(
         },
         include=SETTLEMENT_SLICES,
         runtime_parts=_runtime_parts(snapshot),
-        baselines=settlement_prompt_baselines(snapshot.baseline_prompt),
+        baselines=baselines,
         store=store,
     )
     state_text = json.dumps(snapshot.dynamic_state, ensure_ascii=False)
     adjudication = adjudication_context(normalize_action_adjudication(snapshot.action_adjudication))
     influence = _influence_instruction(snapshot.triggered_influences)
-    user_parts = (
-        RequestMessagePart("story.context.history", f"【情景】：\n{snapshot.context_text}"),
+    user_parts: list[RequestMessagePart] = []
+    for variable_id, value, label, cache_class in (
+        ("context.style", snapshot.style_info, "文风指导", "asset"),
+        ("context.player_character", snapshot.character_info, "玩家角色设定", "asset"),
+        (
+            "player.preferences.confirmed",
+            preference_context_data(snapshot.preference_context),
+            "",
+            "session",
+        ),
+    ):
+        if variable_id not in embedded and value:
+            user_parts.append(RequestMessagePart(
+                "context.world.visible" if variable_id == "context.world" else variable_id,
+                value if not label else f"【{label}】：\n{value}",
+                "\n" if user_parts else "",
+                cache_class,
+            ))
+    user_parts.append(RequestMessagePart(
+        "story.history", f"【情景】：\n{snapshot.context_text}",
+        "\n" if user_parts else "", "session",
+    ))
+    if "context.world" not in embedded and snapshot.visible_world:
+        user_parts.append(RequestMessagePart(
+            "context.world.visible",
+            f"【本回合可见世界资料】：\n{snapshot.visible_world}",
+            "\n",
+            "turn",
+        ))
+    user_parts.extend((
         RequestMessagePart("runtime.state", f"【状态】：{state_text}", "\n"),
         RequestMessagePart("story.player_action", f"【行动】：{snapshot.player_action}", "\n"),
         RequestMessagePart("runtime.adjudication", adjudication, "\n"),
@@ -130,7 +263,7 @@ def build_settlement_request(
             f"【本回合必须兑现的暗流影响】：\n{influence}",
             "\n",
         ),
-    )
+    ))
     normal = snapshot.mode == "normal"
     return plan_model_request(
         system,

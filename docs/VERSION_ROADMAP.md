@@ -1,6 +1,6 @@
 # v1.1.0 路线图：活的世界 MVP
 
-> 2026-09-15 当前代码节点：`v1.6.0-dev.14` 实现提示词架构M1。普通正文与重掷共用纯请求构建器及system/user来源清单，两条路径保持原文本、参数与调用次数。下一步M2分离固定规则与运行资料并登记明确投影；精简预设、结果校验、预算/暗流交接完成后恢复世界书捕获。详见 [`features/21_prompt_architecture_design.md`](features/21_prompt_architecture_design.md)。
+> 2026-09-15 当前代码节点：`v1.6.0-dev.15` 实现提示词架构M2。正文与近期未来的固定规则留在稳定system层，角色、文风、偏好、历史、检索世界、状态和行动按稳定度进入user数据层；旧变量覆盖保持兼容且不会重复注入。下一步M3精简重复体验规则并建立有限预设/关闭契约；结果校验、预算/暗流交接完成后恢复世界书捕获。详见 [`features/21_prompt_architecture_design.md`](features/21_prompt_architecture_design.md)。
 
 ## 版本与提交约定
 

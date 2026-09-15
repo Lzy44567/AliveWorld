@@ -157,9 +157,12 @@ test('前端创建和载入全类资产，正文上下文启停可由假模型�
   let records = (await (await request.get('http://127.0.0.1:18765/__test__/requests')).json()).requests;
   const settlement = records.find(item => item.kind === 'settlement');
   const overseer = records.find(item => item.kind === 'overseer');
-  expect(settlement.system).toContain('测试世界书条目');
-  expect(settlement.system).toContain('测试角色卡');
-  expect(settlement.system).toContain('测试文风');
+  expect(settlement.system).not.toContain('测试世界书条目');
+  expect(settlement.system).not.toContain('测试角色卡');
+  expect(settlement.system).not.toContain('测试文风');
+  expect(settlement.user).toContain('测试世界书条目');
+  expect(settlement.user).toContain('测试角色卡');
+  expect(settlement.user).toContain('测试文风');
   expect(settlement.system).toContain('目标约 500 个中文字符');
   expect(overseer.system).toContain('测试实体');
   expect(settlement.markers).toEqual(expect.arrayContaining(['世界书A', '角色卡A', '文风卡A']));
@@ -184,9 +187,9 @@ test('前端创建和载入全类资产，正文上下文启停可由假模型�
 
   records = (await (await request.get('http://127.0.0.1:18765/__test__/requests')).json()).requests;
   const secondSettlement = records.find(item => item.kind === 'settlement');
-  expect(secondSettlement.system).not.toContain('测试世界书条目');
-  expect(secondSettlement.system).not.toContain('测试角色卡');
-  expect(secondSettlement.system).not.toContain('测试文风');
+  expect(secondSettlement.user).not.toContain('测试世界书条目');
+  expect(secondSettlement.user).not.toContain('测试角色卡');
+  expect(secondSettlement.user).not.toContain('测试文风');
   expect(secondSettlement.markers).not.toEqual(expect.arrayContaining(['世界书A', '角色卡A', '文风卡A']));
 });
 

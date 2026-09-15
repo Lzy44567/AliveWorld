@@ -1,18 +1,15 @@
-import json
 import tempfile
 import unittest
 from pathlib import Path
 
-from core.action_suggestions import action_suggestion_instruction
-from core.player_agency import adjudication_context, normalize_action_adjudication
-from core.preference_learning import preference_context_instruction, preference_learning_instruction
-from core.prompt_studio import PromptOverrideStore, compose_prompt
-from core.settlement_prompt_sections import settlement_prompt_baselines
-from core.story_length import story_length_instruction
+from core.prompt_studio import PromptOverrideStore
+from core.prompts import load_system_prompts
 from core.story_prompt_builder import (
     SETTLEMENT_CONTRACT_ID,
     SETTLEMENT_SLICES,
+    FutureRequestSnapshot,
     SettlementRequestSnapshot,
+    build_future_request,
     build_settlement_request,
 )
 
@@ -20,64 +17,21 @@ from core.story_prompt_builder import (
 BASELINE = "{style_info}\n{world_info}\n{character_info}\n结算"
 
 
-def legacy_request(snapshot, store):
-    preference = preference_context_instruction(snapshot.preference_context)
-    suggestion = action_suggestion_instruction(snapshot.story_settings.get("aiSuggestions", True))
-    parts = {
-        "rule": ("story.settlement.world_rule_command", snapshot.rule_command_prompt, "runtime"),
-        "length": (
-            "story.settlement.length",
-            story_length_instruction(snapshot.story_settings.get("targetStoryLength")),
-            "runtime",
-        ),
-        "suggestions": (
-            "story.settlement.suggestions",
-            ("【玩家行动建议要求】\n" + suggestion) if suggestion else "",
-            "runtime",
-        ),
-        "preference": ("story.settlement.preference_context", preference, "runtime"),
-        "learning": (
-            "story.settlement.preference_learning",
-            preference_learning_instruction(snapshot.preference_context)
-            if snapshot.story_settings.get("learnUserPreferences", True)
-            else "",
-            "runtime",
-        ),
-    }
-    order = (
-        ("rule", "length", "preference", "learning", "suggestions")
-        if snapshot.mode == "normal"
-        else ("rule", "length", "suggestions", "preference", "learning")
-    )
-    system = compose_prompt(
-        "story.settlement",
-        {
-            "world_info": snapshot.visible_world,
-            "character_info": snapshot.character_info,
-            "style_info": snapshot.style_info,
-            "word_limit": snapshot.word_limit,
-        },
-        include=SETTLEMENT_SLICES,
-        runtime_parts=[parts[key] for key in order],
-        baselines=settlement_prompt_baselines(snapshot.baseline_prompt),
-        store=store,
-    ).text
-    influence = "\n".join(
-        f"- [{item['id']}] {item['summary']}；必须体现的后果：{item['effect']}；依据：{item['reason']}"
-        for item in snapshot.triggered_influences
-    ) or "（本回合没有满足条件的暗流影响）"
-    user = (
-        f"【情景】：\n{snapshot.context_text}"
-        f"\n【状态】：{json.dumps(snapshot.dynamic_state, ensure_ascii=False)}"
-        f"\n【行动】：{snapshot.player_action}"
-        f"\n{adjudication_context(normalize_action_adjudication(snapshot.action_adjudication))}"
-        f"\n【裁定变数】：{snapshot.chosen_description}"
-        f"\n【本回合必须兑现的暗流影响】：\n{influence}"
-    )
-    return system, user
-
-
 class StoryPromptBuilderTests(unittest.TestCase):
+    def future_snapshot(self, **changes):
+        values = {
+            "baseline_prompt": load_system_prompts()["reaction_prompt"],
+            "context_text": "前文",
+            "dynamic_state": {"properties": {"地点": "城门"}},
+            "player_action": "进入城门",
+            "visible_world": "只读世界资料",
+            "character_info": "玩家角色资料",
+            "causal_context": "隐藏影响一",
+            "rule_command_prompt": "",
+        }
+        values.update(changes)
+        return FutureRequestSnapshot(**values)
+
     def snapshot(self, mode="normal", **changes):
         values = {
             "mode": mode,
@@ -112,30 +66,30 @@ class StoryPromptBuilderTests(unittest.TestCase):
         values.update(changes)
         return SettlementRequestSnapshot(**values)
 
-    def assert_legacy_equivalent(self, snapshot):
+    def build(self, snapshot):
         with tempfile.TemporaryDirectory() as temporary:
             store = PromptOverrideStore(Path(temporary) / "overrides.json")
-            expected_system, expected_user = legacy_request(snapshot, store)
             result = build_settlement_request(snapshot, store=store)
-        self.assertEqual(result.system_prompt, expected_system)
-        self.assertEqual(result.user_prompt, expected_user)
         self.assertEqual(result.contract_id, SETTLEMENT_CONTRACT_ID)
         self.assertTrue(any(item.get("messageRole") == "user" for item in result.prompt_manifest))
         self.assertFalse(any("content" in item for item in result.prompt_manifest))
         return result
 
-    def test_normal_request_is_byte_equivalent_and_keeps_generation_settings(self):
-        result = self.assert_legacy_equivalent(self.snapshot())
+    def test_normal_request_keeps_generation_settings(self):
+        result = self.build(self.snapshot())
         self.assertEqual(result.mode, "normal")
         self.assertEqual(result.trace_label, "剧情结算")
         self.assertEqual(result.temperature, 0.8)
         self.assertEqual(result.max_tokens, 4200)
 
-    def test_reroll_request_is_byte_equivalent_and_keeps_legacy_limit(self):
-        result = self.assert_legacy_equivalent(self.snapshot("reroll"))
+    def test_reroll_request_keeps_legacy_limit_and_shared_layout(self):
+        result = self.build(self.snapshot("reroll"))
+        normal = self.build(self.snapshot("normal"))
         self.assertEqual(result.mode, "reroll")
         self.assertEqual(result.trace_label, "剧情重写")
         self.assertEqual(result.max_tokens, 3000)
+        self.assertEqual(result.system_prompt, normal.system_prompt)
+        self.assertEqual(result.user_prompt, normal.user_prompt)
 
     def test_disabled_optional_parts_are_absent_in_both_modes(self):
         settings = {
@@ -145,7 +99,7 @@ class StoryPromptBuilderTests(unittest.TestCase):
         }
         for mode in ("normal", "reroll"):
             with self.subTest(mode=mode):
-                result = self.assert_legacy_equivalent(self.snapshot(
+                result = self.build(self.snapshot(
                     mode,
                     story_settings=settings,
                     rule_command_prompt="",
@@ -171,6 +125,101 @@ class StoryPromptBuilderTests(unittest.TestCase):
         object.__setattr__(snapshot, "mode", "unknown")
         with self.assertRaisesRegex(ValueError, "未知正文结算模式"):
             build_settlement_request(snapshot)
+
+    def test_modern_future_keeps_dynamic_data_out_of_system_prefix(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            store = PromptOverrideStore(Path(temporary) / "overrides.json")
+            first = build_future_request(self.future_snapshot(), store=store)
+            second = build_future_request(self.future_snapshot(
+                visible_world="另一个世界", causal_context="隐藏影响二",
+                player_action="离开城门",
+            ), store=store)
+        for value in ("只读世界资料", "玩家角色资料", "隐藏影响一", "前文", "进入城门"):
+            self.assertNotIn(value, first.system_prompt)
+            self.assertIn(value, first.user_prompt)
+        self.assertEqual(first.system_prompt, second.system_prompt)
+        first_system = [item for item in first.prompt_manifest if item["messageRole"] == "system"]
+        second_system = [item for item in second.prompt_manifest if item["messageRole"] == "system"]
+        self.assertEqual(
+            [item["prefixHash"] for item in first_system],
+            [item["prefixHash"] for item in second_system],
+        )
+
+    def test_legacy_future_template_keeps_original_wire_layout_without_duplication(self):
+        snapshot = self.future_snapshot(
+            baseline_prompt="世界={world_info}\n角色={character_info}\n规则",
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            result = build_future_request(
+                snapshot, store=PromptOverrideStore(Path(temporary) / "overrides.json"),
+            )
+        expected_world = "只读世界资料\n【隐藏的暗流因果】：\n隐藏影响一"
+        self.assertTrue(result.system_prompt.startswith(f"世界={expected_world}\n角色=玩家角色资料\n规则"))
+        self.assertEqual((result.system_prompt + result.user_prompt).count("只读世界资料"), 1)
+        self.assertEqual((result.system_prompt + result.user_prompt).count("玩家角色资料"), 1)
+        self.assertTrue(result.user_prompt.startswith("【情景】：\n前文\n【状态】"))
+
+    def test_modern_settlement_projects_assets_before_turn_data(self):
+        snapshot = self.snapshot(baseline_prompt=load_system_prompts()["settlement_prompt"])
+        with tempfile.TemporaryDirectory() as temporary:
+            result = build_settlement_request(
+                snapshot, store=PromptOverrideStore(Path(temporary) / "overrides.json"),
+            )
+        for value in ("测试世界", "测试角色", "测试文风"):
+            self.assertNotIn(value, result.system_prompt)
+            self.assertIn(value, result.user_prompt)
+        asset_end = result.user_prompt.index("【情景】")
+        self.assertLess(result.user_prompt.index("【文风指导】"), asset_end)
+        self.assertLess(result.user_prompt.index("【玩家角色设定】"), asset_end)
+        self.assertGreater(result.user_prompt.index("【本回合可见世界资料】"), asset_end)
+
+    def test_runtime_manifest_reports_configuration_and_turn_provenance(self):
+        result = self.build(self.snapshot(
+            baseline_prompt=load_system_prompts()["settlement_prompt"],
+        ))
+        manifest = {item["sliceId"]: item for item in result.prompt_manifest}
+        for slice_id in (
+            "story.settlement.length",
+            "story.settlement.preference_guidance",
+            "story.settlement.preference_learning",
+            "story.settlement.suggestions",
+        ):
+            self.assertEqual(manifest[slice_id]["layer"], "feature")
+            self.assertEqual(manifest[slice_id]["cacheClass"], "configuration")
+            self.assertEqual(manifest[slice_id]["messageRole"], "system")
+        self.assertEqual(
+            manifest["story.settlement.world_rule_command"]["cacheClass"], "turn",
+        )
+        self.assertEqual(manifest["story.history"]["cacheClass"], "session")
+        self.assertEqual(manifest["context.world.visible"]["cacheClass"], "turn")
+
+    def test_default_settlement_system_prefix_ignores_turn_data(self):
+        baseline = load_system_prompts()["settlement_prompt"]
+        first = self.build(self.snapshot(baseline_prompt=baseline, rule_command_prompt=""))
+        second = self.build(self.snapshot(
+            baseline_prompt=baseline,
+            rule_command_prompt="",
+            visible_world="另一个世界",
+            context_text="另一段历史",
+            player_action="离开城门",
+            dynamic_state={"properties": {"地点": "荒野"}},
+        ))
+        self.assertEqual(first.system_prompt, second.system_prompt)
+        self.assertNotEqual(first.user_prompt, second.user_prompt)
+
+    def test_legacy_core_override_embeds_only_its_declared_data_once(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            store = PromptOverrideStore(Path(temporary) / "overrides.json")
+            store.save("story.settlement.core", "旧核心 世界={world_info}")
+            result = build_settlement_request(
+                self.snapshot(baseline_prompt=load_system_prompts()["settlement_prompt"]),
+                store=store,
+            )
+        self.assertIn("旧核心 世界=测试世界", result.system_prompt)
+        self.assertNotIn("【本回合可见世界资料】", result.user_prompt)
+        self.assertEqual((result.system_prompt + result.user_prompt).count("测试世界"), 1)
+        self.assertIn("【文风指导】：\n测试文风", result.user_prompt)
+        self.assertIn("【玩家角色设定】：\n测试角色", result.user_prompt)
 
 
 if __name__ == "__main__":

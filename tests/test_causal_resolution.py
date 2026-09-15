@@ -19,6 +19,9 @@ class FakeUndercurrent:
     def __init__(self, ledger):
         self.causal_ledger = ledger
 
+    def get_ledger_context(self):
+        return self.causal_ledger.context()
+
 
 class FakeSession:
     def __init__(self, ai, ledger):

@@ -2,7 +2,18 @@
 
 Updated: 2026-09-15
 
-## Current dev.14 patch — prompt architecture M1
+## Current dev.15 patch — prompt architecture M2
+
+- Final goal: implement the approved prompt architecture in bounded M1–M5 slices, then resume worldbook capture.
+- Phase goal: M2 separates reusable instructions from request data in both future and settlement requests, registers explicit runtime projections, and keeps older developer templates that embed legacy variables usable without duplicate data.
+- Implementation: default core prompts now contain rules only. Character/style/preferences/history are ordered before turn-scoped world retrieval, state, action and adjudication in the user message. Runtime prompt parts report their truthful feature/configuration/turn provenance, while normal and reroll settlement share one layout and retain their distinct trace labels and output limits.
+- Compatibility: an active legacy core that still contains `{world_info}`, `{character_info}` or `{style_info}` renders those values in its original system location; the builder omits the corresponding user projection. No player save schema or model-call count changed.
+- Status: complete. Targeted prompt/game tests passed 26/26; full Python regression passed 362/362; the one-command regression and 126-module frontend build passed; Playwright/Edge passed 22/22 after its asset-injection assertions were updated to inspect the new user data layer.
+- Next verifiable slice: M3 removes duplicated experience rules behind a limited preset/on-off contract and proves disabled features contribute no rules, fields or data. Do not begin M4 result validation or resume worldbook capture inside M3.
+
+The completed dev.14 node remains recorded below as historical evidence.
+
+## Completed dev.14 patch — prompt architecture M1
 
 - Final goal: implement the approved prompt architecture in bounded M1–M5 slices, then resume worldbook capture.
 - Phase goal: M1 creates one pure settlement request builder and an observable request plan for normal turns and rerolls, without changing either path's wire text, generation settings or call count.

@@ -37,12 +37,13 @@ class PromptStudioTests(unittest.TestCase):
             self.assertEqual(result.manifest[0]["source"], "override")
             self.assertNotIn("核心 世界A", json.dumps(result.manifest, ensure_ascii=False))
 
-    def test_validation_rejects_missing_or_unknown_variables(self):
+    def test_static_core_override_allows_optional_legacy_variables_and_rejects_unknown(self):
         definition = require_slice("story.future.core")
-        with self.assertRaisesRegex(ValueError, "缺少必要变量"):
-            validate_template(definition, "只有 {world_info}")
+        validate_template(definition, "不嵌入运行资料的静态核心")
+        validate_template(definition, "兼容旧世界变量 {world_info}")
         with self.assertRaisesRegex(ValueError, "未知变量"):
             validate_template(definition, "{world_info} {character_info} {secret}")
+        self.assertEqual(definition.required_variables, ())
 
     def test_canonical_variables_and_legacy_aliases_render_identically(self):
         with tempfile.TemporaryDirectory() as temporary:

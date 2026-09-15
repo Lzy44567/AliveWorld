@@ -1,13 +1,16 @@
 # core/resolution_engine.py
-import json
 from utils.sys_logger import get_logger
-from core.prompt_studio import compose_prompt
 from core.prompts import load_system_prompts
 from core.ai_engine import robust_json_parse
 from core.model_response import failure_message
 from core.future_candidates import candidate_probability, choose_candidate, normalize_candidates
 from core.player_agency import normalize_action_adjudication
-from core.story_prompt_builder import SettlementRequestSnapshot, build_settlement_request
+from core.story_prompt_builder import (
+    FutureRequestSnapshot,
+    SettlementRequestSnapshot,
+    build_future_request,
+    build_settlement_request,
+)
 from core.world_rule_commands import resolution_instruction
 
 log = get_logger()
@@ -20,24 +23,26 @@ class DualTrackResolver(BaseResolutionStrategy):
         pts = load_system_prompts()
         ctx = session.get_context_text()
         dyn_state = session.get_dynamic_state_for_ai()
-        active_world, triggered = session.build_active_world_info(player_action) 
+        future_world, triggered = session.build_visible_world_info(player_action)
         
         # 1. 变数发散
         rule_command_prompt = resolution_instruction(player_action)
-        react_prompt = compose_prompt(
-            "story.future",
-            {"world_info": active_world, "character_info": session.char_info},
-            include={"story.future.core", "story.future.player_agency", "story.future.continuity"},
-            runtime_parts=[("story.future.world_rule_command", rule_command_prompt, "runtime")],
-            baselines={"story.future.core": pts.get("reaction_prompt", "")},
-        )
-        react_p = react_prompt.text
-        usr_p1 = f"【情景】：\n{ctx}\n【状态】：{json.dumps(dyn_state, ensure_ascii=False)}\n【行动】：{player_action}"
+        future_request = build_future_request(FutureRequestSnapshot(
+            baseline_prompt=pts.get("reaction_prompt", ""),
+            context_text=ctx,
+            dynamic_state=dyn_state,
+            player_action=player_action,
+            visible_world=future_world,
+            character_info=session.char_info,
+            causal_context=session.undercurrent.get_ledger_context(),
+            rule_command_prompt=rule_command_prompt,
+        ))
         
         log.info(f"发送推演请求: {player_action[:15]}...")
         raw_react, err1 = session.ai_engine.chat_json(
-            react_p, usr_p1, temp=0.7, trace_label="变数推演",
-            prompt_manifest=react_prompt.manifest,
+            future_request.system_prompt, future_request.user_prompt,
+            temp=future_request.temperature, trace_label=future_request.trace_label,
+            prompt_manifest=future_request.prompt_manifest,
         )
         reaction_payload = {}
         

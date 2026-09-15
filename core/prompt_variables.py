@@ -41,9 +41,15 @@ class PromptVariable:
 VARIABLES: tuple[PromptVariable, ...] = (
     PromptVariable(
         "context.world", "世界与当前因果上下文",
-        "当前任务真正可见的世界规则、相关角色或实体信息，以及允许公开的因果内容；不是整份隐藏数据库。",
+        "旧版聚合变量。按任务提供世界规则及允许的因果内容；新提示词优先使用更明确的资料投影。",
         "text", "story_context", ("story.future", "story.settlement"), "empty_text",
         "story_private", "plain_text", "session", ("world_info",),
+    ),
+    PromptVariable(
+        "context.world.visible", "本回合可见世界资料",
+        "经过世界书检索和权限过滤、本任务可以读取的世界规则与NPC设定；不包含隐藏暗流账本。",
+        "text", "story_context", ("story.future", "story.settlement"), "empty_text",
+        "story_private", "plain_text", "turn", (),
     ),
     PromptVariable(
         "context.player_character", "玩家角色设定",
@@ -80,6 +86,54 @@ VARIABLES: tuple[PromptVariable, ...] = (
         "是否要求正文结算同时返回快捷行动建议；关闭后相关可选提示词应完全不发送。",
         "boolean", "story_settings", ("story.settlement",), "omit",
         "public", "boolean", "configuration", ("enabled",),
+    ),
+    PromptVariable(
+        "story.history", "近期故事上下文",
+        "由记忆系统组装的摘要与近期完整回合，用于从当前故事位置继续；不会改写永久保存的原文。",
+        "text", "story_memory", ("story.future", "story.settlement"), "empty_text",
+        "story_private", "plain_text", "session", (),
+    ),
+    PromptVariable(
+        "runtime.state", "本回合状态快照",
+        "玩家状态条、文字状态、Buff和当前场景NPC的只读快照；模型只能通过输出契约提出更新。",
+        "json", "state_manager", ("story.future", "story.settlement"), "empty_json",
+        "story_private", "json", "turn", (),
+    ),
+    PromptVariable(
+        "story.player_action", "玩家本回合行动",
+        "玩家当前提交并已展开快捷选项引用的行动。它靠近消息末尾，作为本回合推演的直接输入。",
+        "text", "game_session", ("story.future", "story.settlement"), "error",
+        "story_private", "plain_text", "turn", (),
+    ),
+    PromptVariable(
+        "runtime.causal_candidates", "待判断的隐藏因果",
+        "仅供近期未来判断触发条件的受控暗流投影；正文GM不会读取未触发的完整账本。",
+        "text", "causal_ledger", ("story.future",), "empty_text",
+        "hidden_system", "plain_text", "turn", (),
+    ),
+    PromptVariable(
+        "runtime.adjudication", "行动事实裁定",
+        "近期未来对玩家事实、外部结果和硬冲突的结构化裁定；正文必须从该裁定之后续写。",
+        "json", "future_resolution", ("story.settlement",), "error",
+        "hidden_system", "json", "turn", (),
+    ),
+    PromptVariable(
+        "runtime.selected_future", "选中的近期未来",
+        "Python从合格候选中完成物理随机后选中的唯一未来；正文不读取未选候选全集。",
+        "text", "future_resolution", ("story.settlement",), "error",
+        "hidden_system", "plain_text", "turn", (),
+    ),
+    PromptVariable(
+        "runtime.triggered_influences", "本回合已触发暗流",
+        "经未来判断和代码ID校验后，本回合正文必须兑现的影响；为空表示没有已触发影响。",
+        "json", "causal_ledger", ("story.settlement",), "empty_json",
+        "hidden_system", "json", "turn", (),
+    ),
+    PromptVariable(
+        "player.preferences.confirmed", "已确认玩家偏好",
+        "玩家已经确认或达到展示门槛的偏好数据；只影响呈现和关注重点，关闭偏好卡后为空。",
+        "text", "user_preferences", ("story.settlement",), "omit",
+        "story_private", "plain_text", "session", (),
     ),
 )
 

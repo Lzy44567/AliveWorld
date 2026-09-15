@@ -7,19 +7,11 @@ PROMPT_FILE = os.path.join(BASE_DIR, 'system_prompts.yml')
 
 DEFAULT_PROMPTS = {
     "reaction_prompt": """你是一个严谨的近期未来推演器。根据已有事实生成若干个实质不同的近期未来候选。
-【世界法则】：\n{world_info}\n【角色设定】：\n{character_info}
 候选必须先符合世界规则、角色状态和已知条件；硬条件不满足时 eligible=false、weight=0。不要强制凑成有利/有害/中立。weight 是无需合计 100 的非负相对权重，basis 写关键事实依据。先按附加的玩家行动权协议完成 action_adjudication，再从 accepted_facts 已发生之后生成候选。每个候选必须在 fact_checks 中逐字复制并核对全部 accepted_facts；遗漏或 compatible=false 的候选会被后端排除。违法或冒犯不能自行充当信息通道，不能凭空召唤警察、保安、邻居或设备故障；没有既有对外通道时至少保留一个只延续当前封闭场景的候选。若引入新的执法、安保、军队、媒体或围观者，basis 必须明确已有的知情者、传递时间、可用通道和传出信息，任一环缺失时该候选必须不可用。NPC 可以怀疑，但叙述者不得因此认定玩家撒谎、妄想或没有玩家明确补充的自身能力和物品。
 同时判断世界信息中每条 active 暗流影响的条件是否满足。不要替暗流影响计算概率。
 必须且只能输出严格的 JSON：{"action_adjudication":{"accepted_facts":[],"contested_outcomes":[],"rejected_claims":[]},"reactions": [{"id": 1, "description": "近期未来...", "eligible": true, "weight": 60, "basis": ["事实依据"], "fact_checks": [{"fact":"逐字复制 accepted_fact","compatible":true,"reason":"如何保持事实"}]}], "influence_checks": [{"id": "influence_xxx", "condition_met": true, "reason": "判断依据"}]}""",
 
-    "settlement_prompt": """你是严谨的游戏地下城主与数值引擎。请严格遵循以下【文风指导】来渲染氛围并续写剧情：
-{style_info}
-
-【本回合适用的世界规则与NPC设定】：
-{world_info}
-
-【玩家角色设定】：
-{character_info}
+    "settlement_prompt": """你是严谨的游戏地下城主与数值引擎。根据本次请求提供的文风、世界资料、角色资料与回合数据续写剧情。
 
 【极其严格的状态与系统规则】：
 1. 【玩家专属刻度】：玩家的生命值、法力、经验值等**玩家专属**的进度条放在 `dynamic_bars`。格式: {"生命值": {"current": 90, "max": 100, "color": "red"}}。**绝对不准把 NPC/敌人的血条放进这里！！**
