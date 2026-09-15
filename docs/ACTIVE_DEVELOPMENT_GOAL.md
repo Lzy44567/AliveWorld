@@ -1,6 +1,18 @@
 # Active development goal
 
-Updated: 2026-09-14
+Updated: 2026-09-15
+
+## Current mainline — prompt architecture design gate
+
+- User confirmed that prompt architecture must be designed before further implementation. The previous dev.13 suggestion to switch directly to worldbook capture is superseded by this explicit direction.
+- Final goal: complete a bounded, evidence-backed architecture for task composition, stable prefixes, context budgets, editable presets, state output and inter-model handoffs.
+- Phase goal: inspect entry points and write the design plus migration/acceptance tables. No business-code changes, prompt rewrites, version bump, package or remote release in this phase.
+- Design: [`features/21_prompt_architecture_design.md`](features/21_prompt_architecture_design.md). It distinguishes verified code from proposed behavior and lists the limits of the review.
+- Status: design gate complete. Source-backed architecture, migration and acceptance tables are recorded; 21 targeted prompt/stateslice/causal-resolution baseline tests passed on 2026-09-15. Documentation links and whitespace were checked. Historic dev.13 full-suite results below are not new test runs; no UI/build/real-model test was required for this docs-only slice.
+- Next verifiable slice: M1, a shared request builder for normal settlement and reroll with each path's existing messages, ordering, output limits and call count preserved. Implementation follows user review/authorization.
+- Subsequent slices: separate rules/data, simplify rules and introduce a minimal preset, validate results, finish budget/Overseer integration; then resume worldbook capture. Do not silently substitute worldbook implementation for this mainline.
+
+The completed dev.13 node remains recorded below as historical evidence.
 
 ## Current dev.13 patch
 
@@ -11,7 +23,7 @@ Updated: 2026-09-14
 - Recovery: prompt overrides remain versioned in `UserData`; legacy full-core overrides are split before the first dev.13 read and the original text is represented by the three resulting records. Release failures leave local package artifacts for diagnosis and never modify `UserData`.
 - Acceptance: exact rendered-prompt equivalence, required state-field regression, legacy override migration, release-script dry-run/preflight tests, Python suite, frontend build, complete Playwright suite, documentation, and a clean Git commit.
 - Status: complete. Prompt/release targeted tests passed 23/23, Python regression passed 351/351, the production frontend build passed with 126 modules, and Playwright/Edge passed 22/22. The release preflight passed against a clean dev.13 commit, generated the exact version notes, and classified the channel as pre-release; no package or online Release was created.
-- Next verifiable slice: return to the P0 worldbook mainline and define the task-neutral `world_change_events` short signal against the newly separated engine/state contracts before adding any content preset UI.
+- Historical next-slice proposal: return to worldbook capture. Superseded on 2026-09-15 by the prompt architecture design gate above.
 
 The completed dev.12 node remains recorded below as historical evidence.
 

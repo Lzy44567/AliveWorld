@@ -1,5 +1,13 @@
 # 更新日志
 
+## Design only - 2026-09-15 - Prompt architecture
+
+### Architecture and development continuity
+
+- Added a bounded source-backed design for task request composition, cache prefixes, context budgets, state validation and model handoffs, with migration and acceptance tables.
+- Recorded actual gaps: dynamic assets inside core prompts, duplicated normal/reroll builders, partial state validation and synthesized causal-resolution success reports.
+- Updated the active goal and roadmap to keep prompt engineering as the current mainline before worldbook capture. This entry changes documentation only; it does not claim implementation or a new release.
+
 ## [v1.6.0-dev.13] - 2026-09-14 - State prompt slices and release orchestration
 
 ### Prompt architecture

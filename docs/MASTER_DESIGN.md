@@ -6,6 +6,8 @@
 
 ## 当前目标
 
+2026-09-15 当前活动主线以 [`ACTIVE_DEVELOPMENT_GOAL.md`](ACTIVE_DEVELOPMENT_GOAL.md) 为准：先完成提示词架构设计，依据 [`features/21_prompt_architecture_design.md`](features/21_prompt_architecture_design.md) 渐进迁移后恢复世界书捕获。以下历次阶段记录保留背景，不应被读取为自动切换当前任务的指令。
+
 下一阶段先实现“活的世界”：玩家视野之外的长期力量能够在世界规则约束下产生变化，并在合适的未来回合形成可追溯的后果。
 
 活世界核心闭环是：世界书提供事实边界，暗流实体推动长期变化，暗流因果账本保存未兑现后果，动态未来候选在当前事实下选择近期走向，正文 AI 负责把选中结果写成玩家经历。对应的动态未来设计见 [`features/03_dynamic_futures.md`](features/03_dynamic_futures.md)。

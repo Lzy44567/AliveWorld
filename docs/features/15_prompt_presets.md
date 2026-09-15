@@ -1,5 +1,7 @@
 # 模型适配与内容提示词预设
 
+2026-09-15：本文为预设产品需求记录；首期装配位置与优先级以 [提示词架构设计](21_prompt_architecture_design.md) 为准。下方自由消息槽位与prefill属于后续适配，首期保留两条消息，不直接实现全部候选槽位。
+
 ## 问题
 
 不同 OpenAI-compatible 模型对 system 消息、JSON mode、assistant prefill、stop、温度和长提示词的遵循能力不同。玩家也可能希望附加自定义创作约束，俗称“预设”或“破限”。这两类需求不能直接拼进 API Key 配置，也不能把一个正文预设无条件发送给记忆、Overseer 和工坊。
