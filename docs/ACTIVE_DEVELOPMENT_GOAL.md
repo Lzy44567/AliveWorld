@@ -2,15 +2,14 @@
 
 Updated: 2026-09-15
 
-## Current mainline — prompt architecture design gate
+## Current dev.14 patch — prompt architecture M1
 
-- User confirmed that prompt architecture must be designed before further implementation. The previous dev.13 suggestion to switch directly to worldbook capture is superseded by this explicit direction.
-- Final goal: complete a bounded, evidence-backed architecture for task composition, stable prefixes, context budgets, editable presets, state output and inter-model handoffs.
-- Phase goal: inspect entry points and write the design plus migration/acceptance tables. No business-code changes, prompt rewrites, version bump, package or remote release in this phase.
-- Design: [`features/21_prompt_architecture_design.md`](features/21_prompt_architecture_design.md). It distinguishes verified code from proposed behavior and lists the limits of the review.
-- Status: design gate complete. Source-backed architecture, migration and acceptance tables are recorded; 21 targeted prompt/stateslice/causal-resolution baseline tests passed on 2026-09-15. Documentation links and whitespace were checked. Historic dev.13 full-suite results below are not new test runs; no UI/build/real-model test was required for this docs-only slice.
-- Next verifiable slice: M1, a shared request builder for normal settlement and reroll with each path's existing messages, ordering, output limits and call count preserved. Implementation follows user review/authorization.
-- Subsequent slices: separate rules/data, simplify rules and introduce a minimal preset, validate results, finish budget/Overseer integration; then resume worldbook capture. Do not silently substitute worldbook implementation for this mainline.
+- Final goal: implement the approved prompt architecture in bounded M1–M5 slices, then resume worldbook capture.
+- Phase goal: M1 creates one pure settlement request builder and an observable request plan for normal turns and rerolls, without changing either path's wire text, generation settings or call count.
+- Implementation: `core/story_prompt_builder.py` receives an explicit read-only snapshot; `core/prompt_studio.py` adds the system/user request plan and content-free user-segment manifest. Both callers keep their existing orchestration and error handling.
+- Compatibility: normal settlement retains its length-sensitive output limit and runtime-slice order; reroll retains its fixed 3000-token limit and legacy order. The two known differences are now explicit rather than silently normalized.
+- Status: complete. Targeted prompt/game tests passed 31/31; full Python regression passed 356/356; production frontend build passed with 126 modules; Playwright/Edge passed 22/22, including full asset-to-story injection, retry/undo, cross-story concurrency and developer prompt override/restore.
+- Next verifiable slice after M1: M2 separates fixed rules from task data and registers explicit runtime projections while preserving legacy developer overrides. Do not begin M2 or worldbook capture inside the M1 commit.
 
 The completed dev.13 node remains recorded below as historical evidence.
 

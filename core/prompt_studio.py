@@ -10,7 +10,7 @@ import re
 import tempfile
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Callable, Mapping
+from typing import Callable, Mapping, Sequence
 
 from core.action_suggestions import action_suggestion_instruction
 from core.player_agency import player_agency_instruction
@@ -241,6 +241,76 @@ def slice_view(definition: PromptSlice, store: PromptOverrideStore | None = None
 class ComposedPrompt:
     text: str
     manifest: list[dict]
+
+
+@dataclass(frozen=True)
+class RequestMessagePart:
+    """One observable part of a model-bound message.
+
+    ``separator`` is part of the wire text before ``content``. Keeping it here
+    lets a builder expose useful provenance without changing a legacy prompt by
+    even one newline.
+    """
+
+    id: str
+    content: str
+    separator: str = ""
+    cache_class: str = "turn"
+
+
+@dataclass(frozen=True)
+class ModelRequestPlan:
+    system_prompt: str
+    user_prompt: str
+    prompt_manifest: list[dict]
+    temperature: float
+    max_tokens: int
+    trace_label: str
+    mode: str
+    contract_id: str
+
+
+def plan_model_request(
+    system: ComposedPrompt,
+    user_parts: Sequence[RequestMessagePart],
+    *,
+    temperature: float,
+    max_tokens: int,
+    trace_label: str,
+    mode: str,
+    contract_id: str,
+) -> ModelRequestPlan:
+    """Create an immutable request plan while preserving exact message text."""
+    user_prompt = ""
+    manifest = [dict(item, messageRole="system") for item in system.manifest]
+    for part in user_parts:
+        if not part.content:
+            continue
+        user_prompt += part.separator + part.content
+        manifest.append({
+            "sliceId": part.id,
+            "source": "runtime",
+            "overrideVersion": None,
+            "layer": "runtime",
+            "slot": "user",
+            "messageRole": "user",
+            "cacheClass": part.cache_class,
+            "estimatedTokens": _estimate_tokens(part.separator + part.content),
+            "contentHash": hashlib.sha256(part.content.encode("utf-8")).hexdigest()[:16],
+            "prefixHash": hashlib.sha256(
+                (system.text + "\0" + user_prompt).encode("utf-8")
+            ).hexdigest()[:16],
+        })
+    return ModelRequestPlan(
+        system_prompt=system.text,
+        user_prompt=user_prompt,
+        prompt_manifest=manifest,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        trace_label=trace_label,
+        mode=mode,
+        contract_id=contract_id,
+    )
 
 
 def compose_prompt(

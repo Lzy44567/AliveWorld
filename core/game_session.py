@@ -1,5 +1,5 @@
 # core/game_session.py
-import copy, json
+import copy
 from datetime import datetime
 from core.undercurrent import UndercurrentEngine
 from core.resolution_engine import DualTrackResolver
@@ -9,16 +9,17 @@ from core.ai_engine import robust_json_parse
 from core.model_response import failure_message, format_story_text
 from core.entity_repository import EntityRepository
 from core.story_settings import normalize_story_settings
-from core.story_length import normalize_target_story_length, story_length_instruction
+from core.story_length import normalize_target_story_length
 from core.future_candidates import choose_candidate, normalize_candidates
 from core.worldbook_capture import WorldbookCaptureService, capture_requested
 from core.chat_messages import ensure_message_ids
-from core.action_suggestions import action_suggestion_instruction, normalize_action_suggestions, resolve_action_reference
+from core.action_suggestions import normalize_action_suggestions, resolve_action_reference
 from core.story_memory import StoryMemoryManager, normalize_story_turns
 from core.user_preferences import UserPreferenceRepository
 from core.preference_learning import preference_evidence
 from core.preference_analysis import PreferenceAnalysisService
-from core.player_agency import adjudication_context, normalize_action_adjudication, player_agency_instruction
+from core.player_agency import normalize_action_adjudication
+from core.story_prompt_builder import SettlementRequestSnapshot, build_settlement_request
 from utils.sys_logger import get_logger
 
 log = get_logger()
@@ -286,43 +287,34 @@ class GameSession:
         self._refresh_local_context()
         active_world, _ = self.build_active_world_info(interpreted_action)
         
-        from core.prompt_studio import compose_prompt
         from core.prompts import load_system_prompts
-        from core.settlement_prompt_sections import settlement_prompt_baselines
         from core.world_rule_commands import resolution_instruction
         visible_world, _ = self.build_visible_world_info(interpreted_action)
         pts = load_system_prompts()
         rule_command_prompt = resolution_instruction(interpreted_action)
-        suggestion_prompt = action_suggestion_instruction(self.story_settings.get("aiSuggestions", True))
-        from core.preference_learning import preference_context_instruction, preference_learning_instruction
         preference_context = self.get_user_preference_context()
-        preference_prompt = preference_context_instruction(preference_context)
-        settle_prompt = compose_prompt(
-            "story.settlement",
-            {"world_info": visible_world, "character_info": self.ctx_mgr.char_info,
-             "style_info": self.ctx_mgr.style_info, "word_limit": self.word_limit},
-            include={"story.settlement.core", "story.state.guidance", "story.state.contract",
-                     "story.settlement.player_agency", "story.settlement.continuity"},
-            runtime_parts=[
-                ("story.settlement.world_rule_command", rule_command_prompt, "runtime"),
-                ("story.settlement.length", story_length_instruction(self.story_settings.get("targetStoryLength")), "runtime"),
-                ("story.settlement.suggestions", ("【玩家行动建议要求】\n" + suggestion_prompt) if suggestion_prompt else "", "runtime"),
-                ("story.settlement.preference_context", preference_prompt, "runtime"),
-                ("story.settlement.preference_learning", preference_learning_instruction(preference_context) if self.story_settings.get("learnUserPreferences", True) else "", "runtime"),
-            ],
-            baselines=settlement_prompt_baselines(pts.get("settlement_prompt", "")),
-        )
-        settle_p = settle_prompt.text
-        influence_instruction = "\n".join(
-            f"- [{item['id']}] {item['summary']}；必须体现的后果：{item['effect']}；依据：{item['reason']}"
-            for item in triggered_influences
-        ) or "（本回合没有满足条件的暗流影响）"
         action_adjudication = normalize_action_adjudication(action_adjudication)
-        usr_p2 = f"【情景】：\n{self.get_context_text()}\n【状态】：{json.dumps(self.state_mgr.get_dynamic_state(), ensure_ascii=False)}\n【行动】：{interpreted_action}\n{adjudication_context(action_adjudication)}\n【裁定变数】：{chosen['description']}\n【本回合必须兑现的暗流影响】：\n{influence_instruction}"
-
+        request = build_settlement_request(SettlementRequestSnapshot(
+            mode="reroll",
+            baseline_prompt=pts.get("settlement_prompt", ""),
+            context_text=self.get_context_text(),
+            dynamic_state=self.state_mgr.get_dynamic_state(),
+            player_action=interpreted_action,
+            visible_world=visible_world,
+            character_info=self.ctx_mgr.char_info,
+            style_info=self.ctx_mgr.style_info,
+            word_limit=self.word_limit,
+            story_settings=self.story_settings,
+            rule_command_prompt=rule_command_prompt,
+            preference_context=preference_context,
+            action_adjudication=action_adjudication,
+            chosen_description=chosen["description"],
+            triggered_influences=triggered_influences,
+        ))
         raw_settle, err2 = self.ai_engine.chat_json(
-            settle_p, usr_p2, temp=0.8, max_tokens=3000, trace_label="剧情重写",
-            prompt_manifest=settle_prompt.manifest,
+            request.system_prompt, request.user_prompt,
+            temp=request.temperature, max_tokens=request.max_tokens,
+            trace_label=request.trace_label, prompt_manifest=request.prompt_manifest,
         )
         if err2 or not raw_settle:
             self.rollback()

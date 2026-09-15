@@ -6,12 +6,8 @@ from core.prompts import load_system_prompts
 from core.ai_engine import robust_json_parse
 from core.model_response import failure_message
 from core.future_candidates import candidate_probability, choose_candidate, normalize_candidates
-from core.action_suggestions import action_suggestion_instruction
-from core.preference_learning import preference_context_instruction, preference_learning_instruction
-from core.player_agency import adjudication_context, normalize_action_adjudication, player_agency_instruction
-from core.story_length import story_length_instruction
-from core.story_continuity import continuity_instruction
-from core.settlement_prompt_sections import settlement_prompt_baselines
+from core.player_agency import normalize_action_adjudication
+from core.story_prompt_builder import SettlementRequestSnapshot, build_settlement_request
 from core.world_rule_commands import resolution_instruction
 
 log = get_logger()
@@ -92,41 +88,27 @@ class DualTrackResolver(BaseResolutionStrategy):
         
         # 2. 剧情结算
         visible_world, _ = session.build_visible_world_info(player_action)
-        preference_context = getattr(session, "get_user_preference_context", lambda: "")()
-        preference_prompt = preference_context_instruction(preference_context)
-        suggestion_prompt = action_suggestion_instruction(session.story_settings.get("aiSuggestions", True))
-        settle_runtime = [
-            ("story.settlement.world_rule_command", rule_command_prompt, "runtime"),
-            ("story.settlement.length", story_length_instruction(session.story_settings.get("targetStoryLength")), "runtime"),
-            ("story.settlement.preference_context", preference_prompt, "runtime"),
-            ("story.settlement.preference_learning", preference_learning_instruction(preference_context) if session.story_settings.get("learnUserPreferences", True) else "", "runtime"),
-            ("story.settlement.suggestions", ("【玩家行动建议要求】\n" + suggestion_prompt) if suggestion_prompt else "", "runtime"),
-        ]
-        settle_prompt = compose_prompt(
-            "story.settlement",
-            {"world_info": visible_world, "character_info": session.char_info,
-             "style_info": session.style_info, "word_limit": session.word_limit},
-            include={"story.settlement.core", "story.state.guidance", "story.state.contract",
-                     "story.settlement.player_agency", "story.settlement.continuity"},
-            runtime_parts=settle_runtime,
-            baselines=settlement_prompt_baselines(pts.get("settlement_prompt", "")),
-        )
-        settle_p = settle_prompt.text
-        influence_instruction = "（本回合没有满足条件的暗流影响）"
-        if triggered_influences:
-            influence_instruction = "\n".join(
-                f"- [{item['id']}] {item['summary']}；必须体现的后果：{item['effect']}；依据：{item['reason']}"
-                for item in triggered_influences
-            )
-        usr_p2 = (
-            f"{usr_p1}\n{adjudication_context(action_adjudication)}"
-            f"\n【裁定变数】：{chosen['description']}"
-            f"\n【本回合必须兑现的暗流影响】：\n{influence_instruction}"
-        )
-        
+        request = build_settlement_request(SettlementRequestSnapshot(
+            mode="normal",
+            baseline_prompt=pts.get("settlement_prompt", ""),
+            context_text=ctx,
+            dynamic_state=dyn_state,
+            player_action=player_action,
+            visible_world=visible_world,
+            character_info=session.char_info,
+            style_info=session.style_info,
+            word_limit=session.word_limit,
+            story_settings=session.story_settings,
+            rule_command_prompt=rule_command_prompt,
+            preference_context=getattr(session, "get_user_preference_context", lambda: "")(),
+            action_adjudication=action_adjudication,
+            chosen_description=chosen["description"],
+            triggered_influences=triggered_influences,
+        ))
         raw_settle, err2 = session.ai_engine.chat_json(
-            settle_p, usr_p2, temp=0.8, max_tokens=max(3000, int(session.word_limit*3)),
-            trace_label="剧情结算", prompt_manifest=settle_prompt.manifest,
+            request.system_prompt, request.user_prompt,
+            temp=request.temperature, max_tokens=request.max_tokens,
+            trace_label=request.trace_label, prompt_manifest=request.prompt_manifest,
         )
         
         if err2:

@@ -1,5 +1,18 @@
 # 更新日志
 
+## [v1.6.0-dev.14] - 2026-09-15 - Shared story request planning
+
+### Prompt architecture
+
+- Added a pure settlement request builder shared by normal turns and rerolls. Its explicit snapshot prevents request construction from reading whichever story happens to be active later.
+- Added a model request plan with separate system/user provenance, hashes, contract ID and generation settings without placing prompt bodies in manifest metadata.
+- Preserved each path's existing prompt bytes, runtime order, trace label, output limit and model-call count; no prompt wording or state schema changed.
+
+### Verification
+
+- Request-equivalence and integration tests passed 31/31; full Python regression passed 356/356.
+- Frontend visibility check and production build passed with 126 modules; Playwright/Edge acceptance passed 22/22.
+
 ## Design only - 2026-09-15 - Prompt architecture
 
 ### Architecture and development continuity
