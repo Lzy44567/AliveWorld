@@ -570,6 +570,11 @@ test('高级设置默认隐藏并可由总开关统一显示', async ({ page }) 
   await page.getByTestId('advanced-settings-toggle').check();
   await expect(page.getByText('用户偏好（高级）')).toBeVisible();
   await expect(page.getByText('故事记忆（高级）')).toBeVisible();
+  await expect(page.getByText('叙事体验（高级）')).toBeVisible();
+  await page.getByText('叙事体验（高级）').click();
+  const experiencePreset = page.getByTestId('story-setting-storyExperiencePreset');
+  await experiencePreset.selectOption('engine_only');
+  await expect(experiencePreset).toHaveValue('engine_only');
   await page.getByTestId('advanced-settings-toggle').uncheck();
   await expect(page.getByText('用户偏好（高级）')).toHaveCount(0);
 });

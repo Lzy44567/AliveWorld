@@ -73,6 +73,7 @@ export const configStore = reactive({
     preferenceCharacterEnabled: savedConfig.settings?.preferenceCharacterEnabled ?? true,
     preferenceRelationshipEnabled: savedConfig.settings?.preferenceRelationshipEnabled ?? true,
     preferenceVisualEnabled: savedConfig.settings?.preferenceVisualEnabled ?? true,
+    storyExperiencePreset: savedConfig.settings?.storyExperiencePreset ?? 'aliveworld_default',
     targetStoryLength: savedConfig.settings?.targetStoryLength ?? 500
   }),
   

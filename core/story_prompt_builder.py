@@ -28,6 +28,7 @@ from core.prompt_studio import (
     plan_model_request,
 )
 from core.settlement_prompt_sections import settlement_prompt_baselines
+from core.story_experience import ENGINE_ONLY_EXPERIENCE, normalize_story_experience
 from core.story_length import story_length_instruction
 
 
@@ -39,6 +40,7 @@ FUTURE_SLICES = {
     "story.future.player_agency",
     "story.future.continuity",
 }
+FUTURE_EXPERIENCE_SLICE = "story.future.experience"
 SETTLEMENT_SLICES = {
     "story.settlement.core",
     "story.state.guidance",
@@ -46,6 +48,7 @@ SETTLEMENT_SLICES = {
     "story.settlement.player_agency",
     "story.settlement.continuity",
 }
+SETTLEMENT_EXPERIENCE_SLICE = "story.settlement.experience"
 
 
 @dataclass(frozen=True)
@@ -77,6 +80,12 @@ class FutureRequestSnapshot:
     character_info: str
     causal_context: str
     rule_command_prompt: str
+    story_settings: Mapping[str, Any]
+
+
+def _experience_slice(base: set[str], slice_id: str, settings: Mapping[str, Any]) -> set[str]:
+    selected = normalize_story_experience(settings.get("storyExperiencePreset"))
+    return set(base) if selected == ENGINE_ONLY_EXPERIENCE else {*base, slice_id}
 
 
 def build_future_request(
@@ -97,7 +106,9 @@ def build_future_request(
             "world_info": legacy_world,
             "character_info": snapshot.character_info,
         },
-        include=FUTURE_SLICES,
+        include=_experience_slice(
+            FUTURE_SLICES, FUTURE_EXPERIENCE_SLICE, snapshot.story_settings,
+        ),
         runtime_parts=[RuntimePromptPart(
             "story.future.world_rule_command",
             snapshot.rule_command_prompt,
@@ -216,7 +227,9 @@ def build_settlement_request(
             "style_info": snapshot.style_info,
             "word_limit": snapshot.word_limit,
         },
-        include=SETTLEMENT_SLICES,
+        include=_experience_slice(
+            SETTLEMENT_SLICES, SETTLEMENT_EXPERIENCE_SLICE, snapshot.story_settings,
+        ),
         runtime_parts=_runtime_parts(snapshot),
         baselines=baselines,
         store=store,

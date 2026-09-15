@@ -28,6 +28,7 @@ class StoryPromptBuilderTests(unittest.TestCase):
             "character_info": "玩家角色资料",
             "causal_context": "隐藏影响一",
             "rule_command_prompt": "",
+            "story_settings": {"storyExperiencePreset": "aliveworld_default"},
         }
         values.update(changes)
         return FutureRequestSnapshot(**values)
@@ -109,6 +110,11 @@ class StoryPromptBuilderTests(unittest.TestCase):
                 self.assertNotIn("行动建议", result.system_prompt)
                 self.assertNotIn("用户偏好", result.system_prompt)
                 self.assertIn("没有满足条件的暗流影响", result.user_prompt)
+                slice_ids = {item["sliceId"] for item in result.prompt_manifest}
+                self.assertNotIn("story.settlement.suggestions", slice_ids)
+                self.assertNotIn("story.settlement.preference_guidance", slice_ids)
+                self.assertNotIn("story.settlement.preference_learning", slice_ids)
+                self.assertNotIn("player.preferences.confirmed", slice_ids)
 
     def test_override_is_bound_to_snapshot_build_only(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -206,6 +212,56 @@ class StoryPromptBuilderTests(unittest.TestCase):
         ))
         self.assertEqual(first.system_prompt, second.system_prompt)
         self.assertNotEqual(first.user_prompt, second.user_prompt)
+
+    def test_engine_only_preset_removes_only_experience_rules(self):
+        settings = {
+            "targetStoryLength": 500,
+            "aiSuggestions": False,
+            "learnUserPreferences": False,
+            "storyExperiencePreset": "engine_only",
+        }
+        future = build_future_request(self.future_snapshot(story_settings=settings))
+        settlement = self.build(self.snapshot(
+            baseline_prompt=load_system_prompts()["settlement_prompt"],
+            story_settings=settings,
+            preference_context="",
+        ))
+        for result in (future, settlement):
+            self.assertNotIn("AliveWorld 默认叙事体验", result.system_prompt)
+            self.assertIn("玩家行动权与事实裁定", result.system_prompt)
+            self.assertIn("剧情连续性与信息通道", result.system_prompt)
+        self.assertNotIn("story.future.experience", {
+            item["sliceId"] for item in future.prompt_manifest
+        })
+        self.assertNotIn("story.settlement.experience", {
+            item["sliceId"] for item in settlement.prompt_manifest
+        })
+
+    def test_default_experience_preset_is_registered_as_configuration(self):
+        future = build_future_request(self.future_snapshot())
+        settlement = self.build(self.snapshot(
+            baseline_prompt=load_system_prompts()["settlement_prompt"],
+        ))
+        expected = (
+            (future, "story.future.experience"),
+            (settlement, "story.settlement.experience"),
+        )
+        for result, slice_id in expected:
+            item = next(entry for entry in result.prompt_manifest if entry["sliceId"] == slice_id)
+            self.assertEqual(item["layer"], "experience")
+            self.assertEqual(item["cacheClass"], "configuration")
+            self.assertIn("AliveWorld 默认叙事体验", result.system_prompt)
+
+    def test_builtin_prompts_use_general_rules_instead_of_scenario_cases(self):
+        future = build_future_request(self.future_snapshot())
+        settlement = self.build(self.snapshot(
+            baseline_prompt=load_system_prompts()["settlement_prompt"],
+        ))
+        combined = future.system_prompt + settlement.system_prompt
+        for scenario_word in ("球状闪电", "囚车", "警察", "保安", "对讲机", "自动报警"):
+            self.assertNotIn(scenario_word, combined)
+        self.assertIn("信息或行动通道", combined)
+        self.assertIn("自身动作与外部结果", combined)
 
     def test_legacy_core_override_embeds_only_its_declared_data_once(self):
         with tempfile.TemporaryDirectory() as temporary:

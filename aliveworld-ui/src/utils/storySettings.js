@@ -17,6 +17,7 @@ export const STORY_SETTING_DEFAULTS = Object.freeze({
   preferenceCharacterEnabled: true,
   preferenceRelationshipEnabled: true,
   preferenceVisualEnabled: true,
+  storyExperiencePreset: 'aliveworld_default',
   targetStoryLength: 500
 });
 
@@ -26,6 +27,9 @@ export function normalizeStorySettings(settings = {}, defaults = STORY_SETTING_D
     if (key === 'targetStoryLength') {
       const parsed = Number.parseInt(value, 10);
       return [key, Math.max(200, Math.min(3000, Number.isFinite(parsed) ? parsed : 500))];
+    }
+    if (key === 'storyExperiencePreset') {
+      return [key, ['aliveworld_default', 'engine_only'].includes(value) ? value : 'aliveworld_default'];
     }
     return [key, Boolean(value)];
   }));

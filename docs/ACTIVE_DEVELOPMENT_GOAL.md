@@ -1,8 +1,20 @@
 # Active development goal
 
-Updated: 2026-09-15
+Updated: 2026-09-16
 
-## Current dev.15 patch — prompt architecture M2
+## Current dev.16 patch — prompt architecture M3
+
+- Final goal: implement the approved prompt architecture in bounded M1–M5 slices, then resume worldbook capture.
+- Phase goal: M3 separates mandatory engine permissions from optional story-experience guidance, removes scenario-specific examples from always-on prompts, and exposes one finite advanced preset choice without creating an arbitrary prompt-import ecosystem.
+- Implementation: player agency, causal continuity and the JSON/state contract remain mandatory. `AliveWorld default` adds only generic diversity and natural-progression guidance; `engine only` removes that experience slice from both future and settlement requests. Old saves and unknown values safely normalize to the default, and world-package recommendations can select the same setting.
+- Prompt cleanup: police, guards, walkie-talkies, automatic alarms, ball lightning and prison-van examples no longer occupy the permanent engine prompt. Their underlying constraints are expressed as general permissions and causal rules and the concrete cases remain regression concepts.
+- Status: complete. Targeted M3/world-package tests passed 67/67 before final versioning; full Python regression passed 366/366, the one-command frontend behavior/build check passed with 126 modules, and Playwright/Edge passed 22/22. Final versioned verification is recorded in the dev.16 changelog.
+- Quality boundary: deterministic composition, settings, compatibility and UI behavior are verified. The paid 48-request real-model literary comparison was not run; it remains a pre-release quality check and this patch does not claim model-quality equivalence.
+- Next verifiable slice: M4 centralizes result validation and transactional state application for normal and reroll paths. Do not resume worldbook capture or begin M5 budget/Overseer work inside M4.
+
+The completed dev.15 node remains recorded below as historical evidence.
+
+## Completed dev.15 patch — prompt architecture M2
 
 - Final goal: implement the approved prompt architecture in bounded M1–M5 slices, then resume worldbook capture.
 - Phase goal: M2 separates reusable instructions from request data in both future and settlement requests, registers explicit runtime projections, and keeps older developer templates that embed legacy variables usable without duplicate data.

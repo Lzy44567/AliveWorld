@@ -36,6 +36,7 @@ class DualTrackResolver(BaseResolutionStrategy):
             character_info=session.char_info,
             causal_context=session.undercurrent.get_ledger_context(),
             rule_command_prompt=rule_command_prompt,
+            story_settings=session.story_settings,
         ))
         
         log.info(f"发送推演请求: {player_action[:15]}...")

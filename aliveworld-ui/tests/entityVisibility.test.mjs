@@ -41,6 +41,9 @@ assert.deepEqual(buildEntityPayload({ ...editorForm, triggers: [{ condition: 'é›
 const storyDefaults = normalizeStorySettings({ showDice: false, unknown: true });
 assert.equal(storyDefaults.showDice, false);
 assert.equal(storyDefaults.entitiesEnabled, true);
+assert.equal(storyDefaults.storyExperiencePreset, 'aliveworld_default');
+assert.equal(normalizeStorySettings({ storyExperiencePreset: 'engine_only' }).storyExperiencePreset, 'engine_only');
+assert.equal(normalizeStorySettings({ storyExperiencePreset: 'unknown' }).storyExperiencePreset, 'aliveworld_default');
 assert.equal('unknown' in storyDefaults, false);
 
 console.log('entity UI behavior: OK');

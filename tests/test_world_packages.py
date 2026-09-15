@@ -171,7 +171,10 @@ class WorldPackageTests(unittest.TestCase):
             package_id = new_package_id()
             package = self._package(package_id)
             package["experience_preset"] = {
-                "defaults": {"aiSuggestions": False},
+                "defaults": {
+                    "aiSuggestions": False,
+                    "storyExperiencePreset": "engine_only",
+                },
                 "visibility": {"showEntityNames": True},
             }
             archive = root / "preset.aliveworld"
@@ -182,6 +185,7 @@ class WorldPackageTests(unittest.TestCase):
             save.mkdir(parents=True)
             starter = service.materialize_story(package_id, "1.0.0", save)
             self.assertFalse(starter.story_settings["aiSuggestions"])
+            self.assertEqual(starter.story_settings["storyExperiencePreset"], "engine_only")
             self.assertTrue(starter.story_settings["showEntityNames"])
             copied = yaml.safe_load(next((save / "worldbooks").glob("*.yml")).read_text(encoding="utf-8"))
             origin = copied["_aliveworld"]["origin"]

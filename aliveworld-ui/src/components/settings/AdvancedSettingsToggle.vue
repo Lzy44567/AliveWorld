@@ -3,14 +3,18 @@ import { computed } from 'vue';
 import { configStore } from '../../store/configStore';
 
 const props = defineProps({ settings: { type: Object, required: true } });
-const activeAdvanced = computed(() => [
-  ['autoCompressMemory', '记忆压缩'],
-  ['worldbookCaptureEnabled', '世界书捕获'],
-  ['learnUserPreferences', '偏好学习'],
-  ['deepPreferenceAnalysis', '偏好深度分析'],
-  ['analyzeSensitivePreferences', '敏感偏好分析'],
-  ['showCausalLedger', '因果账本调试'],
-].filter(([key]) => props.settings[key]).map(([, label]) => label));
+const activeAdvanced = computed(() => {
+  const labels = [
+    ['autoCompressMemory', '记忆压缩'],
+    ['worldbookCaptureEnabled', '世界书捕获'],
+    ['learnUserPreferences', '偏好学习'],
+    ['deepPreferenceAnalysis', '偏好深度分析'],
+    ['analyzeSensitivePreferences', '敏感偏好分析'],
+    ['showCausalLedger', '因果账本调试'],
+  ].filter(([key]) => props.settings[key]).map(([, label]) => label);
+  if (props.settings.storyExperiencePreset === 'engine_only') labels.push('仅引擎规则');
+  return labels;
+});
 </script>
 
 <template>

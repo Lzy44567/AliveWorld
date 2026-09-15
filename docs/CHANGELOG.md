@@ -1,5 +1,25 @@
 # 更新日志
 
+## [v1.6.0-dev.16] - 2026-09-16 - Finite story experience presets
+
+### Prompt architecture
+
+- Kept player agency, generic causal continuity and the JSON/state contract as mandatory engine rules; story-experience selection cannot disable them.
+- Added two finite presets: the default contributes generic narrative diversity and natural-progression guidance, while `engine_only` contributes no optional experience prompt to future or settlement requests.
+- Removed police, guard, walkie-talkie, automatic-alarm, ball-lightning and prison-van examples from always-on prompts. Their reusable constraints are now expressed as scenario-neutral rules and covered as regression concepts.
+
+### Settings and compatibility
+
+- Added one advanced global/story setting for the experience preset, with safe normalization for old saves and unknown values.
+- World-package experience recommendations can select the same preset without adding a new package format or arbitrary prompt imports.
+- Prompt manifests identify the optional experience slices as configuration-level contributions; disabled preference and suggestion features continue to contribute neither rules nor data.
+
+### Verification
+
+- Final Python regression passed 366/366; frontend behavior checks and the production build passed with 126 modules.
+- Playwright/Edge full player acceptance passed 22/22, including the advanced experience selector and all existing story, workshop, image, log, update and feedback flows.
+- No paid real-model literary comparison, Windows package, GitHub push or Release was performed in this development slice.
+
 ## [v1.6.0-dev.15] - 2026-09-15 - Stable rules and runtime projections
 
 ### Prompt architecture

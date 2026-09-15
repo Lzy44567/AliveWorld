@@ -7,14 +7,16 @@ class PlayerAgencyContractTests(unittest.TestCase):
     def test_contract_protects_corrections_and_separates_external_outcome(self):
         prompt = player_agency_instruction()
         self.assertIn("括号内纠错", prompt)
-        self.assertIn("成功发射", prompt)
-        self.assertIn("囚车是否摧毁", prompt)
-        self.assertIn("不得把整句降级", prompt)
+        self.assertIn("自身动作与外部结果", prompt)
+        self.assertIn("contested_outcomes", prompt)
+        self.assertIn("不得因为外部结果待定而否定整句", prompt)
         self.assertIn("不得擅自改成", prompt)
         self.assertIn("拒绝投降", prompt)
         self.assertIn("不得借", prompt)
         self.assertIn("NPC 的怀疑只是角色认知", prompt)
         self.assertIn("把选择权交还玩家", prompt)
+        self.assertNotIn("球状闪电", prompt)
+        self.assertNotIn("囚车", prompt)
 
     def test_adjudication_is_normalized_and_rendered_for_settlement(self):
         raw = {

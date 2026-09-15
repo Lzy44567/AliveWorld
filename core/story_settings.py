@@ -2,6 +2,7 @@
 
 from copy import deepcopy
 
+from core.story_experience import DEFAULT_STORY_EXPERIENCE, normalize_story_experience
 from core.story_length import DEFAULT_TARGET_STORY_LENGTH, normalize_target_story_length
 
 
@@ -31,6 +32,7 @@ DEFAULT_STORY_SETTINGS = {
     "preferenceCharacterEnabled": True,
     "preferenceRelationshipEnabled": True,
     "preferenceVisualEnabled": True,
+    "storyExperiencePreset": DEFAULT_STORY_EXPERIENCE,
     "targetStoryLength": DEFAULT_TARGET_STORY_LENGTH,
 }
 
@@ -43,6 +45,8 @@ def normalize_story_settings(settings=None, defaults=None):
                 continue
             if key == "targetStoryLength":
                 normalized[key] = normalize_target_story_length(source[key])
+            elif key == "storyExperiencePreset":
+                normalized[key] = normalize_story_experience(source[key])
             else:
                 normalized[key] = bool(source[key])
     return normalized

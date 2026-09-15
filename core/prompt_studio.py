@@ -18,6 +18,7 @@ from core.prompts import load_system_prompts
 from core.prompt_variables import normalize_values, render_variable, require_variable, resolve_variable
 from core.settlement_prompt_sections import split_settlement_prompt
 from core.story_continuity import continuity_instruction
+from core.story_experience import DEFAULT_STORY_EXPERIENCE, story_experience_instruction
 from core.story_length import story_length_instruction
 from utils.runtime_paths import PATHS
 
@@ -68,7 +69,12 @@ SLICES: tuple[PromptSlice, ...] = (
                 "区分玩家可确定事实与需要世界裁定的外部结果。", True, (),
                 lambda: player_agency_instruction(), "engine", "static", True),
     PromptSlice("story.future.continuity", "story.future", "剧情连续性", "system", 300,
-                "约束信息通道、客观事实与外部介入。", True, (), continuity_instruction),
+                "约束信息通道、客观事实与外部介入。", True, (), continuity_instruction,
+                "gameplay", "static", True),
+    PromptSlice("story.future.experience", "story.future", "默认叙事体验", "system", 320,
+                "可关闭的叙事多样性与自然推进规则；不改变引擎权限或输出契约。", False, (),
+                lambda: story_experience_instruction(DEFAULT_STORY_EXPERIENCE),
+                "experience", "configuration"),
     PromptSlice("story.settlement.core", "story.settlement", "正文结算核心", "system", 100,
                 "续写正文并返回状态、世界书捕获等结构字段。", True,
                 ("context.style", "context.world", "context.player_character"),
@@ -83,7 +89,12 @@ SLICES: tuple[PromptSlice, ...] = (
                 "禁止正文替玩家新增重大决定。", True, (),
                 lambda: player_agency_instruction(require_output=False), "engine", "static", True),
     PromptSlice("story.settlement.continuity", "story.settlement", "剧情连续性", "system", 300,
-                "保持事实、信息通道和场景对象连续。", True, (), continuity_instruction),
+                "保持事实、信息通道和场景对象连续。", True, (), continuity_instruction,
+                "gameplay", "static", True),
+    PromptSlice("story.settlement.experience", "story.settlement", "默认叙事体验", "system", 320,
+                "可关闭的叙事多样性与自然推进规则；不改变引擎权限或输出契约。", False, (),
+                lambda: story_experience_instruction(DEFAULT_STORY_EXPERIENCE),
+                "experience", "configuration"),
     PromptSlice("story.settlement.length", "story.settlement", "正文篇幅", "system", 500,
                 "根据单局设置动态生成篇幅要求。", False, ("settings.story_length",),
                 lambda: story_length_instruction(500), "feature", "configuration"),

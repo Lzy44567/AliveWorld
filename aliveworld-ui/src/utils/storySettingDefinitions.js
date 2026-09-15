@@ -21,6 +21,19 @@ export const STORY_SETTING_GROUPS = [
     ]
   },
   {
+    id: 'experience', title: '✍️ 叙事体验（高级）', advanced: true, open: false,
+    description: '体验预设只调整叙事节奏与多样性，不能关闭玩家行动权、因果连续性或 JSON 状态契约。',
+    items: [{
+      key: 'storyExperiencePreset', label: '叙事体验预设',
+      help: '默认预设减少重复阻碍和强制收束；“仅引擎规则”不拼接额外体验提示，但底层游戏规则仍会生效。',
+      type: 'select',
+      options: [
+        { value: 'aliveworld_default', label: 'AliveWorld 默认叙事体验' },
+        { value: 'engine_only', label: '仅引擎规则' },
+      ]
+    }]
+  },
+  {
     id: 'preferences', title: '🪞 用户偏好（高级）', advanced: true, open: false,
     description: '偏好影响内容倾向，不是强制清单。候选与行为证据不会直接控制正文。',
     items: [

@@ -62,6 +62,17 @@ class StorySettingsTests(unittest.TestCase):
         self.assertEqual(session.word_limit, 760)
         self.assertIn("约 760 个中文字符", story_length_instruction(760))
 
+    def test_experience_preset_is_finite_and_legacy_saves_get_default(self):
+        self.assertEqual(
+            normalize_story_settings({"storyExperiencePreset": "engine_only"})["storyExperiencePreset"],
+            "engine_only",
+        )
+        self.assertEqual(
+            normalize_story_settings({"storyExperiencePreset": "unknown"})["storyExperiencePreset"],
+            "aliveworld_default",
+        )
+        self.assertEqual(normalize_story_settings({})["storyExperiencePreset"], "aliveworld_default")
+
 
 if __name__ == "__main__":
     unittest.main()
