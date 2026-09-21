@@ -20,6 +20,7 @@ from core.preference_learning import preference_evidence
 from core.preference_analysis import PreferenceAnalysisService
 from core.player_agency import normalize_action_adjudication
 from core.story_prompt_builder import SettlementRequestSnapshot, build_settlement_request
+from core.settlement_contract import SettlementContractError, validate_settlement
 from utils.sys_logger import get_logger
 
 log = get_logger()
@@ -202,6 +203,18 @@ class GameSession:
             return result or {"error": True, "message": "推演未完成，本回合未保存。"}
             
         settlement = result['settlement']
+        story_text = format_story_text(settlement.get('story_text', ''))
+        if not story_text:
+            self.rollback()
+            return {"error": True, "message": failure_message(empty=True)}
+        try:
+            state_plan = self.state_mgr.plan_updates(
+                settlement, story_text=story_text, player_action=interpreted_action,
+            )
+        except Exception as exc:
+            log.warning("状态更新无法在副本上完成: %s", exc)
+            self.rollback()
+            return {"error": True, "message": "结算状态无法安全应用，本回合未保存。"}
         resolutions = settlement.get("resolved_influences", [])
         triggered_ids = {item.get("id") for item in result.get("triggered_influences", []) if isinstance(item, dict)}
         resolved_items = self.undercurrent.causal_ledger.resolve(resolutions, allowed_ids=triggered_ids)
@@ -209,11 +222,6 @@ class GameSession:
         self.history["chat_messages"].append({"role": "action_adjudication", "content": result.get("action_adjudication", {})})
         self.history["chat_messages"].append({"role": "influence_checks", "content": result.get("triggered_influences", [])})
         self.history["chat_messages"].append({"role": "system", "content": f"命运变数: {result['chosen_reaction']['description']}"})
-        
-        story_text = format_story_text(settlement.get('story_text', ''))
-        if not story_text:
-            self.rollback()
-            return {"error": True, "message": failure_message(empty=True)}
         self._update_action_suggestions(settlement)
         self.history["chat_messages"].append({"role": "ai", "content": story_text, "suggestions": self.action_suggestions})
         resolution_by_id = {item.get("id"): item for item in resolutions if isinstance(item, dict)}
@@ -233,7 +241,7 @@ class GameSession:
         self._sync_entities_to_local()
         for ev in events: self.history["chat_messages"].append({"role": "undercurrent", "content": f"🌌 潜流涌动: {ev}"})
         
-        self.state_mgr.apply_updates(settlement, story_text=story_text, player_action=interpreted_action)
+        self.state_mgr.commit(state_plan)
         self.history["context_history"].append(f"玩家：{interpreted_action}\n结果：{story_text}")
         self.story_memory.append_turn(
             self.history.setdefault("story_turns", []), interpreted_action, story_text,
@@ -255,6 +263,15 @@ class GameSession:
 
     def reroll_turn(self):
         if not self.snapshots: return {"error": True}
+
+        original_runtime = self._capture_runtime()
+        original_turn_id = None
+        if original_runtime.get("story_turns"):
+            original_turn_id = original_runtime["story_turns"][-1].get("turn_id")
+
+        def fail_reroll(payload):
+            self._restore_runtime(original_runtime)
+            return payload
         
         action, reactions, old_desc, triggered_influences, action_adjudication = "", [], "", [], {}
         for msg in reversed(self.history["chat_messages"]):
@@ -267,7 +284,7 @@ class GameSession:
         
         if not action or not reactions: return {"error": True}
         
-        self.rollback()
+        self.rollback(remove_preference_evidence=False)
         interpreted_action = resolve_action_reference(action, self.action_suggestions)
         self._take_snapshot()
         self.undercurrent.causal_ledger.advance_turn()
@@ -317,18 +334,35 @@ class GameSession:
             trace_label=request.trace_label, prompt_manifest=request.prompt_manifest,
         )
         if err2 or not raw_settle:
-            self.rollback()
-            return {"error": True, "message": failure_message(err2, empty=not raw_settle and not err2)}
+            return fail_reroll({"error": True, "message": failure_message(err2, empty=not raw_settle and not err2)})
         try:
             settlement = robust_json_parse(raw_settle)
         except Exception:
-            self.rollback()
-            return {"error": True, "message": failure_message(invalid=True)}
-        resolutions = settlement.get("resolved_influences", [])
+            return fail_reroll({"error": True, "message": failure_message(invalid=True)})
         triggered_ids = {item.get("id") for item in triggered_influences if isinstance(item, dict)}
-        resolved_items = self.undercurrent.causal_ledger.resolve(resolutions, allowed_ids=triggered_ids)
-            
+        try:
+            settlement = validate_settlement(
+                settlement,
+                current_state=self.state_mgr.get_dynamic_state(),
+                triggered_ids=triggered_ids,
+            )
+        except SettlementContractError as exc:
+            log.warning("重掷结算契约校验失败: %s", exc)
+            return fail_reroll({
+                "error": True,
+                "message": f"模型返回的结算字段无法安全应用（{exc.path}），本回合未保存。",
+            })
         story_text = format_story_text(settlement.get('story_text', ''))
+        try:
+            state_plan = self.state_mgr.plan_updates(
+                settlement, story_text=story_text, player_action=interpreted_action,
+            )
+        except Exception as exc:
+            log.warning("重掷状态无法在副本上完成: %s", exc)
+            return fail_reroll({"error": True, "message": "结算状态无法安全应用，本回合未保存。"})
+        resolutions = settlement.get("resolved_influences", [])
+        resolved_items = self.undercurrent.causal_ledger.resolve(resolutions, allowed_ids=triggered_ids)
+
         self._update_action_suggestions(settlement)
         self.history["chat_messages"].append({"role": "ai", "content": story_text, "suggestions": self.action_suggestions})
         resolution_by_id = {item.get("id"): item for item in resolutions if isinstance(item, dict)}
@@ -347,12 +381,16 @@ class GameSession:
         self._sync_entities_to_local()
         for ev in events: self.history["chat_messages"].append({"role": "undercurrent", "content": f"🌌 潜流涌动: {ev}"})
                 
-        self.state_mgr.apply_updates(settlement, story_text=story_text, player_action=interpreted_action)
+        self.state_mgr.commit(state_plan)
         self.history["context_history"].append(f"玩家：{interpreted_action}\n结果：{story_text}")
         self.story_memory.append_turn(
             self.history.setdefault("story_turns", []), interpreted_action, story_text,
             source_message_ids=self._latest_story_message_ids(),
         )
+        if original_turn_id is not None:
+            self.user_preferences.remove_turn_evidence(
+                save_name=self.save_name, turn_id=original_turn_id,
+            )
         self._record_preference_evidence(
             settlement, self.history["story_turns"][-1]["turn_id"], interpreted_action
         )
@@ -362,33 +400,70 @@ class GameSession:
         )
         return {"chat_messages": self.history["chat_messages"], "state": self.state, "action_suggestions": self.action_suggestions}
     
-    def _take_snapshot(self):
-        self.snapshots.append({
+    def _snapshot_payload(self):
+        return {
             "state": copy.deepcopy(self.state), "chat_messages": copy.deepcopy(self.history["chat_messages"]), 
             "context_history": copy.deepcopy(self.history["context_history"]), "undercurrent": self.undercurrent.export_state(),
             "story_turns": copy.deepcopy(self.history.get("story_turns", [])),
             "action_suggestions": copy.deepcopy(self.action_suggestions),
             "state_meta": copy.deepcopy(self.state_mgr.export_metadata()),
-        })
+        }
+
+    def _take_snapshot(self):
+        self.snapshots.append(self._snapshot_payload())
         if len(self.snapshots) > 20: self.snapshots.pop(0)
 
-    def rollback(self):
+    def _capture_runtime(self):
+        payload = self._snapshot_payload()
+        payload["snapshots"] = copy.deepcopy(self.snapshots)
+        payload["preferences"] = self.user_preferences.export_state()
+        payload["plot_compass"] = self.plot_compass
+        payload["story_settings"] = copy.deepcopy(self.story_settings)
+        payload["word_limit"] = self.word_limit
+        payload["is_game_over"] = self.is_game_over
+        return payload
+
+    def _restore_runtime(self, snap):
+        self.state_mgr.state = copy.deepcopy(snap["state"])
+        self.state_mgr.load_metadata(copy.deepcopy(snap.get("state_meta")))
+        self.history["chat_messages"] = copy.deepcopy(snap["chat_messages"])
+        self.history["context_history"] = copy.deepcopy(snap["context_history"])
+        self.history["story_turns"] = copy.deepcopy(snap.get("story_turns", []))
+        self.undercurrent.load_state(copy.deepcopy(snap.get("undercurrent", {})))
+        self.action_suggestions = copy.deepcopy(snap.get("action_suggestions", []))
+        if "snapshots" in snap:
+            self.snapshots = copy.deepcopy(snap["snapshots"])
+        if "preferences" in snap:
+            self.user_preferences.restore_state(copy.deepcopy(snap["preferences"]))
+        if "plot_compass" in snap:
+            self.plot_compass = snap["plot_compass"]
+        if "story_settings" in snap:
+            self.story_settings = copy.deepcopy(snap["story_settings"])
+        if "word_limit" in snap:
+            self.word_limit = snap["word_limit"]
+        if "is_game_over" in snap:
+            self.is_game_over = snap["is_game_over"]
+        self._sync_entities_to_local()
+
+    def capture_transaction_state(self):
+        return self._capture_runtime()
+
+    def restore_transaction_state(self, snapshot):
+        self._restore_runtime(snapshot)
+
+    def rollback(self, *, remove_preference_evidence=True):
         if not self.snapshots: return False
         snap = self.snapshots.pop()
         snapshot_turn_ids = {int(turn.get("turn_id", -1)) for turn in snap.get("story_turns", [])}
         removed_turn_ids = {
             int(turn.get("turn_id", -1)) for turn in self.history.get("story_turns", [])
         } - snapshot_turn_ids
-        for turn_id in removed_turn_ids:
-            self.user_preferences.remove_turn_evidence(save_name=self.save_name, turn_id=turn_id)
-        self.state_mgr.state = snap["state"]
-        self.state_mgr.load_metadata(snap.get("state_meta"))
-        self.history["chat_messages"] = snap["chat_messages"]
-        self.history["context_history"] = snap["context_history"]
-        self.history["story_turns"] = snap.get("story_turns") or normalize_story_turns(snap.get("context_history", []))
-        self.undercurrent.load_state(snap.get("undercurrent", {}))
-        self.action_suggestions = snap.get("action_suggestions", [])
-        self._sync_entities_to_local()
+        if remove_preference_evidence:
+            for turn_id in removed_turn_ids:
+                self.user_preferences.remove_turn_evidence(save_name=self.save_name, turn_id=turn_id)
+        if not snap.get("story_turns"):
+            snap["story_turns"] = normalize_story_turns(snap.get("context_history", []))
+        self._restore_runtime(snap)
         return True
 
     def export_save_data(self):

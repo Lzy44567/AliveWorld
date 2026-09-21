@@ -1,6 +1,7 @@
 import tempfile
 import threading
 import unittest
+import copy
 from pathlib import Path
 from unittest.mock import patch
 
@@ -37,6 +38,31 @@ class _SlowGame(_Game):
 
     def export_save_data(self):
         return {}
+
+    def capture_transaction_state(self):
+        return {"history": list(self.history["chat_messages"])}
+
+    def restore_transaction_state(self, snapshot):
+        self.history["chat_messages"] = list(snapshot["history"])
+
+
+class _TransactionalGame(_SlowGame):
+    def __init__(self, path):
+        super().__init__(path, threading.Event(), threading.Event())
+        self.release.set()
+        self.state = {"properties": {"阶段": "保存前"}}
+
+    def process_turn(self, action):
+        self.history["chat_messages"].append({"role": "user", "content": action})
+        self.state["properties"]["阶段"] = "尚未落盘"
+        return {"error": False}
+
+    def capture_transaction_state(self):
+        return {"history": copy.deepcopy(self.history), "state": copy.deepcopy(self.state)}
+
+    def restore_transaction_state(self, snapshot):
+        self.history = copy.deepcopy(snapshot["history"])
+        self.state = copy.deepcopy(snapshot["state"])
 
 
 class SessionConcurrencyTests(unittest.TestCase):
@@ -100,6 +126,19 @@ class SessionConcurrencyTests(unittest.TestCase):
                 worker.join(2)
                 unregister_session("slow-session")
             self.assertEqual(len(outcomes), 1)
+
+    def test_save_failure_restores_in_memory_story_transaction(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            game = _TransactionalGame(Path(temporary))
+            register_session("transaction-session", game)
+            try:
+                with patch("api.v1.game_routes.save_game_data", side_effect=OSError("disk full")):
+                    with self.assertRaisesRegex(OSError, "disk full"):
+                        process_turn("transaction-session", ActionRequest(action="advance"))
+                self.assertEqual(game.history["chat_messages"], [])
+                self.assertEqual(game.state["properties"]["阶段"], "保存前")
+            finally:
+                unregister_session("transaction-session")
 
 
 if __name__ == "__main__":

@@ -144,6 +144,26 @@ class CausalResolutionTests(unittest.TestCase):
         self.assertEqual(result["settlement"]["resolved_influences"], [])
         self.assertEqual(influence.trigger_count, 0)
 
+    def test_missing_required_influence_rejects_settlement_instead_of_synthesizing_success(self):
+        ledger = CausalLedger()
+        influence = ledger.add({
+            "summary": "城门盘查", "condition": "玩家进入城门", "effect": "守卫必须盘查玩家",
+            "consume_policy": {"mode": "on_success"},
+        })
+        ai = SequenceAI([
+            '{"reactions":[{"id":1,"description":"守卫靠近","weight":100}],"influence_checks":[{"id":"%s","condition_met":true,"reason":"条件成立"}]}' % influence.id,
+            '{"story_text":"玩家走进城门。","resolved_influences":[]}',
+        ])
+        session = FakeSession(ai, ledger)
+
+        with patch("core.resolution_engine.load_system_prompts", return_value={"reaction_prompt": "基础", "settlement_prompt": "基础"}):
+            result = DualTrackResolver().resolve(session, "进入城门")
+
+        self.assertTrue(result["error"])
+        self.assertEqual(result["stage"], "settlement_contract")
+        self.assertEqual(influence.trigger_count, 0)
+        self.assertEqual(influence.status, "active")
+
 
 if __name__ == "__main__":
     unittest.main()

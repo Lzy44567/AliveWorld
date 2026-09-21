@@ -11,6 +11,7 @@ from core.story_prompt_builder import (
     build_future_request,
     build_settlement_request,
 )
+from core.settlement_contract import SettlementContractError, validate_settlement
 from core.world_rule_commands import resolution_instruction
 
 log = get_logger()
@@ -126,24 +127,19 @@ class DualTrackResolver(BaseResolutionStrategy):
             except Exception: return {"error": True, "stage": "settlement", "message": failure_message(invalid=True)}
 
         triggered_ids = {item["id"] for item in triggered_influences}
-        reported = []
-        reported_ids = set()
-        for item in settlement.get("resolved_influences", []):
-            if not isinstance(item, dict):
-                continue
-            influence_id = str(item.get("id", ""))
-            if influence_id not in triggered_ids:
-                log.warning("忽略正文越权报告的暗流影响: %s", influence_id or "空ID")
-                continue
-            if influence_id in reported_ids:
-                continue
-            reported.append(item)
-            reported_ids.add(influence_id)
-        for influence in triggered_influences:
-            if influence["id"] not in reported_ids:
-                log.warning("正文未报告强制暗流影响的结构化结果: %s", influence["id"])
-                reported.append({"id": influence["id"], "result": "已按条件触发结算；正文未返回结构化结果"})
-        settlement["resolved_influences"] = reported
+        try:
+            settlement = validate_settlement(
+                settlement,
+                current_state=session.get_dynamic_state_for_ai(),
+                triggered_ids=triggered_ids,
+            )
+        except SettlementContractError as exc:
+            log.warning("剧情结算契约校验失败: %s", exc)
+            return {
+                "error": True,
+                "stage": "settlement_contract",
+                "message": f"模型返回的结算字段无法安全应用（{exc.path}），本回合未保存。",
+            }
 
         return {
             "reactions": reactions, "chosen_reaction": chosen,

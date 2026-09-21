@@ -34,7 +34,7 @@ from core.story_length import story_length_instruction
 
 SettlementMode = Literal["normal", "reroll"]
 FUTURE_CONTRACT_ID = "story.future.v1"
-SETTLEMENT_CONTRACT_ID = "story.settlement.v1"
+SETTLEMENT_CONTRACT_ID = "story.settlement.v2"
 FUTURE_SLICES = {
     "story.future.core",
     "story.future.player_agency",

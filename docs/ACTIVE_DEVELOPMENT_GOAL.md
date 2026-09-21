@@ -1,8 +1,20 @@
 # Active development goal
 
-Updated: 2026-09-16
+Updated: 2026-09-21
 
-## Current dev.16 patch — prompt architecture M3
+## Current unreleased patch — prompt architecture M4
+
+- Final goal: implement the approved prompt architecture in bounded M1–M5 slices, then resume worldbook capture.
+- Phase goal: make normal turns and rerolls share one strict settlement contract, calculate state changes on an isolated copy, and restore both memory and disk-visible state when a mutation cannot be committed.
+- Implementation: model output is normalized before ledger/history/state mutation; malformed bars, Buffs, deletions and required influence reports reject the turn without guessing. StateManager plans on a copy and commits explicitly. Story API mutations keep a runtime checkpoint, save through same-directory atomic replacement, and restore the checkpoint if persistence fails. A failed reroll preserves the previously completed turn.
+- Compatibility: existing settlement fields and the save schema remain unchanged. Unknown and duplicate influence reports are ignored with diagnostics, while a missing required triggered influence rejects the settlement. No repair-model call, universal patch schema, or additional story request was introduced.
+- Status: implementation complete. Targeted M4 tests passed 33/33; the final one-command check passed Python 380/380, frontend behavior verification and a 126-module production build; Playwright/Edge passed 22/22. Documentation and the coherent Git commit close this slice.
+- Known boundary: asynchronous worldbook capture and preference scheduling still require source-turn/revision validation in their owning later slices. Overseer budgeting and handoff order remain M5 work.
+- Next verifiable slice after M4: M5 adds enforceable context budgets, normalized usage evidence, minimal Overseer projection, and prompt-workbench coverage. Do not resume worldbook capture inside M4 or M5.
+
+The completed dev.16 node remains recorded below as historical evidence.
+
+## Completed dev.16 patch — prompt architecture M3
 
 - Final goal: implement the approved prompt architecture in bounded M1–M5 slices, then resume worldbook capture.
 - Phase goal: M3 separates mandatory engine permissions from optional story-experience guidance, removes scenario-specific examples from always-on prompts, and exposes one finite advanced preset choice without creating an arbitrary prompt-import ecosystem.

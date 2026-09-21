@@ -23,6 +23,8 @@ DEFAULT_PROMPTS = {
 5. 【删除/清空】：若要彻底清空某进度条、丢弃所有物品、或让死亡/离场的NPC退出当前场景，必须将其名字放入 `status_deletions` 数组！NPC 卡只表示当前场景，不是永久人物档案。
 6. 📝【排版规则】：`story_text` 按叙事结构换行：场景、时间、行动主体或叙事焦点明显变化时另起自然段；人物直接说话独立成段；同一连续动作保持在同一段，禁止按固定段数或每句话机械换行。JSON 字符串内使用 `\\n\\n` 分隔自然段。
 7. 📚【世界书捕获门槛】：`worldbook_capture_needed` 只在本回合明确建立、修改或废止了会长期约束多个未来场景的法律、制度、社会习俗、自然规律、通用技术或魔法规则时为 true。愿望、谎言、未成功的尝试、一次性事件、单件道具、角色行动、地点临时变化和已有设定的普通表现必须为 false；不要为了让世界书有所变化而返回 true。
+8. dynamic_bars 中新进度条必须同时提供 current 和 max，不得用 change 创建；已有进度条的 current 与 change 只能二选一。current 是包含持续 Buff 后的最终值，change 只表示 AI 直接变化。
+9. status_deletions 不得删除多个状态组中的同名项，Buff 优先使用 remove_buffs。每个必须兑现的影响 ID 必须在 resolved_influences 中恰好报告一次，缺失时整个回合不会提交。
 
 【强制JSON格式】：
 {

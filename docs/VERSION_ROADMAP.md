@@ -1,6 +1,6 @@
 # v1.1.0 路线图：活的世界 MVP
 
-> 2026-09-16 当前代码节点：`v1.6.0-dev.16` 实现提示词架构M3。玩家行动权、通用因果连续性和JSON/状态契约保持为不可关闭的引擎规则；具体场景案例退出常驻提示词，高级设置可在“AliveWorld默认叙事体验”和“仅引擎规则”间选择。下一步M4统一结果校验与事务状态应用；M5完成预算和暗流交接后恢复世界书捕获。详见 [`features/21_prompt_architecture_design.md`](features/21_prompt_architecture_design.md)。
+> 2026-09-21 当前已发布代码节点仍为`v1.6.0-dev.16`；未发布主线已完成提示词架构M4实现，正在进行最终回归与提交。M4统一正常/重掷结算校验、状态副本计算、API内存回滚与原子存盘，不改变旧存档格式。下一步M5完成预算、usage与暗流交接后恢复世界书捕获。版本提升、打包与发布须单独授权。详见 [`features/21_prompt_architecture_design.md`](features/21_prompt_architecture_design.md)。
 
 ## 版本与提交约定
 

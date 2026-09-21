@@ -6,6 +6,7 @@ import json
 import yaml
 import glob
 import shutil
+import tempfile
 from datetime import datetime
 from utils.runtime_paths import PATHS
 
@@ -91,5 +92,19 @@ def get_all_saves():
 
 def save_game_data(save_dir_path, data_dict):
     filepath = os.path.join(save_dir_path, "session_state.json")
-    with open(filepath, 'w', encoding='utf-8') as f:
-        json.dump(data_dict, f, ensure_ascii=False, indent=2)
+    os.makedirs(save_dir_path, exist_ok=True)
+    descriptor, temp_path = tempfile.mkstemp(prefix=".session_state_", suffix=".tmp", dir=save_dir_path)
+    try:
+        with os.fdopen(descriptor, 'w', encoding='utf-8') as file:
+            json.dump(data_dict, file, ensure_ascii=False, indent=2)
+            file.flush()
+            os.fsync(file.fileno())
+        os.replace(temp_path, filepath)
+    except Exception:
+        try:
+            os.close(descriptor)
+        except OSError:
+            pass
+        if os.path.exists(temp_path):
+            os.unlink(temp_path)
+        raise

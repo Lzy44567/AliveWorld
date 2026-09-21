@@ -25,12 +25,13 @@ class FakeResolver:
 
 
 class RecordingAI:
-    def __init__(self):
+    def __init__(self, response=None):
         self.requests = []
+        self.response = response or '{"story_text":"球状闪电击中车门，车辆失控停下。","resolved_influences":[],"preference_evidence":[]}'
 
     def chat_json(self, system_prompt, user_prompt, **kwargs):
         self.requests.append((system_prompt, user_prompt, kwargs))
-        return '{"story_text":"球状闪电击中车门，车辆失控停下。","resolved_influences":[],"preference_evidence":[]}', None
+        return self.response, None
 
 
 class GameActionSuggestionTests(unittest.TestCase):
@@ -120,6 +121,52 @@ class GameActionSuggestionTests(unittest.TestCase):
                 item for item in session.history["chat_messages"] if item.get("role") == "action_adjudication"
             ]
             self.assertEqual(adjudication_messages[-1]["content"]["accepted_facts"], ["玩家成功发射球状闪电"])
+
+    def test_failed_reroll_restores_the_completed_turn_instead_of_erasing_it(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            ai = RecordingAI('{"story_text":"无效结算","dynamic_bars":{"new":{"change":1}}}')
+            session = GameSession(ai, "测试", temp_dir, {"entitiesEnabled": False})
+            session.start_new_game("", "开场")
+            session._take_snapshot()
+            session.history["chat_messages"].extend([
+                {"role": "user", "content": "等待"},
+                {"role": "action_adjudication", "content": {"accepted_facts": [], "contested_outcomes": [], "rejected_claims": []}},
+                {"role": "reactions", "content": [
+                    {"id": 1, "description": "旧未来", "eligible": True, "weight": 1, "basis": []},
+                    {"id": 2, "description": "新未来", "eligible": True, "weight": 1, "basis": []},
+                ]},
+                {"role": "influence_checks", "content": []},
+                {"role": "system", "content": "命运变数: 旧未来"},
+                {"role": "ai", "content": "原本已完成的正文"},
+            ])
+            original_messages = list(session.history["chat_messages"])
+            original_snapshot_count = len(session.snapshots)
+
+            result = session.reroll_turn()
+
+            self.assertTrue(result["error"])
+            self.assertEqual(session.history["chat_messages"], original_messages)
+            self.assertEqual(len(session.snapshots), original_snapshot_count)
+            self.assertIn("原本已完成的正文", session.history["chat_messages"][-1]["content"])
+
+    def test_runtime_transaction_restores_story_configuration_fields(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            session = GameSession(RecordingAI(), "测试", temp_dir, {"entitiesEnabled": True})
+            session.plot_compass = "原方向"
+            session.word_limit = 900
+            session.is_game_over = False
+            checkpoint = session.capture_transaction_state()
+
+            session.plot_compass = "临时方向"
+            session.story_settings["entitiesEnabled"] = False
+            session.word_limit = 120
+            session.is_game_over = True
+            session.restore_transaction_state(checkpoint)
+
+            self.assertEqual(session.plot_compass, "原方向")
+            self.assertTrue(session.story_settings["entitiesEnabled"])
+            self.assertEqual(session.word_limit, 900)
+            self.assertFalse(session.is_game_over)
 
 
 if __name__ == "__main__":

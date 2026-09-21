@@ -28,6 +28,9 @@ class SettlementPromptSectionTests(unittest.TestCase):
             "resolved_influences", "worldbook_capture_needed",
         ):
             self.assertIn(f'"{field}"', sections.state_contract)
+        self.assertIn("current 和 max", sections.state_guidance)
+        self.assertIn("current 与 change 只能二选一", sections.state_guidance)
+        self.assertIn("恰好报告一次", sections.state_guidance)
 
     def test_emergency_fallback_prompt_uses_the_same_lossless_boundary_contract(self):
         prompt = DEFAULT_PROMPTS["settlement_prompt"]

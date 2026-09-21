@@ -1,5 +1,25 @@
 # 更新日志
 
+## Unreleased - 2026-09-21 - Transactional settlement contract (M4)
+
+### Result contract and state
+
+- Added one deterministic settlement validator shared by normal turns and rerolls. It rejects malformed state operations, ambiguous cross-group deletion, invalid Buff runtime fields, contradictory bar semantics, and missing required influence results before mutation.
+- Unknown and duplicate influence reports are filtered with diagnostics; required triggered influences are no longer synthesized as successful when the model omitted them.
+- State updates are calculated on an isolated StateManager copy and committed explicitly, so calculation failures cannot partially mutate live bars, Buffs, properties or NPC presence metadata.
+
+### Transactions and recovery
+
+- Story action, undo, retry and reroll routes now checkpoint runtime state and restore it when persistence fails.
+- Save files use same-directory temporary writes plus flush, fsync and atomic replacement; serialization or replacement failure preserves the previous valid save.
+- Failed rerolls restore the completed original turn and its preference state instead of leaving the story at the pre-turn snapshot.
+
+### Compatibility and verification
+
+- Preserved existing settlement fields, save schema, model-call count and player-visible workflow. No repair-model call or universal patch format was added.
+- Targeted settlement, causal, reroll, persistence, concurrency and prompt-contract tests passed 33/33.
+- The final one-command check passed Python 380/380, frontend behavior verification and a 126-module production build; Playwright/Edge passed 22/22.
+
 ## [v1.6.0-dev.16] - 2026-09-16 - Finite story experience presets
 
 ### Prompt architecture

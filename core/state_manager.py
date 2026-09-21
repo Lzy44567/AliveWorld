@@ -1,6 +1,15 @@
 # core/state_manager.py
 import copy
+from dataclasses import dataclass
+from typing import Any
+
 from core.npc_presence import NpcPresenceTracker
+
+
+@dataclass(frozen=True)
+class StateUpdatePlan:
+    state: dict[str, Any]
+    metadata: dict[str, Any]
 
 class StateManager:
     def __init__(self):
@@ -12,7 +21,7 @@ class StateManager:
         }
         self.npc_presence = NpcPresenceTracker()
 
-    def apply_updates(self, result, *, story_text="", player_action=""):
+    def _apply_updates_in_place(self, result, *, story_text="", player_action=""):
         # 1. 增添新 Buffs
         for bn, bd in result.get('new_buffs', {}).items():
             if isinstance(bd, dict): 
@@ -87,6 +96,27 @@ class StateManager:
             for group in ['properties', 'bars', 'buffs', 'npcs']: 
                 self.state[group].pop(k, None)
             self.npc_presence.absent_turns.pop(k, None)
+
+    def plan_updates(self, result, *, story_text="", player_action=""):
+        """Calculate one turn on an isolated copy without mutating live state."""
+        staged = StateManager()
+        staged.state = copy.deepcopy(self.state)
+        staged.load_metadata(copy.deepcopy(self.export_metadata()))
+        staged._apply_updates_in_place(result, story_text=story_text, player_action=player_action)
+        return StateUpdatePlan(
+            state=copy.deepcopy(staged.state),
+            metadata=copy.deepcopy(staged.export_metadata()),
+        )
+
+    def commit(self, plan: StateUpdatePlan):
+        if not isinstance(plan, StateUpdatePlan):
+            raise TypeError("state update plan is required")
+        self.state = copy.deepcopy(plan.state)
+        self.load_metadata(copy.deepcopy(plan.metadata))
+
+    def apply_updates(self, result, *, story_text="", player_action=""):
+        plan = self.plan_updates(result, story_text=story_text, player_action=player_action)
+        self.commit(plan)
 
     def get_dynamic_state(self):
         return { 
