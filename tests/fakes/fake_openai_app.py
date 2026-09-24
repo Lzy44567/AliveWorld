@@ -110,7 +110,7 @@ def _response_for(kind: str, system: str, user: str) -> dict[str, Any] | str:
             "npc_states": {},
             "status_deletions": [],
             "resolved_influences": [],
-            "worldbook_capture_needed": False,
+            "world_change_events": [],
             "action_suggestions": ["继续检查世界", "观察身边角色"],
             "preference_observations": [],
         }

@@ -267,6 +267,7 @@ class GameSession:
             self.worldbook_capture.schedule(
                 self.save_dir_path, interpreted_action, story_text,
                 review_all=self.story_settings["worldbookCaptureReview"],
+                world_change_events=settlement.get("world_change_events"),
             )
         self.story_memory.schedule(
             self.history.get("story_turns", []),

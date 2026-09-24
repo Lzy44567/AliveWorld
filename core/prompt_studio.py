@@ -20,6 +20,7 @@ from core.settlement_prompt_sections import split_settlement_prompt
 from core.story_continuity import continuity_instruction
 from core.story_experience import DEFAULT_STORY_EXPERIENCE, story_experience_instruction
 from core.story_length import story_length_instruction
+from core.world_change_events import SIGNAL_INSTRUCTION
 from utils.runtime_paths import PATHS
 
 
@@ -101,6 +102,9 @@ SLICES: tuple[PromptSlice, ...] = (
     PromptSlice("story.settlement.suggestions", "story.settlement", "快捷行动", "system", 800,
                 "仅在启用快捷行动按钮时动态加入。", False, ("settings.action_suggestions",),
                 lambda: action_suggestion_instruction(True), "feature", "configuration"),
+    PromptSlice("story.world_changes", "story.settlement", "世界变化信号", "system", 160,
+                "仅在启用世界书捕获时参与结算；报告正文证据，不直接修改资产。", False, (),
+                lambda: SIGNAL_INSTRUCTION, "feature", "configuration"),
     PromptSlice("world.capture.runtime", "world.capture", "世界观设定捕获", "system", 100,
                 "当前由世界书捕获模块维护；尚未迁移到可编辑注册表。", False, (), lambda: ""),
     PromptSlice("undercurrent.core", "undercurrent", "暗流推演规则与契约", "system", 100,

@@ -27,13 +27,13 @@ def resolution_instruction(player_action: Any) -> str:
         return (
             "【本回合显式世界规则变更意图】玩家要求改变一项长期世界规则。"
             "这不是自动成功许可；请依据既有设定和玩家权限裁定。若正文确认规则已生效，"
-            "必须令 worldbook_capture_needed 为 true；失败或仅表达愿望时为 false。"
+            "在 world_change_events 报告 confirmed 变化及正文证据；失败或仅表达愿望时不报告已确认变化。"
         )
     if mode == "restore":
         return (
             "【本回合显式世界规则恢复意图】玩家要求恢复一项先前被改变的长期世界规则。"
             "这不是自动成功许可；请依据既有设定和玩家权限裁定。若正文确认恢复已生效，"
-            "必须令 worldbook_capture_needed 为 true；失败或无对应规则时为 false。"
+            "在 world_change_events 报告 confirmed 恢复及正文证据；失败或无对应规则时不报告已确认变化。"
         )
     return ""
 

@@ -116,6 +116,12 @@ class StoryPromptBuilderTests(unittest.TestCase):
                 self.assertNotIn("story.settlement.preference_learning", slice_ids)
                 self.assertNotIn("player.preferences.confirmed", slice_ids)
 
+    def test_world_change_protocol_is_conditional_and_registered(self):
+        for enabled in (True, False):
+            result = self.build(self.snapshot(story_settings={"worldbookCaptureEnabled": enabled}))
+            self.assertEqual("【世界变化信号】" in result.system_prompt, enabled)
+            self.assertEqual("story.world_changes" in {p["sliceId"] for p in result.prompt_manifest}, enabled)
+
     def test_override_is_bound_to_snapshot_build_only(self):
         with tempfile.TemporaryDirectory() as temporary:
             store = PromptOverrideStore(Path(temporary) / "overrides.json")

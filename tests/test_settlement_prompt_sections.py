@@ -25,7 +25,7 @@ class SettlementPromptSectionTests(unittest.TestCase):
         for field in (
             "story_text", "new_buffs", "remove_buffs", "dynamic_bars",
             "status_updates", "npc_states", "status_deletions",
-            "resolved_influences", "worldbook_capture_needed",
+            "resolved_influences", "world_change_events",
         ):
             self.assertIn(f'"{field}"', sections.state_contract)
         self.assertIn("current 和 max", sections.state_guidance)

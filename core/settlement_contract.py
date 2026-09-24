@@ -12,6 +12,7 @@ import math
 from typing import Any, Mapping
 
 from utils.sys_logger import get_logger
+from core.world_change_events import validate_world_change_events
 
 
 log = get_logger()
@@ -241,6 +242,11 @@ def validate_settlement(
     if missing:
         raise SettlementContractError("resolved_influences", f"缺少必须兑现的影响 {missing[0]}")
     result["resolved_influences"] = resolved
+    if "world_change_events" in payload:
+        try:
+            result["world_change_events"] = validate_world_change_events(payload["world_change_events"])
+        except ValueError as exc:
+            raise SettlementContractError("world_change_events", str(exc)) from exc
     if "worldbook_capture_needed" in payload:
         if not isinstance(payload["worldbook_capture_needed"], bool):
             raise SettlementContractError("worldbook_capture_needed", "必须是布尔值")

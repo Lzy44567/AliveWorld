@@ -14,6 +14,7 @@ from core.ai_engine import robust_json_parse
 from core.auto_worldbook import select_capture_worldbook
 from core.worldbook import normalize_entry, normalize_tags, normalize_worldbook, save_worldbook_atomic
 from core.world_rule_commands import capture_instruction, world_rule_command_mode
+from core.world_change_events import confirmed_world_changes
 from utils.sys_logger import get_logger
 
 
@@ -23,6 +24,10 @@ _locks_guard = threading.Lock()
 
 
 CAPTURE_PROMPT = """你是世界书设定捕获器。阅读一个已经完成的故事回合，只识别值得长期保留的稳定世界设定。
+
+变化可来自任何机制，不依赖固定命令词。先核对世界变化信号与正文：尝试、愿望、对白、谎言、传闻、梦境或失败不等于确认事实。
+区分客观现实、制度、群体认知、记忆档案与局部例外；大家相信某事不代表它客观为真。保留实际适用范围和持续条件，不把局部或有期限的规则扩写为全局永久规则。
+暂停、恢复、到期必须定位既有目标。本阶段仅支持条目 add/update/retire 提案；无法用这些操作准确表达、缺少历史原文或属于公理/概述的变化不要猜写或转成新增。尤其不得凭空重建所谓原始版本。
 
 世界书不是剧情摘抄簿。一次出现、能在未来派上用场或具有特殊功能，不等于值得写入世界观。
 不要捕获：一次性动作、当前伤势、临时地点状态、角色计划、幕后行动、普通剧情摘要、单件特殊道具、角色或暗流实体资料、实体制造的陷阱与线索。这些分别属于正文、状态、角色卡、实体库或因果账本。
@@ -48,7 +53,9 @@ AUTO_CAPTURE_SCOPES = {
 NEVER_CAPTURE_SCOPES = {"event_detail"}
 
 def capture_requested(settlement: dict[str, Any] | None, player_action: Any = "") -> bool:
-    """Spend a capture request for an AI signal or an explicit genre command."""
+    """New evidence wins over legacy flags/aliases, including an explicit empty list."""
+    if isinstance(settlement, dict) and "world_change_events" in settlement:
+        return bool(confirmed_world_changes(settlement))
     return (
         isinstance(settlement, dict) and settlement.get("worldbook_capture_needed") is True
     ) or bool(world_rule_command_mode(player_action))
@@ -68,21 +75,32 @@ class WorldbookCaptureService:
     def first_active_worldbook(save_dir: str) -> Path | None:
         return select_capture_worldbook(save_dir)
 
-    def schedule(self, save_dir: str, player_action: str, story_text: str, *, review_all: bool) -> bool:
+    def schedule(self, save_dir: str, player_action: str, story_text: str, *, review_all: bool, world_change_events=None) -> bool:
         path = select_capture_worldbook(save_dir, create_fallback=True)
         if not path or not self.ai_engine or not story_text.strip():
             return False
         thread = threading.Thread(
             target=self.capture,
             args=(path, player_action, story_text),
-            kwargs={"review_all": review_all},
+            kwargs={"review_all": review_all, "world_change_events": world_change_events},
             name="worldbook-capture",
             daemon=True,
         )
         thread.start()
         return True
 
-    def capture(self, path: Path, player_action: str, story_text: str, *, review_all: bool) -> dict[str, Any]:
+    def capture(self, path: Path, player_action: str, story_text: str, *, review_all: bool, world_change_events=None) -> dict[str, Any]:
+        if world_change_events is not None:
+            world_change_events = confirmed_world_changes({"world_change_events": world_change_events, "story_text": story_text})
+            if not world_change_events:
+                return {"added": [], "pending": [], "skipped": ["无有效世界变化证据"]}
+            # Until revision/time semantics are implemented, these signals must
+            # not silently become permanent auto-accepted additions.
+            review_all = review_all or any(
+                event["change_kind"] != "add" or event["time_hint"] != "persistent"
+                or event["scope_hint"] == "individual_exception"
+                for event in world_change_events
+            )
         with _path_lock(path):
             try:
                 book = normalize_worldbook(yaml.safe_load(path.read_text(encoding="utf-8")) or {})
@@ -97,6 +115,7 @@ class WorldbookCaptureService:
             )
             prompt = (
                 f"【当前世界书】\n{json.dumps(book, ensure_ascii=False)}\n"
+                f"【已校验世界变化信号】\n{json.dumps(world_change_events, ensure_ascii=False)}\n"
                 f"{command_section}"
                 f"【玩家行动】\n{player_action}\n【本回合正文】\n{story_text}"
             )

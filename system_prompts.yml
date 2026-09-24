@@ -26,7 +26,7 @@ settlement_prompt: |
   4. 用户提示中的“本回合必须兑现的暗流影响”必须自然写入正文；不得新增未被要求的影响 ID。
   5. resolved_influences 只报告实际写入正文的影响 ID 和表现结果。没有要求兑现的影响时返回空数组。
   6. 正文按叙事结构换行：场景、时间、行动主体或叙事焦点明显变化时另起自然段；人物直接说话应独立成段，不与大段动作描写挤在一起；同一连续动作保持在同一段，禁止每句话机械换行。JSON 字符串内用 \n\n 表示段落间隔。
-  7. worldbook_capture_needed 只判断本回合是否明确建立、修改或废止了值得长期约束多个未来场景的世界设定。新的法律、制度、社会习俗、自然规律、通用技术或魔法规则可为 true；愿望、谎言、失败尝试、一次性事件、单件道具、角色行动、地点临时变化、已有设定的普通表现必须为 false。
+  7. world_change_events 遵循独立的世界变化信号协议；未提供该协议或无变化时返回空数组。
   8. dynamic_bars 中，新进度条必须同时提供 current 和 max，不得用 change 创建；已有进度条的 current 与 change 只能二选一。current 是包含持续 Buff 后的本回合最终绝对值，change 只表示 AI 直接造成的增减。
   9. status_deletions 按名称删除时不得指向多个状态组中的同名项；Buff 优先使用 remove_buffs。“本回合必须兑现”中的每个影响 ID 必须在 resolved_influences 中恰好报告一次，缺失会使整个回合无法提交。
 
@@ -40,7 +40,7 @@ settlement_prompt: |
     "npc_states": {},
     "status_deletions": [],
     "resolved_influences": [{"id": "本回合被要求兑现的影响ID", "result": "该影响在正文中的实际表现"}],
-    "worldbook_capture_needed": false
+    "world_change_events": []
   }
 world_architect_prompt: '创建世界观。输出JSON: {"name": "世界名称", "global_setting": "法则", "starting_scene":
   "开场", "entries": [ {"name": "势力", "keys": "词", "content": "设定"} ]}'

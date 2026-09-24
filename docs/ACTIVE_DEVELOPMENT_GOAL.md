@@ -2,6 +2,16 @@
 
 Updated: 2026-09-24
 
+## Current mainline — W1 general world-change capture
+
+- Final goal: connect genre-neutral world-change signals, on-demand capture and source-turn/target-revision safety on the approved prompt architecture (feature 18). No scene evolution, asset extraction, new inbox UI or revision-history product in W1.
+- Current slice W1a: a bounded `world_change_events` contract, independently registered short settlement instructions and generic detailed capture instructions; only confirmed events with an exact excerpt from the completed story may schedule capture. An explicitly empty/invalid/unconfirmed event list overrides legacy flags and command aliases.
+- Compatibility: older custom model outputs without the new field keep the legacy boolean/explicit-command path. Existing add/update/retire proposals and review settings remain unchanged. New suspend/restore/expire signals do not grant unsupported historical restore operations.
+- Acceptance: successful, attempted, reported and uncertain signals; scope/time enums and bounds; forged/missing evidence; empty events with a legacy true flag or genre alias; disabled feature prompt omission; valid signals reaching the detailed capture input; no extra request without evidence. Full Python/build/browser regression follows.
+- W1a status: complete. Final Python regression 398/398, frontend behavior check, production build (126 modules), and full Playwright/Edge 22/22 passed. No paid model or player-data test was used.
+- Next slice W1b: defer capture until story persistence succeeds, validate source-turn identity and target revision before publishing asynchronous results; include rerolls and undo races. This risk is recorded, not claimed fixed by W1a.
+- Authorization: user asked to continue on 2026-09-24. No version bump, paid API requests, package or remote release.
+
 ## Completed engineering stage — prompt architecture M1–M5
 
 - Authorization: on 2026-09-24 the user enabled goal mode for the complete stage; M1–M5 may proceed without asking for a separate authorization at each milestone.

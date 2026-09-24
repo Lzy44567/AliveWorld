@@ -227,7 +227,7 @@ def build_settlement_request(
             "style_info": snapshot.style_info,
             "word_limit": snapshot.word_limit,
         },
-        include=_experience_slice(
+        include=({"story.world_changes"} if snapshot.story_settings.get("worldbookCaptureEnabled", True) else set()) | _experience_slice(
             SETTLEMENT_SLICES, SETTLEMENT_EXPERIENCE_SLICE, snapshot.story_settings,
         ),
         runtime_parts=_runtime_parts(snapshot),
