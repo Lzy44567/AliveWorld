@@ -5,6 +5,8 @@ import re
 
 def failure_message(error=None, *, empty=False, invalid=False):
     text = str(error or "").lower()
+    if "context_budget_exceeded:" in text:
+        return str(error).split("context_budget_exceeded:", 1)[-1].strip() + " 本回合未保存。"
     if empty:
         return "模型返回内容为空，请稍后重试。本回合未保存。"
     if invalid:

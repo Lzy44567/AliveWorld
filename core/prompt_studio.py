@@ -103,6 +103,10 @@ SLICES: tuple[PromptSlice, ...] = (
                 lambda: action_suggestion_instruction(True), "feature", "configuration"),
     PromptSlice("world.capture.runtime", "world.capture", "世界观设定捕获", "system", 100,
                 "当前由世界书捕获模块维护；尚未迁移到可编辑注册表。", False, (), lambda: ""),
+    PromptSlice("undercurrent.core", "undercurrent", "暗流推演规则与契约", "system", 100,
+                "真实参与暗流请求；实体和本轮资料独立传入user。输出契约暂时只读。", False, (),
+                lambda: str(load_system_prompts().get("overseer_prompt", "")).replace("{entities_info}", "参见 user 消息中的活跃实体资料。").replace("{world_context}", "参见 user 消息中的世界与本轮资料。"),
+                "engine", "static", True),
     PromptSlice("workshop.runtime", "workshop", "工坊协作", "system", 100,
                 "当前由各工坊模块维护；尚未迁移到可编辑注册表。", False, (), lambda: ""),
 )
@@ -249,6 +253,7 @@ def slice_view(definition: PromptSlice, store: PromptOverrideStore | None = None
         "priority": definition.priority,
         "description": definition.description,
         "editable": definition.editable,
+        "migrationStatus": "unmigrated" if definition.id in {"world.capture.runtime", "workshop.runtime"} else "integrated",
         "variables": list(definition.variables),
         "variableDetails": [require_variable(item).view() for item in definition.variables],
         "layer": definition.layer,

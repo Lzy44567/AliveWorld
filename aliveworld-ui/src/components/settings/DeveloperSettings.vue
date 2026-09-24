@@ -9,6 +9,8 @@ const password = ref('');
 const confirmation = ref('');
 const slices = ref([]);
 const variables = ref([]);
+const coverage = ref({});
+const recentRequests = ref([]);
 const selectedId = ref('');
 const draft = ref('');
 const variableQuery = ref('');
@@ -39,9 +41,19 @@ async function loadPrompts() {
   const result = await developerApi.prompts();
   slices.value = result.slices || [];
   variables.value = result.variables || [];
+  coverage.value = result.coverage || {};
+  recentRequests.value = result.recentRequests || [];
   unlocked.value = true;
   if (!selectedId.value && slices.value.length) select(slices.value[0]);
   else if (selected.value) draft.value = selected.value.active;
+}
+
+async function refreshDiagnostics() {
+  try {
+    const result = await developerApi.prompts();
+    coverage.value = result.coverage || {};
+    recentRequests.value = result.recentRequests || [];
+  } catch (reason) { error.value = reason.message; }
 }
 
 function select(item) {
@@ -115,6 +127,17 @@ async function lock() {
     </div>
 
     <template v-else>
+      <details class="rounded-lg border border-slate-700 p-3 text-xs" data-testid="prompt-request-diagnostics">
+        <summary class="cursor-pointer">任务覆盖与最近请求预算</summary>
+        <p class="my-2 text-slate-400">{{ Object.entries(coverage).map(([task, state]) => `${task}：${state === 'integrated' ? '已接入' : '待迁移'}`).join('；') }}</p>
+        <button class="text-cyan-300" @click="refreshDiagnostics">刷新请求记录</button>
+        <p v-if="!recentRequests.length" class="mt-2 text-slate-500">本次运行尚无请求记录。token为估算；缓存统计以供应商返回为准。</p>
+        <details v-for="request in recentRequests" :key="request.traceId" class="mt-2 border-t border-slate-800 pt-2">
+          <summary class="cursor-pointer">{{ request.task }} · {{ request.traceId }} · {{ request.status }} · 输入约{{ request.budget.estimatedInputTokens }}/{{ request.budget.inputLimit }} tokens</summary>
+          <p class="my-2 text-slate-400">窗口 {{ request.budget.contextWindow }}（{{ request.budget.windowSource === 'configured' ? '用户配置' : '保守默认' }}）；输出预留 {{ request.budget.outputReserve }}；误差余量 {{ request.budget.margin }}。缓存命中 {{ request.usage.cacheHitTokens ?? '不可得' }}；总耗时 {{ request.elapsedMs ?? '不可得' }} ms。</p>
+          <div v-for="source in request.budget.sources" :key="source.id" class="text-slate-500">{{ source.id }}：约 {{ source.estimatedTokens }} tokens</div>
+        </details>
+      </details>
       <div class="flex justify-between items-center rounded-lg border border-emerald-700/50 bg-emerald-950/20 p-3">
         <span class="text-sm text-emerald-300">本次运行已解锁；关闭应用后需要重新输入。</span>
         <button class="text-sm text-slate-300 hover:text-white" @click="lock">立即锁定</button>
@@ -128,7 +151,7 @@ async function lock() {
               :class="selectedId === item.id ? 'border-cyan-500 bg-cyan-950/30' : 'border-transparent hover:bg-slate-800'">
               <div class="text-sm font-semibold">{{ item.title }}</div>
               <div class="text-[11px] mt-1" :class="item.editable ? 'text-slate-400' : 'text-amber-500'">
-                {{ item.source === 'override' ? `本地覆盖 v${item.overrideVersion}` : '官方基线' }} · {{ item.editable ? '可编辑' : '尚未迁移' }}
+                {{ item.source === 'override' ? `本地覆盖 v${item.overrideVersion}` : '官方基线' }} · {{ item.editable ? '已接入 · 可编辑' : (item.migrationStatus === 'integrated' ? '已接入 · 只读契约' : '尚未迁移') }}
               </div>
             </button>
           </div>
@@ -144,7 +167,7 @@ async function lock() {
               <span v-else>· 无变量</span>
             </div>
           </div>
-          <div v-if="!selected.editable" class="rounded-lg border border-amber-700/50 bg-amber-950/20 p-3 text-sm text-amber-200">该切片仅登记来源，尚未接入安全覆盖；编辑不会被伪装成已生效。</div>
+          <div v-if="!selected.editable" class="rounded-lg border border-amber-700/50 bg-amber-950/20 p-3 text-sm text-amber-200">{{ selected.migrationStatus === 'integrated' ? '该切片已参与真实请求，目前只读。实际分段占用、输入预算和缓存用量可在对应请求日志中查看；未报告的缓存数据标为不可得。' : '该切片仅登记来源，尚未接入安全覆盖。' }}</div>
           <ExpandableTextarea ref="promptEditor" v-model="draft" data-testid="prompt-slice-editor" :readonly="!selected.editable" :label="`提示词：${selected.title}`" textarea-class="min-h-[280px] rounded-lg border border-slate-600 bg-slate-950 p-3 font-mono text-xs leading-5 resize-y read-only:opacity-70" />
           <details class="rounded-lg border border-slate-700 bg-slate-900/35 p-3" data-testid="prompt-variable-browser">
             <summary class="cursor-pointer text-sm font-bold text-slate-200">变量表 · {{ applicableVariables.length }} 个{{ showAllVariables ? '已登记' : '适用于当前任务' }}</summary>

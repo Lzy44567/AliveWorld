@@ -1,5 +1,7 @@
 # core/ai_engine.py
 import json, re
+import time
+from core.request_budget import budget_report, require_budget, normalize_usage
 from openai import OpenAI
 from utils.sys_logger import get_logger
 from core.llm_trace import begin_llm_trace, finish_llm_trace
@@ -23,6 +25,7 @@ def _completion_metadata(response, attempt=1):
         "finish_reason": str(getattr(choice, "finish_reason", "") or ""),
         "attempt": attempt,
         "usage": usage or {},
+        "normalizedUsage": normalize_usage(usage),
     }
 
 
@@ -61,17 +64,25 @@ class AIEngine:
     def __init__(self, config):
         self.client = OpenAI(api_key=config['api_key'], base_url=config['base_url'])
         self.model = config['model']
+        self.budget_options = dict(config.get('budget_options') or {})
 
     def chat_json(self, system_prompt, user_prompt, temp=0.8, max_tokens=None, trace_label="json", prompt_manifest=None):
         """强制 JSON 输出模式（主线 DM 用）"""
         trace_id = begin_llm_trace(trace_label, self.model, system_prompt, user_prompt, "json", prompt_manifest)
+        started = time.monotonic()
+        report = {}
         try:
+            report = budget_report(system_prompt, user_prompt, max_tokens, self.budget_options, prompt_manifest)
+            require_budget(report)
             kwargs = {"model": self.model, "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}], "temperature": temp, "response_format": {"type": "json_object"}}
-            if max_tokens: kwargs["max_tokens"] = max_tokens
+            kwargs["max_tokens"] = report["outputReserve"]
             for attempt in (1, 2):
+                report = budget_report(system_prompt, kwargs["messages"][-1]["content"], kwargs["max_tokens"], self.budget_options, prompt_manifest)
+                require_budget(report)
                 res = self.client.chat.completions.create(**kwargs)
                 content = res.choices[0].message.content or ""
                 metadata = _completion_metadata(res, attempt)
+                metadata.update(budget=report, elapsedMs=round((time.monotonic() - started) * 1000))
                 if content.strip():
                     finish_llm_trace(trace_label, trace_id, response=content, metadata=metadata)
                     return content, None
@@ -88,20 +99,25 @@ class AIEngine:
                     "content": user_prompt + "\n\n请立即只返回一个完整 JSON 对象，禁止只输出空白字符。",
                 }]
         except Exception as e:
-            finish_llm_trace(trace_label, trace_id, error=str(e))
+            finish_llm_trace(trace_label, trace_id, error=str(e), metadata={"budget": report})
             return "", str(e)
 
     def chat_text(self, system_prompt, user_prompt, temp=0.8, trace_label="text", prompt_manifest=None):
         """纯文本输出模式（暗流实体引擎用）"""
         trace_id = begin_llm_trace(trace_label, self.model, system_prompt, user_prompt, "text", prompt_manifest)
+        started = time.monotonic()
+        report = {}
         try:
+            report = budget_report(system_prompt, user_prompt, options=self.budget_options, manifest=prompt_manifest)
+            require_budget(report)
             res = self.client.chat.completions.create(
                 model=self.model, 
                 messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}], 
-                temperature=temp
+                temperature=temp, max_tokens=report["outputReserve"]
             )
             content = res.choices[0].message.content or ""
             metadata = _completion_metadata(res)
+            metadata.update(budget=report, elapsedMs=round((time.monotonic() - started) * 1000))
             if not content.strip():
                 error = _empty_response_error(metadata)
                 finish_llm_trace(trace_label, trace_id, error=error, metadata=metadata)
@@ -109,5 +125,5 @@ class AIEngine:
             finish_llm_trace(trace_label, trace_id, response=content, metadata=metadata)
             return content, None
         except Exception as e:
-            finish_llm_trace(trace_label, trace_id, error=str(e))
+            finish_llm_trace(trace_label, trace_id, error=str(e), metadata={"budget": report})
             return "", str(e)

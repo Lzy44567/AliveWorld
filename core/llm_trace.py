@@ -6,6 +6,7 @@ other connection credentials never enter this module.
 
 import json
 from uuid import uuid4
+from core.request_diagnostics import record_request
 
 from utils.sys_logger import get_logger
 
@@ -42,6 +43,7 @@ def begin_llm_trace(label, model, system_prompt, user_prompt, response_mode, pro
 
 
 def finish_llm_trace(label, trace_id, response="", error=None, metadata=None):
+    record_request(label, trace_id, metadata, error)
     meta = f" metadata={json.dumps(metadata, ensure_ascii=False, separators=(',', ':'))}" if metadata else ""
     if error:
         log.error(

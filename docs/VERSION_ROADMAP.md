@@ -1,6 +1,6 @@
 # v1.1.0 路线图：活的世界 MVP
 
-> 2026-09-21 当前已发布代码节点仍为`v1.6.0-dev.16`；未发布主线已完成提示词架构M4实现，正在进行最终回归与提交。M4统一正常/重掷结算校验、状态副本计算、API内存回滚与原子存盘，不改变旧存档格式。下一步M5完成预算、usage与暗流交接后恢复世界书捕获。版本提升、打包与发布须单独授权。详见 [`features/21_prompt_architecture_design.md`](features/21_prompt_architecture_design.md)。
+> 2026-09-24 提示词架构M1–M5工程验收完成：Python 389/389、前端行为检查与生产构建、Playwright/Edge 22/22通过。M4/M5为未发布变更；当前版本标识仍为`v1.6.0-dev.16`，不据此宣称该节点已公开发行。真实模型文学质量与缓存命中对照尚未执行，属于发行前独立质量门。下一主线为W1通用世界观捕获；版本提升、打包与发布须单独授权。详见 [`features/21_prompt_architecture_design.md`](features/21_prompt_architecture_design.md)。
 
 ## 版本与提交约定
 

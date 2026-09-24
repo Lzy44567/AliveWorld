@@ -1,5 +1,18 @@
 # 更新日志
 
+## Unreleased - 2026-09-24 - Prompt architecture M5
+
+### Request budgets and diagnostics
+
+- Connection profiles own validated context/output limits; changing them replaces the cached runtime client. JSON/text requests enforce an estimated input budget before provider calls, including retry text. Oversized requests retain all authored input and return an actionable source breakdown.
+- Preserve raw usage and normalize provider input/output/cache evidence without replacing unknown values with zero. Developer tools show the bounded process-local request budget/source/usage history behind existing authentication.
+
+### Overseer and coverage
+
+- Added a pure Overseer request builder with static system rules and dynamic user projections. Story handoff supplies proposed post-settlement state, adjudication, prose and related active influences without the full historical shadow ledger.
+- Developer tools distinguish integrated read-only contracts from unmigrated tasks and report all task families honestly.
+- Verification: Python 389/389, frontend behavior checks, production build (126 modules) and Playwright/Edge 22/22 passed. Real-provider literary/cache experiments remain separate release-quality evidence; no package or public release was produced.
+
 ## Unreleased - 2026-09-21 - Transactional settlement contract (M4)
 
 ### Result contract and state

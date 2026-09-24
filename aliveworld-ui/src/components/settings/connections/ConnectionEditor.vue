@@ -44,7 +44,7 @@ function reset() {
     apiKey: '',
     defaultModel: props.profile?.default_model || '',
     enabled: props.profile?.enabled ?? true,
-    advancedOptions: props.profile?.advanced_options || {},
+    advancedOptions: { context_window: 32768, output_reserve: 4096, ...(props.profile?.advanced_options || {}) },
     clearApiKey: false,
   });
   secretVisible.value = false;
@@ -152,8 +152,13 @@ async function save(testAfter = false) {
           </label>
 
           <details class="rounded-xl border border-slate-700 bg-slate-950/40 p-3">
-            <summary class="cursor-pointer text-xs font-bold text-slate-400">高级状态</summary>
-            <p class="mt-2 text-[10px] text-slate-500">接口启停已移到连接卡片；这里保留其他服务商高级参数的后续扩展位置。</p>
+            <summary class="cursor-pointer text-xs font-bold text-slate-400">高级：上下文预算</summary>
+            <div v-if="isText" class="mt-3 space-y-3 text-xs text-slate-300">
+              <p class="text-slate-500">默认按保守窗口估算，并预留10%误差。请按接口实际模型能力调整；修改模型时也应核对。超限会停止请求并说明来源，不会裁掉规则或玩家行动。</p>
+              <label class="block">上下文窗口（tokens）<input v-model.number="form.advancedOptions.context_window" aria-label="上下文窗口" type="number" min="8192" max="2000000" class="mt-1 w-full rounded bg-slate-900 p-2" /></label>
+              <label class="block">默认输出预留（tokens）<input v-model.number="form.advancedOptions.output_reserve" aria-label="默认输出预留" type="number" min="256" max="131072" class="mt-1 w-full rounded bg-slate-900 p-2" /></label>
+              <p class="text-slate-500">正文等任务已指定输出上限时，以任务设置为准。原文与已确认资产不会被预算检查改写。</p>
+            </div>
           </details>
         </div>
 

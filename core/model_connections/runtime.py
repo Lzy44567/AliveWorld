@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Callable
+from typing import Any, Callable
+import json
 
 from core.ai_engine import AIEngine
 from utils.runtime_paths import PATHS
@@ -15,12 +16,12 @@ class ModelConnectionRuntime:
     def __init__(
         self,
         repository: ConnectionRepository,
-        engine_factory: Callable[[dict[str, str]], object] = AIEngine,
+        engine_factory: Callable[[dict[str, Any]], object] = AIEngine,
     ):
         self.repository = repository
         self.engine_factory = engine_factory
         self.snapshot: ConnectionSnapshot | None = None
-        self._engines: dict[tuple[str, str, str, str], object] = {}
+        self._engines: dict[tuple[str, str, str, str, str], object] = {}
 
     def reload(self, *, persist_migration: bool = False) -> ConnectionSnapshot:
         self.snapshot = self.repository.load(persist_migration=persist_migration)
@@ -47,7 +48,7 @@ class ModelConnectionRuntime:
                 continue
             config = resolved.ai_config()
             if all(config.get(key) for key in ("api_key", "base_url", "model")):
-                live_keys.add((resolved.profile.id, config["base_url"], config["api_key"], config["model"]))
+                live_keys.add((resolved.profile.id, config["base_url"], config["api_key"], config["model"], json.dumps(config.get("budget_options", {}), sort_keys=True)))
         self._engines = {key: engine for key, engine in self._engines.items() if key in live_keys}
 
     def resolved(self, task: str) -> ResolvedConnection | None:
@@ -66,6 +67,7 @@ class ModelConnectionRuntime:
             config["base_url"],
             config["api_key"],
             config["model"],
+            json.dumps(config.get("budget_options", {}), sort_keys=True),
         )
         if cache_key not in self._engines:
             self._engines[cache_key] = self.engine_factory(config)

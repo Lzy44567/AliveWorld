@@ -164,7 +164,11 @@ test('前端创建和载入全类资产，正文上下文启停可由假模型�
   expect(settlement.user).toContain('测试角色卡');
   expect(settlement.user).toContain('测试文风');
   expect(settlement.system).toContain('目标约 500 个中文字符');
-  expect(overseer.system).toContain('测试实体');
+  expect(overseer.system).not.toContain('测试实体');
+  expect(overseer.user).toContain('测试实体');
+  expect(overseer.user).toContain('state_after_settlement');
+  expect(overseer.user).toContain('自动验收阶段');
+  expect(overseer.user).not.toContain('测试文风');
   expect(settlement.markers).toEqual(expect.arrayContaining(['世界书A', '角色卡A', '文风卡A']));
   expect(overseer.markers).toContain('实体卡A');
 
@@ -617,6 +621,16 @@ test('开发者密码保护真实提示词切片并支持覆盖与恢复', async
   await page.getByRole('button', { name: '恢复官方基线' }).click();
   await expect(page.getByText('已恢复官方基线。')).toBeVisible();
   await expect(futureCore).toContainText('官方基线');
+  const diagnostics = page.getByTestId('prompt-request-diagnostics');
+  await diagnostics.locator('summary').first().click();
+  await expect(diagnostics).toContainText('undercurrent：已接入');
+  await expect(diagnostics).toContainText('world.capture：待迁移');
+  await editor.fill(`${baseline}\n未保存的编辑内容`);
+  await diagnostics.getByRole('button', { name: '刷新请求记录' }).click();
+  await expect(editor).toHaveValue(`${baseline}\n未保存的编辑内容`);
+  await page.locator('[data-prompt-slice="undercurrent.core"]').click();
+  await expect(editor).toHaveAttribute('readonly', '');
+  await expect(page.locator('[data-prompt-slice="undercurrent.core"]')).toContainText('已接入 · 只读契约');
 });
 
 
@@ -636,6 +650,13 @@ test('接口可从卡片直接启停并发现模型列表', async ({ page }) => 
   await page.getByRole('button', { name: '读取模型' }).click();
   await expect(page.getByText('已读取可用模型')).toBeVisible();
   await expect(page.getByRole('button', { name: 'fake-story', exact: true })).toBeVisible();
+  await page.getByText('高级：上下文预算', { exact: true }).click();
+  await page.getByRole('spinbutton', { name: '上下文窗口', exact: true }).fill('64000');
+  await page.getByRole('button', { name: '保存', exact: true }).click();
+  await card.getByRole('button', { name: '⋮' }).click();
+  await page.getByRole('button', { name: '编辑', exact: true }).click();
+  await page.getByText('高级：上下文预算', { exact: true }).click();
+  await expect(page.getByRole('spinbutton', { name: '上下文窗口', exact: true })).toHaveValue('64000');
 });
 
 

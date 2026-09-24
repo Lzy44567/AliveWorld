@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 from core.developer_access import developer_access
 from core.prompt_studio import PromptOverrideStore, list_slices, require_slice
 from core.prompt_variables import list_variables
+from core.request_diagnostics import recent_requests
 
 
 router = APIRouter()
@@ -69,7 +70,10 @@ async def lock(authorization: str = Header(default="")):
 @router.get("/prompts")
 async def prompts(authorization: str = Header(default="")):
     _require(_token(authorization))
-    return {"slices": list_slices(prompt_store), "variables": list_variables()}
+    return {"slices": list_slices(prompt_store), "variables": list_variables(), "recentRequests": recent_requests(),
+            "coverage": {"story.future": "integrated", "story.settlement": "integrated", "undercurrent": "integrated",
+                         "world.capture": "unmigrated", "workshop": "unmigrated", "memory": "unmigrated",
+                         "preference.analysis": "unmigrated", "image.prompt": "unmigrated"}}
 
 
 @router.put("/prompts/{slice_id}")

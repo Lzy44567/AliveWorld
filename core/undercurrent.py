@@ -7,6 +7,7 @@ from core.ai_engine import robust_json_parse
 from core.entities import Entity, active_entities
 from core.shadow_ledger import ShadowLedger
 from core.causal_ledger import CausalLedger
+from core.overseer_prompt_builder import build_overseer_request
 
 log = get_logger()
 
@@ -54,10 +55,9 @@ class UndercurrentEngine:
         
         active_by_name = {entity.name: entity for entity in active_entities(self.entities)}
         ent_info = "\n".join(entity.prompt_summary() for entity in active_by_name.values())
-        prompt_sys = prompt_sys.replace("{entities_info}", ent_info)
-        prompt_sys = prompt_sys.replace("{world_context}", world_context_text)
-        
-        raw_ans, err = self.ai_engine.chat_json(prompt_sys, "请推演实体的幕后行动与生灭。无动作的数组必须留空 []。", temp=0.8, trace_label="Overseer实体推演")
+        request = build_overseer_request(prompt_sys, ent_info, world_context_text)
+        raw_ans, err = self.ai_engine.chat_json(request.system_prompt, request.user_prompt,
+            temp=request.temperature, trace_label=request.trace_label, prompt_manifest=request.prompt_manifest)
         
         events_this_turn = []
         if err or not raw_ans:

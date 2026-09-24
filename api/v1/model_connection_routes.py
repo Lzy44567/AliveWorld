@@ -177,6 +177,7 @@ def test_profile(profile_id: str):
                 "api_key": profile.api_key or "not-required",
                 "base_url": profile.base_url,
                 "model": profile.default_model,
+                "budget_options": profile.advanced_options,
             }
         )
         content, error = engine.chat_text(

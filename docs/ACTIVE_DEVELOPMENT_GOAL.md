@@ -1,8 +1,21 @@
 # Active development goal
 
-Updated: 2026-09-21
+Updated: 2026-09-24
 
-## Current unreleased patch — prompt architecture M4
+## Completed engineering stage — prompt architecture M1–M5
+
+- Authorization: on 2026-09-24 the user enabled goal mode for the complete stage; M1–M5 may proceed without asking for a separate authorization at each milestone.
+- Mainline: request composition, rule/data separation, finite experience presets, result contracts and request budgets/Overseer handoff are implemented. M1–M5 engineering acceptance is complete; release qualification remains separate.
+- M5 implementation: connection-owned context/output limits; conservative estimated preflight at transport; raw and normalized usage/cache statistics; stable Overseer system rules with user data projections; proposed state and adjudication handoff; bounded content-free request observations and truthful developer coverage.
+- Ownership: profile budget options persist with the existing connection repository and invalidate cached engines when changed. Runtime diagnostics retain 32 records in memory under a lock, expose no prompt/response body or credential, and are available through the existing protected developer endpoint.
+- Budget policy: existing memory/retrieval owners retain responsibility for summarization and optional retrieval selection. Transport treats the retained assembled request as required, reports oversized sources, and rejects rather than silently truncating assets or commands. Unknown models use an explicitly labeled 32768-token conservative window, 4096 default output reservation and 10% estimate margin, configurable per connection.
+- Acceptance: enforce zero provider calls on overflow; preserve output reserve; distinguish unavailable cache statistics from zero; stable Overseer rules; proposed state is visible to Overseer before live commit; disabled Overseer has zero calls; connection setting persists and cache reloads; UI distinguishes integrated read-only slices; full backend/build/browser regression.
+- Quality boundary: deterministic acceptance proves request/state/UI behavior. Real-model literary comparison and provider cache effectiveness remain separate release-quality evidence; no claim of measured quality or cache-hit improvement is made from fake providers.
+- Evidence (2026-09-24): `tools/run_checks.ps1` passed Python 389/389, frontend behavior verification and production build (126 modules); full Playwright/Edge passed 22/22. The browser checks exercise saved budget configuration and verify that Overseer receives current settlement state in user data, not entity data in static system rules.
+- Delivery boundary: no paid API requests, version bump, package build, push or release in this stage closure. The current version label remains 1.6.0-dev.16; the new work is unreleased.
+- Next after completion: resume W1 general world-change capture according to feature document 18. No further M-by-M user approval is required inside this stage.
+
+## Completed unreleased patch — prompt architecture M4
 
 - Final goal: implement the approved prompt architecture in bounded M1–M5 slices, then resume worldbook capture.
 - Phase goal: make normal turns and rerolls share one strict settlement contract, calculate state changes on an isolated copy, and restore both memory and disk-visible state when a mutation cannot be committed.

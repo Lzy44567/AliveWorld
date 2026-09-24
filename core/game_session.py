@@ -1,5 +1,6 @@
 # core/game_session.py
 import copy
+import json
 from datetime import datetime
 from core.undercurrent import UndercurrentEngine
 from core.resolution_engine import DualTrackResolver
@@ -87,6 +88,18 @@ class GameSession:
         """Worldbook context for subsystems that must not see hidden entity state."""
         return self.ctx_mgr.build_visible_world_info(self.get_context_text(), action)
     def get_dynamic_state_for_ai(self): return self.state_mgr.get_dynamic_state()
+
+    def _overseer_context(self, action, story, state_plan, adjudication, resolutions):
+        world, _ = self.build_visible_world_info(action)
+        active_names = {e.name for e in self.undercurrent.entities if e.is_active}
+        influences = [i.to_dict() for i in self.undercurrent.causal_ledger.influences
+                      if i.status == "active" and any(link.get("entity") in active_names for link in i.source_links)]
+        return world + "\n【本轮交接】\n" + json.dumps({
+            "player_action": action, "story_text": story,
+            "state_after_settlement": state_plan.state,
+            "adjudication": adjudication, "resolved_influences": resolutions,
+            "active_influences": influences,
+        }, ensure_ascii=False, sort_keys=True)
     def get_user_preference_context(self):
         if not self.story_settings.get("useUserPreferences", True):
             return ""
@@ -233,8 +246,8 @@ class GameSession:
             })
         
         # 🚀 修复实体延迟1回合Bug：手动把当前回合刚发生的剧情喂给 Overseer
-        active_world, _ = self.build_active_world_info(interpreted_action)
-        current_context = active_world + f"\n\n【本回合】\n玩家：{interpreted_action}\n结果：{story_text}"
+        current_context = self._overseer_context(interpreted_action, story_text, state_plan,
+                                                 result.get("action_adjudication", {}), resolutions)
         world_time = str(settlement.get("status_updates", {}).get("当前时间") or self.state_mgr.state.get("properties", {}).get("当前时间", ""))
         events = self.undercurrent.tick(current_context, enabled=self.story_settings["entitiesEnabled"], world_time=world_time)
         
@@ -373,8 +386,8 @@ class GameSession:
             }})
         
         # 🚀 修复实体延迟1回合Bug
-        active_world, _ = self.build_active_world_info(interpreted_action)
-        current_context = active_world + f"\n\n【本回合】\n玩家：{interpreted_action}\n结果：{story_text}"
+        current_context = self._overseer_context(interpreted_action, story_text, state_plan,
+                                                 action_adjudication, resolutions)
         world_time = str(settlement.get("status_updates", {}).get("当前时间") or self.state_mgr.state.get("properties", {}).get("当前时间", ""))
         events = self.undercurrent.tick(current_context, enabled=self.story_settings["entitiesEnabled"], world_time=world_time)
         

@@ -20,6 +20,7 @@ class FakeAIEngine:
     def chat_json(self, system_prompt, _user_prompt, temp=0.8, **_kwargs):
         self.call_count += 1
         self.system_prompt = system_prompt
+        self.user_prompt = _user_prompt
         return self.response, None
 
 
@@ -112,11 +113,12 @@ class EntityDomainTests(unittest.TestCase):
         with patch("core.undercurrent.load_system_prompts", return_value={"overseer_prompt": "实体：{entities_info}\n剧情：{world_context}"}):
             engine.tick("玩家进入城镇")
 
-        self.assertIn("皇城", ai_engine.system_prompt)
-        self.assertIn("类型：普通暗流实体", ai_engine.system_prompt)
-        self.assertNotIn("封存势力", ai_engine.system_prompt)
-        self.assertIn("既有盘查机制", ai_engine.system_prompt)
-        self.assertIn("玩家进城→守卫盘查", ai_engine.system_prompt)
+        self.assertNotIn("皇城", ai_engine.system_prompt)
+        self.assertIn("皇城", ai_engine.user_prompt)
+        self.assertIn("类型：普通暗流实体", ai_engine.user_prompt)
+        self.assertNotIn("封存势力", ai_engine.user_prompt)
+        self.assertIn("既有盘查机制", ai_engine.user_prompt)
+        self.assertIn("玩家进城→守卫盘查", ai_engine.user_prompt)
         self.assertEqual(engine.entities[0].recent_actions, ["派遣密探"])
         self.assertEqual(engine.entities[0].status, "追查中")
         self.assertEqual(engine.entities[0].plans, ["搜查客栈"])
