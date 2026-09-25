@@ -52,12 +52,12 @@ def retarget_session(session_id: str, old_path: str, new_path: str) -> None:
 
 
 @contextmanager
-def mutation_guard(namespace: str, identity: str):
+def mutation_guard(namespace: str, identity: str, *, blocking: bool = False):
     """Serialize one mutable aggregate while allowing different keys to overlap."""
     key = f"{namespace}:{identity}"
     with _registry_lock:
         lock = _mutation_locks.setdefault(key, Lock())
-    if not lock.acquire(blocking=False):
+    if not lock.acquire(blocking=blocking):
         raise MutationBusyError("该对象已有操作正在执行，请等待完成后再试")
     try:
         yield

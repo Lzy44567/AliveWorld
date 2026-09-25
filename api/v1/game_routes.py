@@ -250,13 +250,20 @@ def _persisted_story_mutation(game, operation):
     try:
         result = operation()
         save_game_data(game.save_dir_path, game.export_save_data())
-        return result
     except Exception:
         try:
             game.restore_transaction_state(checkpoint)
         except Exception as restore_error:
             log.exception("故事事务失败后无法完全恢复运行时副本: %s", restore_error)
         raise
+
+    dispatch = getattr(game, "dispatch_committed_worldbook_captures", None)
+    if dispatch:
+        try:
+            dispatch()
+        except Exception as exc:
+            log.warning("正文已保存；后置捕获任务未启动: %s", exc)
+    return result
 
 @router.post("/{session_id}/action")
 def process_turn(session_id: str, payload: ActionRequest):

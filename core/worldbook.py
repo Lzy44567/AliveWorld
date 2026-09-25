@@ -6,6 +6,8 @@ import hashlib
 import os
 import re
 import uuid
+from contextlib import contextmanager
+from threading import RLock, Lock
 from pathlib import Path
 from dataclasses import dataclass
 from typing import Any, Protocol
@@ -91,14 +93,43 @@ def normalize_worldbook(raw: Any) -> dict[str, Any]:
     return normalized
 
 
-def save_worldbook_atomic(path: Path | str, book: dict[str, Any]) -> None:
+_write_locks = {}
+_write_locks_guard = Lock()
+
+
+class WorldbookRevisionConflict(ValueError):
+    pass
+
+
+@contextmanager
+def worldbook_write_guard(path):
+    key = os.path.normcase(str(Path(path).resolve()))
+    with _write_locks_guard:
+        lock = _write_locks.setdefault(key, RLock())
+    with lock:
+        yield
+
+
+def worldbook_revision(content: bytes) -> str:
+    return hashlib.sha256(content).hexdigest()
+
+
+def save_worldbook_atomic(path: Path | str, book: dict[str, Any], *, expected_revision: str | None = None) -> None:
     """Write a complete YAML file without exposing readers to partial content."""
     import yaml
     target = Path(path)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    temporary = target.with_name(f".{target.name}.{uuid.uuid4().hex}.tmp")
-    temporary.write_text(yaml.safe_dump(normalize_worldbook(book), allow_unicode=True, sort_keys=False), encoding="utf-8")
-    os.replace(temporary, target)
+    with worldbook_write_guard(target):
+        if expected_revision is not None:
+            if not target.is_file() or worldbook_revision(target.read_bytes()) != expected_revision:
+                raise WorldbookRevisionConflict("世界书已修改或删除，异步捕获结果已弃用")
+        if expected_revision is None:
+            target.parent.mkdir(parents=True, exist_ok=True)
+        temporary = target.with_name(f".{target.name}.{uuid.uuid4().hex}.tmp")
+        try:
+            temporary.write_text(yaml.safe_dump(normalize_worldbook(book), allow_unicode=True, sort_keys=False), encoding="utf-8")
+            os.replace(temporary, target)
+        finally:
+            temporary.unlink(missing_ok=True)
 
 
 @dataclass(frozen=True)

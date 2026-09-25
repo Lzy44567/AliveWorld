@@ -53,6 +53,7 @@ class GameSession:
         self.entity_repository = EntityRepository(self.save_dir_path)
         self.resolver = DualTrackResolver()
         self.worldbook_capture = WorldbookCaptureService(worldbook_capture_ai_engine or self.ai_engine)
+        self._pending_worldbook_captures = []
         self.user_preferences = UserPreferenceRepository()
         self.preference_analysis = PreferenceAnalysisService(preference_ai_engine or self.ai_engine)
         memory_config = memory_config or {}
@@ -263,12 +264,7 @@ class GameSession:
         self._record_preference_evidence(
             settlement, self.history["story_turns"][-1]["turn_id"], interpreted_action
         )
-        if self.story_settings["worldbookCaptureEnabled"] and capture_requested(settlement, interpreted_action):
-            self.worldbook_capture.schedule(
-                self.save_dir_path, interpreted_action, story_text,
-                review_all=self.story_settings["worldbookCaptureReview"],
-                world_change_events=settlement.get("world_change_events"),
-            )
+        self._queue_worldbook_capture(settlement, interpreted_action, story_text)
         self.story_memory.schedule(
             self.history.get("story_turns", []),
             enabled=self.story_settings.get("autoCompressMemory", False),
@@ -408,12 +404,31 @@ class GameSession:
         self._record_preference_evidence(
             settlement, self.history["story_turns"][-1]["turn_id"], interpreted_action
         )
+        self._queue_worldbook_capture(settlement, interpreted_action, story_text)
         self.story_memory.schedule(
             self.history.get("story_turns", []),
             enabled=self.story_settings.get("autoCompressMemory", False),
         )
         return {"chat_messages": self.history["chat_messages"], "state": self.state, "action_suggestions": self.action_suggestions}
     
+    def _queue_worldbook_capture(self, settlement, action, story):
+        if self.story_settings["worldbookCaptureEnabled"] and capture_requested(settlement, action):
+            self._pending_worldbook_captures.append({
+                "player_action": action, "story_text": story,
+                "review_all": self.story_settings["worldbookCaptureReview"],
+                "world_change_events": copy.deepcopy(settlement.get("world_change_events")),
+                "source_turn": copy.deepcopy(self.history["story_turns"][-1]),
+            })
+
+    def dispatch_committed_worldbook_captures(self):
+        """Called only after the API transaction has durably saved this story."""
+        pending, self._pending_worldbook_captures = self._pending_worldbook_captures, []
+        for task in pending:
+            try:
+                self.worldbook_capture.schedule(self.save_dir_path, **task)
+            except Exception as exc:
+                log.warning("正文已保存；世界书捕获调度失败: %s", exc)
+
     def _snapshot_payload(self):
         return {
             "state": copy.deepcopy(self.state), "chat_messages": copy.deepcopy(self.history["chat_messages"]), 
@@ -435,9 +450,11 @@ class GameSession:
         payload["story_settings"] = copy.deepcopy(self.story_settings)
         payload["word_limit"] = self.word_limit
         payload["is_game_over"] = self.is_game_over
+        payload["pending_worldbook_captures"] = copy.deepcopy(self._pending_worldbook_captures)
         return payload
 
     def _restore_runtime(self, snap):
+        self._pending_worldbook_captures = copy.deepcopy(snap.get("pending_worldbook_captures", []))
         self.state_mgr.state = copy.deepcopy(snap["state"])
         self.state_mgr.load_metadata(copy.deepcopy(snap.get("state_meta")))
         self.history["chat_messages"] = copy.deepcopy(snap["chat_messages"])

@@ -1,8 +1,8 @@
 # Active development goal
 
-Updated: 2026-09-24
+Updated: 2026-09-25
 
-## Current mainline — W1 general world-change capture
+## Completed implementation — W1; next step is the design gate
 
 - Final goal: connect genre-neutral world-change signals, on-demand capture and source-turn/target-revision safety on the approved prompt architecture (feature 18). No scene evolution, asset extraction, new inbox UI or revision-history product in W1.
 - Current slice W1a: a bounded `world_change_events` contract, independently registered short settlement instructions and generic detailed capture instructions; only confirmed events with an exact excerpt from the completed story may schedule capture. An explicitly empty/invalid/unconfirmed event list overrides legacy flags and command aliases.
@@ -11,6 +11,17 @@ Updated: 2026-09-24
 - W1a status: complete. Final Python regression 398/398, frontend behavior check, production build (126 modules), and full Playwright/Edge 22/22 passed. No paid model or player-data test was used.
 - Next slice W1b: defer capture until story persistence succeeds, validate source-turn identity and target revision before publishing asynchronous results; include rerolls and undo races. This risk is recorded, not claimed fixed by W1a.
 - Authorization: user asked to continue on 2026-09-24. No version bump, paid API requests, package or remote release.
+
+### Completed goal-mode slice W1b (2026-09-25)
+
+- User authorized continuous goal-mode work up to the existing Astra design boundary. Finish source-turn/revision-safe capture; stop before full immutable rule histories, new authoring UI or new automatic-publication policy.
+- Queue capture inputs in the story runtime transaction; dispatch only after successful save. Failure restores the queue with the story checkpoint. Normal and reroll paths share this contract.
+- The task pins its worldbook revision at dispatch and validates the persisted source using turn ID, player/story content and source message IDs. Reused numeric turn IDs after reroll are not sufficient identity. Validate again before commit under the story mutation gate; use an atomic expected-revision write for the target book.
+- Do not hold the story gate during model calls. Other stories, edits and undo remain available; a stale result is discarded with a diagnostic instead of guessed merging. No new background repair/model request or persistent task retry queue.
+- Validation: failed story save causes zero capture calls; valid source commits; undo/replacement during the model call rejects stale results; edits/deletions preserve the new target; failed writes preserve the old file; reroll queues its new source; full regression/build/browser checks.
+- Boundary: this prevents an in-flight stale capture from committing. Reversing a worldbook change that already committed before undo requires the future rule-revision ledger and is not implemented here. Startup does not resume interrupted capture jobs.
+- Evidence: Python 412/412, frontend behavior check and production build (126 modules), full Playwright/Edge 22/22 passed. The initial browser run caught an import-branch variable mistake; it was fixed and covered by an additional four-category API regression before the complete rerun passed.
+- Stop condition reached: remaining product work requires freezing rule-revision storage and accepted-change undo semantics, authoring entry/inbox behavior and confirmation/publication policy. Do not begin those implementations merely because goal mode was enabled. No version bump, package, push or release was performed.
 
 ## Completed engineering stage — prompt architecture M1–M5
 

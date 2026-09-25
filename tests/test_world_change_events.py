@@ -29,6 +29,8 @@ class WorldChangeEventTests(unittest.TestCase):
                 session.resolver.resolve.return_value = payload
                 session.worldbook_capture.schedule = Mock()
                 session.process_turn("继续")
+                session.worldbook_capture.schedule.assert_not_called()
+                session.dispatch_committed_worldbook_captures()
                 self.assertEqual(session.worldbook_capture.schedule.call_count, expected)
                 if expected:
                     self.assertEqual(session.worldbook_capture.schedule.call_args.kwargs["world_change_events"], events)

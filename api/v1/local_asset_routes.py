@@ -10,7 +10,7 @@ from typing import Dict, Any
 from core.session_manager import active_sessions
 from utils.file_io import DATA_DIR, save_game_data
 from utils.asset_catalog import resolve_asset_path
-from core.worldbook import normalize_worldbook, save_worldbook_atomic
+from core.worldbook import normalize_worldbook, save_worldbook_atomic, worldbook_write_guard
 from core.image_generation.runtime import get_image_runtime
 from core.image_generation.portrait import task_is_local_portrait
 from core.image_generation.service import ImageTaskError
@@ -83,7 +83,11 @@ def pull_asset(session_id: str, payload: PullAssetRequest):
     
     try:
         data = yaml.safe_load(global_file.read_text(encoding='utf-8')) or {}
-        if isinstance(data, dict) and refresh_local_instance_id(data):
+        if payload.asset_type == "worldbooks":
+            if isinstance(data, dict):
+                refresh_local_instance_id(data)
+            save_worldbook_atomic(local_file, data)
+        elif isinstance(data, dict) and refresh_local_instance_id(data):
             with open(local_file, 'w', encoding='utf-8') as file:
                 yaml.safe_dump(data, file, allow_unicode=True, sort_keys=False)
         else:
@@ -144,7 +148,11 @@ def delete_local_asset(session_id: str, asset_type: str, asset_name: str):
                 game.undercurrent.entities = [entity for entity in game.undercurrent.entities if entity.name != asset_name]
                 game.undercurrent.sync_influence_refs()
                 save_game_data(game.save_dir_path, game.export_save_data())
-            os.remove(local_file)
+            if asset_type == "worldbooks":
+                with worldbook_write_guard(local_file):
+                    os.remove(local_file)
+            else:
+                os.remove(local_file)
             portrait_deleted = False
             if portrait_task_id and not task_is_local_portrait(game.save_dir_path, portrait_task_id):
                 runtime = get_image_runtime(game.save_dir_path)

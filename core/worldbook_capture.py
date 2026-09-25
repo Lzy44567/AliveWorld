@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import threading
 import uuid
+from contextlib import nullcontext
 from pathlib import Path
 from typing import Any
 
@@ -12,7 +13,8 @@ import yaml
 
 from core.ai_engine import robust_json_parse
 from core.auto_worldbook import select_capture_worldbook
-from core.worldbook import normalize_entry, normalize_tags, normalize_worldbook, save_worldbook_atomic
+from core.worldbook import normalize_entry, normalize_tags, normalize_worldbook, save_worldbook_atomic, worldbook_revision, WorldbookRevisionConflict
+from core.capture_source import source_is_current
 from core.world_rule_commands import capture_instruction, world_rule_command_mode
 from core.world_change_events import confirmed_world_changes
 from utils.sys_logger import get_logger
@@ -75,21 +77,38 @@ class WorldbookCaptureService:
     def first_active_worldbook(save_dir: str) -> Path | None:
         return select_capture_worldbook(save_dir)
 
-    def schedule(self, save_dir: str, player_action: str, story_text: str, *, review_all: bool, world_change_events=None) -> bool:
+    def schedule(self, save_dir: str, player_action: str, story_text: str, *, review_all: bool, world_change_events=None, source_turn=None) -> bool:
+        if source_turn is not None and not source_is_current(save_dir, source_turn):
+            log.info("世界书捕获未启动：源回合未保存或已失效")
+            return False
         path = select_capture_worldbook(save_dir, create_fallback=True)
         if not path or not self.ai_engine or not story_text.strip():
             return False
         thread = threading.Thread(
-            target=self.capture,
+            target=self._run_capture,
             args=(path, player_action, story_text),
-            kwargs={"review_all": review_all, "world_change_events": world_change_events},
+            kwargs={"review_all": review_all, "world_change_events": world_change_events,
+                    "source_turn": source_turn, "save_dir": save_dir,
+                    "expected_revision": worldbook_revision(path.read_bytes())},
             name="worldbook-capture",
             daemon=True,
         )
         thread.start()
         return True
 
-    def capture(self, path: Path, player_action: str, story_text: str, *, review_all: bool, world_change_events=None) -> dict[str, Any]:
+    def _run_capture(self, *args, **kwargs):
+        try:
+            result = self.capture(*args, **kwargs)
+            if result.get("skipped"):
+                log.info("世界书后台捕获跳过项: %s", result["skipped"])
+            return result
+        except Exception as exc:
+            log.exception("世界书后台捕获失败，已保存正文不受影响: %s", exc)
+
+    def capture(self, path: Path, player_action: str, story_text: str, *, review_all: bool, world_change_events=None,
+                source_turn=None, save_dir=None, expected_revision=None) -> dict[str, Any]:
+        if source_turn is not None and not source_is_current(save_dir, source_turn):
+            return {"added": [], "pending": [], "skipped": ["源回合已失效"]}
         if world_change_events is not None:
             world_change_events = confirmed_world_changes({"world_change_events": world_change_events, "story_text": story_text})
             if not world_change_events:
@@ -103,7 +122,11 @@ class WorldbookCaptureService:
             )
         with _path_lock(path):
             try:
-                book = normalize_worldbook(yaml.safe_load(path.read_text(encoding="utf-8")) or {})
+                original = path.read_bytes()
+                revision = worldbook_revision(original)
+                if expected_revision is not None and revision != expected_revision:
+                    return {"added": [], "pending": [], "skipped": ["目标修订已变化"]}
+                book = normalize_worldbook(yaml.safe_load(original.decode("utf-8")) or {})
             except (OSError, yaml.YAMLError) as exc:
                 log.warning("世界书异步捕获无法读取目标: %s", exc)
                 return {"added": [], "pending": [], "skipped": ["读取失败"]}
@@ -201,6 +224,18 @@ class WorldbookCaptureService:
                 (pending if "待确认" in candidate["tags"] else added).append(candidate)
 
             if added or pending:
-                save_worldbook_atomic(path, book)
+                # Share the story mutation gate only for the short commit, not
+                # the model request. Undo/save and source checking cannot race.
+                from core.session_manager import mutation_guard, save_identity
+                gate = mutation_guard("story", save_identity(save_dir), blocking=True) if source_turn is not None else nullcontext()
+                try:
+                    with gate:
+                        if source_turn is not None and not source_is_current(save_dir, source_turn):
+                            log.info("世界书异步捕获弃用：源回合已撤回或替换")
+                            return {"added": [], "pending": [], "skipped": ["源回合已失效"]}
+                        save_worldbook_atomic(path, book, expected_revision=revision)
+                except (WorldbookRevisionConflict, OSError) as exc:
+                    log.warning("世界书异步捕获未写入: %s", exc)
+                    return {"added": [], "pending": [], "skipped": [str(exc)]}
             log.info("世界书异步捕获完成: target=%s auto_added=%s pending=%s skipped=%s", path.name, [item["name"] for item in added], [item["name"] for item in pending], skipped)
             return {"added": added, "pending": pending, "skipped": skipped}
