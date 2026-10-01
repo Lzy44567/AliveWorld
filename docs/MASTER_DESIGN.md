@@ -6,6 +6,8 @@
 
 ## 当前目标
 
+2026-10-01 当前优先主线为[角色模式 R0 设计](features/22_character_mode_and_state_design.md)：独立私聊先行，群聊验证后复用到故事 NPC；顶部游戏—角色—工坊，暂不做故事内私聊。角色身份/可演进结构、外部资产兼容与提示词分类先冻结设计。反馈手动发送标识独立小修，“链式输出”待澄清。以下旧“当前/下一步”均为历史，以活动目标为准；本轮无运行代码修改。
+
 2026-09-15 当前活动主线以 [`ACTIVE_DEVELOPMENT_GOAL.md`](ACTIVE_DEVELOPMENT_GOAL.md) 为准：先完成提示词架构设计，依据 [`features/21_prompt_architecture_design.md`](features/21_prompt_architecture_design.md) 渐进迁移后恢复世界书捕获。以下历次阶段记录保留背景，不应被读取为自动切换当前任务的指令。
 
 下一阶段先实现“活的世界”：玩家视野之外的长期力量能够在世界规则约束下产生变化，并在合适的未来回合形成可追溯的后果。

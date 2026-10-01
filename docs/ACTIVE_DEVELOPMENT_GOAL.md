@@ -1,6 +1,15 @@
 # Active development goal
 
-Updated: 2026-09-25
+Updated: 2026-10-01
+
+## Current mainline — character-mode design only (R0)
+
+- User confirmed independent character conversations as a behavior research environment; navigation will be 游戏—角色—工坊. In-story private chat is deferred.
+- Authorization is documentation and prioritization only. Astra owns design; 6.1 Sol medium/high implements after design freeze. No runtime changes, version bump, package or release now.
+- Canonical brief: [feature 22](features/22_character_mode_and_state_design.md). It separates confirmed requirements, proposed session roles/state, external compatibility, prompt categorization, feedback labeling and unresolved “链式输出”.
+- Next slice: freeze R0 session/role/state contracts, rollback/migration, format fixtures and acceptance. New output-mode request is recorded pending clarification, not an automatic mainline switch.
+- M1–M5 and W1a/W1b below are completed engineering history. Full world-rule revisions/committed-change undo and authoring UI remain deferred, not implemented by this change.
+- Document-only acceptance: linked brief, roadmap, decisions and changelog consistency, diff checks. Historical test counts below are not newly rerun results.
 
 ## Completed implementation — W1; next step is the design gate
 
