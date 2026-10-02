@@ -13,7 +13,10 @@ import { configStore } from '../../store/configStore';
 import { onboardingStore } from '../../store/onboardingStore';
 
 const activeSection = ref(uiStore.settingsSection === 'memory' ? 'api' : (uiStore.settingsSection || 'inference'));
+const developerSettings = ref(null);
+const canLeave = () => activeSection.value !== 'developer' || developerSettings.value?.canLeave() !== false;
 const close = () => {
+  if (!canLeave()) return;
   uiStore.modals.settings = false;
   if (configStore.globalSettings.apiReady) {
     window.setTimeout(() => {
@@ -26,7 +29,10 @@ const close = () => {
     }, 0);
   }
 };
-const selectSection = section => { activeSection.value = section; uiStore.settingsSection = section; };
+const selectSection = section => {
+  if (section === activeSection.value || !canLeave()) return;
+  activeSection.value = section; uiStore.settingsSection = section;
+};
 </script>
 
 <template>
@@ -44,7 +50,7 @@ const selectSection = section => { activeSection.value = section; uiStore.settin
           <button @click="selectSection('image')" :class="activeSection === 'image' ? 'bg-slate-800 text-fuchsia-300' : 'text-slate-400 hover:bg-slate-800'" class="w-full text-left px-3 py-2 text-sm font-bold rounded transition">🎨 生图配置</button>
           <button @click="selectSection('data')" :class="activeSection === 'data' ? 'bg-slate-800 text-cyan-300' : 'text-slate-400 hover:bg-slate-800'" class="w-full text-left px-3 py-2 text-sm font-bold rounded transition">📦 数据与迁移</button>
           <button @click="selectSection('updates')" :class="activeSection === 'updates' ? 'bg-slate-800 text-cyan-300' : 'text-slate-400 hover:bg-slate-800'" class="w-full text-left px-3 py-2 text-sm font-bold rounded transition">ℹ️ 关于与更新</button>
-          <button @click="selectSection('feedback')" :class="activeSection === 'feedback' ? 'bg-slate-800 text-violet-300' : 'text-slate-400 hover:bg-slate-800'" class="w-full text-left px-3 py-2 text-sm font-bold rounded transition">💬 反馈与诊断</button>
+          <button @click="selectSection('feedback')" :class="activeSection === 'feedback' ? 'bg-slate-800 text-violet-300' : 'text-slate-400 hover:bg-slate-800'" class="w-full text-left px-3 py-2 text-sm font-bold rounded transition">💬 反馈与诊断 · 已实装</button>
           <button @click="selectSection('developer')" :class="activeSection === 'developer' ? 'bg-slate-800 text-amber-300' : 'text-slate-400 hover:bg-slate-800'" class="w-full text-left px-3 py-2 text-sm font-bold rounded transition">🧰 开发者模式</button>
         </nav>
         <div class="flex-1 min-w-0 p-6 overflow-y-auto bg-slate-800/20 custom-scrollbar">
@@ -55,7 +61,7 @@ const selectSection = section => { activeSection.value = section; uiStore.settin
           <DataMigrationSettings v-else-if="activeSection === 'data'" />
           <UpdateSettings v-else-if="activeSection === 'updates'" />
           <FeedbackSettings v-else-if="activeSection === 'feedback'" />
-          <DeveloperSettings v-else />
+          <DeveloperSettings v-else ref="developerSettings" />
         </div>
       </div>
     </div>

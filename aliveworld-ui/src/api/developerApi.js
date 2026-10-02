@@ -4,7 +4,11 @@ function token() { return sessionStorage.getItem(TOKEN_KEY) || ''; }
 
 async function payload(response) {
   const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(body.detail || `开发者工具请求失败（HTTP ${response.status}）`);
+  if (!response.ok) {
+    const error = new Error(body.detail || `开发者工具请求失败（HTTP ${response.status}）`);
+    error.status = response.status;
+    throw error;
+  }
   return body;
 }
 
@@ -28,7 +32,7 @@ export const developerApi = {
     return result;
   },
   async lock() {
-    await request('/lock', { method: 'POST' }, true).catch(() => null);
+    await request('/lock', { method: 'POST' }, true);
     sessionStorage.removeItem(TOKEN_KEY);
   },
   prompts: () => request('/prompts', {}, true),

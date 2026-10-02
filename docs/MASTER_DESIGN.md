@@ -6,7 +6,9 @@
 
 ## 当前目标
 
-2026-10-01 当前优先主线为[角色模式 R0 设计](features/22_character_mode_and_state_design.md)：独立私聊先行，群聊验证后复用到故事 NPC；顶部游戏—角色—工坊，暂不做故事内私聊。角色身份/可演进结构、外部资产兼容与提示词分类先冻结设计。反馈手动发送标识独立小修，“链式输出”待澄清。以下旧“当前/下一步”均为历史，以活动目标为准；本轮无运行代码修改。
+2026-10-02 F1/U1已完成工程验收（Python412/412、Node35/35、129模块构建、Playwright/Edge22/22）；[22a](features/22a_first_slice_feedback_and_prompt_navigation.md)记录真实实现与验证。当前回到角色模式R0详细设计门；角色引擎、身份迁移、流式传输尚未实现，不因两个UI安全切片完成而自动展开。未提交或发布，版本仍1.6.0-dev.16。以下2026-10-01为设计交接历史。
+
+2026-10-01 当前优先主线为[角色模式分阶段设计](features/22_character_mode_and_state_design.md)：独立私聊先行，群聊与故事NPC复用后置；顶部游戏—角色—工坊，暂不做故事内私聊。“链式输出”已确认是流式输出；用户授权Astra设计完成后由6.1 Sol中/高编码。[F1/U1契约](features/22a_first_slice_feedback_and_prompt_navigation.md)已冻结，可先实施反馈快照/手动发送说明及提示词分类/未保存保护；角色schema/API/迁移与流式传输仍有设计门，未宣称全架构完成。以下旧“当前/下一步”均为历史；本次设计交接没有运行代码修改。
 
 2026-09-15 当前活动主线以 [`ACTIVE_DEVELOPMENT_GOAL.md`](ACTIVE_DEVELOPMENT_GOAL.md) 为准：先完成提示词架构设计，依据 [`features/21_prompt_architecture_design.md`](features/21_prompt_architecture_design.md) 渐进迁移后恢复世界书捕获。以下历次阶段记录保留背景，不应被读取为自动切换当前任务的指令。
 

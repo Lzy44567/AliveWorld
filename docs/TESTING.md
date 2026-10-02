@@ -1,5 +1,12 @@
 # AliveWorld 测试流程
 
+## F1/U1验收（2026-10-02）
+
+- 前端：`cd aliveworld-ui; node --test tests/feedbackOperation.test.mjs tests/promptNavigation.test.mjs`，35/35通过；现已纳入`tools/run_checks.ps1`。四动作过期重试/卸载、错误/剪贴板/秘密扫描、分类顺序与注册并集、草稿失败/并发/认证/锁定均有确定性测试。
+- 后端：`.venv/Scripts/python.exe -m unittest tests.test_feedback_diagnostics tests.test_prompt_studio tests.test_story_prompt_builder tests.test_settlement_prompt_sections -q`，34/34通过。初始命令误写不存在模块已纠正，不是产品失败。
+- 一键检查：Python412/412、可见性检查、Node35/35、生产构建129模块通过。完整`npm run test:e2e`：Playwright/Edge22/22通过（1.4分钟）。原提示词注入断言未删除；补齐真实dialog取消/确认、模式空态/只读/覆盖版本、401稿件可选复制、父级guard与反馈新快照/失败/fallback。
+- 无付费模型或真实GitHub提交；窗口/剪贴板在浏览器测试中拦截。Node控制Promise覆盖过期导出和卸载零副作用，不将其写成真实远程服务或人工发送证据。
+
 面向玩家的逐步操作请优先阅读 [MANUAL_TEST_GUIDE.md](MANUAL_TEST_GUIDE.md)。本文件保留自动测试与夹具的技术说明。
 
 ## 提示词架构整阶段验收（2026-09-24）

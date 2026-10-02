@@ -594,6 +594,7 @@ test('开发者密码保护真实提示词切片并支持覆盖与恢复', async
   const confirmation = page.getByPlaceholder('再次输入密码');
   if (await confirmation.isVisible().catch(() => false)) await confirmation.fill('aliveworld-e2e');
   await page.getByRole('button', { name: /设置并解锁|解锁/ }).click();
+  await page.getByTestId('prompt-mode-game').click();
   const futureCore = page.locator('[data-prompt-slice="story.future.core"]');
   await expect(futureCore).toBeVisible();
   await futureCore.click();
@@ -614,8 +615,28 @@ test('开发者密码保护真实提示词切片并支持覆盖与恢复', async
   await page.getByTestId('expanded-textarea-close').click();
   await expect(page.getByTestId('expanded-textarea-dialog')).toHaveCount(0);
   await editor.fill(`${baseline}\n开发者工作台自动验收规则`);
+  const unsaved = `${baseline}\n开发者工作台自动验收规则`;
+  for (const target of [page.locator('[data-prompt-slice="undercurrent.core"]'), page.getByTestId('prompt-mode-character'), page.getByRole('button', { name: '立即锁定' }), page.getByRole('button', { name: '💬 反馈与诊断 · 已实装' }), page.getByRole('button', { name: '✕', exact: true })]) {
+    page.once('dialog', dialog => dialog.dismiss());
+    await target.click();
+    await expect(editor).toHaveValue(unsaved);
+    await expect(page.getByTestId('prompt-mode-game')).toHaveAttribute('aria-selected', 'true');
+  }
+  await futureCore.click();
+  await expect(editor).toHaveValue(unsaved);
   await page.getByRole('button', { name: '保存新覆盖版本' }).click();
   await expect(page.getByText('已保存为新的本地覆盖版本。')).toBeVisible();
+  await expect(futureCore).toContainText('本地覆盖 v1');
+  await page.getByTestId('prompt-mode-character').click();
+  await expect(page.getByTestId('prompt-mode-empty')).toContainText('角色提示词尚未接入');
+  await expect(editor).toHaveCount(0);
+  await page.getByTestId('prompt-mode-workshop').click();
+  await page.locator('[data-prompt-slice="workshop.runtime"]').click();
+  await expect(editor).toHaveAttribute('readonly', '');
+  await expect(page.locator('[data-prompt-slice="workshop.runtime"]')).toContainText('尚未迁移');
+  await page.getByTestId('prompt-mode-game').click();
+  await futureCore.click();
+  await expect(editor).toHaveValue(unsaved);
   await expect(futureCore).toContainText('本地覆盖 v1');
   page.once('dialog', dialog => dialog.accept());
   await page.getByRole('button', { name: '恢复官方基线' }).click();
@@ -628,9 +649,26 @@ test('开发者密码保护真实提示词切片并支持覆盖与恢复', async
   await editor.fill(`${baseline}\n未保存的编辑内容`);
   await diagnostics.getByRole('button', { name: '刷新请求记录' }).click();
   await expect(editor).toHaveValue(`${baseline}\n未保存的编辑内容`);
+  page.once('dialog', dialog => dialog.accept());
   await page.locator('[data-prompt-slice="undercurrent.core"]').click();
   await expect(editor).toHaveAttribute('readonly', '');
   await expect(page.locator('[data-prompt-slice="undercurrent.core"]')).toContainText('已接入 · 只读契约');
+  await futureCore.click();
+  await editor.fill(`${baseline}\n认证失效后保留稿`);
+  await page.route('**/api/v1/developer/prompts/story.future.core', route => route.fulfill({ status: 401, json: { detail: 'expired' } }));
+  await page.getByRole('button', { name: '保存新覆盖版本' }).click();
+  await expect(page.getByText('认证已失效，请重新解锁；未保存内容仍保留，可复制后再离开。')).toBeVisible();
+  await expect(editor).toHaveValue(`${baseline}\n认证失效后保留稿`);
+  await expect(editor).toHaveAttribute('readonly', '');
+  await expect(editor).toBeEnabled();
+  await editor.click(); await editor.press('Control+A');
+  expect(await editor.evaluate(el => el.value.slice(el.selectionStart, el.selectionEnd))).toBe(`${baseline}\n认证失效后保留稿`);
+  page.once('dialog', dialog => dialog.dismiss());
+  await page.getByRole('button', { name: '✕', exact: true }).click();
+  await expect(editor).toBeVisible();
+  page.once('dialog', dialog => dialog.accept());
+  await page.getByRole('button', { name: '💬 反馈与诊断 · 已实装' }).click();
+  await expect(page.getByTestId('feedback-settings')).toBeVisible();
 });
 
 
@@ -791,7 +829,7 @@ test('反馈面板默认不附带私人日志并可生成本机安全预览', as
   await page.goto('/');
   await dismissStartupPrompt(page);
   await page.getByRole('button', { name: '⚙️ 设置', exact: true }).click();
-  await page.getByRole('button', { name: '💬 反馈与诊断' }).click();
+  await page.getByRole('button', { name: '💬 反馈与诊断 · 已实装' }).click();
   await expect(page.getByTestId('feedback-settings')).toBeVisible();
   await page.getByTestId('feedback-title').fill('自动验收反馈');
   await page.getByRole('textbox', { name: '实际发生了什么', exact: true }).fill('按钮没有响应。');
@@ -801,4 +839,27 @@ test('反馈面板默认不附带私人日志并可生成本机安全预览', as
   await expect(preview).toContainText('自动验收反馈');
   await expect(preview).toContainText(`AliveWorld：${runtimeVersion}`);
   await expect(preview).not.toContainText('玩家私人正文');
+  await expect(page.getByTestId('feedback-settings')).toContainText('需手动发送给开发者；不会自动提交');
+  await page.evaluate(() => {
+    window.__feedbackCopies = []; window.__feedbackIssues = [];
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async text => window.__feedbackCopies.push(text) } });
+    window.open = url => { window.__feedbackIssues.push(url); return null; };
+  });
+  await page.getByTestId('feedback-title').fill('修改后的反馈B');
+  await expect(preview).toHaveCount(0);
+  await page.getByRole('button', { name: '复制摘要', exact: true }).click();
+  await expect(page.getByText('反馈摘要已复制；需手动粘贴发送给开发者。')).toBeVisible();
+  expect(await page.evaluate(() => window.__feedbackCopies[0])).toContain('修改后的反馈B');
+  await page.getByRole('button', { name: '打开 GitHub Issue' }).click();
+  const issueUrl = new URL(await page.evaluate(() => window.__feedbackIssues[0]));
+  expect(issueUrl.searchParams.get('title')).toBe('修改后的反馈B');
+  expect(issueUrl.searchParams.get('body')).toContain('修改后的反馈B');
+  await expect(page.getByRole('link', { name: '继续打开预填 Issue' })).toHaveAttribute('href', issueUrl.toString());
+  await page.route('**/api/v1/feedback/preview', route => route.fulfill({ status: 500, json: { detail: 'sk-private-secret' } }));
+  await page.getByRole('button', { name: '复制摘要', exact: true }).click();
+  await expect(page.getByText('反馈操作失败，请重试。')).toBeVisible();
+  await expect(preview).toHaveCount(0);
+  await expect(page.getByRole('link', { name: '继续打开预填 Issue' })).toHaveCount(0);
+  expect(await page.evaluate(() => window.__feedbackCopies.length)).toBe(1);
+  await expect(page.getByTestId('feedback-settings')).not.toContainText('sk-private-secret');
 });

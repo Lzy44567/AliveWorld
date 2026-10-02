@@ -1,15 +1,19 @@
 # Active development goal
 
-Updated: 2026-10-01
+Updated: 2026-10-02
 
-## Current mainline — character-mode design only (R0)
+## Current mainline — staged character-mode design; F1/U1 implementation verified
+
+- F1/U1 implemented and verified on 2026-10-02 within [22a](features/22a_first_slice_feedback_and_prompt_navigation.md): feedback uses one fresh snapshot per action, stale/unmounted results have no downstream effects, and manual sending remains explicit. Prompt modes preserve original registry order/permissions, guard dirty navigation and retain drafts on failures/authentication expiry.
+- Current evidence: frontend Node 35/35; targeted feedback/prompt Python 34/34; `tools/run_checks.ps1` passed Python 412/412, visibility checks, Node 35/35 and production build (129 modules); complete Playwright/Edge 22/22 passed. Browser guards, override/restore, empty/read-only modes, expired-auth draft selection and feedback new-content/failure were exercised. No paid API or real Issue submission.
+- Stop gate: F1/U1 is complete, not a role engine or streaming implementation. Next verifiable slice is Astra's detailed R0 schema/API/migration/streaming contract. Reviewed changes are included in a coherent local Git commit; no version bump, package, push or release.
 
 - User confirmed independent character conversations as a behavior research environment; navigation will be 游戏—角色—工坊. In-story private chat is deferred.
-- Authorization is documentation and prioritization only. Astra owns design; 6.1 Sol medium/high implements after design freeze. No runtime changes, version bump, package or release now.
-- Canonical brief: [feature 22](features/22_character_mode_and_state_design.md). It separates confirmed requirements, proposed session roles/state, external compatibility, prompt categorization, feedback labeling and unresolved “链式输出”.
-- Next slice: freeze R0 session/role/state contracts, rollback/migration, format fixtures and acceptance. New output-mode request is recorded pending clarification, not an automatic mainline switch.
+- User authorized 6.1 Sol medium/high coding after Astra freezes each design slice. [F1/U1 detailed contract](features/22a_first_slice_feedback_and_prompt_navigation.md) is implemented and verified. Remaining character/streaming design is separate from this completed slice; no paid model test or release action was authorized for it.
+- Canonical brief: [feature 22](features/22_character_mode_and_state_design.md). User confirmed “链式输出” means streaming, not repeated generation. Existing external JSON/PNG import support is preserved; richer field/behavior compatibility remains staged.
+- Next verifiable slice: detailed R0 session/state/API/migration and streaming transport/idempotency design before R1/R2; do not treat completed F1/U1 as full character-engine freeze.
 - M1–M5 and W1a/W1b below are completed engineering history. Full world-rule revisions/committed-change undo and authoring UI remain deferred, not implemented by this change.
-- Document-only acceptance: linked brief, roadmap, decisions and changelog consistency, diff checks. Historical test counts below are not newly rerun results.
+- Acceptance: current F1/U1 test results are recorded above and in 22a. Historical milestone counts below remain distinct evidence for those earlier slices.
 
 ## Completed implementation — W1; next step is the design gate
 

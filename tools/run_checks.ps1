@@ -11,6 +11,8 @@ try {
     try {
         node tests/entityVisibility.test.mjs
         if ($LASTEXITCODE -ne 0) { throw "Frontend behavior tests failed with exit code $LASTEXITCODE" }
+        node --test tests/feedbackOperation.test.mjs tests/promptNavigation.test.mjs
+        if ($LASTEXITCODE -ne 0) { throw "Feedback/prompt lifecycle tests failed with exit code $LASTEXITCODE" }
         npm run build
         if ($LASTEXITCODE -ne 0) { throw "Frontend build failed with exit code $LASTEXITCODE" }
     } finally {

@@ -1,6 +1,7 @@
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, onBeforeUnmount, reactive, ref, toRefs, watch } from 'vue';
 import { feedbackApi } from '../../api/feedbackApi';
+import { createFeedbackOperation, feedbackFingerprint } from '../../utils/feedbackOperation';
 import ExpandableTextarea from '../common/ExpandableTextarea.vue';
 
 const categories = [
@@ -9,62 +10,42 @@ const categories = [
 ];
 const form = reactive({ category: 'bug', title: '', actual: '', expected: '', steps: '', trace_id: '', selected_log_ids: [] });
 const context = ref({ environment: {}, recent_events: [] });
-const preview = ref(null);
-const busy = ref(false);
-const message = ref('');
-const error = ref('');
+const state = reactive({ preview: null, busy: false, message: '', error: '', issueUrl: '' });
+const { preview, busy, message, error, issueUrl } = toRefs(state);
+let disposed = false;
 
 const canPreview = computed(() => form.title.trim() || form.actual.trim() || form.expected.trim());
-const payload = () => ({ ...form, selected_log_ids: [...form.selected_log_ids] });
+const operations = createFeedbackOperation({
+  state, getForm: () => form, api: feedbackApi,
+  clipboard: markdown => navigator.clipboard.writeText(markdown),
+  openWindow: url => window.open(url, '_blank', 'noopener,noreferrer'),
+  download: result => {
+    const url = URL.createObjectURL(result.blob);
+    try {
+      const anchor = document.createElement('a');
+      anchor.href = url; anchor.download = result.filename; anchor.click();
+    } finally { URL.revokeObjectURL(url); }
+  },
+});
+watch(() => feedbackFingerprint(form), operations.invalidate, { flush: 'sync' });
+onBeforeUnmount(() => { disposed = true; operations.dispose(); });
 
 onMounted(async () => {
-  try { context.value = await feedbackApi.context(); } catch (reason) { error.value = reason?.message || '暂时无法读取诊断摘要。'; }
+  try { const result = await feedbackApi.context(); if (!disposed) context.value = result; }
+  catch { if (!disposed) error.value = '暂时无法读取诊断摘要。'; }
 });
 
-async function refreshPreview() {
-  busy.value = true; error.value = ''; message.value = '';
-  try { preview.value = await feedbackApi.preview(payload()); }
-  catch (reason) { error.value = reason?.message || '反馈预览失败。'; }
-  finally { busy.value = false; }
-}
-
-async function copySummary() {
-  if (!preview.value) await refreshPreview();
-  if (!preview.value) return;
-  await navigator.clipboard.writeText(preview.value.markdown);
-  message.value = '反馈摘要已复制，可粘贴到 QQ、Discord 或 Issue。';
-}
-
-async function exportPackage() {
-  busy.value = true; error.value = ''; message.value = '';
-  try {
-    const result = await feedbackApi.exportPackage(payload());
-    const url = URL.createObjectURL(result.blob);
-    const anchor = document.createElement('a');
-    anchor.href = url; anchor.download = result.filename; anchor.click();
-    URL.revokeObjectURL(url);
-    message.value = '诊断包已导出；发送前仍请检查是否包含你主动选择的私人日志。';
-  } catch (reason) { error.value = reason?.message || '诊断包导出失败。'; }
-  finally { busy.value = false; }
-}
-
-async function openIssue() {
-  if (!preview.value) await refreshPreview();
-  if (!preview.value || preview.value.blocked_by_secret_scan) {
-    error.value = '内容疑似仍含密钥，不能直接打开 Issue。'; return;
-  }
-  const url = new URL('https://github.com/Lzy44567/AliveWorld/issues/new');
-  url.searchParams.set('title', form.title || 'AliveWorld 玩家反馈');
-  url.searchParams.set('body', preview.value.markdown);
-  window.open(url.toString(), '_blank', 'noopener,noreferrer');
-}
+const refreshPreview = () => operations.run('preview');
+const copySummary = () => operations.run('copy');
+const exportPackage = () => operations.run('export');
+const openIssue = () => operations.run('issue');
 </script>
 
 <template>
   <section class="space-y-4" data-testid="feedback-settings">
     <header>
-      <h3 class="text-lg font-bold text-violet-300">💬 反馈与诊断</h3>
-      <p class="mt-1 text-sm text-slate-400">不会自动上传任何内容。先在本机预览，再由你决定复制、导出或打开 Issue。</p>
+      <h3 class="text-lg font-bold text-violet-300">💬 反馈与诊断 · 已实装</h3>
+      <p class="mt-1 text-sm text-slate-400">仅在本机整理，需手动发送给开发者；不会自动提交。打开预填 Issue 后也需要你手动提交。</p>
     </header>
 
     <div class="grid gap-3 sm:grid-cols-2">
@@ -103,6 +84,7 @@ async function openIssue() {
 
     <p v-if="error" class="rounded-lg border border-rose-700 bg-rose-950/30 p-3 text-sm text-rose-200">{{ error }}</p>
     <p v-if="message" class="rounded-lg border border-emerald-700 bg-emerald-950/25 p-3 text-sm text-emerald-200">{{ message }}</p>
+    <a v-if="issueUrl" :href="issueUrl" target="_blank" rel="noopener noreferrer" class="block text-sm text-cyan-300 underline">继续打开预填 Issue</a>
     <div class="flex flex-wrap gap-2">
       <button data-testid="feedback-preview" :disabled="busy || !canPreview" class="rounded-lg bg-violet-700 px-3 py-2 text-sm font-bold disabled:opacity-40" @click="refreshPreview">{{ busy ? '处理中…' : '生成安全预览' }}</button>
       <button :disabled="busy || !canPreview" class="rounded-lg border border-cyan-700 px-3 py-2 text-sm text-cyan-300 disabled:opacity-40" @click="copySummary">复制摘要</button>
