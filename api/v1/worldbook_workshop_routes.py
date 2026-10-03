@@ -17,6 +17,7 @@ from core.worldbook_workshop_registry import (
 from utils.asset_catalog import resolve_asset_path
 from utils.file_io import DATA_DIR, WORLD_DIR
 from api.v1.route_guards import guarded_workshop
+from api.v1.streaming import workshop_chat_transaction, workshop_stream_response
 
 
 router = APIRouter()
@@ -155,6 +156,15 @@ def apply_operations(workshop_id: str, payload: ApplyOperationsRequest):
 @router.post("/workshops/{workshop_id}/chat")
 @guarded_workshop
 def chat_workshop(workshop_id: str, payload: WorkshopChatRequest):
+    return _chat_workshop(workshop_id, payload)
+
+
+@router.post("/workshops/{workshop_id}/chat/stream")
+def chat_workshop_stream(workshop_id: str, payload: WorkshopChatRequest):
+    return workshop_stream_response(workshop_id, lambda emit: _chat_workshop(workshop_id, payload, on_text_delta=emit))
+
+
+def _chat_workshop(workshop_id, payload, *, on_text_delta=None):
     workshop = _get(workshop_id)
     if workshop.published:
         raise HTTPException(status_code=409, detail="这轮工坊已经发布，请开启新一轮后再修改")
@@ -163,8 +173,10 @@ def chat_workshop(workshop_id: str, payload: WorkshopChatRequest):
     if not engine:
         raise HTTPException(status_code=500, detail="请先在设置中配置可用的大语言模型 API")
     try:
-        result = WorldbookWorkshopAgent(engine).respond(workshop, payload.message.strip(), payload.mode, commit_changes=payload.commit_changes)
-        workshop.save_session(WORKSHOP_DIR)
+        result = workshop_chat_transaction(workshop, WORKSHOP_DIR, lambda candidate:
+            WorldbookWorkshopAgent(engine).respond(candidate, payload.message.strip(), payload.mode,
+                commit_changes=payload.commit_changes,
+                **({"on_text_delta": on_text_delta} if on_text_delta is not None else {})))
         return {**_payload(workshop), **result}
     except (WorkshopError, ValueError) as exc:
         raise HTTPException(status_code=400, detail=str(exc))

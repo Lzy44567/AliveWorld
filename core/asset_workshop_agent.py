@@ -6,6 +6,7 @@ import json
 from typing import Any
 
 from core.ai_engine import robust_json_parse
+from core.json_stream import WORKSHOP_FIELDS
 from core.asset_workshop import AI_FIELDS, AssetWorkshop, AssetWorkshopError
 
 
@@ -53,7 +54,7 @@ class AssetWorkshopAgent:
 
     def respond(
         self, workshop: AssetWorkshop, user_message: str, mode: str,
-        *, commit_changes: bool = False,
+        *, commit_changes: bool = False, on_text_delta=None,
     ) -> dict[str, Any]:
         if mode not in {"create", "refine", "review"}:
             raise AssetWorkshopError("未知的资产工坊模式")
@@ -69,6 +70,7 @@ class AssetWorkshopAgent:
         raw, error = self.ai_engine.chat_json(
             SYSTEM_PROMPT, prompt, temp=0.55, max_tokens=2800,
             trace_label={"characters": "角色卡工坊", "styles": "文风卡工坊", "entities": "实体卡工坊"}[workshop.asset_type],
+            **({"on_text_delta": on_text_delta, "visible_fields": WORKSHOP_FIELDS} if on_text_delta is not None else {}),
         )
         if error or not raw:
             raise AssetWorkshopError(f"资产工坊 AI 请求失败：{error or '空返回'}")

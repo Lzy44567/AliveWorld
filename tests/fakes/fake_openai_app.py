@@ -10,6 +10,7 @@ from threading import Lock
 from typing import Any
 
 from fastapi import FastAPI
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from tests.fakes.prompt_contract import next_story_index, scan_prompt, visible_readiness_lines
@@ -25,6 +26,7 @@ class ChatRequest(BaseModel):
     messages: list[dict[str, Any]] = Field(default_factory=list)
     response_format: dict[str, Any] | None = None
     max_tokens: int | None = None
+    stream: bool = False
 
 
 def _message_text(message: dict[str, Any]) -> str:
@@ -153,7 +155,11 @@ def _response_for(kind: str, system: str, user: str) -> dict[str, Any] | str:
     if kind == "image_prompt":
         return {"positive": "test scene, one character", "negative": "low quality"}
     if kind == "workshop":
-        return {"reply": "自动验收工坊回复", "operations": [], "suggestions": ["继续讨论"]}
+        return {
+            "understanding": "自动验收工坊理解", "design_notes": ["按既有规则讨论"],
+            "message": "本轮讨论已记录。自动验收工坊回复", "reply": "自动验收工坊回复",
+            "operations": [], "suggestions": ["继续讨论"], "suggested_actions": ["继续讨论"],
+        }
     return {"message": "AliveWorld 自动验收假模型响应"}
 
 
@@ -179,6 +185,7 @@ def chat(payload: ChatRequest):
     record = {
         "id": str(uuid.uuid4()), "time": time.time(), "kind": kind,
         "model": payload.model, "system": system, "user": user,
+        "stream": payload.stream,
         "markers": scan_prompt(f"{system}\n{user}"),
     }
     with _lock:
@@ -186,6 +193,28 @@ def chat(payload: ChatRequest):
     content = _response_for(kind, system, user)
     if not isinstance(content, str):
         content = json.dumps(content, ensure_ascii=False)
+    if payload.stream:
+        response_id = f"chatcmpl-{uuid.uuid4().hex[:12]}"
+
+        def chunks():
+            # Delay individual upstream chunks so browser tests can observe
+            # real previews before the final settlement and persistence.
+            for offset in range(0, len(content), 12):
+                chunk = {
+                    "id": response_id, "object": "chat.completion.chunk",
+                    "created": int(time.time()), "model": payload.model,
+                    "choices": [{"index": 0, "delta": {"content": content[offset:offset + 12]}, "finish_reason": None}],
+                }
+                yield "data: " + json.dumps(chunk, ensure_ascii=False) + "\n\n"
+                time.sleep(0.025)
+            yield "data: " + json.dumps({
+                "id": response_id, "object": "chat.completion.chunk",
+                "created": int(time.time()), "model": payload.model,
+                "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+            }) + "\n\n"
+            yield "data: [DONE]\n\n"
+
+        return StreamingResponse(chunks(), media_type="text/event-stream")
     return {
         "id": f"chatcmpl-{uuid.uuid4().hex[:12]}", "object": "chat.completion",
         "created": int(time.time()), "model": payload.model,

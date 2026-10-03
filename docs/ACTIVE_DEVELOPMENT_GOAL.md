@@ -2,7 +2,17 @@
 
 Updated: 2026-10-03
 
-## Current mainline — R0 character private-chat contract; implementation next
+## Current mainline — streaming first; character product design remains open
+
+- User explicitly changed priority on 2026-10-03: finish streaming first. Pause the former R1A→R1B→R2 character implementation schedule; keep 22b as an engineering candidate, not proof of approved/completed character product design.
+- Product modes are 故事—角色—工坊: story RPG, independent one-to-one chat roleplay, card authoring. Narrative-style character messages do not turn character mode into another RPG. Future in-story private chat is deferred.
+- Phase goal: existing story normal/retry/reroll and all workshop chats, scope confirmed by the user. [23](features/23_streaming_story_and_workshop.md) defines bounded streaming integration without extra model calls or exposing JSON/state patches. Do not quietly build the entire character engine to deliver streaming.
+- Product discussion and categorized ideas are in [22c](features/22c_character_product_vision.md): persona, sourced long-term memory, causally grounded change, typing status, future voice/images and adult intimacy roleplay. Core value/first-loop choices remain discussion, not implementation authority.
+- Resume condition: streaming acceptance first, then discuss/freeze the character product MVP before resuming character code. Current F1/U1 evidence and prior engineering plans below remain history.
+- Streaming stop gate reached: implementation and engineering acceptance complete (Python435, Node50, 130-module build, Playwright/Edge22). Exact boundary is in 23; no version bump/package/remote release. Do not expand into stop/replay infrastructure or character code merely because these tests passed.
+- Next verifiable outcome is a discussed character product MVP: explain the core loop and value hypothesis in 22c, choose the initial behavior/memory/change scope with the user, then amend 22b if needed. Technical audit approval alone does not authorize inventing that product behavior.
+
+## Previous mainline — R0 engineering candidate (paused)
 
 - Final goal: the first independently playable character private-chat loop, with saved conversations, character state, real streaming and safe retry/undo. Both messenger and roleplay presentation are user-confirmed session choices, sharing identity/history/ledger.
 - Current phase: freeze and review [22b](features/22b_character_private_chat_r0_contract.md), not implement a full group-chat/NPC engine. The contract defines bounded storage, source-aware ledger operations, action/attempt identity, atomic persistence, cancellation races, streaming preview and reconnect status queries.

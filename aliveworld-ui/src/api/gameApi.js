@@ -1,7 +1,11 @@
 // src/api/gameApi.js
+import { postEventStream } from './streaming.js';
 const API_URL = "/api/v1/game";
 
 export const gameApi = {
+  processActionStream(sessionId, payload, onDelta) { return postEventStream(`${API_URL}/${sessionId}/action/stream`, payload, onDelta); },
+  retryTurnStream(sessionId, payload, onDelta) { return postEventStream(`${API_URL}/${sessionId}/retry/stream`, payload, onDelta); },
+  rerollTurnStream(sessionId, payload, onDelta) { return postEventStream(`${API_URL}/${sessionId}/reroll/stream`, payload, onDelta); },
   async startGame(payload) {
     const res = await fetch(`${API_URL}/start`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     if (!res.ok) {

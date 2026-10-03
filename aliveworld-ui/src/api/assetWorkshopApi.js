@@ -1,3 +1,4 @@
+import { postEventStream } from './streaming.js';
 const BASE_URL = '/api/v1/asset-workshops';
 
 async function request(url, options = {}) {
@@ -14,6 +15,7 @@ const json = body => ({
 });
 
 export const assetWorkshopApi = {
+  chatStream(id, message, mode, commitChanges, onDelta) { return postEventStream(`${BASE_URL}/${id}/chat/stream`, { message, mode, commit_changes: commitChanges }, onDelta); },
   start(assetType, assetName, sessionId = '') {
     return request(`${BASE_URL}/start`, json({
       asset_type: assetType, asset_name: assetName, session_id: sessionId

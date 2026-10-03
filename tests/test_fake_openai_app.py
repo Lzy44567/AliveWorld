@@ -1,5 +1,6 @@
 import json
 import unittest
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
@@ -25,6 +26,23 @@ class FakeOpenAIAppTests(unittest.TestCase):
         response = self.client.get("/v1/models")
         self.assertEqual(response.status_code, 200)
         self.assertIn("fake-story", [item["id"] for item in response.json()["data"]])
+
+    def test_real_sse_chunks_preserve_json_and_record_one_request(self):
+        with patch("tests.fakes.fake_openai_app.time.sleep"):
+            response = self.client.post("/v1/chat/completions", json={
+                "model": "fake-story", "stream": True,
+                "messages": [{"role": "system", "content": "你是游戏地下城主。"}],
+            })
+        self.assertIn("text/event-stream", response.headers["content-type"])
+        chunks = [json.loads(line[6:]) for line in response.text.splitlines()
+                  if line.startswith("data: ") and line != "data: [DONE]"]
+        self.assertGreater(len(chunks), 2)
+        raw = "".join(item["choices"][0]["delta"].get("content", "") for item in chunks)
+        self.assertIn("自动测试正文1", json.loads(raw)["story_text"])
+        self.assertEqual(chunks[-1]["choices"][0]["finish_reason"], "stop")
+        records = self.client.get("/__test__/requests").json()["requests"]
+        self.assertEqual(len(records), 1)
+        self.assertTrue(records[0]["stream"])
 
     def test_settlement_reports_only_detected_asset_markers(self):
         response = self._chat("你是严谨的游戏地下城主。测试文风；测试角色卡；测试世界书。【AWTEST:自定义预设A】")

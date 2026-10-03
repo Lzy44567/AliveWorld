@@ -4,7 +4,7 @@ function emptyContext(sessionId = null, saveName = null) {
   return {
     sessionId, saveName, isProcessing: false, chatLog: [],
     dynamicBars: {}, properties: {}, npcs: {}, buffs: {}, aiSuggestions: [],
-    lastAction: '', draftInput: '', storyConfig: null,
+    lastAction: '', draftInput: '', storyConfig: null, preview: '', pendingAction: '',
     task: { status: 'idle', kind: '', startedAt: '', finishedAt: '', error: '' },
   };
 }
@@ -12,7 +12,7 @@ function emptyContext(sessionId = null, saveName = null) {
 const idle = emptyContext();
 
 export const gameStore = reactive({
-  contexts: {}, saveSessions: {}, activeSessionId: null, loadingSaves: {},
+  contexts: {}, saveSessions: {}, activeSessionId: null, loadingSaves: {}, streamingEnabled: true,
   currentScene: {
     name: '未知界域',
     img: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=400&auto=format&fit=crop',
@@ -86,6 +86,7 @@ export const gameStore = reactive({
     const context = this.contextFor(sessionId);
     if (!context || context.isProcessing) return null;
     context.isProcessing = true;
+    context.preview = '';
     context.task = { status: 'running', kind, startedAt: new Date().toISOString(), finishedAt: '', error: '' };
     return context;
   },
@@ -94,6 +95,7 @@ export const gameStore = reactive({
     const context = this.contextFor(sessionId);
     if (!context) return;
     if (typeof update === 'function') update(context);
+    context.preview = '';
     context.isProcessing = false;
     context.task = { ...context.task, status: 'completed', finishedAt: new Date().toISOString(), error: '' };
   },
@@ -101,6 +103,7 @@ export const gameStore = reactive({
   failTask(sessionId, error) {
     const context = this.contextFor(sessionId);
     if (!context) return;
+    context.preview = '';
     context.isProcessing = false;
     context.task = { ...context.task, status: 'failed', finishedAt: new Date().toISOString(), error: String(error?.message || error || '操作失败') };
   },

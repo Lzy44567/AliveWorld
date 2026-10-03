@@ -198,7 +198,7 @@ class GameSession:
                 break
         return [found[role] for role in ("user", "ai") if found.get(role)]
 
-    def process_turn(self, user_action: str):
+    def process_turn(self, user_action: str, *, on_text_delta=None):
         self._take_snapshot()
         self.story_memory.schedule(
             self.history.get("story_turns", []),
@@ -211,7 +211,7 @@ class GameSession:
             log.info("玩家行动引用已展开: input=%s resolved=%s", user_action, interpreted_action)
         self._refresh_local_context()
         
-        result = self.resolver.resolve(self, interpreted_action)
+        result = self.resolver.resolve(self, interpreted_action, **({"on_text_delta": on_text_delta} if on_text_delta is not None else {}))
         if not result or result.get("error") or not result.get('settlement'):
             self.rollback()
             return result or {"error": True, "message": "推演未完成，本回合未保存。"}
@@ -271,7 +271,7 @@ class GameSession:
         )
         return result
 
-    def reroll_turn(self):
+    def reroll_turn(self, *, on_text_delta=None):
         if not self.snapshots: return {"error": True}
 
         original_runtime = self._capture_runtime()
@@ -342,6 +342,7 @@ class GameSession:
             request.system_prompt, request.user_prompt,
             temp=request.temperature, max_tokens=request.max_tokens,
             trace_label=request.trace_label, prompt_manifest=request.prompt_manifest,
+            **({"on_text_delta": on_text_delta} if on_text_delta is not None else {}),
         )
         if err2 or not raw_settle:
             return fail_reroll({"error": True, "message": failure_message(err2, empty=not raw_settle and not err2)})

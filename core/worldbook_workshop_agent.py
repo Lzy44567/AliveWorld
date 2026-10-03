@@ -6,6 +6,7 @@ import json
 from typing import Any
 
 from core.ai_engine import robust_json_parse
+from core.json_stream import WORKSHOP_FIELDS
 from core.worldbook_workshop import WorldbookWorkshop, WorkshopError
 
 
@@ -58,7 +59,7 @@ class WorldbookWorkshopAgent:
     def __init__(self, ai_engine):
         self.ai_engine = ai_engine
 
-    def respond(self, workshop: WorldbookWorkshop, user_message: str, mode: str, *, commit_changes: bool = False) -> dict[str, Any]:
+    def respond(self, workshop: WorldbookWorkshop, user_message: str, mode: str, *, commit_changes: bool = False, on_text_delta=None) -> dict[str, Any]:
         if mode not in MODES:
             raise WorkshopError("未知的世界书工坊模式")
         recent = workshop.messages[-10:]
@@ -69,7 +70,8 @@ class WorldbookWorkshopAgent:
             f"【本轮协作权限】\n{'允许修改草稿：低风险操作可写入，高风险操作仍需玩家确认' if commit_changes else '只讨论与提案：operations 仅作为拟议修改展示，不得声称已经写入'}\n"
             f"【玩家本轮要求】\n{user_message}"
         )
-        raw, error = self.ai_engine.chat_json(SYSTEM_PROMPT, prompt, temp=0.6, trace_label="世界书工坊")
+        raw, error = self.ai_engine.chat_json(SYSTEM_PROMPT, prompt, temp=0.6, trace_label="世界书工坊",
+                                             **({"on_text_delta": on_text_delta, "visible_fields": WORKSHOP_FIELDS} if on_text_delta is not None else {}))
         if error or not raw:
             raise WorkshopError(f"世界书工坊 AI 请求失败：{error or '空返回'}")
         payload = robust_json_parse(raw)

@@ -6,6 +6,7 @@ import json
 from typing import Any
 
 from core.ai_engine import robust_json_parse
+from core.json_stream import PREFERENCE_FIELDS
 from core.preference_workshop import PreferenceWorkshop, PreferenceWorkshopError
 
 
@@ -60,6 +61,7 @@ class PreferenceWorkshopAgent:
         evidence: list[dict[str, Any]],
         *,
         commit_changes: bool = False,
+        on_text_delta=None,
     ) -> dict[str, Any]:
         if mode not in MODES:
             raise PreferenceWorkshopError("未知的偏好工坊模式")
@@ -91,7 +93,8 @@ class PreferenceWorkshopAgent:
             f"【玩家本轮消息】\n{user_message}"
         )
         raw, error = self.ai_engine.chat_json(
-            SYSTEM_PROMPT, prompt, temp=0.45, max_tokens=2600, trace_label="用户偏好工坊"
+            SYSTEM_PROMPT, prompt, temp=0.45, max_tokens=2600, trace_label="用户偏好工坊",
+            **({"on_text_delta": on_text_delta, "visible_fields": PREFERENCE_FIELDS} if on_text_delta is not None else {}),
         )
         if error or not raw:
             raise PreferenceWorkshopError(f"偏好工坊 AI 请求失败：{error or '空返回'}")

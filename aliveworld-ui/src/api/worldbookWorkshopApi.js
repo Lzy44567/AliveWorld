@@ -1,3 +1,4 @@
+import { postEventStream } from './streaming.js';
 const BASE_URL = "/api/v1/worldbooks/workshops";
 
 const request = async (url, options = {}) => {
@@ -8,6 +9,7 @@ const request = async (url, options = {}) => {
 };
 
 export const worldbookWorkshopApi = {
+  chatStream(id, message, mode, commitChanges, onDelta) { return postEventStream(`${BASE_URL}/${id}/chat/stream`, { message, mode, commit_changes: commitChanges }, onDelta); },
   embeddingStatus() { return request(`${BASE_URL}/embeddings/status`); },
   downloadEmbeddings() { return request(`${BASE_URL}/embeddings/download`, { method: 'POST' }); },
   pauseEmbeddings() { return request(`${BASE_URL}/embeddings/pause`, { method: 'POST' }); },

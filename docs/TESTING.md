@@ -1,5 +1,12 @@
 # AliveWorld 测试流程
 
+## 故事/工坊流式验收（2026-10-03）
+
+- `tests/test_streaming.py`：22项；JSON可见字段逐chunk抽取、转义/emoji、嵌套键、choice0/工具调用/finish异常、128KiB/4096chunk限额、单次调用、三工坊事务、故事保存前锁、断流继续与慢消费者。
+- `aliveworld-ui/tests/streaming.test.mjs`：15项；UTF8/CRLF/SSE解析、无终态/坏事件、不自动重发、六类接口及旧JSON路径、上下文预览隔离。纳入一键检查，连同原专项35项共50项。
+- 一键检查通过Python435/435、可见性检查、Node50/50与130模块构建；完整Playwright/Edge22/22（1.5分钟）。首个正文回合验证真实预览先出现且状态未提交，上游stream标识/一次结算；工坊验证真实预览，并保留跨对象/跨模式/失败/重载回归。
+- fake_openai_app真正发出分块SSE，仅测试隔离合成数据。不宣称真实供应商支持、文学/角色质量或测得首字性能提升。首版断网不取消已启动服务器事务，EOF无complete须重新载入核对，无自动收费重试。
+
 ## F1/U1验收（2026-10-02）
 
 - 前端：`cd aliveworld-ui; node --test tests/feedbackOperation.test.mjs tests/promptNavigation.test.mjs`，35/35通过；现已纳入`tools/run_checks.ps1`。四动作过期重试/卸载、错误/剪贴板/秘密扫描、分类顺序与注册并集、草稿失败/并发/认证/锁定均有确定性测试。

@@ -248,7 +248,12 @@ class WorldbookWorkshop:
     def save_session(self, directory: Path) -> Path:
         directory.mkdir(parents=True, exist_ok=True)
         path = directory / f"{self.id}.json"
-        path.write_text(json.dumps(self.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
+        temp = path.with_suffix(".tmp")
+        try:
+            temp.write_text(json.dumps(self.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
+            temp.replace(path)
+        finally:
+            temp.unlink(missing_ok=True)
         return path
 
     @classmethod

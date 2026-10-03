@@ -20,7 +20,7 @@ class BaseResolutionStrategy:
     def resolve(self, session, player_action): raise NotImplementedError
 
 class DualTrackResolver(BaseResolutionStrategy):
-    def resolve(self, session, player_action):
+    def resolve(self, session, player_action, *, on_text_delta=None):
         pts = load_system_prompts()
         ctx = session.get_context_text()
         dyn_state = session.get_dynamic_state_for_ai()
@@ -116,6 +116,7 @@ class DualTrackResolver(BaseResolutionStrategy):
             request.system_prompt, request.user_prompt,
             temp=request.temperature, max_tokens=request.max_tokens,
             trace_label=request.trace_label, prompt_manifest=request.prompt_manifest,
+            **({"on_text_delta": on_text_delta} if on_text_delta is not None else {}),
         )
         
         if err2:

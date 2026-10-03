@@ -20,6 +20,7 @@ from core.auto_worldbook import select_capture_worldbook
 from utils.file_io import init_save_folder, get_all_saves, save_game_data
 from utils.runtime_paths import PATHS
 from utils.sys_logger import get_logger
+from api.v1.streaming import stream_response
 
 router = APIRouter()
 log = get_logger()
@@ -267,13 +268,22 @@ def _persisted_story_mutation(game, operation):
 
 @router.post("/{session_id}/action")
 def process_turn(session_id: str, payload: ActionRequest):
+    return _process_turn(session_id, payload)
+
+
+@router.post("/{session_id}/action/stream")
+def process_turn_stream(session_id: str, payload: ActionRequest):
+    return stream_response(lambda emit: _process_turn(session_id, payload, on_text_delta=emit), identity=session_id)
+
+
+def _process_turn(session_id, payload, *, on_text_delta=None):
     game = active_sessions.get(session_id)
     if not game: raise HTTPException(status_code=404, detail="会话失效")
     def operation():
         def mutate():
             if payload.plot_compass is not None: game.plot_compass = payload.plot_compass
             history_len = len(game.history["chat_messages"])
-            result = game.process_turn(payload.action)
+            result = game.process_turn(payload.action, **({"on_text_delta": on_text_delta} if on_text_delta is not None else {}))
             if result and result.get('error'): raise HTTPException(status_code=502, detail=result.get("message", "推演失败，本回合未保存。"))
             return {"chat_messages": game.history["chat_messages"][history_len:], "state": game.state, "is_game_over": game.is_game_over, "action_suggestions": game.action_suggestions}
         return _persisted_story_mutation(game, mutate)
@@ -310,6 +320,15 @@ def undo_turn(session_id: str):
 
 @router.post("/{session_id}/retry")
 def retry_turn(session_id: str, payload: ActionRequest):
+    return _retry_turn(session_id, payload)
+
+
+@router.post("/{session_id}/retry/stream")
+def retry_turn_stream(session_id: str, payload: ActionRequest):
+    return stream_response(lambda emit: _retry_turn(session_id, payload, on_text_delta=emit), identity=session_id)
+
+
+def _retry_turn(session_id, payload, *, on_text_delta=None):
     game = active_sessions.get(session_id)
     if not game: raise HTTPException(status_code=404, detail="会话失效")
     def operation():
@@ -317,7 +336,7 @@ def retry_turn(session_id: str, payload: ActionRequest):
             previous_turn = _latest_player_turn(game)
             if not game.rollback(): raise HTTPException(status_code=400, detail="无历史")
             if payload.plot_compass is not None: game.plot_compass = payload.plot_compass
-            result = game.process_turn(payload.action)
+            result = game.process_turn(payload.action, **({"on_text_delta": on_text_delta} if on_text_delta is not None else {}))
             if result and result.get('error'): raise HTTPException(status_code=502, detail=result.get("message", "推演失败，本回合未保存。"))
             game.record_preference_interaction(
                 "retry", "玩家保留行动意图并要求重新生成该回合；原因可能是文风、内容、角色表现或单纯输出质量。",
@@ -330,6 +349,15 @@ def retry_turn(session_id: str, payload: ActionRequest):
 # 🚀 核心：重掷未来专用接口
 @router.post("/{session_id}/reroll")
 def reroll_turn(session_id: str, payload: EntityRuntimeRequest):
+    return _reroll_turn(session_id, payload)
+
+
+@router.post("/{session_id}/reroll/stream")
+def reroll_turn_stream(session_id: str, payload: EntityRuntimeRequest):
+    return stream_response(lambda emit: _reroll_turn(session_id, payload, on_text_delta=emit), identity=session_id)
+
+
+def _reroll_turn(session_id, payload, *, on_text_delta=None):
     game = active_sessions.get(session_id)
     if not game: raise HTTPException(status_code=404, detail="会话失效")
     def operation():
@@ -337,7 +365,7 @@ def reroll_turn(session_id: str, payload: EntityRuntimeRequest):
             previous_turn = _latest_player_turn(game)
             if payload.entities_enabled is not None:
                 game.story_settings["entitiesEnabled"] = payload.entities_enabled
-            res = game.reroll_turn()
+            res = game.reroll_turn(**({"on_text_delta": on_text_delta} if on_text_delta is not None else {}))
             if not res or res.get("error"): raise HTTPException(status_code=400, detail=res.get("message", "无法重掷") if res else "无法重掷")
             game.record_preference_interaction(
                 "reroll", "玩家要求重新抽取未来结果；可能是不喜欢情节，也可能只是希望获得更有利的随机结果。",

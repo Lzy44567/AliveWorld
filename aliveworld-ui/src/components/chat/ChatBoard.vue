@@ -25,6 +25,8 @@ onMounted(async () => {
 onBeforeUnmount(() => contentObserver?.disconnect());
 watch(() => gameStore.sessionId, prepareAtBottom, { flush: 'post' });
 watch(() => gameStore.chatLog.length, () => jumpToBottom(), { flush: 'post' });
+watch(() => gameStore.currentContext.preview, () => jumpToBottom(), { flush: 'post' });
+watch(() => gameStore.currentContext.pendingAction, () => jumpToBottom(), { flush: 'post' });
 watch(() => gameStore.sessionId, async (sessionId) => {
   imageStore.reset();
   if (sessionId) await imageStore.load(sessionId).catch(() => {});
@@ -33,12 +35,13 @@ watch(() => gameStore.sessionId, async (sessionId) => {
 const initWorldState = async () => {
   if (!gameStore.sessionId || gameStore.isProcessing) return;
   const sessionId = gameStore.sessionId;
-  if (!gameStore.beginTask(sessionId, 'initialize')) return;
+  const context = gameStore.beginTask(sessionId, 'initialize');
+  if (!context) return;
   try {
-    const res = await gameApi.processAction(sessionId, {
+    const res = await (gameStore.streamingEnabled ? gameApi.processActionStream : gameApi.processAction)(sessionId, {
       action: "【系统指令：世界初始化】请根据宇宙法则建立状态条(dynamic_bars)与人物属性(status_updates)，需包含'当前时间'属性，不要续写剧情。",
       plot_compass: configStore.story.plotCompass
-    });
+    }, text => { context.preview += text; });
     const newMsgs = res.chat_messages.filter(m => m.role !== 'user');
     gameStore.finishTask(sessionId, context => {
       context.chatLog.push(...newMsgs);
@@ -47,7 +50,7 @@ const initWorldState = async () => {
     });
   } catch (err) {
     gameStore.failTask(sessionId, err);
-    uiStore.showToast("初始化失败", "error");
+    uiStore.showToast(err.message || '初始化失败', 'error');
   }
 };
 </script>
@@ -68,7 +71,10 @@ const initWorldState = async () => {
             🌌 让 AI 降临并初始化世界状态
           </button>
         </div>
-        <div v-if="gameStore.isProcessing" class="text-emerald-400 text-sm font-bold italic animate-pulse">🧠 主引擎双轨推演中...</div>
+        <div v-if="gameStore.currentContext.pendingAction" class="ml-auto w-fit max-w-[85%] rounded-xl bg-indigo-600/70 p-4 whitespace-pre-wrap">{{ gameStore.currentContext.pendingAction }}<span class="block text-[10px] opacity-60">待完成 / 未保存</span></div>
+        <div v-if="gameStore.currentContext.preview" data-testid="story-stream-preview" class="max-w-[85%] rounded-xl border border-slate-600 bg-slate-900/90 p-5"><div class="mb-2 text-[10px] text-amber-400">生成中 / 未保存</div><div class="whitespace-pre-wrap leading-relaxed text-slate-200">{{ gameStore.currentContext.preview }}</div></div>
+        <div v-else-if="gameStore.isProcessing" class="text-emerald-400 text-sm font-bold italic animate-pulse">🧠 主引擎双轨推演中...</div>
+        <p v-if="gameStore.currentContext.task.status==='failed'" class="text-xs text-rose-300">{{ gameStore.currentContext.task.error }}</p>
       </template>
       </div>
     </div>

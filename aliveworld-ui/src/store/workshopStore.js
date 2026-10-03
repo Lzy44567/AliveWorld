@@ -37,7 +37,7 @@ function newContext(mode = 'expand') {
   return {
     workshopId: '', draft: null, messages: [], history: [], suggestions: [],
     proposed: [], pending: [], dirty: false, published: false,
-    busy: false, activity: '', input: '', commitChanges: false, mode,
+    busy: false, activity: '', input: '', commitChanges: false, mode, preview: '', pendingMessage: '',
     task: { status: 'idle', kind: '', error: '', startedAt: '', finishedAt: '' },
   };
 }
@@ -46,7 +46,7 @@ const idle = newContext();
 
 export const workshopStore = reactive({
   type: 'worldbooks', scope: 'global', assetName: '', search: '', initialized: false,
-  localSessionId: '', contexts: {}, activeContextKey: '',
+  localSessionId: '', contexts: {}, activeContextKey: '', streamingEnabled: true,
 
   get context() { return this.contexts[this.activeContextKey] || idle; },
   get workshopId() { return this.context.workshopId; }, set workshopId(value) { this.context.workshopId = value || ''; },
@@ -171,19 +171,21 @@ export const workshopStore = reactive({
     const context = this.context;
     if (!message || context.busy || !context.workshopId) return;
     context.input = '';
-    context.messages = [...context.messages, { role: 'user', content: message, optimistic: true }];
+    context.pendingMessage = message;
+    context.preview = '';
     context.busy = true; context.activity = 'chat'; this.markTask(context, 'running', 'chat');
     const type = this.type, mode = context.mode, commitChanges = context.commitChanges, workshopId = context.workshopId;
     try {
       let data;
-      if (type === 'worldbooks') data = await worldbookWorkshopApi.chat(workshopId, message, mode, commitChanges);
-      else if (type === 'preferences') data = await preferenceWorkshopApi.chat(workshopId, message, mode, commitChanges);
-      else data = await assetWorkshopApi.chat(workshopId, message, mode, commitChanges);
+      const api = type === 'worldbooks' ? worldbookWorkshopApi : type === 'preferences' ? preferenceWorkshopApi : assetWorkshopApi;
+      data = this.streamingEnabled
+        ? await api.chatStream(workshopId, message, mode, commitChanges, text => { context.preview += text; })
+        : await api.chat(workshopId, message, mode, commitChanges);
       this.syncInto(context, data); this.markTask(context, 'completed');
     } catch (error) {
-      context.messages = context.messages.map(item => item.optimistic ? { ...item, failed: true } : item);
+      context.input = context.input || message;
       this.markTask(context, 'failed', 'chat', error.message); uiStore.showToast(error.message, 'error');
-    } finally { context.busy = false; context.activity = ''; }
+    } finally { context.preview = ''; context.pendingMessage = ''; context.busy = false; context.activity = ''; }
   },
 
   async applyOperations(operations, confirmHighRisk = false) {

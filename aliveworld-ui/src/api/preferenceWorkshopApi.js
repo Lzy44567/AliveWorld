@@ -1,3 +1,4 @@
+import { postEventStream } from './streaming.js';
 const BASE_URL = '/api/v1/preferences/workshops';
 
 async function request(url, options = {}) {
@@ -14,6 +15,7 @@ const json = body => ({
 });
 
 export const preferenceWorkshopApi = {
+  chatStream(id, message, mode, commitChanges, onDelta) { return postEventStream(`${BASE_URL}/${id}/chat/stream`, { message, mode, commit_changes: commitChanges }, onDelta); },
   start(sessionId = '') { return request(`${BASE_URL}/start`, json({ session_id: sessionId })); },
   chat(id, message, mode, commitChanges = false) {
     return request(`${BASE_URL}/${id}/chat`, json({ message, mode, commit_changes: commitChanges }));

@@ -14,6 +14,8 @@ Then inspect `git status`, the current branch, recent commits, `VERSION`, the ac
 
 Keep one active mainline. Record incoming issues P0-P3 without silently replacing it. Large features require a design gate covering user goal, non-goals, data lifecycle, permissions/privacy, recovery, model-versus-code responsibility, shortest UI path, migration, concurrency, and acceptance.
 
+Product design and engineering contracts are different gates. Before claiming a major mode is designed, explain and discuss its core player loop, value hypothesis, required subfeatures and scope with the user. Record confirmed requirements separately from proposed mechanisms, with core/play-upgrade/UX categories and P0-P3 priority. A technically consistent API/schema document is not user approval of the product vision.
+
 Implement one independently verifiable slice at a time. Keep domain logic, API mapping, client state, and UI presentation in their own boundaries; composition roots may coordinate but must not absorb whole features. Update the active goal, feature document, categorized changelog, and test evidence with each slice.
 
 Do not commit player data, API keys, logs, generated packages, or unrelated worktree changes. Do not push, tag, publish a release, delete remote state, or bump the public version unless the user explicitly authorizes it.

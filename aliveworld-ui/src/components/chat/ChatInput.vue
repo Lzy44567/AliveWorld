@@ -18,6 +18,8 @@ const submitAction = async (text = null) => {
   const rawInput = text || gameStore.draftInput.trim();
   if (!rawInput || !gameStore.sessionId || gameStore.isProcessing) return;
   const sessionId = gameStore.sessionId;
+  const initiatingContext = gameStore.contextFor(sessionId);
+  const plotCompass = configStore.story.plotCompass;
   const { action: finalAction, declarations } = parsePreferenceMeta(rawInput);
   if (!finalAction && !declarations.length) return;
 
@@ -32,36 +34,34 @@ const submitAction = async (text = null) => {
     preferenceStore.refresh().catch(() => {});
     uiStore.showToast(finalAction ? '偏好已记录，继续执行本回合行动' : '偏好已记录，不消耗故事回合');
   }
-  gameStore.draftInput = "";
+  initiatingContext.draftInput = "";
   if (!finalAction) return;
   
   const context = gameStore.beginTask(sessionId, 'turn');
   if (!context) return;
-  context.chatLog.push({ role: "user", content: finalAction });
+  context.pendingAction = finalAction;
   context.lastAction = finalAction;
-  gameStore.setActionSuggestions([], sessionId);
-  scrollToBottom();
   
   try {
-    const res = await gameApi.processAction(sessionId, {
+    const res = await (gameStore.streamingEnabled ? gameApi.processActionStream : gameApi.processAction)(sessionId, {
       action: finalAction,
-      plot_compass: configStore.story.plotCompass
-    });
+      plot_compass: plotCompass
+    }, text => { context.preview += text; });
     
-    const newMsgs = res.chat_messages.filter(m => m.role !== 'user');
+    const newMsgs = res.chat_messages;
     gameStore.finishTask(sessionId, target => {
       target.chatLog.push(...newMsgs);
       gameStore.syncState(res.state, sessionId);
       gameStore.setActionSuggestions(res.action_suggestions, sessionId);
     });
   } catch (err) {
-    context.chatLog.push({ role: "system", content: `⚠️ ${err.message || '推演失败，本回合未保存。'}` });
+    context.draftInput = context.draftInput || finalAction;
     gameStore.failTask(sessionId, err);
   } finally {
+    context.pendingAction = '';
     if (context.isProcessing) gameStore.failTask(sessionId, '请求未正常完成');
     if (gameStore.sessionId === sessionId) assetStore.fetchLocalAssets(sessionId);
     preferenceStore.refresh().catch(() => {});
-    if (gameStore.sessionId === sessionId) scrollToBottom();
   }
 };
 
@@ -80,7 +80,6 @@ const undoTurn = async () => {
     gameStore.failTask(sessionId, err);
   } finally {
     if (gameStore.sessionId === sessionId) assetStore.fetchLocalAssets(sessionId);
-    if (gameStore.sessionId === sessionId) scrollToBottom();
   }
 };
 
@@ -88,12 +87,13 @@ const retryTurn = async () => {
   if (!gameStore.sessionId || gameStore.isProcessing || !gameStore.lastAction) return;
   const sessionId = gameStore.sessionId;
   const lastAction = gameStore.lastAction;
-  if (!gameStore.beginTask(sessionId, 'retry')) return;
+  const context = gameStore.beginTask(sessionId, 'retry');
+  if (!context) return;
   try {
-    const res = await gameApi.retryTurn(sessionId, {
+    const res = await (gameStore.streamingEnabled ? gameApi.retryTurnStream : gameApi.retryTurn)(sessionId, {
       action: lastAction,
       plot_compass: configStore.story.plotCompass
-    });
+    }, text => { context.preview += text; });
     gameStore.finishTask(sessionId, context => {
       context.chatLog = res.full_chat;
       gameStore.syncState(res.state, sessionId);
@@ -104,17 +104,7 @@ const retryTurn = async () => {
     uiStore.showToast(err.message || '重试失败', 'error');
   } finally {
     if (gameStore.sessionId === sessionId) assetStore.fetchLocalAssets(sessionId);
-    if (gameStore.sessionId === sessionId) scrollToBottom();
   }
-};
-
-const scrollToBottom = () => {
-  setTimeout(() => {
-    const c = document.getElementById('chat-container');
-    if (c) {
-      c.scrollTop = c.scrollHeight;
-    }
-  }, 100);
 };
 
 const insertPreference = () => {
@@ -127,6 +117,7 @@ const insertPreference = () => {
 <template>
   <div class="w-full p-4 md:p-6 bg-aw_bg border-t border-slate-700 z-20 shrink-0 shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
     <div class="max-w-4xl mx-auto flex flex-col gap-2">
+      <label class="self-end text-[10px] text-slate-500"><input data-testid="story-stream-toggle" v-model="gameStore.streamingEnabled" type="checkbox" :disabled="gameStore.isProcessing" /> 流式输出</label>
       
       <div class="grid grid-cols-1 gap-2 px-1 mb-1 md:grid-cols-2" v-if="effectiveStorySettings.aiSuggestions && !gameStore.isProcessing && gameStore.sessionId && gameStore.aiSuggestions.length > 0">
         <button v-for="(sug, idx) in gameStore.aiSuggestions" :key="`${idx}-${sug}`" @click="submitAction(sug)" class="flex min-w-0 items-start gap-2 rounded-xl border border-slate-600 bg-slate-800/80 px-3 py-2 text-left text-xs font-bold leading-relaxed text-slate-300 shadow-lg backdrop-blur transition hover:border-emerald-500 hover:bg-emerald-600/80 hover:text-white" :title="`点击直接执行选项 ${String.fromCharCode(65 + idx)}`">

@@ -5,8 +5,11 @@ from core.request_budget import budget_report, require_budget, normalize_usage
 from openai import OpenAI
 from utils.sys_logger import get_logger
 from core.llm_trace import begin_llm_trace, finish_llm_trace
+from core.json_stream import JSONTextPreview, STORY_FIELDS
 
 log = get_logger()
+STREAM_MAX_BYTES = 128 * 1024
+STREAM_MAX_CHUNKS = 4096
 
 
 def _completion_metadata(response, attempt=1):
@@ -66,7 +69,7 @@ class AIEngine:
         self.model = config['model']
         self.budget_options = dict(config.get('budget_options') or {})
 
-    def chat_json(self, system_prompt, user_prompt, temp=0.8, max_tokens=None, trace_label="json", prompt_manifest=None):
+    def chat_json(self, system_prompt, user_prompt, temp=0.8, max_tokens=None, trace_label="json", prompt_manifest=None, *, on_text_delta=None, visible_fields=None):
         """强制 JSON 输出模式（主线 DM 用）"""
         trace_id = begin_llm_trace(trace_label, self.model, system_prompt, user_prompt, "json", prompt_manifest)
         started = time.monotonic()
@@ -76,6 +79,9 @@ class AIEngine:
             require_budget(report)
             kwargs = {"model": self.model, "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}], "temperature": temp, "response_format": {"type": "json_object"}}
             kwargs["max_tokens"] = report["outputReserve"]
+            if on_text_delta is not None:
+                return self._stream_json(kwargs, on_text_delta, visible_fields or STORY_FIELDS,
+                                         trace_label, trace_id, report, started)
             for attempt in (1, 2):
                 report = budget_report(system_prompt, kwargs["messages"][-1]["content"], kwargs["max_tokens"], self.budget_options, prompt_manifest)
                 require_budget(report)
@@ -101,6 +107,69 @@ class AIEngine:
         except Exception as e:
             finish_llm_trace(trace_label, trace_id, error=str(e), metadata={"budget": report})
             return "", str(e)
+
+    def _stream_json(self, kwargs, emit, fields, label, trace_id, report, started):
+        """One real provider stream; never retry or fall back to another paid call."""
+        preview = JSONTextPreview(fields, emit)
+        parts, usage, response_id, finish_reason = [], None, "", ""
+        stream = None
+        size = 0
+        try:
+            # OpenAI SDK defaults to retries; opt out specifically for this attempt.
+            client = self.client.with_options(max_retries=0, timeout=120.0)
+            stream = client.chat.completions.create(**kwargs, stream=True)
+            for chunk_count, chunk in enumerate(stream, 1):
+                if chunk_count > STREAM_MAX_CHUNKS:
+                    raise ValueError("stream_chunk_limit: 模型流超出安全分片上限")
+                response_id = str(getattr(chunk, "id", "") or response_id)
+                chunk_usage = getattr(chunk, "usage", None)
+                if chunk_usage is not None:
+                    usage = chunk_usage.model_dump() if hasattr(chunk_usage, "model_dump") else chunk_usage
+                for choice in getattr(chunk, "choices", []):
+                    if getattr(choice, "index", 0) != 0:
+                        continue
+                    reason = getattr(choice, "finish_reason", None)
+                    if reason:
+                        finish_reason = str(reason)
+                        if finish_reason != "stop":
+                            raise ValueError(_empty_response_error({"finish_reason": finish_reason}))
+                    # Never consume reasoning_content, tool_calls or any other delta.
+                    delta = getattr(choice, "delta", None)
+                    if getattr(delta, "tool_calls", None) or getattr(delta, "function_call", None):
+                        raise ValueError("stream_tools_unsupported: JSON生成不允许工具调用")
+                    content = getattr(delta, "content", None)
+                    if not content:
+                        continue
+                    if not isinstance(content, str):
+                        raise ValueError("Invalid streamed content type")
+                    size += len(content.encode("utf-8"))
+                    if size > STREAM_MAX_BYTES:
+                        raise ValueError("stream_output_limit: 模型输出超出安全上限")
+                    parts.append(content)
+                    preview.feed(content)
+            metadata = {
+                "response_id": response_id, "finish_reason": finish_reason, "attempt": 1,
+                "usage": usage or {}, "normalizedUsage": normalize_usage(usage),
+                "budget": report, "elapsedMs": round((time.monotonic() - started) * 1000),
+            }
+            raw = "".join(parts)
+            if finish_reason != "stop":
+                error = _empty_response_error(metadata) if finish_reason else "incomplete_stream: 模型流未完整结束"
+                finish_llm_trace(label, trace_id, error=error, metadata=metadata)
+                return "", error
+            if not raw.strip():
+                error = _empty_response_error(metadata)
+                finish_llm_trace(label, trace_id, error=error, metadata=metadata)
+                return "", error
+            # Preview is not validation. In particular, trailing partial JSON fails.
+            payload = json.loads(raw)
+            if not isinstance(payload, dict):
+                raise ValueError("Streaming model must return a JSON object")
+            finish_llm_trace(label, trace_id, response=raw, metadata=metadata)
+            return raw, None
+        finally:
+            if stream is not None:
+                stream.close()
 
     def chat_text(self, system_prompt, user_prompt, temp=0.8, trace_label="text", prompt_manifest=None):
         """纯文本输出模式（暗流实体引擎用）"""
