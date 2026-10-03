@@ -1,5 +1,11 @@
 # AliveWorld 测试流程
 
+## 角色R1A-1存储基础（2026-10-03）
+
+- `.venv/Scripts/python.exe -m unittest tests.test_character_chat_repository -v`：11/11；快照/模型投影、幂等创建、冻结底稿、CAS并发、replace失败、墓碑、防损坏覆盖、未来schema、路径/限额及双会话隔离。
+- `.venv/Scripts/python.exe -m unittest discover -s tests -q`：446/446（原435项+新11项）。仅合成与临时数据，无付费调用。
+- 本片未改前端，未运行新的浏览器验收；HTTP/模型/流式角色UI、动作账本与重启pending恢复不是本片已验收内容。
+
 ## 故事/工坊流式验收（2026-10-03）
 
 - `tests/test_streaming.py`：22项；JSON可见字段逐chunk抽取、转义/emoji、嵌套键、choice0/工具调用/finish异常、128KiB/4096chunk限额、单次调用、三工坊事务、故事保存前锁、断流继续与慢消费者。

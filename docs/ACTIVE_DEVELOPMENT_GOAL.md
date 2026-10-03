@@ -2,7 +2,14 @@
 
 Updated: 2026-10-03
 
-## Current mainline — streaming first; character product design remains open
+## Current mainline — minimal character conversation loop
+
+- User confirmed the minimal role-loading/one-to-one conversation first. Streaming is complete; resume bounded R1A→R1B→R2 in 22b. Long-term personality evolution defaults off and is deferred P2; core-extraction prompts/UI and real-time simulation are out of MVP scope.
+- Current slice R1A-1: isolated character-session persistence and card snapshots, schema/path/size guards, atomic writes, revision conflicts and deletion tombstones. No model calls or empty character UI in this slice. Then lifecycle/API, single-response integration and streaming UI; storage tests are not evidence of a playable mode.
+- R1A-1 is implemented: 11 new storage tests, complete backend 446/446 passed. Creation/profile snapshots, atomic persistence and CAS are present; action/ledger validation, pending recovery, HTTP routes, model integration and UI remain next. This is not all of R1A or the playable character mode.
+- Product confirmations and retained future ideas are in 22c. Original card settings remain frozen; local knowledge/relationships/emotions may change. Future evolution can take effect with non-blocking notification, but no active evolution implementation now.
+
+### Completed streaming and earlier design history
 
 - User explicitly changed priority on 2026-10-03: finish streaming first. Pause the former R1A→R1B→R2 character implementation schedule; keep 22b as an engineering candidate, not proof of approved/completed character product design.
 - Product modes are 故事—角色—工坊: story RPG, independent one-to-one chat roleplay, card authoring. Narrative-style character messages do not turn character mode into another RPG. Future in-story private chat is deferred.
