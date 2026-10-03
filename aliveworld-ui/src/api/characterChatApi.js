@@ -50,7 +50,7 @@ export async function characterStream(path, payload, onEvent) {
 }
 const sid = id => '/' + encodeURIComponent(id);
 export const characterChatApi = {
-  list: cursor => request(cursor ? '?' + new URLSearchParams({ cursor }) : ''),
+  list: cursor => request('?' + new URLSearchParams({ view: 'summary', ...(cursor ? { cursor } : {}) })),
   ledger: (id, view = 'public') => request(sid(id) + '/ledger?' + new URLSearchParams({ view })),
   get: id => request(sid(id)),
   create: payload => request('', 'POST', payload),

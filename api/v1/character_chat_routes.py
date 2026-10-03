@@ -14,7 +14,7 @@ from core.character_chat.models import (CharacterSessionError, CREATION_NAMESPAC
 from core.character_chat.contract import public_ledger, unique_object
 from core.character_chat.errors import ERROR_STATUS, message, retryable
 from core.character_chat.repository import CharacterSessionRepository
-from core.character_chat.service import CharacterChatService, action_by_id, action_view, session_view, visible_turn
+from core.character_chat.service import CharacterChatService, action_by_id, action_view, session_view, session_summary, visible_turn
 from core.worldbook import normalize_worldbook
 from utils.asset_catalog import resolve_asset_path
 from utils.runtime_paths import PATHS
@@ -106,9 +106,9 @@ async def create(request: Request):
 
 @router.get('')
 @router.get('/')
-async def list_sessions(limit: int = 50, cursor: str | None = None):
+async def list_sessions(limit: int = 50, cursor: str | None = None, view: str = 'detail'):
     try:
-        if not 1 <= limit <= 50:
+        if not 1 <= limit <= 50 or view not in {'detail', 'summary'}:
             raise CharacterSessionError('INVALID_REQUEST')
         if cursor:
             canonical_id(cursor)
@@ -118,12 +118,16 @@ async def list_sessions(limit: int = 50, cursor: str | None = None):
         for sid in ids:
             last = sid
             try:
-                items.append(session_view(repository.load(sid), detail=False))
+                stored = repository.load(sid)
+                items.append(session_summary(stored) if view == 'summary' else session_view(stored, detail=False))
             except CharacterSessionError as exc:
                 if exc.code == 'SESSION_DELETED':
                     continue
-                items.append({'session_id': sid, 'title': '无法读取的对话', 'revision': 0,
-                              'participants': [], 'pending': None, 'read_error': exc.code})
+                fallback = {'session_id': sid, 'title': '无法读取的对话', 'revision': 0,
+                            'pending': None, 'read_error': exc.code}
+                if view != 'summary':
+                    fallback['participants'] = []
+                items.append(fallback)
             if len(items) == limit:
                 break
         return {'sessions': items, 'next_cursor': last if last and any(sid > last for sid in ids) else None}

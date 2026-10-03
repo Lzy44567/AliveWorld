@@ -2,6 +2,12 @@
 
 Updated: 2026-10-03
 
+## Latest slice — UX-S1 character sidebars
+
+User authorized Astra design followed by implementation. [22e](features/22e_character_sidebar_and_card_semantics.md) freezes only UX-S1: searchable/pinnable conversation list with formal-reply previews and local unread watermark; current-conversation information, public experiences and settings; explicit private-record viewing with stale-request isolation. Source implementation is complete; acceptance is being recorded in TESTING. No conversation schema migration, extra LLM invocation, version bump, package overwrite or GitHub action.
+
+Return to22d quality baseline and I1 card-field/opening design after this slice. Structured card semantics, formal imported opening and long-term memory remain design gates, not silently implemented. Existing dev.17 portable ZIP remains unchanged and lacks both the previous card-picker repair and UX-S1. Following current-slice statements are historical.
+
 ## Next-stage planning after packaged dev.17
 
 Explicit user correction completed: character asset dropdowns replaced with a searchable shared card picker, optional worldbook binding directly exposed and bound world name visible. UI selection→provider context→reload verified; Node63, Python27 targeted, 135-module build and full browser29 passed. No runtime world replacement/schema migration/personality feature. Resume22d design gate; existingdev.17 archive is unchanged and does not include this source-only repair.

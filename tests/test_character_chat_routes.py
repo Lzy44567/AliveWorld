@@ -89,6 +89,41 @@ class CharacterRouteTests(unittest.TestCase):
         self.assertNotIn('turn', status)
         self.assertEqual([], self.client.get(url).json()['turns'])
 
+    def test_summary_projection_formal_time_privacy_and_undo(self):
+        url = self.prefix + '/' + self.sid
+        self.client.post(url + '/actions', json={'client_action_id': str(uuid4()), 'expected_revision': 0,
+            'operation': 'send', 'content': '合成输入', 'delivery': 'non_stream'})
+        stored = self.repo.load(self.sid)
+        stored['updated_at'] = '2099-01-01T00:00:00Z'
+        stored['turns'][-1]['ai_message']['content'] = '中文😀 ' * 200
+        from core.character_chat.service import session_summary
+        summary = session_summary(stored)
+        self.assertEqual(stored['turns'][-1]['created_at'], summary['last_activity_at'])
+        self.assertEqual(160, len(summary['last_message_preview']))
+        self.assertEqual(1, summary['latest_ai_committed_revision'])
+        self.assertEqual({'session_id', 'title', 'revision', 'presentation_mode', 'created_at', 'ai_name',
+            'last_activity_at', 'last_message_preview', 'latest_ai_message_id', 'latest_ai_committed_revision', 'pending'}, set(summary))
+        response = self.client.get(self.prefix + '?view=summary')
+        self.assertNotIn('participants', response.text)
+        self.assertNotIn('PRIVATE_EXTENSION_SYNTHETIC', response.text)
+        self.assertEqual(400, self.client.get(self.prefix + '?view=invalid').status_code)
+        self.client.post(url + '/actions', json={'client_action_id': str(uuid4()), 'expected_revision': 1,
+            'operation': 'undo', 'target_turn_id': stored['turns'][-1]['turn_id']})
+        empty = self.client.get(self.prefix + '?view=summary').json()['sessions'][0]
+        self.assertIsNone(empty['latest_ai_message_id'])
+        self.assertEqual('', empty['last_message_preview'])
+
+    def test_summary_census_more_than_fifty_sessions(self):
+        for n in range(51):
+            payload = {**self.create_payload, 'client_creation_id': str(uuid4()), 'title': f'合成{n}'}
+            self.assertEqual(201, self.client.post(self.prefix, json=payload).status_code)
+        first = self.client.get(self.prefix + '?view=summary').json()
+        second = self.client.get(self.prefix + '?view=summary&cursor=' + first['next_cursor']).json()
+        self.assertEqual(50, len(first['sessions']))
+        self.assertEqual(2, len(second['sessions']))
+        self.assertIsNone(second['next_cursor'])
+        self.assertEqual(52, len({r['session_id'] for r in first['sessions'] + second['sessions']}))
+
     def test_sse_versioned_terminal_and_private_ledger_opt_in(self):
         self.transport.with_ledger = True
         url = self.prefix + '/' + self.sid

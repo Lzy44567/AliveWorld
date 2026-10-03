@@ -68,6 +68,51 @@ async function selectSession(page, request, title) {
   return session;
 }
 
+test('会话搜索置顶持久化，后台完成未读，当前资料与小屏边栏', async ({ page, request }) => {
+  await enterCharacters(page);
+  // Create the shared source through the public API because this runs before the legacy serial suite.
+  const response = await request.post(`/api/v1/lobby/assets/characters/${encodeURIComponent(cardName)}`, { data: { content: JSON.stringify({ name: cardName, description: '成年合成角色' }), parsed_data: { name: cardName, description: '成年合成角色' }, overwrite: true } });
+  expect(response.ok()).toBeTruthy();
+  await page.reload(); await dismissStartup(page); await page.getByTestId('mode-character').click();
+  await createSession(page, '侧栏验收A'); const a = await savedSession(request, '侧栏验收A');
+  await createSession(page, '侧栏验收B'); const b = await savedSession(request, '侧栏验收B');
+  const search = page.getByTestId('character-session-search');
+  await search.fill('侧栏验收A'); await expect(page.getByTestId(`character-session-${b.session_id}`)).toHaveCount(0);
+  await page.getByTestId(`character-pin-${a.session_id}`).click(); await search.fill('');
+  await page.reload(); await dismissStartup(page); await page.getByTestId('mode-character').click();
+  await expect(page.getByTestId(`character-pin-${a.session_id}`)).toHaveAttribute('aria-pressed', 'true');
+  await selectSession(page, request, '侧栏验收A');
+  await page.getByTestId('character-composer').fill('【角色慢流】【角色账本】后台回复');
+  await page.getByTestId('character-send').click();
+  await expect(page.getByTestId('character-preview')).toBeVisible();
+  await selectSession(page, request, '侧栏验收B');
+  await expect(page.getByTestId(`character-unread-${a.session_id}`)).toBeVisible({ timeout: 30000 });
+  await selectSession(page, request, '侧栏验收A');
+  await expect(page.getByTestId(`character-unread-${a.session_id}`)).toHaveCount(0);
+  await page.getByRole('button', { name: '会话资料', exact: true }).click();
+  for (const heading of ['资料', '共同经历', '会话设置']) await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible();
+  await page.getByTestId('character-spoiler').click();
+  await expect(page.getByTestId('character-spoiler')).toHaveText('隐藏内部记录');
+  await page.getByRole('button', { name: '收起资料', exact: true }).click();
+  await page.getByRole('button', { name: '会话资料', exact: true }).click();
+  await expect(page.getByTestId('character-spoiler')).toHaveText('查看角色内部记录（剧透）');
+  await page.screenshot({ path: '../build/e2e-results/character-sidebars-wide.png', fullPage: true });
+  await page.setViewportSize({ width: 640, height: 900 });
+  await page.getByRole('button', { name: '会话列表', exact: true }).click();
+  await expect(page.getByTestId('character-session-search')).toBeVisible();
+  await expect(page.getByRole('heading', { name: '共同经历', exact: true })).toBeHidden();
+  await page.getByRole('button', { name: '关闭会话列表', exact: true }).click();
+  await expect(page.getByRole('button', { name: '会话列表', exact: true })).toBeFocused();
+  await page.getByRole('button', { name: '会话列表', exact: true }).click();
+  await page.screenshot({ path: '../build/e2e-results/character-sidebars-narrow.png', fullPage: true });
+  // Avoid changing the legacy suite's synthetic card and first-create expectation.
+  for (const value of [a, b]) {
+    const current = await (await request.get(`${sessionsBase}/${value.session_id}`)).json();
+    await request.delete(`${sessionsBase}/${value.session_id}`, { data: { expected_revision: current.revision } });
+  }
+  await request.delete(`/api/v1/lobby/assets/characters/${encodeURIComponent(cardName)}`);
+});
+
 test('现有角色卡建立即时聊天，真实预览先于消息与来源账本提交', async ({ page, request }) => {
   await page.goto('/');
   await dismissStartup(page);

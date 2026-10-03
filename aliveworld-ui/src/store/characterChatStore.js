@@ -1,18 +1,47 @@
 import { reactive } from 'vue';
 import { characterChatApi } from '../api/characterChatApi.js';
+import { createConversationPreferences, detailReadMarker } from '../utils/characterConversationList.js';
 
 const uuid = () => globalThis.crypto.randomUUID();
 const terminal = status => ['committed', 'cancelled', 'failed', 'interrupted'].includes(status);
-export function createCharacterChatStore(api = characterChatApi, delay = ms => new Promise(resolve => setTimeout(resolve, ms))) {
+export function createCharacterChatStore(api = characterChatApi, delay = ms => new Promise(resolve => setTimeout(resolve, ms)), storage) {
+  let listGeneration = 0, spoilerGeneration = 0;
   const state = reactive({
     sessions: [], contexts: {}, activeId: '', error: '', loading: false, nextCursor: null,
+    listComplete: false, listWarning: '', visible: false, preferences: createConversationPreferences(storage),
     get current() { return this.contexts[this.activeId] || null; },
     context(id) {
       if (!this.contexts[id]) this.contexts[id] = { session: null, draft: '', busy: false, preview: '', inflight: null, failure: null, error: '', delivery: 'stream', historyLoading: false, historyComplete: false, needsReload: false, spoiler: null };
       return this.contexts[id];
     },
-    async refreshList(more = false) { try { const data = await api.list(more ? this.nextCursor : undefined); this.sessions = more ? [...this.sessions, ...(data.sessions || [])] : data.sessions || []; this.nextCursor = data.next_cursor; this.error = ''; } catch (e) { this.error = e.message; } },
+    async refreshList() {
+      const generation = ++listGeneration; this.loading = true;
+      const rows = new Map(), cursors = new Set(); let cursor, complete = false;
+      try {
+        for (let page = 0; page < 40; page++) {
+          const data = await api.list(cursor); if (generation !== listGeneration) return;
+          if (!Array.isArray(data.sessions) || data.sessions.length > 50) throw Error('会话列表格式错误');
+          for (const row of data.sessions) { if (!row?.session_id) throw Error('会话列表格式错误'); rows.set(row.session_id, row); }
+          if (rows.size > 2000) throw Error('会话列表达到加载上限');
+          if (!data.next_cursor) { complete = true; break; }
+          if (cursors.has(data.next_cursor) || (cursor && data.next_cursor <= cursor)) break;
+          cursors.add(data.next_cursor); cursor = data.next_cursor;
+        }
+        this.sessions = [...rows.values()]; this.listComplete = complete; this.nextCursor = null; this.error = '';
+        this.listWarning = complete ? '' : '列表未完整加载；搜索和排序仅覆盖已加载会话。';
+        for (const row of this.sessions) this.preferences.ensure(row, false);
+        this.preferences.save();
+      } catch (e) { if (generation === listGeneration) { this.error = e.message; this.listComplete = false; this.listWarning = '刷新失败，列表可能过期；搜索仅覆盖已加载会话。'; } }
+      finally { if (generation === listGeneration) this.loading = false; }
+    },
+    clearSpoiler() { ++spoilerGeneration; for (const ctx of Object.values(this.contexts)) ctx.spoiler = null; },
+    setVisible(value) { this.visible = value; if (!value) this.clearSpoiler(); },
+    markPresented(id) {
+      const ctx = this.contexts[id];
+      if (this.visible && this.activeId === id && ctx?.session && !ctx.needsReload && !ctx.session.schema_read_only) this.preferences.read(detailReadMarker(ctx.session));
+    },
     async open(id) {
+      this.clearSpoiler();
       this.activeId = id; const ctx = this.context(id);
       try {
         ctx.session = await api.get(id); ctx.error = ''; ctx.needsReload = false;
@@ -91,6 +120,7 @@ export function createCharacterChatStore(api = characterChatApi, delay = ms => n
     },
     async run(id, operation = 'send', retry = false) {
       const ctx = this.context(id); if (ctx.busy || !ctx.session || ctx.needsReload || ctx.session.schema_read_only) return;
+      this.preferences.ensure(detailReadMarker(ctx.session));
       const content = ctx.draft.trim(); if (operation === 'send' && !retry && !content) return;
       const failed = ctx.failure;
       const last = ctx.session.turns?.at(-1)?.user_message;
@@ -114,14 +144,18 @@ export function createCharacterChatStore(api = characterChatApi, delay = ms => n
         } else await this.recover(id, active);
       }
     },
-    async loadSpoiler(id) { const ctx = this.context(id); const data = await api.ledger(id, 'spoiler'); ctx.spoiler = Array.isArray(data) ? data : data.ledger || []; },
+    async loadSpoiler(id) {
+      const token = ++spoilerGeneration, ctx = this.context(id);
+      try { const data = await api.ledger(id, 'spoiler'); if (token === spoilerGeneration && this.visible && this.activeId === id) ctx.spoiler = Array.isArray(data) ? data : data.ledger || []; }
+      catch (e) { if (token === spoilerGeneration && this.visible && this.activeId === id) throw e; }
+    },
     async stop(id) {
       const ctx = this.context(id), flight = ctx.inflight; if (!flight?.request_id) return;
       try { const result = await api.cancel(id, flight.request_id); if (terminal(result.status) || result.status === 'already_committed') await this.settle(id, flight, result); }
       catch (e) { ctx.error = '停止结果待确认：' + e.message; }
     },
     async update(id, changes) { const ctx = this.context(id); if (ctx.busy || ctx.needsReload || ctx.session.schema_read_only) return; ctx.session = await api.update(id, { expected_revision: ctx.session.revision, ...changes }); await this.refreshList(); },
-    async remove(id) { const ctx = this.context(id); if (ctx.busy || ctx.needsReload || ctx.session.schema_read_only) return; await api.remove(id, ctx.session.revision); delete this.contexts[id]; if (this.activeId === id) this.activeId = ''; await this.refreshList(); },
+    async remove(id) { const ctx = this.context(id); if (ctx.busy || ctx.needsReload || ctx.session.schema_read_only) return; await api.remove(id, ctx.session.revision); this.preferences.remove(id); delete this.contexts[id]; if (this.activeId === id) this.activeId = ''; await this.refreshList(); },
   });
   return state;
 }

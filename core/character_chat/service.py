@@ -70,6 +70,25 @@ def visible_turn(turn):
     return {k: copy.deepcopy(v) for k, v in turn.items() if k != 'ledger_inverse'}
 
 
+def session_summary(session):
+    """Public, lightweight conversation projection; never includes archived/private data."""
+    if session.get('schema_version') != 1:
+        return {'session_id': session['session_id'], 'title': '更高版本会话（只读）',
+                'schema_read_only': True, 'pending': None}
+    pair = pending_attempt(session)
+    last = session['turns'][-1] if session['turns'] else None
+    ai = next(p for p in session['participants'] if p['controller'] == 'ai')
+    result = {k: session[k] for k in ('session_id', 'title', 'revision', 'presentation_mode', 'created_at')}
+    result.update(ai_name=ai['display_name'],
+                  last_activity_at=last['created_at'] if last else session['created_at'],
+                  last_message_preview=' '.join(last['ai_message']['content'].split())[:160] if last else '',
+                  latest_ai_message_id=last['ai_message']['message_id'] if last else None,
+                  latest_ai_committed_revision=last['committed_revision'] if last else None,
+                  pending=None if not pair else {'action_id': pair[0]['action_id'],
+                      'request_id': pair[1]['request_id'], 'status': 'pending', 'base_revision': pair[1]['base_revision']})
+    return result
+
+
 def session_view(session, *, detail=True):
     if session.get('schema_version') != 1:
         return {'session_id': session['session_id'], 'revision': session.get('revision', 0),
