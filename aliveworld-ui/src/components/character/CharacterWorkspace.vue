@@ -3,10 +3,13 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { characterChatStore as store } from '../../store/characterChatStore.js';
 import { assetStore } from '../../store/assetStore';
 import { uiStore } from '../../store/uiStore';
+import AssetCardPicker from '../assets/AssetCardPicker.vue';
 
 const creating = ref(false), aiCard = ref(''), userCard = ref(''), worldCard = ref(''), title = ref(''), mode = ref('messenger'), createBusy = ref(false), createError = ref('');
 const creationId = ref(globalThis.crypto.randomUUID());
 const details = ref(false), listOpen = ref(false), messagePane = ref(null);
+const picker = ref('');
+const pickerValue = computed({ get: () => picker.value === 'ai' ? aiCard.value : picker.value === 'user' ? userCard.value : worldCard.value, set: value => { if (picker.value === 'ai') aiCard.value=value; else if (picker.value === 'user') userCard.value=value; else worldCard.value=value; } });
 const ctx = computed(() => store.current);
 const session = computed(() => ctx.value?.session);
 const turns = computed(() => session.value?.turns || []);
@@ -73,15 +76,14 @@ onMounted(async () => {
       <form v-if="creating" class="p-5 max-w-lg w-full mx-auto space-y-4 overflow-y-auto" @submit.prevent="create">
         <p class="text-sm text-slate-400">卡片作为此会话的独立快照，不会修改原卡。</p>
         <label class="block text-sm">AI 扮演的角色
-          <select v-model="aiCard" data-testid="character-ai-card" required class="field"><option value="">请选择角色卡</option><option v-for="card in assetStore.characters.global" :key="card.name" :value="card.name">{{ card.name }}</option></select>
+          <button type="button" data-testid="character-ai-card" class="field text-left" :disabled="createBusy" @click="picker='ai'">{{ aiCard || '＋ 选择角色卡' }}</button>
         </label>
         <p v-if="!assetStore.characters.global.length" class="text-sm text-amber-200">暂无角色卡。<button type="button" class="underline" @click="uiStore.appMode='workshop'">前往工坊制卡</button>，或在资源库导入。</p>
         <label class="block text-sm">对话名称（可选）<input v-model="title" data-testid="character-title" class="field" maxlength="80" placeholder="默认使用角色名字"></label>
         <label class="block text-sm">表现方式<select v-model="mode" data-testid="character-create-mode" class="field"><option value="messenger">即时聊天</option><option value="roleplay">情景扮演</option></select></label>
-        <details class="text-sm"><summary class="cursor-pointer text-slate-400">可选：我扮演的角色与世界背景</summary>
-          <label class="block mt-3">我的身份<select v-model="userCard" data-testid="character-user-card" class="field"><option value="">我（不加载玩家卡）</option><option v-for="card in assetStore.characters.global" :key="card.name" :value="card.name">{{ card.name }}</option></select></label>
-          <label class="block mt-3">公开世界背景<select v-model="worldCard" class="field"><option value="">不加载世界书</option><option v-for="card in assetStore.worlds.global" :key="card.name" :value="card.name">{{ card.name }}</option></select></label>
-        </details>
+        <label class="block text-sm">世界书（可选）<button type="button" data-testid="character-world-card" class="field text-left" :disabled="createBusy" @click="picker='world'">{{ worldCard || '＋ 载入世界书' }}</button></label>
+        <p class="text-xs text-slate-400">世界书作为本会话的独立快照；公开常驻规则及相关条目提供给角色，不改写原世界书。</p>
+        <label class="block text-sm">我的身份（可选）<button type="button" data-testid="character-user-card" class="field text-left" :disabled="createBusy" @click="picker='user'">{{ userCard || '我（不加载玩家卡）' }}</button></label>
         <p v-if="createError" class="text-sm text-rose-300">{{ createError }}</p>
         <div class="flex gap-2"><button data-testid="character-create" class="rounded-lg bg-indigo-700 px-4 py-2 disabled:opacity-40" :disabled="!aiCard || createBusy">{{ createBusy?'建立中…':'开始对话' }}</button><button type="button" class="text-slate-400 px-3" @click="creating=false">取消</button></div>
       </form>
@@ -114,12 +116,14 @@ onMounted(async () => {
       <div class="flex justify-between"><h3 class="font-bold">会话资料</h3><button @click="details=false" aria-label="关闭资料">✕</button></div>
       <label class="block text-sm mt-4">表现方式<select :value="session.presentation_mode" data-testid="character-mode" :disabled="ctx.busy || readonly" class="field" @change="updateMode"><option value="messenger">即时聊天</option><option value="roleplay">情景扮演</option></select></label>
       <details v-for="p in session.participants" :key="p.instance_id" class="mt-5 text-sm"><summary class="cursor-pointer">{{ p.display_name }} · {{ p.controller==='ai'?'AI扮演':'用户扮演' }}</summary><p class="mt-2 whitespace-pre-wrap text-slate-400 select-text">{{ p.profile_snapshot?.description }}</p><details v-if="p.profile_snapshot?.starting_scene" class="mt-2"><summary>角色场景资料</summary><p class="whitespace-pre-wrap select-text">{{ p.profile_snapshot.starting_scene }}</p></details></details>
+      <div class="mt-5 text-sm" data-testid="character-world-details"><p>世界书 · {{ session.world_binding?.name || '未载入' }}</p><p v-if="session.world_binding" class="mt-2 text-xs text-slate-500">创建时快照，不随源资产自动变化。</p></div>
       <h4 class="text-sm mt-6 mb-2">公开局内记录</h4><div data-testid="character-public-ledger" class="space-y-2"><p v-if="!session.ledger?.length" class="text-xs text-slate-500">暂无公开记录</p><div v-for="entry in session.ledger" :key="entry.entry_id" class="text-sm rounded bg-slate-950 p-2"><p class="whitespace-pre-wrap select-text">{{ entry.content || entry.text || entry.summary }}</p><p class="text-xs text-slate-500 mt-1">{{ entry.knowledge_type || entry.kind }} · {{ entry.source?.type==='player_statement'?'用户陈述':entry.source?.type==='model_inference'?'角色推断':'共同对话' }}</p><details v-if="entry.source" class="text-xs text-slate-400 mt-1"><summary class="cursor-pointer">来源证据</summary><p v-for="(item,index) in entry.source.evidence || []" :key="index" class="whitespace-pre-wrap select-text mt-1">{{ item.quote }}</p><p class="break-all select-text mt-1">{{ (entry.source.message_ids || []).join('、') }}</p></details></div></div>
       <button data-testid="character-spoiler" class="text-xs text-amber-300 mt-4" @click="ctx.spoiler ? ctx.spoiler=null : store.loadSpoiler(store.activeId).catch(e=>ctx.error=e.message)">{{ ctx.spoiler ? '隐藏内部记录' : '查看内部记录（含剧透）' }}</button>
       <div v-if="ctx.spoiler" data-testid="character-private-ledger" class="space-y-2 mt-2"><div v-for="entry in ctx.spoiler" :key="entry.entry_id" class="text-sm rounded bg-amber-950/40 p-2 whitespace-pre-wrap select-text">{{ entry.content || entry.text || entry.summary }}</div></div>
       <button data-testid="character-delete" class="text-rose-400 text-sm mt-8 disabled:opacity-40" :disabled="ctx.busy || readonly" @click="remove">删除此对话</button>
     </aside>
   </section>
+  <AssetCardPicker v-if="picker" v-model="pickerValue" :items="picker==='world' ? assetStore.worlds.global : assetStore.characters.global" :title="picker==='world' ? '选择世界书' : picker==='ai' ? '选择AI角色' : '选择我的角色'" :empty-label="picker==='world' ? '不加载世界书' : picker==='user' ? '我（不加载玩家卡）' : ''" @close="picker=''" />
 </template>
 
 <style scoped>

@@ -44,7 +44,11 @@ async function enterCharacters(page) {
 async function createSession(page, title, mode = 'messenger') {
   await page.getByTestId('character-new').click();
   await page.getByTestId('character-title').fill(title);
-  await page.getByTestId('character-ai-card').selectOption(cardName);
+  await page.getByTestId('character-ai-card').click();
+  const picker = page.getByTestId('asset-card-picker');
+  await picker.getByTestId('asset-picker-search').fill(cardName);
+  await picker.getByRole('button', { name: cardName, exact: true }).click();
+  await expect(picker).toBeHidden();
   await page.getByTestId('character-create-mode').selectOption(mode);
   await page.getByTestId('character-create').click();
   await expect(page.getByTestId('character-composer')).toBeVisible();
@@ -224,4 +228,41 @@ test('小屏顶部故事角色工坊三个入口均可见可达', async ({ page,
   await expect(page.getByTestId('character-workspace')).toBeHidden();
   await page.getByTestId('mode-story').click();
   await expect(page.getByTestId('story-action-input')).toBeVisible();
+});
+
+test('角色与世界书用搜索卡片选择，世界规则进入请求且重载保留绑定', async ({ page, request }) => {
+  const worldName = '角色世界合成卡';
+  const world = { name: worldName, overview: '【角色世界概述】合成测试背景', axioms: ['【角色世界公理】这里每晚有蓝色月亮'], entries: [] };
+  const response = await request.post(`/api/v1/lobby/assets/worldbooks/${encodeURIComponent(worldName)}`, { data: { content: JSON.stringify(world), parsed_data: world, overwrite: false } });
+  expect(response.ok()).toBeTruthy();
+  await enterCharacters(page);
+  await page.getByTestId('character-new').click();
+  await expect(page.getByTestId('character-world-card')).toBeVisible();
+  await expect(page.getByTestId('character-ai-card')).not.toHaveJSProperty('tagName', 'SELECT');
+  await page.getByTestId('character-ai-card').click();
+  let picker = page.getByTestId('asset-card-picker');
+  await picker.getByTestId('asset-picker-search').fill('不存在的角色');
+  await expect(picker).toContainText('没有匹配的资产');
+  await picker.getByTestId('asset-picker-search').fill(cardName);
+  await picker.getByRole('button', { name: cardName, exact: true }).click();
+  await page.getByTestId('character-world-card').click();
+  picker = page.getByTestId('asset-card-picker');
+  await picker.getByTestId('asset-picker-search').fill(worldName);
+  await picker.getByRole('button', { name: worldName, exact: true }).click();
+  await expect(page.getByTestId('character-world-card')).toHaveText(worldName);
+  await page.getByTestId('character-title').fill('世界书载入验收');
+  await page.getByTestId('character-create').click();
+  await expect(page.getByTestId('character-composer')).toBeVisible();
+  await request.delete(`${fakeBase}/__test__/requests`);
+  await send(page, '看看月亮');
+  const calls = await records(request);
+  expect(calls).toHaveLength(1);
+  expect(calls[0].user).toContain('角色世界公理');
+  await page.reload();
+  await dismissStartup(page);
+  await page.getByTestId('mode-character').click();
+  await selectSession(page, request, '世界书载入验收');
+  await page.getByRole('button', { name: '会话资料', exact: true }).click();
+  await expect(page.getByTestId('character-world-details')).toContainText(worldName);
+  await page.screenshot({ path: '../build/e2e-results/character-world-binding.png', fullPage: true });
 });

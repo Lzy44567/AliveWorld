@@ -1,5 +1,11 @@
 # AliveWorld 测试流程
 
+## 角色卡片选择/世界书可见入口（2026-10-03，源码修复）
+
+- Node63/63、角色路由/生命周期Python27/27、135模块生产构建通过；完整Playwright/Edge29/29，2.5分钟，保留既有28项。
+- 新用例验证角色不再是SELECT、无结果搜索反馈、名称搜索选卡、世界书卡片选择、规则实际进入character.reply请求、重载后资料显示绑定名称。`build/e2e-results/character-world-binding.png`已视觉检查。
+- 复用共享CharacterAssetCard的选择模式；原资产管理模式仍经旧浏览器用例验证。只使用隔离合成数据，无付费API；未重构后端世界书/会话协议，未重新构建EXE或覆盖dev.17ZIP。
+
 ## dev.17最简角色闭环验收（2026-10-03）
 
 - `tools/run_checks.ps1`：Python484/484、Node63/63、可见性检查、134模块生产构建通过。角色专项53/53（含既有存储11与提示词9）；新增生命周期/词法22、API5、真实SDK传输6。
