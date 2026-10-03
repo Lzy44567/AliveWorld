@@ -138,7 +138,7 @@ class CharacterSessionRepository:
                 raise CharacterSessionError("REVISION_CONFLICT")
             if value["revision"] != expected_revision + 1:
                 raise CharacterSessionError("REVISION_CONFLICT")
-            for key in ("participants", "world_binding", "creation_fingerprint", "created_at"):
+            for key in ("participants", "world_binding", "creation_fingerprint", "created_at", "opening"):
                 if old.get(key) != value.get(key):
                     raise CharacterSessionError("PROFILE_FROZEN")
             value["updated_at"] = datetime.now(timezone.utc).isoformat()
@@ -157,7 +157,7 @@ class CharacterSessionRepository:
             if changed:
                 if candidate['revision'] not in (old['revision'], old['revision'] + 1):
                     raise CharacterSessionError('REVISION_CONFLICT')
-                for key in ('participants', 'world_binding', 'creation_fingerprint', 'created_at'):
+                for key in ('participants', 'world_binding', 'creation_fingerprint', 'created_at', 'opening'):
                     if candidate.get(key) != old.get(key):
                         raise CharacterSessionError('PROFILE_FROZEN')
                 candidate['updated_at'] = datetime.now(timezone.utc).isoformat()

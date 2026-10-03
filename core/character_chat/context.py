@@ -4,6 +4,7 @@ import re
 from core.prompt_studio import compose_prompt, plan_model_request, RequestMessagePart
 from core.request_budget import budget_report
 from .models import CharacterSessionError, profile_projection
+from .opening import opening_context
 
 
 def build_context(session, pending, budget_options=None):
@@ -49,6 +50,8 @@ def build_context(session, pending, budget_options=None):
                 'ledger': ledger, 'history': messages,
                 'current_user_message': {'message_id': pending['user_message_id'], 'content': pending['content']},
                 'current_ai_message_id': pending['ai_message_id'], 'presentation_mode': pending['mode']}
+        if session.get('opening'):
+            data['author_opening'] = opening_context(session['opening'])
         plan = plan_model_request(system, [RequestMessagePart('character.context', json.dumps(data, ensure_ascii=False))],
                                   temperature=0.8, max_tokens=None, trace_label='character.reply',
                                   mode='json', contract_id='character.reply.v1')

@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse
 from core.character_chat.models import (CharacterSessionError, CREATION_NAMESPACE, MAX_SNAPSHOT_BYTES,
                                         canonical_id, create_session, json_bytes, text, validate_depth)
 from core.character_chat.contract import public_ledger, unique_object
+from core.character_chat.opening import normalize_opening
 from core.character_chat.errors import ERROR_STATUS, message, retryable
 from core.character_chat.repository import CharacterSessionRepository
 from core.character_chat.service import CharacterChatService, action_by_id, action_view, session_view, session_summary, visible_turn
@@ -70,11 +71,18 @@ def load_asset(ref, *, world=False):
 @router.post('/')
 async def create(request: Request):
     try:
-        payload = await body(request, {'client_creation_id', 'title', 'ai_asset_ref', 'user_asset_ref', 'world_asset_ref', 'presentation_mode'},
+        payload = await body(request, {'client_creation_id', 'title', 'ai_asset_ref', 'user_asset_ref', 'world_asset_ref', 'presentation_mode', 'opening_text'},
                              {'client_creation_id', 'ai_asset_ref', 'presentation_mode'})
         creation = canonical_id(payload['client_creation_id'])
         sid = str(uuid5(CREATION_NAMESPACE, creation))
-        fingerprint = hashlib.sha256(json_bytes({k: payload.get(k) for k in ('title', 'ai_asset_ref', 'user_asset_ref', 'world_asset_ref', 'presentation_mode')})).hexdigest()
+        try:
+            opening = normalize_opening(payload.get('opening_text', ''))
+        except ValueError:
+            raise CharacterSessionError('INVALID_REQUEST') from None
+        identity = {k: payload.get(k) for k in ('title', 'ai_asset_ref', 'user_asset_ref', 'world_asset_ref', 'presentation_mode')}
+        if opening:
+            identity['opening_text'] = opening
+        fingerprint = hashlib.sha256(json_bytes(identity)).hexdigest()
         # Check tombstone/idempotency before resolving any mutable source asset.
         try:
             existing = repository.load(sid)
@@ -90,7 +98,7 @@ async def create(request: Request):
         ai = load_asset(payload['ai_asset_ref'])
         user = load_asset(payload['user_asset_ref']) if payload.get('user_asset_ref') else None
         value = create_session(creation, ai, payload['ai_asset_ref'], user_profile=user,
-            user_asset_ref=payload.get('user_asset_ref'), title=payload.get('title'), presentation_mode=payload['presentation_mode'])
+            user_asset_ref=payload.get('user_asset_ref'), title=payload.get('title'), presentation_mode=payload['presentation_mode'], opening_text=opening)
         value['creation_fingerprint'] = fingerprint
         if payload.get('world_asset_ref'):
             world = load_asset(payload['world_asset_ref'], world=True)

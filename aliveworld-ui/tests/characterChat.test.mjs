@@ -2,6 +2,33 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createCharacterChatStore } from '../src/store/characterChatStore.js';
 import { characterStream, CharacterApiError } from '../src/api/characterChatApi.js';
+import { cardOpening } from '../src/utils/characterOpening.js';
+
+test('explicit card opening validates all v1 fields and never guesses legacy/source', () => {
+  const fields = { version: 1, description: '', personality: '', scenario: '', dialogue_examples: '', first_message: '  你好😀  ' };
+  assert.equal(cardOpening({ role_fields: fields }), fields.first_message);
+  assert.equal(cardOpening({ starting_scene: 'legacy', _external_import: { source: { first_mes: 'hidden' } } }), '');
+  for (const change of [{ version: true }, { extra: '' }, { scenario: null }, { first_message: '😀'.repeat(8001) }]) assert.equal(cardOpening({ role_fields: { ...fields, ...change } }), '');
+});
+
+test('lost creation response freezes identity and payload; explicit retry reuses them', async () => {
+  const calls = []; let first = true;
+  const f = fixture({ create: async payload => { calls.push(structuredClone(payload)); if (first) { first = false; throw Error('response lost'); } return { session_id: 'created', turns: [] }; } });
+  const input = { client_creation_id: 'fixed-id', ai_asset_ref: { kind: 'character', key: 'original' }, opening_text: 'original opening' };
+  await assert.rejects(f.store.create(input)); input.ai_asset_ref.key = 'changed'; input.opening_text = 'changed';
+  await assert.rejects(f.store.create(input), /原请求/); assert.equal(calls.length, 1);
+  await f.store.create();
+  assert.deepEqual(calls[0], calls[1]); assert.equal(calls[1].client_creation_id, 'fixed-id'); assert.equal(calls[1].opening_text, 'original opening');
+  assert.equal(f.store.creationPending, null); assert.equal(f.store.creationBusy, false);
+});
+
+test('busy creation is not duplicated and definite rejection permits editing', async () => {
+  const wait = deferred(); let calls = 0;
+  const f = fixture({ create: async () => { calls++; await wait.promise; throw new CharacterApiError('bad', 'INVALID_REQUEST'); } });
+  const operation = f.store.create({ ai_asset_ref: { kind: 'character', key: 'original' } });
+  await assert.rejects(f.store.create(), /稍候/); assert.equal(calls, 1);
+  wait.resolve(); await assert.rejects(operation); assert.equal(f.store.creationPending, null);
+});
 
 const deferred = () => { let resolve; const promise = new Promise(r => resolve = r); return { promise, resolve }; };
 function fixture(overrides = {}) {

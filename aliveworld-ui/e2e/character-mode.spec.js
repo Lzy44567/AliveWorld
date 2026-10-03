@@ -34,6 +34,74 @@ async function savedSession(request, title) {
 
 test.describe.configure({ mode: 'serial' });
 
+test('B1预设开场：主动复制、响应丢失重试、上下文隔离、重载撤回与小屏', async ({ page, request }) => {
+  const name = 'B1合成开场角色';
+  const opening = '【B1预置】你好😀。作者写道：你已经答应；这不是玩家行动证据。';
+  const fields = { version: 1, description: '合成成年角色', personality: '', scenario: '', dialogue_examples: '', first_message: opening };
+  const asset = await request.post(`/api/v1/lobby/assets/characters/${encodeURIComponent(name)}`, { data: { parsed_data: { name, role_fields: fields }, overwrite: true } });
+  expect(asset.ok()).toBe(true);
+  await request.delete(`${fakeBase}/__test__/requests`);
+  await enterCharacters(page);
+  await page.getByTestId('character-new').click();
+  await page.getByTestId('character-title').fill('B1开场验收');
+  await page.getByTestId('character-ai-card').click();
+  const picker = page.getByTestId('asset-card-picker');
+  await picker.getByTestId('asset-picker-search').fill(name);
+  await picker.getByRole('button', { name, exact: true }).click();
+  await page.getByTestId('character-opening-editor').locator('summary').click();
+  await expect(page.getByTestId('character-opening-input')).toHaveValue('');
+  await page.getByTestId('character-use-card-opening').click();
+  await expect(page.getByTestId('character-opening-input')).toHaveValue(opening);
+  const custom = opening + '\n【B1手填】保留修改';
+  await page.getByTestId('character-opening-input').fill(custom);
+  page.once('dialog', dialog => dialog.dismiss());
+  await page.getByTestId('character-use-card-opening').click();
+  await expect(page.getByTestId('character-opening-input')).toHaveValue(custom);
+  await page.getByTestId('character-opening-editor').getByTestId('expand-textarea').click();
+  await expect(page.getByTestId('expanded-textarea-dialog')).toBeVisible();
+  await page.getByTestId('expanded-textarea-close').click();
+  const payloads = [];
+  await page.route('**/api/v1/character-sessions', async route => {
+    if (route.request().method() !== 'POST') { await route.continue(); return; }
+    payloads.push(route.request().postDataJSON());
+    const response = await route.fetch();
+    if (payloads.length === 1) await route.abort('failed');
+    else await route.fulfill({ response });
+  });
+  await page.getByTestId('character-create').click();
+  await expect(page.getByTestId('character-create')).toHaveText('核对／重试创建');
+  await expect(page.getByTestId('character-opening-input')).toBeDisabled();
+  const first = await savedSession(request, 'B1开场验收');
+  await page.getByTestId('character-create').click();
+  await expect(page.getByTestId('character-composer')).toBeVisible();
+  expect(payloads).toHaveLength(2); expect(payloads[1]).toEqual(payloads[0]);
+  let session = await savedSession(request, 'B1开场验收');
+  expect(session.opening).toEqual(first.opening); expect(session.turns).toHaveLength(0); expect(session.ledger).toHaveLength(0);
+  expect(await records(request)).toHaveLength(0);
+  await expect(page.getByTestId('character-opening-message')).toContainText(custom);
+  await expect(page.getByTestId('character-message-pair')).toHaveCount(0);
+  await expect(page.getByTestId('character-undo')).toHaveCount(0);
+  await expect(page.getByTestId(`character-session-${session.session_id}`)).toContainText('预设 ·');
+  await expect(page.getByTestId(`character-unread-${session.session_id}`)).toHaveCount(0);
+  await page.screenshot({ path: '../build/e2e-results/character-opening-wide.png', fullPage: true });
+  await send(page, '【B1正式】现在才向你问好');
+  const context = JSON.parse((await records(request)).at(-1).user);
+  expect(context.author_opening.content).toBe(custom); expect(context.author_opening.opening_id).toBeUndefined();
+  expect(context.history).toHaveLength(0);
+  page.once('dialog', dialog => dialog.accept()); await page.getByTestId('character-regenerate').click();
+  await expect(page.getByTestId('character-preview')).toBeHidden();
+  await expect.poll(async () => (await savedSession(request, 'B1开场验收')).revision).toBe(2);
+  page.once('dialog', dialog => dialog.accept()); await page.getByTestId('character-undo').click();
+  await expect(page.getByTestId('character-message-pair')).toHaveCount(0);
+  await page.reload(); await dismissStartup(page); await page.getByTestId('mode-character').click();
+  await selectSession(page, request, 'B1开场验收');
+  await expect(page.getByTestId('character-opening-message')).toContainText(custom);
+  session = await savedSession(request, 'B1开场验收'); expect(session.opening).toEqual(first.opening);
+  await page.setViewportSize({ width: 640, height: 900 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: '../build/e2e-results/character-opening-narrow.png', fullPage: true });
+});
+
 async function enterCharacters(page) {
   await page.goto('/');
   await dismissStartup(page);

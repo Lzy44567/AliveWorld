@@ -2,7 +2,13 @@
 
 Updated: 2026-10-04
 
-## Active slice — A messenger interaction acceptance
+## Completed slice — B1 optional author opening; next B2
+
+B1 completed (2026-10-04), following22h: optional explicit opening, atomic/frozen storage, safe context projection, no formal turn or ledger evidence, creation retry identity, visible opening and summaries. Python511/511, Node79/79, visibility check,144-module production build and complete Playwright/Edge33/33 (3.0m), wide/narrow screenshots inspected. Synthetic isolated data only; real-model semantic quality remains manual acceptance. Creation uncertainty is preserved in the running store, not claimed durable across application restart. No version bump, packaging or remote release this round; dev.18ZIP remains unchanged.
+
+Next verifiable slice B2 uses existing22h design: native independent behavior/dialogue example editor with explicit full-structure conversion, then shared write authority/CAS and workshop guarded publication/recovery. Read the relevant asset/editor/write tests before implementing; do not call B1 all of B. C world/preferences and M memory remain separate gates. A is completed history below.
+
+## Completed slice — A messenger interaction acceptance
 
 User authorizes development after22g discussion, and Astra design where necessary. Implement A only: compact conversation rows, left/right avatar bubbles, Enter/Shift+Enter/IME-safe keyboard, explained presentation cards, stream/key controls in current-session settings. Independent local UI preferences are scoped to browser origin and session, not LLM context or session schema; old dev.18 ZIP is not overwritten. Pure/helper and character browser checks passed; full old regression next, then source commit. B opening/examples is receiving an independent Astra engineering contract, no runtime implementation yet. C world/preference and M memory remain later gates.
 

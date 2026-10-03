@@ -102,7 +102,7 @@ class CharacterRouteTests(unittest.TestCase):
         self.assertEqual(160, len(summary['last_message_preview']))
         self.assertEqual(1, summary['latest_ai_committed_revision'])
         self.assertEqual({'session_id', 'title', 'revision', 'presentation_mode', 'created_at', 'ai_name',
-            'last_activity_at', 'last_message_preview', 'latest_ai_message_id', 'latest_ai_committed_revision', 'pending'}, set(summary))
+            'last_activity_at', 'last_message_preview', 'last_message_kind', 'latest_ai_message_id', 'latest_ai_committed_revision', 'pending'}, set(summary))
         response = self.client.get(self.prefix + '?view=summary')
         self.assertNotIn('participants', response.text)
         self.assertNotIn('PRIVATE_EXTENSION_SYNTHETIC', response.text)

@@ -77,11 +77,13 @@ def session_summary(session):
                 'schema_read_only': True, 'pending': None}
     pair = pending_attempt(session)
     last = session['turns'][-1] if session['turns'] else None
+    opening = session.get('opening')
     ai = next(p for p in session['participants'] if p['controller'] == 'ai')
     result = {k: session[k] for k in ('session_id', 'title', 'revision', 'presentation_mode', 'created_at')}
     result.update(ai_name=ai['display_name'],
                   last_activity_at=last['created_at'] if last else session['created_at'],
-                  last_message_preview=' '.join(last['ai_message']['content'].split())[:160] if last else '',
+                  last_message_preview=' '.join((last['ai_message']['content'] if last else opening['content'] if opening else '').split())[:160],
+                  last_message_kind='ai_reply' if last else 'author_opening' if opening else None,
                   latest_ai_message_id=last['ai_message']['message_id'] if last else None,
                   latest_ai_committed_revision=last['committed_revision'] if last else None,
                   pending=None if not pair else {'action_id': pair[0]['action_id'],
@@ -104,6 +106,7 @@ def session_view(session, *, detail=True):
                              for p in session['participants']]
     value['world_binding'] = None if not session.get('world_binding') else {'name': session['world_binding']['snapshot'].get('name', '')}
     if detail:
+        value['opening'] = copy.deepcopy(session.get('opening'))
         value['turns'] = [visible_turn(t) for t in session['turns'][-20:]]
         value['ledger'] = public_ledger(session)
         failures = [a for a in session['requests'] if a['attempts'][-1]['status'] in {'failed', 'cancelled', 'interrupted'}]
@@ -313,7 +316,9 @@ class CharacterChatService:
             seq += 1
             emit(name, {'v': 1, 'session_id': sid, 'action_id': aid, 'request_id': rid, 'seq': seq, **data})
         try:
-            event('accepted', {'base_revision': job['session']['revision'], 'delivery': job['delivery']})
+            omissions = [{k: item[k] for k in ('participant_id', 'field')}
+                         for item in job['report'].get('omitted', []) if item.get('field') == 'dialogue_examples']
+            event('accepted', {'base_revision': job['session']['revision'], 'delivery': job['delivery'], 'context_omissions': omissions})
             # A cancel that won before this coroutine started must still make zero calls.
             authoritative = self.repository.load(sid)
             if action_view(authoritative, action_by_id(authoritative, aid), rid)['status'] != 'pending':
@@ -344,6 +349,7 @@ class CharacterChatService:
                 attempt.update(status='committed', committed_revision=value['revision'], ended_at=now())
                 return action_view(value, action, rid), True
             result = self.repository.transaction(sid, commit)
+            result['context_omissions'] = omissions
             if result['status'] == 'committed':
                 event('committed', result)
             else:

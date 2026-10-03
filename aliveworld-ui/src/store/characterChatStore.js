@@ -9,7 +9,7 @@ export function createCharacterChatStore(api = characterChatApi, delay = ms => n
   let listGeneration = 0, spoilerGeneration = 0;
   const state = reactive({
     sessions: [], contexts: {}, activeId: '', error: '', loading: false, nextCursor: null,
-    listComplete: false, listWarning: '', visible: false, preferences: createConversationPreferences(storage), interaction: createCharacterInteractionPreferences(storage),
+    listComplete: false, listWarning: '', visible: false, creationPending: null, creationBusy: false, preferences: createConversationPreferences(storage), interaction: createCharacterInteractionPreferences(storage),
     get current() { return this.contexts[this.activeId] || null; },
     context(id) {
       if (!this.contexts[id]) this.contexts[id] = { session: null, draft: '', busy: false, settingsBusy: false, preview: '', inflight: null, failure: null, error: '', ...this.interaction.get(id), historyLoading: false, historyComplete: false, needsReload: false, spoiler: null };
@@ -64,9 +64,19 @@ export function createCharacterChatStore(api = characterChatApi, delay = ms => n
       } catch (e) { ctx.error = e.message; }
     },
     async create(payload) {
-      const session = await api.create({ client_creation_id: uuid(), ...payload });
-      this.context(session.session_id).session = session; this.activeId = session.session_id;
-      await this.refreshList(); return session;
+      if (this.creationBusy) throw Error('正在核对创建结果，请稍候。');
+      if (!this.creationPending) this.creationPending = JSON.parse(JSON.stringify({ client_creation_id: uuid(), ...payload }));
+      else if (payload && JSON.stringify(payload) !== JSON.stringify(this.creationPending)) throw Error('上次创建结果待确认，请先核对／重试原请求。');
+      this.creationBusy = true;
+      try {
+        const session = await api.create(JSON.parse(JSON.stringify(this.creationPending)));
+        this.context(session.session_id).session = session; this.activeId = session.session_id;
+        this.creationPending = null;
+        await this.refreshList(); return session;
+      } catch (e) {
+        if (['INVALID_REQUEST', 'INPUT_LIMIT', 'ROLE_FIELDS_INVALID', 'SESSION_DELETED', 'IDEMPOTENCY_MISMATCH', 'SCHEMA_READ_ONLY'].includes(e.code)) this.creationPending = null;
+        throw e;
+      } finally { this.creationBusy = false; }
     },
     async loadEarlier(id) {
       const ctx = this.context(id); if (ctx.historyLoading || ctx.historyComplete) return;
@@ -84,6 +94,7 @@ export function createCharacterChatStore(api = characterChatApi, delay = ms => n
       if (flight.request_id && data.request_id !== flight.request_id) return false;
       if (!Number.isInteger(data.seq) || data.seq <= flight.lastSeq || typeof data.request_id !== 'string') return false;
       flight.request_id = data.request_id; flight.lastSeq = data.seq;
+      if (name === 'accepted') ctx.contextNotice = Array.isArray(data.context_omissions) && data.context_omissions.some(item => item.field === 'dialogue_examples') ? '本次上下文预算不足，示例整段未发送。' : '';
       if (name === 'reply_delta') {
         if (typeof data.text !== 'string' || ctx.preview.length + data.text.length > 8000) throw new Error('预览超出安全长度，状态待确认');
         ctx.preview += data.text;
@@ -94,6 +105,7 @@ export function createCharacterChatStore(api = characterChatApi, delay = ms => n
     async settle(id, flight, result) {
       const ctx = this.context(id); if (ctx.inflight !== flight || flight.settled) return;
       flight.settled = true;
+      if (Array.isArray(result.context_omissions)) ctx.contextNotice = result.context_omissions.some(item => item.field === 'dialogue_examples') ? '本次上下文预算不足，示例整段未发送。' : '';
       ctx.preview = '';
       // Never construct committed history from preview or supplier output.
       if (result.status === 'committed' || result.status === 'already_committed') {
@@ -132,6 +144,7 @@ export function createCharacterChatStore(api = characterChatApi, delay = ms => n
       const last = ctx.session.turns?.at(-1)?.user_message;
       const flight = { action_id: retry ? failed.action_id : uuid(), request_id: '', lastSeq: 0, operation, content: retry ? failed.content : ctx.draft, withdrawnInput: typeof last === 'string' ? last : last?.content || '', status: 'accepted' };
       ctx.inflight = flight; const active = ctx.inflight; ctx.busy = true; ctx.preview = ''; ctx.error = '';
+      ctx.contextNotice = '';
       const payload = { client_action_id: flight.action_id, expected_revision: ctx.session.revision, operation, delivery: operation === 'undo' ? 'non_stream' : ctx.delivery };
       if (operation === 'send') payload.content = content;
       else payload.target_turn_id = ctx.session.turns.at(-1)?.turn_id;

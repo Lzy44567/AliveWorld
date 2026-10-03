@@ -8,6 +8,7 @@ import json
 from datetime import datetime, timezone
 from uuid import UUID, uuid4, uuid5
 from core.character_profiles import CharacterProfileError, ROLE_SEMANTICS, validate_role_fields, structured_projection
+from .opening import make_opening, normalize_opening, validate_opening
 
 
 SCHEMA_VERSION = 1
@@ -87,7 +88,7 @@ def validate_asset_ref(ref: object, *, required: bool) -> None:
 def create_session(creation_id: str, ai_profile: dict, ai_asset_ref: dict,
                    *, user_profile: dict | None = None,
                    user_asset_ref: dict | None = None, title: str | None = None,
-                   presentation_mode: str = "messenger") -> dict:
+                   presentation_mode: str = "messenger", opening_text: str = "") -> dict:
     """Pure construction. Source assets remain untouched and unaliased."""
     canonical_id(creation_id)
     if not isinstance(presentation_mode, str) or presentation_mode not in {"messenger", "roleplay"}:
@@ -109,6 +110,12 @@ def create_session(creation_id: str, ai_profile: dict, ai_asset_ref: dict,
     text(title, 80)
     creation = {"ai": ai_profile, "ai_ref": ai_asset_ref, "user": user,
                 "user_ref": user_asset_ref, "title": title, "mode": presentation_mode}
+    try:
+        opening_text = normalize_opening(opening_text)
+    except ValueError:
+        raise CharacterSessionError('INVALID_REQUEST') from None
+    if opening_text:
+        creation['opening_text'] = opening_text
     now = datetime.now(timezone.utc).isoformat()
     participants = []
     for controller, profile, ref in (("user", user, user_asset_ref),
@@ -119,13 +126,16 @@ def create_session(creation_id: str, ai_profile: dict, ai_asset_ref: dict,
                              "asset_ref": copy.deepcopy(ref),
                              "source_hash": hashlib.sha256(json_bytes(profile)).hexdigest() if ref else None,
                              "profile_snapshot": copy.deepcopy(profile)})
-    return {"schema_version": SCHEMA_VERSION,
+    result = {"schema_version": SCHEMA_VERSION,
             "session_id": str(uuid5(CREATION_NAMESPACE, creation_id)),
             "creation_fingerprint": hashlib.sha256(json_bytes(creation)).hexdigest(),
             "title": title, "revision": 0, "created_at": now, "updated_at": now,
             "presentation_mode": presentation_mode, "participants": participants,
             "world_binding": None, "turns": [], "ledger": [], "requests": [],
             "extensions": {}}
+    if opening_text:
+        result['opening'] = make_opening(opening_text, participants[1]['instance_id'], now)
+    return result
 
 
 def validate_session(value: object) -> None:
@@ -330,6 +340,10 @@ def validate_records(value):
                     raise CharacterSessionError('SESSION_CORRUPT')
         if active_count > 128:
             raise CharacterSessionError('SESSION_LIMIT')
+        pending_ids = {p[k] for a in value['requests'] for t in a['attempts']
+                       for p in [t.get('pending_input', {})] for k in ('user_message_id', 'ai_message_id') if k in p}
+        validate_opening(value.get('opening'), ai_id, value['created_at'],
+                         turn_ids | action_ids | request_ids | message_ids | entry_ids | pending_ids | participant_ids)
     except (KeyError, TypeError, ValueError, AttributeError):
         raise CharacterSessionError('SESSION_CORRUPT') from None
 

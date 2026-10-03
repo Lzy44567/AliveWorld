@@ -8,10 +8,13 @@ import CharacterConversationList from './CharacterConversationList.vue';
 import CharacterProfileDetails from './CharacterProfileDetails.vue';
 import CharacterPresentationPicker from './CharacterPresentationPicker.vue';
 import CharacterMessagePair from './CharacterMessagePair.vue';
+import CharacterOpeningEditor from './CharacterOpeningEditor.vue';
+import CharacterOpeningMessage from './CharacterOpeningMessage.vue';
 import { shouldSendCharacterKey } from '../../utils/characterInteraction.js';
 
 const creating = ref(false), aiCard = ref(''), userCard = ref(''), worldCard = ref(''), title = ref(''), mode = ref('messenger'), createBusy = ref(false), createError = ref('');
 const creationId = ref(globalThis.crypto.randomUUID());
+const openingText = ref('');
 const details = ref(false), listOpen = ref(false), messagePane = ref(null);
 const listToggle = ref(null), detailsToggle = ref(null);
 const picker = ref('');
@@ -25,13 +28,13 @@ const composing = ref(false);
 const participant = controller => session.value?.participants?.find(p => p.controller === controller);
 const run = (operation, retry = false) => store.run(store.activeId, operation, retry);
 async function create() {
-  if (!aiCard.value || createBusy.value) return;
+  if ((!aiCard.value && !store.creationPending) || createBusy.value) return;
   createBusy.value = true; createError.value = '';
   try {
-    await store.create({ client_creation_id: creationId.value, title: title.value || undefined, ai_asset_ref: { kind: 'character', key: aiCard.value },
+    await store.create(store.creationPending ? undefined : { client_creation_id: creationId.value, title: title.value || undefined, ai_asset_ref: { kind: 'character', key: aiCard.value }, opening_text: openingText.value,
       ...(userCard.value ? { user_asset_ref: { kind: 'character', key: userCard.value } } : {}),
       ...(worldCard.value ? { world_asset_ref: { kind: 'worldbook', key: worldCard.value } } : {}), presentation_mode: mode.value });
-    creating.value = false; listOpen.value = false; creationId.value = globalThis.crypto.randomUUID();
+    creating.value = false; listOpen.value = false; creationId.value = globalThis.crypto.randomUUID(); openingText.value = '';
   } catch (e) { createError.value = e.message; } finally { createBusy.value = false; }
 }
 async function open(id) { creating.value = false; listOpen.value = false; await store.open(id); await nextTick(); store.markPresented(id); }
@@ -87,6 +90,7 @@ onUnmounted(() => { mounted = false; document.removeEventListener('visibilitycha
       </div>
 
       <form v-if="creating" class="p-5 max-w-lg w-full mx-auto space-y-4 overflow-y-auto" @submit.prevent="create">
+        <fieldset :disabled="createBusy || Boolean(store.creationPending)" class="space-y-4">
         <p class="text-sm text-slate-400">卡片作为此会话的独立快照，不会修改原卡。</p>
         <label class="block text-sm">AI 扮演的角色
           <button type="button" data-testid="character-ai-card" class="field text-left" :disabled="createBusy" @click="picker='ai'">{{ aiCard || '＋ 选择角色卡' }}</button>
@@ -97,15 +101,19 @@ onUnmounted(() => { mounted = false; document.removeEventListener('visibilitycha
         <label class="block text-sm">世界书（可选）<button type="button" data-testid="character-world-card" class="field text-left" :disabled="createBusy" @click="picker='world'">{{ worldCard || '＋ 载入世界书' }}</button></label>
         <p class="text-xs text-slate-400">世界书作为本会话的独立快照；公开常驻规则及相关条目提供给角色，不改写原世界书。</p>
         <label class="block text-sm">我的身份（可选）<button type="button" data-testid="character-user-card" class="field text-left" :disabled="createBusy" @click="picker='user'">{{ userCard || '我（不加载玩家卡）' }}</button></label>
+        <CharacterOpeningEditor v-model="openingText" :card="aiCard" :disabled="createBusy || Boolean(store.creationPending)" />
+        </fieldset>
+        <p v-if="store.creationPending" class="text-xs text-amber-300">创建结果待确认；再次点击将核对／重试原请求，不会新建第二份。原请求：{{ store.creationPending.title || store.creationPending.ai_asset_ref?.key }}</p>
         <p v-if="createError" class="text-sm text-rose-300">{{ createError }}</p>
-        <div class="flex gap-2"><button data-testid="character-create" class="rounded-lg bg-indigo-700 px-4 py-2 disabled:opacity-40" :disabled="!aiCard || createBusy">{{ createBusy?'建立中…':'开始对话' }}</button><button type="button" class="text-slate-400 px-3" @click="creating=false">取消</button></div>
+        <div class="flex gap-2"><button data-testid="character-create" class="rounded-lg bg-indigo-700 px-4 py-2 disabled:opacity-40" :disabled="(!aiCard && !store.creationPending) || createBusy || Array.from(openingText).length>8000">{{ createBusy?'建立中…':store.creationPending?'核对／重试创建':'开始对话' }}</button><button type="button" class="text-slate-400 px-3" @click="creating=false">取消</button></div>
       </form>
 
       <div v-else-if="session?.schema_read_only" class="p-5 text-amber-200">此会话由更高版本创建，当前版本仅保留原文件。请升级后查看与继续对话。</div>
       <template v-else-if="session">
         <div ref="messagePane" data-testid="character-history" class="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-4 md:p-6 space-y-5">
           <button v-if="turns.length && !ctx.historyComplete" class="text-xs text-slate-400 block mx-auto" :disabled="ctx.historyLoading" @click="store.loadEarlier(store.activeId)">{{ ctx.historyLoading?'载入中…':'载入更早的对话' }}</button>
-          <div v-if="!turns.length" class="text-slate-500 text-center py-10">和 {{ participant('ai')?.display_name || '角色' }} 说点什么吧。</div>
+          <CharacterOpeningMessage v-if="session.opening" :opening="session.opening" :name="participant('ai')?.display_name" />
+          <div v-if="!turns.length && !session.opening" class="text-slate-500 text-center py-10">和 {{ participant('ai')?.display_name || '角色' }} 说点什么吧。</div>
           <CharacterMessagePair v-for="turn in turns" :key="turn.turn_id" :turn="turn" :user-name="participant('user')?.display_name" :ai-name="participant('ai')?.display_name" />
           <div v-if="ctx.busy" data-testid="character-preview" class="max-w-[90%] md:max-w-[72%] rounded-xl border border-amber-700/40 bg-slate-900 p-3">
             <div class="text-xs text-amber-300 mb-2">{{ ctx.inflight?.status==='unknown'?'状态待确认':ctx.inflight?.status==='validating'?'正在验证与保存':ctx.preview?'生成中 · 未保存':'对方正在输入中' }}</div>
@@ -113,6 +121,7 @@ onUnmounted(() => { mounted = false; document.removeEventListener('visibilitycha
           </div>
         </div>
         <div class="shrink-0 border-t border-slate-800 p-3 space-y-2">
+          <p v-if="ctx.contextNotice" data-testid="character-context-notice" class="text-xs text-amber-300">{{ ctx.contextNotice }}</p>
           <div v-if="ctx.error" data-testid="character-error" class="text-sm text-rose-300 flex flex-wrap items-center gap-2"><span>{{ ctx.error }}</span><button v-if="ctx.failure?.retryable && !ctx.busy" data-testid="character-retry" class="underline" @click="run(ctx.failure.operation,true)">重试本次生成</button><button v-if="ctx.busy && ctx.inflight?.status==='unknown'" class="underline" @click="store.recover(store.activeId,ctx.inflight)">核对状态</button></div>
           <button v-if="ctx.needsReload" class="text-xs underline text-amber-300" @click="store.open(store.activeId)">重新载入记录</button>
           <div v-if="turns.length" class="flex justify-end gap-3 text-xs text-slate-500"><button data-testid="character-regenerate" :disabled="ctx.busy || ctx.settingsBusy || readonly" @click="regenerate">重新生成末轮</button><button data-testid="character-undo" :disabled="ctx.busy || ctx.settingsBusy || readonly" @click="undo">撤回末轮</button></div>
@@ -125,6 +134,7 @@ onUnmounted(() => { mounted = false; document.removeEventListener('visibilitycha
     <aside v-if="details && session && !creating" class="absolute md:static md:shrink-0 right-0 inset-y-0 w-72 z-10 bg-slate-900 border-l border-slate-700 p-4 overflow-y-auto shadow-xl">
       <div class="flex justify-between"><h3 class="font-bold">当前对话</h3><button @click="details=false" aria-label="关闭资料">✕</button></div>
       <h4 class="mt-5 text-sm font-bold text-indigo-200">资料</h4>
+      <details v-if="session.opening" class="mt-4 text-sm"><summary>本会话预设开场</summary><p class="mt-2 whitespace-pre-wrap break-words select-text text-slate-400">{{ session.opening.content }}</p><p class="mt-2 text-xs text-slate-500">创建后冻结，不是正式回合或玩家行动证据。</p></details>
       <details v-for="p in session.participants" :key="p.instance_id" class="mt-5 text-sm"><summary class="cursor-pointer">{{ p.display_name }} · {{ p.controller==='ai'?'AI扮演':'用户扮演' }}</summary><CharacterProfileDetails v-if="p.profile_snapshot?.semantics==='role_fields_v1'" :profile="p.profile_snapshot" /><template v-else><p class="mt-2 whitespace-pre-wrap text-slate-400 select-text">{{ p.profile_snapshot?.description }}</p><details v-if="p.profile_snapshot?.starting_scene" class="mt-2"><summary>角色场景资料</summary><p class="whitespace-pre-wrap select-text">{{ p.profile_snapshot.starting_scene }}</p></details></template></details>
       <div class="mt-5 text-sm" data-testid="character-world-details"><p>世界书 · {{ session.world_binding?.name || '未载入' }}</p><p v-if="session.world_binding" class="mt-2 text-xs text-slate-500">创建时快照，不随源资产自动变化。</p></div>
 <h4 class="text-sm mt-6 mb-2">共同经历</h4><div data-testid="character-public-ledger" class="space-y-2"><p v-if="!session.ledger?.length" class="text-xs text-slate-500">暂无公开记录</p><div v-for="entry in session.ledger" :key="entry.entry_id" class="text-sm rounded bg-slate-950 p-2"><p class="whitespace-pre-wrap select-text">{{ entry.content || entry.text || entry.summary }}</p><p class="text-xs text-slate-500 mt-1">{{ entry.knowledge_type || entry.kind }} · {{ entry.source?.type==='player_statement'?'用户陈述':entry.source?.type==='model_inference'?'角色推断':'共同对话' }}</p><details v-if="entry.source" class="text-xs text-slate-400 mt-1"><summary class="cursor-pointer">来源证据</summary><p v-for="(item,index) in entry.source.evidence || []" :key="index" class="whitespace-pre-wrap select-text mt-1">{{ item.quote }}</p><p class="break-all select-text mt-1">{{ (entry.source.message_ids || []).join('、') }}</p></details></div></div>

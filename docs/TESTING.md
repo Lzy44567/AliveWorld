@@ -1,5 +1,12 @@
 # AliveWorld 测试流程
 
+## 角色预设开场B1（2026-10-04，源码更新）
+
+- `tests/test_character_opening.py`11/11：空/缺失/空白、8000Unicode边界与非法型/字段/版本、旧文件hash不变、重复创建/原开场ID、资产已删除仍先查幂等/墓碑、save与transaction冻结、独立请求投影、首轮撤回/重生成、伪造四类来源、必需预算超限零调用和完整示例裁剪安全元数据。
+- Node新增3项：有效结构卡显式开场源/不猜旧文本或source、响应丢失冻结payload和ID/不同草稿拒绝/显式同请求重试、忙碌不重复与确定性失败释放。`tools/run_checks.ps1`通过Python511/511、Node79/79、可见性检查及144模块构建；另外静默全量Python复跑511/511。
+- B1浏览器专项1/1（13.1秒）与完整Playwright/Edge33/33（3.0分钟）通过。真实前端主动复制、覆盖取消、大屏展开、成功落盘后丢响应、同ID重试、零回合/零未读、首轮上下文、重生成/撤回/重载、小屏无横向溢出均验证。宽窄截图`build/e2e-results/character-opening-wide.png`和`character-opening-narrow.png`已视觉检查。
+- 全部使用隔离合成资产/会话与假供应商，无付费调用或玩家数据读取。测试证明投影/引用校验和生命周期，不证明自然语言蕴含、真实模型角色质量；不是B2示例编辑验收。创建待确认只在本次store保留，应用彻底重载后须先核对列表。版本与EXE包未变，没有GitHub动作。
+
 ## 角色通讯式交互A（2026-10-04，源码更新）
 
 - `tools/run_checks.ps1`：Python500/500、Node76/76、可见性检查、141模块生产构建通过。Node新增6项：Enter/Shift/Ctrl/Command/IME/229/repeat、独立设置重载/删除、坏JSON/未知版本/配额、2000条容量、在途delivery不变及模式更新失败/同会话发送删除互斥。
