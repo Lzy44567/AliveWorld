@@ -7,7 +7,7 @@
 - 共享 CharacterFieldsEditor/characterFields 校验与五字段分配预览；自由卡显式采用、取消无变更、降级确认、Unicode限额不截断，编辑器和工坊复用既有大屏输入组件。
 - character_asset_write 为普通全局/局内结构编辑与工坊发布提供目标路径 gate、完整资产修订 CAS、原子写入；旧文本变化拒绝隐式降级。原source保留，卡片变更不改既有会话。
 - AI 白名单跟随自由/结构形态，完整结构校验；批量 detached candidate + 单快照，operations/undo 保存失败不污染活跃草稿。角色发布持久意图与目标指纹恢复；旧 normalized 工坊修订仅在当前目标未变时兼容升级。
-- Python 新增11项、Node新增3项；最终完整浏览器/包证据见 TESTING。界限为现有单进程服务内三个编辑/发布入口；不声称保护外部编辑器、多进程或将所有资产生命周期重构为事务系统。
+- Python 新增11项、Node新增3项；最终全量Python522、Node82、构建与浏览器33项通过，dev.19便携EXE包验证完成（TESTING含hash）。B2源码提交aa37ef4。界限为现有单进程服务内三个编辑/发布入口；不声称保护外部编辑器、多进程或将所有资产生命周期重构为事务系统。
 - 用户已明确授权 dev.19 本地包、保留 dev.18、不发布 GitHub。B停止门之后不自动扩展 C/M。
 
 ### B1历史实施记录

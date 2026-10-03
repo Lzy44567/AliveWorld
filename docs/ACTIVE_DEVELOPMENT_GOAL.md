@@ -2,9 +2,11 @@
 
 Updated: 2026-10-04
 
-## Active delivery — B2 through dev.19 local portable package
+## Completed delivery — B2 through dev.19 local portable package
 
-User authorizes goal-mode staged development through a local EXE package and confirms 1.6.0-dev.19, preserving dev.18 and no GitHub publication. B2a/b implemented: shared character write authority/revision guards, explicit structural conversion, independent field editor/workshop and atomic draft/publication recovery. Python522/Node82/build and first full browser33 passed; final cloned-card revision refresh/browser and exact-source Windows package recheck are in progress. C world/preferences and M memory remain separate design gates, not prerequisites silently added to this package. Final delivery evidence belongs here and TESTING; below sections are historical slice records.
+User authorized 1.6.0-dev.19 local EXE, preserving dev.18 and no GitHub publication. A/B1/B2 delivered: messenger UI, explicit author opening, independent character fields/examples, shared target CAS and atomic draft/publication recovery. Source commit aa37ef4. Final Python522/Node82/build and complete Edge33/33 (3.4m) passed; wide/narrow fields visually checked. Windows main EXE/updater built, package privacy/version/overwrite preservation and embedded frontend exact hash verified; ZIP SHA256 954d4b91ee6d1ce82307bf3c344986a7a44be5703ed5d885e6275f8341e5dc4b. No player data or paid API calls. Desktop EXE launch and real-model quality remain player acceptance, not claimed automatic evidence.
+
+Next verifiable gate: user tests this local package's input feel/opening/example behavior; record quality feedback before choosing C world/preferences or M memory design. Neither gate was silently added to this release, and no next implementation is automatically authorized by completion. Below sections are historical slice records.
 
 ## Completed slice — B1 optional author opening; next B2
 
