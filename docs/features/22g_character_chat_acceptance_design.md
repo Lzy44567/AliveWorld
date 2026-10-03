@@ -12,6 +12,8 @@ A实现补记：增加CharacterPresentationPicker与CharacterMessagePair展示�
 
 A最终验收：Python500/Node76/构建141模块/完整浏览器32项通过，宽窄图已检查；仅源码完成。后续B独立设计契约不改变此验收范围。
 
+B工程门已由Astra写入[22h](22h_character_opening_examples_b_contract.md)，主任务完整阅读。B1作者开场先行，B2结构示例编辑与写入一致性随后；尚无B运行代码/测试，C偏好和世界触发仍待设计。
+
 验收A：纯键盘判定/偏好容错测试，浏览器Enter/Shift+Enter/IME/长文本模式、重载后每会话偏好、模式失败/切换、流式位置、左右头像和时间及宽窄截图。全量旧回归通过后提交源码；不在本片加开场、示例结构编辑、偏好投影、记忆压缩，不改dev.18包或发布GitHub。B/C仍需各自工程设计门。
 
 ## 1. 现状与主线

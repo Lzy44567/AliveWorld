@@ -8,6 +8,8 @@ User authorizes development after22g discussion, and Astra design where necessar
 
 A completed: Python500/500, Node76/76, visibility check,141-module build and complete Playwright/Edge32/32 (3.0m); wide/narrow screenshots inspected. Source delivery only, version and dev.18 package unchanged. Next gate B opening/examples must freeze author-source/ledger and edit-authority rules before implementation, not expand this UI slice into memory or world/preference changes.
 
+A source commit3714a5b. Astra [22h](features/22h_character_opening_examples_b_contract.md) completed and read by main task; B1 optional opening atomic creation/frozen projection/ledger-source rejection is the next implementation slice, then B2 independent example editing with explicit conversion and guarded publication. No B runtime code yet. C/M remain separate gates. Do not silently treat a design document as feature completion or rewrite dev.18 ZIP.
+
 ## Latest user acceptance — design gate, not a new implementation round
 
 User has opened dev.18 and supplied six character-chat UX/product comments. Record and discuss [22g](features/22g_character_chat_acceptance_design.md): messenger-style layout/keyboard/settings, explicit optional opening, editable behavior examples, worldbook triggering and preference projection. I1 remains complete. No runtime edits/version/package changes in this feedback round. Suggested next verifiable slice is P1 messenger interaction; opening/example data contracts follow, then world/preference integration, then the separate M memory gate. Proposed defaults are not silently treated as user approval.
