@@ -42,6 +42,8 @@ def _message_text(message: dict[str, Any]) -> str:
 
 
 def _classify(system: str) -> str:
+    if "character.reply" in system:
+        return "character.reply"
     if "近期未来推演器" in system:
         return "reaction"
     if "游戏地下城主" in system:
@@ -63,6 +65,8 @@ def _classify(system: str) -> str:
 
 def _response_for(kind: str, system: str, user: str) -> dict[str, Any] | str:
     full = f"{system}\n{user}"
+    if kind == "character.reply":
+        return _character_response(user)
     if kind == "reaction":
         influence_ids = list(dict.fromkeys(re.findall(r"influence_[A-Za-z0-9_-]+", full)))
         return {
@@ -163,6 +167,37 @@ def _response_for(kind: str, system: str, user: str) -> dict[str, Any] | str:
     return {"message": "AliveWorld 自动验收假模型响应"}
 
 
+def _character_response(user: str) -> dict[str, Any] | str:
+    """The character fixture never reuses story/workshop result contracts."""
+    data = json.loads(user)
+    current = data.get("current_user_message", data.get("current_input", {}))
+    content = current.get("content", "") if isinstance(current, dict) else str(current)
+    mode = data.get("presentation_mode", "messenger")
+    reply = f"自动验收角色回复（{mode}）：{content}"
+    if "【角色坏JSON】" in content:
+        return json.dumps({"reply": reply, "ledger_ops": []}, ensure_ascii=False) + " trailing"
+    if "【角色一次失败】" in content:
+        with _lock:
+            attempts = sum(record["kind"] == "character.reply" and
+                           json.loads(record["user"]).get("current_user_message", {}).get("content") == content
+                           for record in _requests)
+        if attempts == 1:
+            return json.dumps({"reply": reply, "ledger_ops": []}, ensure_ascii=False) + " trailing"
+    operations = []
+    if "【角色账本】" in content:
+        participants = data["participants"]
+        ai_id = next(p["instance_id"] for p in participants if p["controller"] == "ai")
+        source = {"type": "player_statement", "message_ids": [current["message_id"]],
+                  "evidence": [{"message_id": current["message_id"], "quote": content[:240]}]}
+        operations = [
+            {"op": "add", "kind": "knowledge", "content": "公开记录：收到用户陈述",
+             "source": source, "visibility": {"audience_instance_ids": [p["instance_id"] for p in participants]}},
+            {"op": "add", "kind": "belief", "content": "内部记录：暂时相信用户陈述",
+             "source": {**source, "type": "model_inference"}, "visibility": {"audience_instance_ids": [ai_id]}},
+        ]
+    return {"reply": reply, "ledger_ops": operations}
+
+
 @app.get("/v1/models")
 def list_models():
     return {
@@ -199,14 +234,29 @@ def chat(payload: ChatRequest):
         def chunks():
             # Delay individual upstream chunks so browser tests can observe
             # real previews before the final settlement and persistence.
-            for offset in range(0, len(content), 12):
+            invalid_suffix = " trailing" if kind == "character.reply" and content.endswith(" trailing") else ""
+            body = content[:-len(invalid_suffix)] if invalid_suffix else content
+            pieces = [body[offset:offset + 12] for offset in range(0, len(body), 12)]
+            if invalid_suffix:
+                pieces.append(invalid_suffix)
+            for index, piece in enumerate(pieces):
+                if invalid_suffix and index == len(pieces) - 1:
+                    # The complete visible reply must be observable before
+                    # malformed trailing data proves it cannot be committed.
+                    time.sleep(0.8)
                 chunk = {
                     "id": response_id, "object": "chat.completion.chunk",
                     "created": int(time.time()), "model": payload.model,
-                    "choices": [{"index": 0, "delta": {"content": content[offset:offset + 12]}, "finish_reason": None}],
+                    "choices": [{"index": 0, "delta": {"content": piece}, "finish_reason": None}],
                 }
                 yield "data: " + json.dumps(chunk, ensure_ascii=False) + "\n\n"
-                time.sleep(0.025)
+                time.sleep((0.1 if "【角色慢流】" in user else 0.075)
+                           if kind == "character.reply" else 0.025)
+            if kind == "character.reply":
+                # Hold upstream terminal completion briefly after all visible
+                # text. Browser polling can then reliably observe unsaved
+                # preview even for a short role reply; this is not UI fake typing.
+                time.sleep(0.3)
             yield "data: " + json.dumps({
                 "id": response_id, "object": "chat.completion.chunk",
                 "created": int(time.time()), "model": payload.model,

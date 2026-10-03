@@ -13,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 
 from api.v1.asset_workshop_routes import router as asset_workshop_router
 from api.v1.causal_ledger_routes import router as causal_ledger_router
+from api.v1.character_chat_routes import router as character_chat_router
 from api.v1.developer_routes import router as developer_router
 from api.v1.game_routes import router as game_router
 from api.v1.feedback_routes import router as feedback_router
@@ -49,7 +50,7 @@ def create_app(
             CORSMiddleware,
             allow_origins=allowed_origins,
             allow_credentials=False,
-            allow_methods=["GET", "POST", "DELETE"],
+            allow_methods=["GET", "POST", "PATCH", "DELETE"],
             allow_headers=["Content-Type", "Authorization"],
         )
 
@@ -57,6 +58,7 @@ def create_app(
     application.include_router(local_asset_router, prefix="/api/v1/game", tags=["Game 局内专属资产"])
     application.include_router(causal_ledger_router, prefix="/api/v1/game", tags=["Game 暗流因果账本"])
     application.include_router(lobby_router, prefix="/api/v1/lobby", tags=["大厅与资产"])
+    application.include_router(character_chat_router, tags=["独立角色对话"])
     application.include_router(worldbook_workshop_router, prefix="/api/v1/worldbooks", tags=["世界书工坊"])
     application.include_router(world_package_router, prefix="/api/v1/world-packages", tags=["世界包与一键开始"])
     application.include_router(external_import_router, prefix="/api/v1/external-assets", tags=["外部角色卡与世界书兼容"])

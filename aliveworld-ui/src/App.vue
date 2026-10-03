@@ -9,6 +9,7 @@ import AllModals from './components/modals/AllModals.vue';
 import ToastNotice from './components/common/ToastNotice.vue';
 import UpdateNotice from './components/common/UpdateNotice.vue';
 import WorkshopWorkspace from './components/workshop/WorkshopWorkspace.vue';
+import CharacterWorkspace from './components/character/CharacterWorkspace.vue';
 import { uiStore } from './store/uiStore';
 import { configStore, waitForSystemConfig } from './store/configStore';
 import { onboardingStore } from './store/onboardingStore';
@@ -74,7 +75,8 @@ onBeforeUnmount(() => {
       <ChatBoard />
       <RightDrawer />
     </div>
-    <WorkshopWorkspace v-else />
+    <CharacterWorkspace v-else-if="uiStore.appMode === 'character'" />
+    <WorkshopWorkspace v-else-if="uiStore.appMode === 'workshop'" />
 
     <AllModals />
     

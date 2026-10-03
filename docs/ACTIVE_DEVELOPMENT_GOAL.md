@@ -4,10 +4,17 @@ Updated: 2026-10-03
 
 ## Current mainline — minimal character conversation loop
 
+### Latest verified status — dev.17 acceptance candidate
+
+R1A/R1B/R2 playable core is complete: isolated sessions and frozen card snapshots, messenger/roleplay, sourced reversible local ledger, single-call streaming/non-streaming, stop/explicit retry/regenerate/undo, persisted recovery and per-session frontend ownership. Full check: Python 484/484, Node 63/63, visibility check and 134-module production build; Playwright/Edge 28/28 including six character scenarios. Wide/narrow screenshots inspected. Synthetic isolated providers only; real character quality remains user acceptance.
+
+Final phase complete: actual Windows EXE + updater compiled and portable ZIP verified for version, private-data exclusion and overwrite preserving UserData. Actual EXE embedded archive includes all 11 character modules and excludes test modules. SHA256 d4aa66c6d34fcf366b5eb7f8ce1715958eb37509b430d4b28a3b66b1dc86e7a9. Automated desktop EXE launch command was rejected by local execution policy, so do not claim frozen-window smoke passed; user acceptance includes desktop launch and real-provider behavior. Version 1.6.0-dev.17 is user-approved; no GitHub publication. Hand off now and stop before new personality/groupchat/long-memory design. The following slice statements are chronological history, superseded by this status.
+
 - User confirmed the minimal role-loading/one-to-one conversation first. Streaming is complete; resume bounded R1A→R1B→R2 in 22b. Long-term personality evolution defaults off and is deferred P2; core-extraction prompts/UI and real-time simulation are out of MVP scope.
 - Current slice R1A-1: isolated character-session persistence and card snapshots, schema/path/size guards, atomic writes, revision conflicts and deletion tombstones. No model calls or empty character UI in this slice. Then lifecycle/API, single-response integration and streaming UI; storage tests are not evidence of a playable mode.
 - R1A-1 is implemented: 11 new storage tests, complete backend 446/446 passed. Creation/profile snapshots, atomic persistence and CAS are present; action/ledger validation, pending recovery, HTTP routes, model integration and UI remain next. This is not all of R1A or the playable character mode.
 - Product confirmations and retained future ideas are in 22c. Original card settings remain frozen; local knowledge/relationships/emotions may change. Future evolution can take effect with non-blocking notification, but no active evolution implementation now.
+- User explicitly requested continuous implementation through a completed Windows EXE package, then user acceptance. Goal now includes the playable R1A/R1B/R2 loop, existing-regression and new-character browser acceptance, and a locally verified portable package. User approved version 1.6.0-dev.17; no GitHub push/release is implied. Parallel coding uses the previously authorized 6.1 Sol medium/high models. Data, API keys and generated test tooling are excluded from the distributed ZIP.
 
 ### Completed streaming and earlier design history
 

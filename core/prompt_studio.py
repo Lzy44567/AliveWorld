@@ -21,6 +21,7 @@ from core.story_continuity import continuity_instruction
 from core.story_experience import DEFAULT_STORY_EXPERIENCE, story_experience_instruction
 from core.story_length import story_length_instruction
 from core.world_change_events import SIGNAL_INSTRUCTION
+from core.character_chat.prompts import CORE as CHARACTER_CORE, CONTRACT as CHARACTER_CONTRACT, PRESENTATION as CHARACTER_PRESENTATION
 from utils.runtime_paths import PATHS
 
 
@@ -62,6 +63,15 @@ def _settlement_section(name: str) -> Callable[[], str]:
 
 
 SLICES: tuple[PromptSlice, ...] = (
+    PromptSlice("character.reply.core", "character.reply", "角色私聊职责", "system", 100,
+                "实际接入独立角色对话；冻结角色资料，不执行人格演变。", True, (),
+                lambda: CHARACTER_CORE, "engine", "static", True),
+    PromptSlice("character.reply.contract", "character.reply", "角色回复与来源账本契约", "system", 200,
+                "原子回合、信息来源与可见性规则。", False, (),
+                lambda: CHARACTER_CONTRACT, "engine", "static", True),
+    PromptSlice("character.reply.presentation", "character.reply", "私聊表现模式", "system", 300,
+                "即时聊天与情景扮演共用同一领域引擎。", False, ("character.presentation_mode",),
+                lambda: CHARACTER_PRESENTATION, "feature", "configuration", True),
     PromptSlice("story.future.core", "story.future", "近期未来核心", "system", 100,
                 "生成候选未来、行动裁定与暗流条件判断。", True,
                 ("context.world", "context.player_character"), _yaml_prompt("reaction_prompt"),

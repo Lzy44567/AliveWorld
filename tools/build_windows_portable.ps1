@@ -13,6 +13,17 @@ $PortableName = "AliveWorld-$Version-windows-x64"
 $ArchiveRootName = "AliveWorld"
 $ZipPath = Join-Path $ReleaseDir "$PortableName.zip"
 
+function Remove-BuildTemporaryDirectory([string]$Path, [string]$ExpectedPrefix) {
+    $Resolved = [System.IO.Path]::GetFullPath($Path)
+    $TempBase = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath()).TrimEnd('\', '/')
+    $Parent = [System.IO.Path]::GetFullPath((Split-Path -Parent $Resolved)).TrimEnd('\', '/')
+    if (-not $Parent.Equals($TempBase, [System.StringComparison]::OrdinalIgnoreCase) -or
+        -not (Split-Path -Leaf $Resolved).StartsWith($ExpectedPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw "Refusing to remove a directory outside the owned build temporary root."
+    }
+    Remove-Item -LiteralPath $Resolved -Recurse -Force -ErrorAction SilentlyContinue
+}
+
 if (-not $PackageOnly) {
     if (-not $SkipFrontendBuild) {
         Push-Location (Join-Path $Project "aliveworld-ui")
@@ -54,7 +65,7 @@ if (-not $PackageOnly) {
             $RestoredUserData = Join-Path $UserDataBackupRoot "UserData"
             New-Item -ItemType Directory -Force -Path (Split-Path -Parent $SmokeUserData) | Out-Null
             Copy-Item -LiteralPath $RestoredUserData -Destination $SmokeUserData -Recurse -Force
-            Remove-Item -LiteralPath $UserDataBackupRoot -Recurse -Force -ErrorAction SilentlyContinue
+            Remove-BuildTemporaryDirectory $UserDataBackupRoot "AliveWorld-userdata-"
             Write-Host "Restored local smoke-test UserData after compilation."
         }
     }
@@ -81,7 +92,7 @@ try {
     Copy-Item -LiteralPath (Join-Path $Project "docs\USER_GUIDE.md") -Destination (Join-Path $Staging "USER_GUIDE.md")
     Compress-Archive -LiteralPath $Staging -DestinationPath $ZipPath -CompressionLevel Optimal
 } finally {
-    Remove-Item -LiteralPath $TempRoot -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-BuildTemporaryDirectory $TempRoot "AliveWorld-package-"
 }
 
 & (Join-Path $Project "tools\test_windows_portable_package.ps1") -ZipPath $ZipPath -ExpectedVersion $Version

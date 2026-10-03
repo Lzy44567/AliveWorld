@@ -9,6 +9,7 @@ from typing import Any
 CONNECTION_SCHEMA_VERSION = 1
 
 TASK_SPECS: dict[str, dict[str, str]] = {
+    "character": {"category": "text", "label": "角色私聊", "inherit_from": "story"},
     "story": {"category": "text", "label": "故事正文", "inherit_from": ""},
     "overseer": {"category": "text", "label": "暗流 Overseer", "inherit_from": "story"},
     "workshop": {"category": "text", "label": "工坊 AI", "inherit_from": "story"},

@@ -1,5 +1,14 @@
 # AliveWorld 测试流程
 
+## dev.17最简角色闭环验收（2026-10-03）
+
+- `tools/run_checks.ps1`：Python484/484、Node63/63、可见性检查、134模块生产构建通过。角色专项53/53（含既有存储11与提示词9）；新增生命周期/词法22、API5、真实SDK传输6。
+- 完整`npm run test:e2e`：Playwright/Edge28/28，2.2分钟。保留原22项，新增6项角色UI：选卡创建、双表现、真实预览先于提交、可见性/来源、并发切换隔离、重载、坏JSON保留、停止/重试、重生成/撤回、小屏入口。截图`build/e2e-results/character-wide.png`及`character-narrow.png`已视觉检查。
+- 针对真SDK的合成传输测试覆盖同一stop chunk的content、仅一次调用、取消及trace零私聊正文；假模型11/11。旧导航测试更新为真实新增的三角色切片，未删除原顺序、可达性和草稿保护断言。
+- 故障覆盖pending写失败零调用、提交失败无半回合、终态写失败只读、重启恢复、迟到attempt隔离、设置快照、来源伪造、未知字段、私有可见性、预算超限及容量。假服务不证明真实供应商/文学/人格质量。
+- 最终本地包真实构建成功；ZIP37,695,842字节，版本/私密文件排除/覆盖保留UserData检查通过，SHA256为`d4aa66c6d34fcf366b5eb7f8ce1715958eb37509b430d4b28a3b66b1dc86e7a9`。实际EXE嵌入归档含11个角色模块，无tests/tools.testing模块。
+- 自动启动EXE的命令被本机执行策略拒绝，因此冻结桌面运行smoke未完成，不以归档检查冒充启动通过。桌面启动/真实API/扮演质量交用户验收。本轮不调用付费API，不访问玩家存档，不发布GitHub。
+
 ## 角色R1A-1存储基础（2026-10-03）
 
 - `.venv/Scripts/python.exe -m unittest tests.test_character_chat_repository -v`：11/11；快照/模型投影、幂等创建、冻结底稿、CAS并发、replace失败、墓碑、防损坏覆盖、未来schema、路径/限额及双会话隔离。

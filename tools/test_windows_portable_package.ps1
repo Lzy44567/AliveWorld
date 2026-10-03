@@ -32,6 +32,9 @@ try {
     Assert-True (Test-Path -LiteralPath (Join-Path $AppRoot "AliveWorld.exe") -PathType Leaf) "AliveWorld.exe is missing."
     Assert-True (Test-Path -LiteralPath (Join-Path $AppRoot "AliveWorldUpdater.exe") -PathType Leaf) "AliveWorldUpdater.exe is missing."
     Assert-True (Test-Path -LiteralPath (Join-Path $AppRoot "_internal") -PathType Container) "PyInstaller runtime is missing."
+    $BundledVersionPath = Join-Path $AppRoot "_internal\VERSION"
+    Assert-True (Test-Path -LiteralPath $BundledVersionPath -PathType Leaf) "Bundled VERSION is missing."
+    Assert-True ((Get-Content -LiteralPath $BundledVersionPath -Raw -Encoding UTF8).Trim() -eq $ExpectedVersion) "Bundled VERSION does not match the requested release."
     Assert-True (Test-Path -LiteralPath (Join-Path $AppRoot "README.md") -PathType Leaf) "README.md is missing."
     Assert-True (Test-Path -LiteralPath (Join-Path $AppRoot "INSTALL_WINDOWS.md") -PathType Leaf) "INSTALL_WINDOWS.md is missing."
     Assert-True (Test-Path -LiteralPath (Join-Path $AppRoot "USER_GUIDE.md") -PathType Leaf) "USER_GUIDE.md is missing."
@@ -45,6 +48,11 @@ try {
             }
     )
     Assert-True ($PrivateFiles.Count -eq 0) "Public ZIP contains private configuration, save state, or logs."
+
+    foreach ($DevelopmentDirectory in @("tests", "e2e", ".git", "memories")) {
+        Assert-True (-not (Test-Path -LiteralPath (Join-Path $AppRoot $DevelopmentDirectory))) "Public ZIP contains a development-only directory."
+        Assert-True (-not (Test-Path -LiteralPath (Join-Path $AppRoot "_internal\$DevelopmentDirectory"))) "Bundled runtime contains a development-only directory."
+    }
 
     $BundledData = Join-Path $AppRoot "_internal\data"
     if (Test-Path -LiteralPath $BundledData -PathType Container) {

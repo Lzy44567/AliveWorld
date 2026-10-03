@@ -73,7 +73,8 @@ async def prompts(authorization: str = Header(default="")):
     return {"slices": list_slices(prompt_store), "variables": list_variables(), "recentRequests": recent_requests(),
             "coverage": {"story.future": "integrated", "story.settlement": "integrated", "undercurrent": "integrated",
                          "world.capture": "unmigrated", "workshop": "unmigrated", "memory": "unmigrated",
-                         "preference.analysis": "unmigrated", "image.prompt": "unmigrated"}}
+                         "preference.analysis": "unmigrated", "image.prompt": "unmigrated",
+                         "character.reply": "integrated"}}
 
 
 @router.put("/prompts/{slice_id}")

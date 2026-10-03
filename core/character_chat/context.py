@@ -1,0 +1,66 @@
+"""Permission-first, bounded context construction with whole-entry trimming."""
+import json
+import re
+from core.prompt_studio import compose_prompt, plan_model_request, RequestMessagePart
+from core.request_budget import budget_report
+from .models import CharacterSessionError, profile_projection
+
+
+def build_context(session, pending, budget_options=None):
+    ai = next(p['instance_id'] for p in session['participants'] if p['controller'] == 'ai')
+    participants = [{'instance_id': p['instance_id'], 'controller': p['controller'],
+                     'profile': profile_projection(p)} for p in session['participants']]
+    turns = session['turns'][-20:]
+    visible = [e for e in session['ledger'] if e['status'] == 'active' and ai in e['visibility']['audience_instance_ids']]
+    words = set(re.findall(r'\w+', pending['content'].casefold()))
+    visible.sort(key=lambda e: (-sum(w in e['content'].casefold() for w in words), -next(
+        (i for i, t in enumerate(session['turns']) if t['turn_id'] == e['created_turn_id']), -1), e['entry_id']))
+    intents = 0
+    ledger = []
+    for entry in visible:
+        if entry['kind'] == 'intent':
+            intents += 1
+            if intents > 8:
+                continue
+        ledger.append(entry)
+        if len(ledger) == 32:
+            break
+    binding = session.get('world_binding')
+    rules, entries = None, []
+    if binding:
+        book = binding['snapshot']
+        rules = {key: book.get(key, '') for key in ('name', 'overview', 'axioms')}
+        for entry in book.get('entries', []):
+            if entry.get('is_active') is False or '待确认' in entry.get('tags', []):
+                continue
+            keys = [k.strip() for k in entry.get('keys', '').split(',') if k.strip()]
+            projected = {key: entry.get(key) for key in ('id', 'name', 'content', 'tags')}
+            if '常驻' in entry.get('tags', []) or '绝对规则' in entry.get('tags', []):
+                rules.setdefault('entries', []).append(projected)
+            elif any(k.casefold() in pending['content'].casefold() for k in keys):
+                entries.append(projected)
+        entries = entries[:16]
+    system = compose_prompt('character.reply', {'character.presentation_mode': pending['mode']})
+    omitted = []
+    while True:
+        messages = [m for t in turns for m in (t['user_message'], t['ai_message'])
+                    if ai in m['visibility']['audience_instance_ids']]
+        data = {'participants': participants, 'world_rules': rules, 'world_related_entries': entries,
+                'ledger': ledger, 'history': messages,
+                'current_user_message': {'message_id': pending['user_message_id'], 'content': pending['content']},
+                'current_ai_message_id': pending['ai_message_id'], 'presentation_mode': pending['mode']}
+        plan = plan_model_request(system, [RequestMessagePart('character.context', json.dumps(data, ensure_ascii=False))],
+                                  temperature=0.8, max_tokens=None, trace_label='character.reply',
+                                  mode='json', contract_id='character.reply.v1')
+        report = budget_report(plan.system_prompt, plan.user_prompt, options=budget_options, manifest=plan.prompt_manifest)
+        if report['fits']:
+            report['omitted'] = omitted
+            return plan, messages, {e['entry_id'] for e in ledger}, report
+        if entries:
+            omitted.append({'world_entry_id': entries.pop()['id']})
+        elif len(turns) > 2:
+            omitted.append({'turn_id': turns.pop(0)['turn_id']})
+        elif ledger:
+            omitted.append({'entry_id': ledger.pop()['entry_id']})
+        else:
+            raise CharacterSessionError('CONTEXT_LIMIT')

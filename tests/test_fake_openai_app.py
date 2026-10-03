@@ -27,6 +27,73 @@ class FakeOpenAIAppTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("fake-story", [item["id"] for item in response.json()["data"]])
 
+    def test_character_contract_is_exact_and_separate_from_story(self):
+        response = self._chat("任务 character.reply", json.dumps({
+            "presentation_mode": "roleplay", "current_input": {"content": "你好，中文与emoji🙂"},
+        }, ensure_ascii=False))
+        raw = response.json()["choices"][0]["message"]["content"]
+        output = json.loads(raw)
+        self.assertEqual(set(output), {"reply", "ledger_ops"})
+        self.assertEqual(output["ledger_ops"], [])
+        self.assertIn("roleplay", output["reply"])
+        self.assertIn("你好，中文与emoji🙂", output["reply"])
+        self.assertEqual(self.client.get("/__test__/requests").json()["requests"][0]["kind"], "character.reply")
+
+    def test_character_sse_streams_only_once_and_finishes_strict_json(self):
+        with patch("tests.fakes.fake_openai_app.time.sleep") as delay:
+            response = self.client.post("/v1/chat/completions", json={
+                "model": "fake-story", "stream": True,
+                "messages": [{"role": "system", "content": "任务 character.reply"},
+                             {"role": "user", "content": json.dumps({"current_input": {"content": "字符🙂测试"}})}],
+            })
+        frames = [json.loads(line[6:]) for line in response.text.splitlines()
+                  if line.startswith("data: ") and line != "data: [DONE]"]
+        self.assertGreater(delay.call_count, 2)
+        output = json.loads("".join(frame["choices"][0]["delta"].get("content", "") for frame in frames))
+        self.assertEqual(set(output), {"reply", "ledger_ops"})
+        self.assertIn("字符🙂测试", output["reply"])
+        self.assertEqual(frames[-1]["choices"][0]["finish_reason"], "stop")
+        records = self.client.get("/__test__/requests").json()["requests"]
+        self.assertEqual(len(records), 1)
+        self.assertTrue(records[0]["stream"])
+
+    def test_character_malformed_fixture_does_not_change_normal_contract(self):
+        response = self._chat("任务 character.reply", json.dumps({
+            "current_input": {"content": "【角色坏JSON】合成故障"},
+        }))
+        raw = response.json()["choices"][0]["message"]["content"]
+        with self.assertRaises(json.JSONDecodeError):
+            json.loads(raw)
+        self.assertTrue(raw.endswith(" trailing"))
+
+    def test_character_ledger_has_exact_current_message_evidence_and_visibility(self):
+        message = {"message_id": "user-message", "content": "【角色账本】我喜欢蓝色🙂"}
+        payload = {"current_user_message": message, "participants": [
+            {"instance_id": "ai-id", "controller": "ai"},
+            {"instance_id": "user-id", "controller": "user"},
+        ]}
+        raw = self._chat("character.reply", json.dumps(payload, ensure_ascii=False)).json()["choices"][0]["message"]["content"]
+        output = json.loads(raw)
+        self.assertEqual(set(output), {"reply", "ledger_ops"})
+        public, private = output["ledger_ops"]
+        self.assertEqual(public["visibility"]["audience_instance_ids"], ["ai-id", "user-id"])
+        self.assertEqual(private["visibility"]["audience_instance_ids"], ["ai-id"])
+        self.assertEqual(public["source"]["type"], "player_statement")
+        self.assertEqual(private["source"]["type"], "model_inference")
+        for operation in output["ledger_ops"]:
+            self.assertEqual(operation["source"]["message_ids"], [message["message_id"]])
+            self.assertEqual(operation["source"]["evidence"], [{"message_id": message["message_id"], "quote": message["content"]}])
+            self.assertNotIn("subject_instance_id", operation)
+
+    def test_character_once_failure_succeeds_only_on_explicit_second_call(self):
+        payload = json.dumps({"current_user_message": {"content": "【角色一次失败】重试"}})
+        first = self._chat("character.reply", payload).json()["choices"][0]["message"]["content"]
+        with self.assertRaises(json.JSONDecodeError):
+            json.loads(first)
+        second = self._chat("character.reply", payload).json()["choices"][0]["message"]["content"]
+        self.assertEqual(set(json.loads(second)), {"reply", "ledger_ops"})
+        self.assertEqual(len(self.client.get("/__test__/requests").json()["requests"]), 2)
+
     def test_real_sse_chunks_preserve_json_and_record_one_request(self):
         with patch("tests.fakes.fake_openai_app.time.sleep"):
             response = self.client.post("/v1/chat/completions", json={

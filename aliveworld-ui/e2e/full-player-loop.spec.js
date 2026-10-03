@@ -640,8 +640,22 @@ test('开发者密码保护真实提示词切片并支持覆盖与恢复', async
   await expect(page.getByText('已保存为新的本地覆盖版本。')).toBeVisible();
   await expect(futureCore).toContainText('本地覆盖 v1');
   await page.getByTestId('prompt-mode-character').click();
-  await expect(page.getByTestId('prompt-mode-empty')).toContainText('角色提示词尚未接入');
-  await expect(editor).toHaveCount(0);
+  await expect(page.getByTestId('prompt-mode-empty')).toHaveCount(0);
+  const characterCore = page.locator('[data-prompt-slice="character.reply.core"]');
+  const characterContract = page.locator('[data-prompt-slice="character.reply.contract"]');
+  const characterPresentation = page.locator('[data-prompt-slice="character.reply.presentation"]');
+  for (const slice of [characterCore, characterContract, characterPresentation]) {
+    await expect(slice).toBeVisible();
+    await expect(slice).toContainText('已接入');
+  }
+  await characterCore.click();
+  await expect(editor).not.toHaveAttribute('readonly', '');
+  await expect(editor).toHaveValue(/character\.reply/);
+  await characterContract.click();
+  await expect(editor).toHaveAttribute('readonly', '');
+  await expect(editor).toHaveValue(/ledger_ops/);
+  await characterPresentation.click();
+  await expect(editor).toHaveAttribute('readonly', '');
   await page.getByTestId('prompt-mode-workshop').click();
   await page.locator('[data-prompt-slice="workshop.runtime"]').click();
   await expect(editor).toHaveAttribute('readonly', '');

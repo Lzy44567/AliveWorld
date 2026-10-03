@@ -27,11 +27,12 @@ async function setup(overrides = {}) {
 test('real registry: every slice reachable once, stable API order and unchanged input/assembly fixture', () => {
   const source = readFileSync(new URL('../../core/prompt_studio.py', import.meta.url), 'utf8');
   const slices = [...source.matchAll(/PromptSlice\("([^"]+)", "([^"]+)"/g)].map((match, index) => ({ id: match[1], task: match[2], priority: index, content: 'request-fixture' }));
-  assert.equal(slices.length, 16); const before = JSON.stringify(slices);
+  assert.equal(slices.length, 19); const before = JSON.stringify(slices);
   const lists = promptModes.map(mode => visiblePrompts(slices, mode.id));
   assert.equal(new Set(lists.flat().map(x => x.id)).size, slices.length); assert.equal(lists.flat().length, slices.length);
   for (const list of lists) { assert.deepEqual(list, slices.filter(x => promptMode(x.task) === promptMode(list[0]?.task))); assert.equal(new Set(list.map(x => x.id)).size, list.length); }
-  assert.deepEqual(visiblePrompts(slices, 'character'), []); assert.deepEqual(visiblePrompts(slices, 'general'), []);
+  assert.deepEqual(visiblePrompts(slices, 'character').map(x => x.id), ['character.reply.core', 'character.reply.contract', 'character.reply.presentation']);
+  assert.deepEqual(visiblePrompts(slices, 'general'), []);
   assert.equal(promptMode(slices.find(x => x.id === 'undercurrent.core').task), 'game');
   assert.equal(promptMode(slices.find(x => x.id === 'workshop.runtime').task), 'workshop');
   assert.equal(JSON.stringify(slices), before); assert.deepEqual(Object.values(groupPrompts(slices)).flat(), slices);

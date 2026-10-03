@@ -89,7 +89,7 @@ def create_session(creation_id: str, ai_profile: dict, ai_asset_ref: dict,
                    presentation_mode: str = "messenger") -> dict:
     """Pure construction. Source assets remain untouched and unaliased."""
     canonical_id(creation_id)
-    if presentation_mode not in {"messenger", "roleplay"}:
+    if not isinstance(presentation_mode, str) or presentation_mode not in {"messenger", "roleplay"}:
         raise CharacterSessionError("INVALID_REQUEST")
     if (user_profile is None) != (user_asset_ref is None):
         raise CharacterSessionError("INVALID_REQUEST")
@@ -134,7 +134,7 @@ def validate_session(value: object) -> None:
     text(value.get("title"), 80)
     if type(value.get("revision")) is not int or value["revision"] < 0:
         raise CharacterSessionError("SESSION_CORRUPT")
-    if value.get("presentation_mode") not in {"messenger", "roleplay"}:
+    if not isinstance(value.get('presentation_mode'), str) or value.get("presentation_mode") not in {"messenger", "roleplay"}:
         raise CharacterSessionError("SESSION_CORRUPT")
     participants = value.get("participants")
     if not isinstance(participants, list) or len(participants) != 2:
@@ -165,6 +165,157 @@ def validate_session(value: object) -> None:
     validate_depth(value["extensions"], 8)
     if len(json_bytes(value["extensions"])) > 32 * 1024:
         raise CharacterSessionError("SESSION_LIMIT")
+    binding = value.get('world_binding')
+    if binding is not None:
+        if not isinstance(binding, dict) or set(binding) != {'asset_ref', 'source_hash', 'snapshot'}:
+            raise CharacterSessionError('SESSION_CORRUPT')
+        ref = binding['asset_ref']
+        if not isinstance(ref, dict) or set(ref) != {'kind', 'key'} or ref.get('kind') != 'worldbook':
+            raise CharacterSessionError('SESSION_CORRUPT')
+        text(ref.get('key'), 1024)
+        text(binding.get('source_hash'), 64)
+        if not isinstance(binding.get('snapshot'), dict):
+            raise CharacterSessionError('SESSION_CORRUPT')
+        validate_depth(binding['snapshot'], 32)
+        if len(json_bytes(binding['snapshot'])) > MAX_SNAPSHOT_BYTES:
+            raise CharacterSessionError('SESSION_LIMIT')
+    validate_records(value)
+
+
+def validate_records(value):
+    """Fail closed on malformed persisted runtime records before lifecycle use."""
+    try:
+        participant_ids = {p['instance_id'] for p in value['participants']}
+        turn_ids, action_ids, request_ids, message_ids, entry_ids = set(), set(), set(), set(), set()
+        messages, inverses = {}, []
+        ai_id = next(p['instance_id'] for p in value['participants'] if p['controller'] == 'ai')
+        user_id = next(p['instance_id'] for p in value['participants'] if p['controller'] == 'user')
+        def turn(record, *, archived=False):
+            canonical_id(record['turn_id'])
+            canonical_id(record['action_id'])
+            canonical_id(record['request_id'])
+            if record['turn_id'] in turn_ids:
+                raise CharacterSessionError('SESSION_CORRUPT')
+            turn_ids.add(record['turn_id'])
+            for key in ('user_message', 'ai_message'):
+                m = record[key]
+                canonical_id(m['message_id'])
+                if m['message_id'] in message_ids or m['turn_id'] != record['turn_id']:
+                    raise CharacterSessionError('SESSION_CORRUPT')
+                message_ids.add(m['message_id'])
+                messages[m['message_id']] = m
+                if m['speaker_instance_id'] not in participant_ids or set(m['visibility']['audience_instance_ids']) != participant_ids:
+                    raise CharacterSessionError('SESSION_CORRUPT')
+                if m['speaker_instance_id'] != (user_id if key == 'user_message' else ai_id):
+                    raise CharacterSessionError('SESSION_CORRUPT')
+                text(m['content'], 4000 if key == 'user_message' else 8000)
+                if m['presentation_mode'] not in {'messenger', 'roleplay'}:
+                    raise CharacterSessionError('SESSION_CORRUPT')
+            if type(record['committed_revision']) is not int or record['committed_revision'] <= 0:
+                raise CharacterSessionError('SESSION_CORRUPT')
+            inverse = record['ledger_inverse']
+            if set(inverse) != {'added_entry_ids', 'previous_entries'} or not isinstance(inverse['added_entry_ids'], list) or not isinstance(inverse['previous_entries'], list):
+                raise CharacterSessionError('SESSION_CORRUPT')
+            if len(inverse['added_entry_ids']) > 6 or len(inverse['previous_entries']) > 6:
+                raise CharacterSessionError('SESSION_CORRUPT')
+            for eid in inverse['added_entry_ids']:
+                canonical_id(eid)
+            inverses.extend(inverse['previous_entries'])
+        for record in value['turns']:
+            turn(record)
+        pending_count, attempt_count = 0, 0
+        for action in value['requests']:
+            canonical_id(action['action_id'])
+            if action['action_id'] in action_ids or action['operation'] not in {'send', 'regenerate', 'undo'}:
+                raise CharacterSessionError('SESSION_CORRUPT')
+            action_ids.add(action['action_id'])
+            text(action['fingerprint'], 64)
+            if action.get('result_state') not in {None, 'active', 'withdrawn', 'replaced'}:
+                raise CharacterSessionError('SESSION_CORRUPT')
+            attempts = action['attempts']
+            if not isinstance(attempts, list) or not attempts:
+                raise CharacterSessionError('SESSION_CORRUPT')
+            for attempt in attempts:
+                attempt_count += 1
+                rid = canonical_id(attempt['request_id'])
+                if rid in request_ids or attempt['status'] not in {'pending', 'committed', 'failed', 'cancelled', 'interrupted'}:
+                    raise CharacterSessionError('SESSION_CORRUPT')
+                request_ids.add(rid)
+                if type(attempt['base_revision']) is not int or attempt['base_revision'] < 0:
+                    raise CharacterSessionError('SESSION_CORRUPT')
+                if attempt['status'] == 'pending':
+                    pending_count += 1
+                    pending = attempt['pending_input']
+                    text(pending['content'], 4000)
+                    canonical_id(pending['user_message_id'])
+                    canonical_id(pending['ai_message_id'])
+                    if pending['mode'] not in {'messenger', 'roleplay'}:
+                        raise CharacterSessionError('SESSION_CORRUPT')
+                elif 'pending_input' in attempt:
+                    raise CharacterSessionError('SESSION_CORRUPT')
+            if action.get('archived_turn') is not None:
+                turn(action['archived_turn'], archived=True)
+                if action['archived_turn']['action_id'] != action['action_id']:
+                    raise CharacterSessionError('SESSION_CORRUPT')
+        if pending_count > 1:
+            raise CharacterSessionError('SESSION_CORRUPT')
+        if attempt_count > 4096:
+            raise CharacterSessionError('SESSION_LIMIT')
+        for record in value['turns']:
+            if record['action_id'] not in action_ids or record['request_id'] not in request_ids:
+                raise CharacterSessionError('SESSION_CORRUPT')
+            owner = next(a for a in value['requests'] if a['action_id'] == record['action_id'])
+            attempt = next(t for t in owner['attempts'] if t['request_id'] == record['request_id'])
+            if owner.get('result_turn_id') != record['turn_id'] or owner.get('result_state') != 'active' or attempt['status'] != 'committed':
+                raise CharacterSessionError('SESSION_CORRUPT')
+        active_count = 0
+        for index, entry in enumerate([*value['ledger'], *inverses]):
+            eid = canonical_id(entry['entry_id'])
+            if (index < len(value['ledger']) and eid in entry_ids) or entry['subject_instance_id'] != ai_id:
+                raise CharacterSessionError('SESSION_CORRUPT')
+            if index < len(value['ledger']):
+                entry_ids.add(eid)
+            text(entry['content'], 400)
+            if entry['status'] not in {'active', 'superseded'} or entry['kind'] not in {'knowledge', 'belief', 'experience', 'intent', 'relationship'}:
+                raise CharacterSessionError('SESSION_CORRUPT')
+            if entry['status'] == 'active' and index < len(value['ledger']):
+                active_count += 1
+            audience = entry['visibility']['audience_instance_ids']
+            if not isinstance(audience, list) or len(audience) != len(set(audience)) or set(audience) not in ({ai_id}, participant_ids):
+                raise CharacterSessionError('SESSION_CORRUPT')
+            if entry['kind'] == 'relationship' and entry.get('about_instance_id') != user_id:
+                raise CharacterSessionError('SESSION_CORRUPT')
+            if entry.get('about_instance_id') is not None and entry['about_instance_id'] not in participant_ids:
+                raise CharacterSessionError('SESSION_CORRUPT')
+            canonical_id(entry['created_turn_id'])
+            if entry['created_turn_id'] not in turn_ids:
+                raise CharacterSessionError('SESSION_CORRUPT')
+            source = entry['source']
+            if set(source) != {'type', 'message_ids', 'evidence'}:
+                raise CharacterSessionError('SESSION_CORRUPT')
+            if source['type'] not in {'author', 'player_statement', 'dialogue_event', 'model_inference'}:
+                raise CharacterSessionError('SESSION_CORRUPT')
+            if not isinstance(source['message_ids'], list) or not isinstance(source['evidence'], list):
+                raise CharacterSessionError('SESSION_CORRUPT')
+            if not (0 if source['type'] == 'author' else 1) <= len(source['message_ids']) <= 2 or len(source['evidence']) > 2:
+                raise CharacterSessionError('SESSION_CORRUPT')
+            if len(source['message_ids']) != len(set(source['message_ids'])):
+                raise CharacterSessionError('SESSION_CORRUPT')
+            if source['type'] == 'model_inference' and entry['kind'] not in {'belief', 'intent', 'relationship'}:
+                raise CharacterSessionError('SESSION_CORRUPT')
+            for mid in source['message_ids']:
+                if mid not in messages or not set(audience) <= set(messages[mid]['visibility']['audience_instance_ids']):
+                    raise CharacterSessionError('SESSION_CORRUPT')
+            for evidence in source['evidence']:
+                if set(evidence) != {'message_id', 'quote'} or evidence['message_id'] not in source['message_ids']:
+                    raise CharacterSessionError('SESSION_CORRUPT')
+                text(evidence['quote'], 240)
+                if evidence['quote'] not in messages[evidence['message_id']]['content']:
+                    raise CharacterSessionError('SESSION_CORRUPT')
+        if active_count > 128:
+            raise CharacterSessionError('SESSION_LIMIT')
+    except (KeyError, TypeError, ValueError, AttributeError):
+        raise CharacterSessionError('SESSION_CORRUPT') from None
 
 
 def profile_projection(participant: dict) -> dict:

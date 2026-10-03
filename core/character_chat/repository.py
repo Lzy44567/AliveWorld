@@ -145,6 +145,36 @@ class CharacterSessionRepository:
             self._write(value)
             return copy.deepcopy(value)
 
+    def transaction(self, session_id: str, operation):
+        """Short aggregate lock; request states need not advance domain revision."""
+        with self._guard(canonical_id(session_id)):
+            old = self._load(session_id)
+            if old.get('deleted') is True:
+                raise CharacterSessionError('SESSION_DELETED')
+            validate_session(old)
+            candidate = copy.deepcopy(old)
+            result, changed = operation(candidate)
+            if changed:
+                if candidate['revision'] not in (old['revision'], old['revision'] + 1):
+                    raise CharacterSessionError('REVISION_CONFLICT')
+                for key in ('participants', 'world_binding', 'creation_fingerprint', 'created_at'):
+                    if candidate.get(key) != old.get(key):
+                        raise CharacterSessionError('PROFILE_FROZEN')
+                candidate['updated_at'] = datetime.now(timezone.utc).isoformat()
+                self._write(candidate)
+            return copy.deepcopy(result)
+
+    def session_ids(self):
+        if not self.directory.exists():
+            return []
+        ids = []
+        for path in self.directory.glob('*.json'):
+            try:
+                ids.append(canonical_id(path.stem))
+            except CharacterSessionError:
+                continue
+        return sorted(ids)
+
     def delete(self, session_id: str, *, expected_revision: int) -> None:
         canonical_id(session_id)
         if type(expected_revision) is not int:
@@ -156,4 +186,6 @@ class CharacterSessionRepository:
             validate_session(old)
             if old["revision"] != expected_revision:
                 raise CharacterSessionError("REVISION_CONFLICT")
+            if any(a.get('status') == 'pending' for action in old['requests'] for a in action.get('attempts', [])):
+                raise CharacterSessionError('SESSION_BUSY')
             self._write({"schema_version": 1, "session_id": session_id, "deleted": True})

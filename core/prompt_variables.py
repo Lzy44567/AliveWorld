@@ -135,6 +135,8 @@ VARIABLES: tuple[PromptVariable, ...] = (
         "text", "user_preferences", ("story.settlement",), "omit",
         "story_private", "plain_text", "session", (),
     ),
+    PromptVariable("character.presentation_mode", "角色会话表现模式", "本轮即时聊天或情景扮演模式，不改变身份。",
+                   "text", "character_chat", ("character.reply",), "empty_text", "public", "plain_text", "configuration"),
 )
 
 VARIABLE_BY_ID = {item.id: item for item in VARIABLES}
