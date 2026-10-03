@@ -2,6 +2,10 @@
 
 Updated: 2026-10-03
 
+## Next-stage planning after packaged dev.17
+
+User asked to continue and distinguish existing design from new design. Current phase is the design gate in [22d](features/22d_character_next_stage.md): establish character-quality baseline, then freeze card semantics/compatibility (I1), then design sourced long-term memory. Do not implement groupchat/evolution or claim I1/long-memory fully designed. dev.17 package remains unchanged; desktop/real-model acceptance remains pending. This supersedes the following historical current-slice labels, not their completed evidence.
+
 ## Current mainline — minimal character conversation loop
 
 ### Latest verified status — dev.17 acceptance candidate
