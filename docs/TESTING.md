@@ -1,5 +1,12 @@
 # AliveWorld 测试流程
 
+## 角色通讯式交互A（2026-10-04，源码更新）
+
+- `tools/run_checks.ps1`：Python500/500、Node76/76、可见性检查、141模块生产构建通过。Node新增6项：Enter/Shift/Ctrl/Command/IME/229/repeat、独立设置重载/删除、坏JSON/未知版本/配额、2000条容量、在途delivery不变及模式更新失败/同会话发送删除互斥。
+- 角色浏览器专项10/10通过（1.5分钟），保留既有9项；追加输入IME与Shift换行不请求、Enter一次发送、长文本Ctrl发送、流式位置/实际非流式调用、模式解释及真实模型路由参数、每会话重载、小屏无横向溢出。截图`build/e2e-results/character-chat-ux-wide.png`与`character-chat-ux-narrow.png`已视觉检查。
+- 完整旧浏览器回归待最终记录；仅隔离合成数据与假供应商，零付费调用。未重打包/改dev.18ZIP，不宣称开场或示例编辑已经实现。
+- 最终完整Playwright/Edge32/32通过（3.0分钟），含全部既有故事/工坊/角色/日志/更新验收；修改旧下拉选择断言为radio/开关真实操作，没有删除对应模式、非流式或重载断言。源码交付不改变现有dev.18包，真实性格质量未在本轮评测。
+
 ## dev.18角色卡I1（2026-10-04）
 
 - 初步全量：Python498/498、Node70/70、可见性与138模块构建；Playwright/Edge31/31通过（2.9分钟），外部卡导入→分项预览→模型白名单→转换编辑→新旧会话重载均通过。宽屏`build/e2e-results/character-i1-profile.png`已视觉检查，旧宽/窄角色用例仍保留。

@@ -15,7 +15,7 @@ try {
         if ($LASTEXITCODE -ne 0) { throw "Feedback/prompt lifecycle tests failed with exit code $LASTEXITCODE" }
         node --test tests/streaming.test.mjs
         if ($LASTEXITCODE -ne 0) { throw "Streaming tests failed with exit code $LASTEXITCODE" }
-        node --test tests/characterChat.test.mjs tests/characterConversationList.test.mjs
+        node --test tests/characterChat.test.mjs tests/characterConversationList.test.mjs tests/characterInteraction.test.mjs
         if ($LASTEXITCODE -ne 0) { throw "Character conversation tests failed with exit code $LASTEXITCODE" }
         npm run build
         if ($LASTEXITCODE -ne 0) { throw "Frontend build failed with exit code $LASTEXITCODE" }

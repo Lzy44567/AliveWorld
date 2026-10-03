@@ -1,6 +1,7 @@
 import { reactive } from 'vue';
 import { characterChatApi } from '../api/characterChatApi.js';
 import { createConversationPreferences, detailReadMarker } from '../utils/characterConversationList.js';
+import { createCharacterInteractionPreferences } from '../utils/characterInteraction.js';
 
 const uuid = () => globalThis.crypto.randomUUID();
 const terminal = status => ['committed', 'cancelled', 'failed', 'interrupted'].includes(status);
@@ -8,11 +9,16 @@ export function createCharacterChatStore(api = characterChatApi, delay = ms => n
   let listGeneration = 0, spoilerGeneration = 0;
   const state = reactive({
     sessions: [], contexts: {}, activeId: '', error: '', loading: false, nextCursor: null,
-    listComplete: false, listWarning: '', visible: false, preferences: createConversationPreferences(storage),
+    listComplete: false, listWarning: '', visible: false, preferences: createConversationPreferences(storage), interaction: createCharacterInteractionPreferences(storage),
     get current() { return this.contexts[this.activeId] || null; },
     context(id) {
-      if (!this.contexts[id]) this.contexts[id] = { session: null, draft: '', busy: false, preview: '', inflight: null, failure: null, error: '', delivery: 'stream', historyLoading: false, historyComplete: false, needsReload: false, spoiler: null };
+      if (!this.contexts[id]) this.contexts[id] = { session: null, draft: '', busy: false, settingsBusy: false, preview: '', inflight: null, failure: null, error: '', ...this.interaction.get(id), historyLoading: false, historyComplete: false, needsReload: false, spoiler: null };
       return this.contexts[id];
+    },
+    setInteraction(id, changes) {
+      const ctx = this.context(id);
+      if (ctx.busy || !this.interaction.set(id, changes)) return;
+      Object.assign(ctx, this.interaction.get(id));
     },
     async refreshList() {
       const generation = ++listGeneration; this.loading = true;
@@ -119,7 +125,7 @@ export function createCharacterChatStore(api = characterChatApi, delay = ms => n
       } finally { flight.recovering = false; }
     },
     async run(id, operation = 'send', retry = false) {
-      const ctx = this.context(id); if (ctx.busy || !ctx.session || ctx.needsReload || ctx.session.schema_read_only) return;
+      const ctx = this.context(id); if (ctx.busy || ctx.settingsBusy || !ctx.session || ctx.needsReload || ctx.session.schema_read_only) return;
       this.preferences.ensure(detailReadMarker(ctx.session));
       const content = ctx.draft.trim(); if (operation === 'send' && !retry && !content) return;
       const failed = ctx.failure;
@@ -154,8 +160,14 @@ export function createCharacterChatStore(api = characterChatApi, delay = ms => n
       try { const result = await api.cancel(id, flight.request_id); if (terminal(result.status) || result.status === 'already_committed') await this.settle(id, flight, result); }
       catch (e) { ctx.error = '停止结果待确认：' + e.message; }
     },
-    async update(id, changes) { const ctx = this.context(id); if (ctx.busy || ctx.needsReload || ctx.session.schema_read_only) return; ctx.session = await api.update(id, { expected_revision: ctx.session.revision, ...changes }); await this.refreshList(); },
-    async remove(id) { const ctx = this.context(id); if (ctx.busy || ctx.needsReload || ctx.session.schema_read_only) return; await api.remove(id, ctx.session.revision); this.preferences.remove(id); delete this.contexts[id]; if (this.activeId === id) this.activeId = ''; await this.refreshList(); },
+    async update(id, changes) {
+      const ctx = this.context(id);
+      if (ctx.busy || ctx.settingsBusy || ctx.needsReload || ctx.session.schema_read_only) return;
+      ctx.settingsBusy = true;
+      try { ctx.session = await api.update(id, { expected_revision: ctx.session.revision, ...changes }); await this.refreshList(); }
+      finally { ctx.settingsBusy = false; }
+    },
+    async remove(id) { const ctx = this.context(id); if (ctx.busy || ctx.settingsBusy || ctx.needsReload || ctx.session.schema_read_only) return; await api.remove(id, ctx.session.revision); this.preferences.remove(id); this.interaction.remove(id); delete this.contexts[id]; if (this.activeId === id) this.activeId = ''; await this.refreshList(); },
   });
   return state;
 }

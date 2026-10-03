@@ -2,6 +2,16 @@
 
 Updated: 2026-10-04
 
+## Active slice — A messenger interaction acceptance
+
+User authorizes development after22g discussion, and Astra design where necessary. Implement A only: compact conversation rows, left/right avatar bubbles, Enter/Shift+Enter/IME-safe keyboard, explained presentation cards, stream/key controls in current-session settings. Independent local UI preferences are scoped to browser origin and session, not LLM context or session schema; old dev.18 ZIP is not overwritten. Pure/helper and character browser checks passed; full old regression next, then source commit. B opening/examples is receiving an independent Astra engineering contract, no runtime implementation yet. C world/preference and M memory remain later gates.
+
+A completed: Python500/500, Node76/76, visibility check,141-module build and complete Playwright/Edge32/32 (3.0m); wide/narrow screenshots inspected. Source delivery only, version and dev.18 package unchanged. Next gate B opening/examples must freeze author-source/ledger and edit-authority rules before implementation, not expand this UI slice into memory or world/preference changes.
+
+## Latest user acceptance — design gate, not a new implementation round
+
+User has opened dev.18 and supplied six character-chat UX/product comments. Record and discuss [22g](features/22g_character_chat_acceptance_design.md): messenger-style layout/keyboard/settings, explicit optional opening, editable behavior examples, worldbook triggering and preference projection. I1 remains complete. No runtime edits/version/package changes in this feedback round. Suggested next verifiable slice is P1 messenger interaction; opening/example data contracts follow, then world/preference integration, then the separate M memory gate. Proposed defaults are not silently treated as user approval.
+
 ## Current stage — I1 card semantics through a local portable package
 
 Completed 2026-10-04: I1 implemented together with previous card-picker/world-binding/UX-S1 source changes. Final checks Python500/500, Node70/70, visibility, 138-module production build and complete Playwright/Edge31/31 (3.2m, includes workshop publication). Windows main EXE/updater compiled; dev.18 ZIP structure/version/privacy/overwrite-preserving-UserData passed, embedded modules and frontend hash verified. ZIP SHA25619fef8466d90b7bfc6b83126949222d5a30b09f0d4ee3427640e7bef9a0211b7. Old dev.17 package retained. No paid calls, player-directory changes, push/tag/remote release. Automated desktop launch remains unverified after the earlier policy rejection; hand off desktop/real-model acceptance to user. Stop here; subsequent M requires design and explicit scope confirmation.
