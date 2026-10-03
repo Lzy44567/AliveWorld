@@ -1,6 +1,14 @@
 # Active development goal
 
-Updated: 2026-10-03
+Updated: 2026-10-04
+
+## Current stage — I1 card semantics through a local portable package
+
+Completed 2026-10-04: I1 implemented together with previous card-picker/world-binding/UX-S1 source changes. Final checks Python500/500, Node70/70, visibility, 138-module production build and complete Playwright/Edge31/31 (3.2m, includes workshop publication). Windows main EXE/updater compiled; dev.18 ZIP structure/version/privacy/overwrite-preserving-UserData passed, embedded modules and frontend hash verified. ZIP SHA25619fef8466d90b7bfc6b83126949222d5a30b09f0d4ee3427640e7bef9a0211b7. Old dev.17 package retained. No paid calls, player-directory changes, push/tag/remote release. Automated desktop launch remains unverified after the earlier policy rejection; hand off desktop/real-model acceptance to user. Stop here; subsequent M requires design and explicit scope confirmation.
+
+User authorizes design followed directly by implementation, verification and Windows packaging. Final goal: external role cards have distinct persona/scenario/example semantics without modifying old conversations; deliver these changes together with UX-S1 in a local acceptance ZIP. First gate: freeze22f; then adapter/creation marker/projection and budget; then visible semantics/editor fallback; targeted and full regression; versioned local EXE/ZIP. No GitHub publication or paid model calls.
+
+Story-memory reuse is being assessed and recorded, not substituted for the existing I1 mainline. Shared budget/complete-turn slicing/model routing can be reused; character knowledge/source/visibility and withdrawal invalidation require a distinct policy. No automatic character compaction, unlimited-memory claim or every-turn summarizer in this stage. Formal author openings, macros, inner worldbook activation, groupchat and personality evolution remain separate design gates.
 
 ## Latest slice — UX-S1 character sidebars
 

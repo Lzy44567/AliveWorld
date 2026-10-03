@@ -58,6 +58,10 @@ def build_context(session, pending, budget_options=None):
             return plan, messages, {e['entry_id'] for e in ledger}, report
         if entries:
             omitted.append({'world_entry_id': entries.pop()['id']})
+        elif any(p['profile'].get('semantics') == 'role_fields_v1' and p['profile'].get('dialogue_examples') for p in participants):
+            p = next(p for p in participants if p['profile'].get('semantics') == 'role_fields_v1' and p['profile'].get('dialogue_examples'))
+            p['profile'].pop('dialogue_examples')
+            omitted.append({'participant_id': p['instance_id'], 'field': 'dialogue_examples'})
         elif len(turns) > 2:
             omitted.append({'turn_id': turns.pop(0)['turn_id']})
         elif ledger:

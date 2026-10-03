@@ -65,7 +65,7 @@ const addRelationship = () => { (edit.value.relationships ||= []).push({ target:
 </script>
 
 <template>
-  <aside :class="uiStore.leftDrawerOpen ? 'w-[340px]' : 'w-0'" class="relative z-20 flex shrink-0 flex-col overflow-hidden border-r border-cyan-950 bg-aw_panel shadow-xl transition-all duration-300">
+  <aside data-testid="workshop-draft-sidebar" :class="uiStore.leftDrawerOpen ? 'w-[340px]' : 'w-0'" class="relative z-20 flex shrink-0 flex-col overflow-hidden border-r border-cyan-950 bg-aw_panel shadow-xl transition-all duration-300">
     <div class="min-w-[340px] border-b border-slate-800 bg-slate-900 px-4 py-3"><h2 class="text-sm font-bold text-cyan-200">🗂️ 工坊草稿</h2><p class="mt-1 text-[10px] text-slate-500">结构导航与直接编辑</p></div>
     <div class="min-h-0 min-w-[340px] flex-1 overflow-y-auto p-4 custom-scrollbar">
       <p v-if="!workshopStore.draft" class="rounded-lg border border-dashed border-slate-700 p-6 text-center text-xs text-slate-500">从右侧选择资产后，这里显示草稿结构。</p>
@@ -77,6 +77,8 @@ const addRelationship = () => { (edit.value.relationships ||= []).push({ target:
           <WorldbookWorkshopDraft />
         </template>
         <template v-else-if="type==='characters'">
+          <p v-if="workshopStore.draft.role_fields" data-testid="workshop-role-semantics-warning" class="mb-3 rounded border border-amber-800 p-2 text-xs text-amber-200">此卡含独立字段。修改描述或开场并发布后转为自由文本，原始导入资料保留，现有对话不变；撤销回原稿则保留结构。</p>
+          <p v-else-if="workshopStore.draft.role_fields===null" class="mb-3 text-xs text-slate-400">当前草稿已转为自由文本；发布前仍可撤销草稿改动。</p>
           <label class="mb-3 flex items-center gap-2 rounded border border-slate-700 p-2 text-xs text-slate-300"><input v-model="edit.is_player" type="checkbox">玩家扮演角色</label>
           <label class="block"><span class="field-label">人物设定</span><ExpandableTextarea v-model="edit.description" label="人物设定" textarea-class="field h-64" /></label>
           <label class="mt-3 block"><span class="field-label">登场情境</span><ExpandableTextarea v-model="edit.starting_scene" label="登场情境" textarea-class="field h-24" /></label>

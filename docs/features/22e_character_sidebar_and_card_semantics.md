@@ -1,5 +1,7 @@
 # 角色会话侧栏与卡片语义：分开交付的下一片
 
+2026-10-04状态补记：UX-S1与前一轮选卡/世界书源码修复合并进入本地dev.18验收包；后续I1已经另按[22f](22f_character_card_semantics_i1.md)设计并实现。本文原第7/8节的设计门由22f局部覆盖，正式作者开场与长期记忆仍后置。
+
 日期：2026-10-03。核查基准：`f888efa` / `1.6.0-dev.17`。Astra冻结UX-S1设计，Sol已实施；实际完成范围与证据见第9节。第7/8节仍是后续设计门，不代表实现。承接 [22b](22b_character_private_chat_r0_contract.md)、[22c](22c_character_product_vision.md)、[22d](22d_character_next_stage.md)。
 
 ## 1. 主线、确认与停止门

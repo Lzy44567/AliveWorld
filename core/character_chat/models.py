@@ -7,6 +7,7 @@ import hashlib
 import json
 from datetime import datetime, timezone
 from uuid import UUID, uuid4, uuid5
+from core.character_profiles import CharacterProfileError, ROLE_SEMANTICS, validate_role_fields, structured_projection
 
 
 SCHEMA_VERSION = 1
@@ -94,9 +95,15 @@ def create_session(creation_id: str, ai_profile: dict, ai_asset_ref: dict,
     if (user_profile is None) != (user_asset_ref is None):
         raise CharacterSessionError("INVALID_REQUEST")
     validate_profile(ai_profile, ai=True)
-    validate_asset_ref(ai_asset_ref, required=True)
     user = {"name": "我", "description": ""} if user_profile is None else user_profile
     validate_profile(user, ai=False)
+    for profile in (ai_profile, user_profile):
+        if profile and profile.get('role_fields') is not None:
+            try:
+                validate_role_fields(profile['role_fields'])
+            except CharacterProfileError:
+                raise CharacterSessionError('ROLE_FIELDS_INVALID') from None
+    validate_asset_ref(ai_asset_ref, required=True)
     validate_asset_ref(user_asset_ref, required=False)
     title = ai_profile["name"] if title is None else title
     text(title, 80)
@@ -107,6 +114,7 @@ def create_session(creation_id: str, ai_profile: dict, ai_asset_ref: dict,
     for controller, profile, ref in (("user", user, user_asset_ref),
                                      ("ai", ai_profile, ai_asset_ref)):
         participants.append({"instance_id": str(uuid4()), "controller": controller,
+                             "profile_semantics": ROLE_SEMANTICS if profile.get('role_fields') is not None else 'legacy',
                              "display_name": profile["name"],
                              "asset_ref": copy.deepcopy(ref),
                              "source_hash": hashlib.sha256(json_bytes(profile)).hexdigest() if ref else None,
@@ -151,6 +159,14 @@ def validate_session(value: object) -> None:
     for p in participants:
         text(p.get("display_name"), 80)
         validate_profile(p.get("profile_snapshot"), ai=p["controller"] == "ai")
+        marker = p.get('profile_semantics', 'legacy')
+        if not isinstance(marker, str) or marker not in {'legacy', ROLE_SEMANTICS}:
+            raise CharacterSessionError('SCHEMA_READ_ONLY')
+        if marker == ROLE_SEMANTICS:
+            try:
+                validate_role_fields(p['profile_snapshot'].get('role_fields'))
+            except CharacterProfileError:
+                raise CharacterSessionError('SESSION_CORRUPT') from None
         validate_asset_ref(p.get("asset_ref"), required=p["controller"] == "ai")
     for key, limit in (("turns", 512), ("ledger", 2048), ("requests", 2048)):
         if not isinstance(value.get(key), list):
@@ -318,7 +334,14 @@ def validate_records(value):
         raise CharacterSessionError('SESSION_CORRUPT') from None
 
 
-def profile_projection(participant: dict) -> dict:
+def profile_projection(participant: dict, *, detail=False) -> dict:
     """Never inject external extensions, metadata or player/NPC flags."""
     profile = participant["profile_snapshot"]
+    if participant.get('profile_semantics') == ROLE_SEMANTICS:
+        try:
+            return structured_projection(profile.get('role_fields'), profile.get('name', ''), detail=detail)
+        except CharacterProfileError:
+            raise CharacterSessionError('ROLE_FIELDS_INVALID') from None
+    if participant.get('profile_semantics', 'legacy') != 'legacy':
+        raise CharacterSessionError('SCHEMA_READ_ONLY')
     return {key: profile.get(key, "") for key in ("name", "description", "starting_scene")}

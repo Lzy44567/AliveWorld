@@ -12,6 +12,8 @@ from utils.file_io import DATA_DIR, CHAR_DIR, STYLE_DIR, WORLD_DIR, ENTITY_DIR, 
 from utils.asset_catalog import list_asset_names, list_asset_summaries, personal_asset_dir, resolve_asset_path, resolve_template_path
 from utils.sys_logger import read_logs_parsed
 from core.worldbook import normalize_worldbook, save_worldbook_atomic
+from core.character_profiles import coordinate_character_write
+from utils.atomic_yaml import save_yaml_atomic
 from core.asset_lifecycle import AssetLifecycleError, clone_yaml_asset, normalize_asset_name, rename_yaml_asset
 from core.save_lifecycle import clone_save, rename_save
 from core.session_manager import (
@@ -133,14 +135,26 @@ async def save_asset(asset_type: str, asset_name: str, payload: AssetPayload):
             if existing_path and asset_type != "worldbooks":
                 existing_data = yaml.safe_load(existing_path.read_text(encoding='utf-8')) or {}
                 if isinstance(existing_data, dict): parsed_data = {**existing_data, **parsed_data}
+            if asset_type == 'characters':
+                parsed_data = coordinate_character_write(existing_data if existing_path else {}, payload.parsed_data)
             if asset_type == "worldbooks":
                 save_worldbook_atomic(file_path, parsed_data)
+            elif asset_type == 'characters':
+                save_yaml_atomic(file_path, parsed_data)
             else:
                 with open(file_path, 'w', encoding='utf-8') as f:
                     yaml.safe_dump(parsed_data, f, allow_unicode=True, sort_keys=False)
         else:
-            with open(file_path, 'w', encoding='utf-8') as f:
-                f.write(payload.content)
+            if asset_type == 'characters':
+                incoming = yaml.safe_load(payload.content)
+                if not isinstance(incoming, dict):
+                    raise ValueError('角色卡内容必须是对象')
+                existing = yaml.safe_load(existing_path.read_text(encoding='utf-8')) if existing_path else {}
+                result = coordinate_character_write(existing, incoming)
+                save_yaml_atomic(file_path, result)
+            else:
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    f.write(payload.content)
         return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"保存失败: {str(e)}")

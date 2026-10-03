@@ -14,6 +14,7 @@ import WorldbookEntryEditorModal from '../worldbook/WorldbookEntryEditorModal.vu
 import InlineDeleteConfirm from '../common/InlineDeleteConfirm.vue';
 import AssetLifecycleModal from './AssetLifecycleModal.vue';
 import { workshopStore } from '../../store/workshopStore';
+import CharacterProfileDetails from '../character/CharacterProfileDetails.vue';
 
 const form = computed(() => uiStore.editorData.form);
 const type = computed(() => uiStore.editorData.type);
@@ -133,6 +134,7 @@ const saveContent = async () => {
       payload.description = form.value.desc;
       payload.starting_scene = form.value.starting_scene;
       payload.is_player = form.value.is_player;
+      if (form.value.role_fields !== undefined) payload.role_fields = form.value.role_fields;
       if (form.value.portrait) payload.portrait = form.value.portrait;
     } else if (type.value === 'styles') { payload.content = form.value.desc; }
     else if (type.value === 'entities') { Object.assign(payload, buildEntityPayload(form.value)); }
@@ -202,8 +204,16 @@ const saveContent = async () => {
         </template>
         
         <template v-else-if="type === 'characters'">
+          <div v-if="form.role_fields" data-testid="asset-structured-preview" class="rounded-lg border border-indigo-800 p-3">
+            <p class="text-xs text-indigo-200">此卡含独立字段。转为自由文本编辑并保存后，新会话使用编辑后的描述；现有对话不变，原始导入资料仍保留。取消不写入。</p>
+            <CharacterProfileDetails :profile="form.role_fields" />
+            <button data-testid="asset-convert-free-text" type="button" class="mt-3 rounded border border-indigo-600 px-3 py-2 text-xs" @click="form.role_fields=null">转为自由文本编辑</button>
+          </div>
           <div class="flex items-center gap-3 p-3 bg-indigo-900/20 border border-indigo-900/50 rounded-lg"><input type="checkbox" v-model="form.is_player" class="w-5 h-5 rounded bg-slate-900 border-slate-700 text-indigo-500"><div><p class="text-sm font-bold text-indigo-300">将此角色设为主役 (Is Player)</p></div></div>
-          <div><label class="text-xs text-slate-400 font-bold mb-1.5 block">背景与外观设定 (Description)</label><ExpandableTextarea data-testid="asset-description" v-model="form.desc" label="角色背景与外观设定" textarea-class="h-40 bg-[#0d0d12] border border-slate-700 text-slate-300 p-4 rounded-lg text-sm" /></div>
+          <template v-if="!form.role_fields">
+            <div><label class="text-xs text-slate-400 font-bold mb-1.5 block">背景与外观设定 (Description)</label><ExpandableTextarea data-testid="asset-description" v-model="form.desc" label="角色背景与外观设定" textarea-class="h-40 bg-[#0d0d12] border border-slate-700 text-slate-300 p-4 rounded-lg text-sm" /></div>
+            <div><label class="text-xs text-slate-400 font-bold mb-1.5 block">开场情景资料（不是正式聊天消息）</label><ExpandableTextarea data-testid="asset-starting-scene" v-model="form.starting_scene" label="角色开场情景资料" textarea-class="h-24 bg-[#0d0d12] border border-slate-700 text-slate-300 p-4 rounded-lg text-sm" /></div>
+          </template>
         </template>
         
         <template v-else-if="type === 'entities'">

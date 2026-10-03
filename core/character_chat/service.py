@@ -5,7 +5,7 @@ import hashlib
 from threading import BoundedSemaphore, RLock
 from uuid import uuid4
 
-from .models import CharacterSessionError, canonical_id, json_bytes, text
+from .models import CharacterSessionError, canonical_id, json_bytes, text, profile_projection
 from .contract import now, plan_turn, public_ledger, reverse_ledger
 from .context import build_context
 from .transport import CharacterTransport
@@ -100,7 +100,7 @@ def session_view(session, *, detail=True):
     value = {k: session[k] for k in ('session_id', 'title', 'revision', 'presentation_mode', 'created_at', 'updated_at')}
     value['pending'] = pending
     value['participants'] = [{k: copy.deepcopy(p[k]) for k in ('instance_id', 'controller', 'display_name')}
-                             | {'profile_snapshot': {k: p['profile_snapshot'].get(k, '') for k in ('name', 'description', 'starting_scene')}}
+                             | {'profile_snapshot': profile_projection(p, detail=True)}
                              for p in session['participants']]
     value['world_binding'] = None if not session.get('world_binding') else {'name': session['world_binding']['snapshot'].get('name', '')}
     if detail:

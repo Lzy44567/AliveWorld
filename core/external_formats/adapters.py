@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from core.worldbook import normalize_worldbook
+from core.character_profiles import CharacterProfileError, validate_role_fields
 
 from .models import ExternalFormatError, ImportPreview
 from .png import read_character_text_chunks
@@ -90,6 +91,19 @@ def adapt_character_card(source: dict[str, Any]) -> ImportPreview:
     if spec and spec not in {"chara_card_v2", "chara_card_v3"}:
         raise ExternalFormatError(f"不支持的角色卡规范：{spec}")
     data = source.get("data") if isinstance(source.get("data"), dict) else source
+    role_fields = {'version': 1}
+    for target, original in (('description', 'description'), ('personality', 'personality'),
+                             ('scenario', 'scenario'), ('dialogue_examples', 'mes_example'), ('first_message', 'first_mes')):
+        value = data.get(original, '')
+        if value is None:
+            value = ''
+        if not isinstance(value, str):
+            raise ExternalFormatError(f'{original} 必须是文本')
+        role_fields[target] = value.strip()
+    try:
+        validate_role_fields(role_fields)
+    except CharacterProfileError as exc:
+        raise ExternalFormatError(str(exc)) from exc
     name = _text(data.get("name"))
     if not name:
         raise ExternalFormatError("角色卡缺少名称，无法导入")
@@ -105,12 +119,14 @@ def adapt_character_card(source: dict[str, Any]) -> ImportPreview:
 
     tags = _list(data.get("tags"))
     mapped = ["name → 名称", "description → 背景与外观设定"]
+    mapped.extend(['personality → 独立性格资料', 'scenario → 独立场景资料',
+                   'mes_example → 表达参考（非历史）', 'first_mes → 作者开场参考（仅资料，未发送）'])
     degraded: list[str] = []
     for key, label in (("personality", "性格"), ("scenario", "场景"), ("mes_example", "对话示例")):
         if _text(data.get(key)):
-            degraded.append(f"{key} 已合并到角色描述的“{label}”分段")
+            degraded.append(f"{key} 保留独立字段；故事模式仍使用描述的“{label}”兼容分段")
     if _text(data.get("first_mes")):
-        mapped.append("first_mes → 开场情景")
+        mapped.append("first_mes → 故事兼容开场情景（角色会话不自动发送）")
     if tags:
         mapped.append("tags → 玩家标签")
 
@@ -129,6 +145,7 @@ def adapt_character_card(source: dict[str, Any]) -> ImportPreview:
         "description": "\n\n".join(sections),
         "starting_scene": _text(data.get("first_mes")),
         "is_player": False,
+        "role_fields": role_fields,
         "_external_import": {
             "format": source_format,
             "version": version,

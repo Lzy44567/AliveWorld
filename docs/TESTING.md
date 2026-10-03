@@ -1,5 +1,15 @@
 # AliveWorld 测试流程
 
+## dev.18角色卡I1（2026-10-04）
+
+- 初步全量：Python498/498、Node70/70、可见性与138模块构建；Playwright/Edge31/31通过（2.9分钟），外部卡导入→分项预览→模型白名单→转换编辑→新旧会话重载均通过。宽屏`build/e2e-results/character-i1-profile.png`已视觉检查，旧宽/窄角色用例仍保留。
+- 后续新增两项Python检验后，I1专项14/14通过：包括两角色×两形态×两表现×六场景共48份请求资料，工坊标签保存和撤销后发布保留结构。新增工坊浏览器发布路径后将再次全量验证；不把前一次31项当作此追加路径的通过证据。
+- 合成假供应商、隔离资产与会话；零付费调用，未读取玩家私聊。角色质量、真实API及桌面EXE启动仍需玩家验收。自动压缩角色记忆尚未接入，不宣称无限长期记忆。
+- 最终`tools/run_checks.ps1`：Python500/500、Node70/70、可见性检查、138模块生产构建通过；工坊追加路径浏览器专项1/1通过。第一次专项因测试服务器读取尚未重建的静态bundle而找不到新testid，重建后通过，并在最终全量中复验。
+- 实际Windows主EXE与更新助手构建通过，ZIP38,142,164字节；`test_windows_portable_package.ps1`验证版本/结构/私密排除/UserData覆盖保留通过。SHA256：`19fef8466d90b7bfc6b83126949222d5a30b09f0d4ee3427640e7bef9a0211b7`。实际EXE归档含`core.character_profiles`、`utils.atomic_yaml`及角色模块，无tests/tools.testing；嵌入前端JS与本次生产构建hash相同，嵌入VERSION为dev.18。发布简介由现有release_notes.py从分类更新日志抽取，仅保留本版内容。
+- 未重复尝试此前被执行策略拒绝的桌面自动启动，不把归档验证称为冻结运行smoke。旧dev.17ZIP保留，新包不含用户配置/会话或合成质量夹具；没有push/tag/GitHub Release。
+- 最终完整Playwright/Edge31/31通过（3.2分钟），包括追加工坊结构转自由文本发布/原source保留；不是只跑角色专项。主EXE/更新助手构建与前端测试并行，使用同一已完成生产bundle，无运行源码在此期间变化。
+
 ## 角色会话侧栏UX-S1（2026-10-03，源码更新）
 
 - tools/run_checks.ps1通过：Python486/486、Node70/70、可见性检查、137模块构建；完整Playwright/Edge30/30，保留原29项。最终小屏焦点调整另跑侧栏专项，不将旧构建当作新焦点证据。

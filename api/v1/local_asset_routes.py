@@ -11,6 +11,8 @@ from core.session_manager import active_sessions
 from utils.file_io import DATA_DIR, save_game_data
 from utils.asset_catalog import resolve_asset_path
 from core.worldbook import normalize_worldbook, save_worldbook_atomic, worldbook_write_guard
+from core.character_profiles import coordinate_character_write
+from utils.atomic_yaml import save_yaml_atomic
 from core.image_generation.runtime import get_image_runtime
 from core.image_generation.portrait import task_is_local_portrait
 from core.image_generation.service import ImageTaskError
@@ -117,12 +119,16 @@ def update_local_asset(session_id: str, asset_type: str, asset_name: str, payloa
                 loaded = yaml.safe_load(f) or {}
                 if isinstance(loaded, dict): existing_data = loaded
         parsed_data = {**existing_data, **dict(payload.parsed_data)}
+        if asset_type == 'characters':
+            parsed_data = coordinate_character_write(existing_data, dict(payload.parsed_data))
         if asset_type == "worldbooks":
             parsed_data = normalize_worldbook(parsed_data)
         if asset_type == "entities":
             parsed_data["influence_refs"] = game.undercurrent.causal_ledger.refs_for_entity(asset_name)
         if asset_type == "worldbooks":
             save_worldbook_atomic(local_file, parsed_data)
+        elif asset_type == 'characters':
+            save_yaml_atomic(local_file, parsed_data)
         else:
             with open(local_file, 'w', encoding='utf-8') as f:
                 yaml.safe_dump(parsed_data, f, allow_unicode=True, sort_keys=False)

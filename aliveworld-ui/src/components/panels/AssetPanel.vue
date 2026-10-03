@@ -143,6 +143,7 @@ const openEditAsset = async (name) => {
         overview: p.overview ?? p.global_setting ?? '',
         axiomsText: Array.isArray(p.axioms) ? p.axioms.join('\n') : (p.axioms || ''),
         starting_scene: p.starting_scene || '',
+        role_fields: p.role_fields,
         entries: (p.entries || []).map(entry => ({ ...entry, tags: Array.isArray(entry.tags) ? entry.tags.join(', ') : (entry.tags || '') })),
         is_active: p.is_active !== false,
         is_player: p.is_player || false, // 🚀 问题 3

@@ -11,10 +11,12 @@ from typing import Any
 from uuid import uuid4
 
 import yaml
+from core.character_profiles import coordinate_character_write
+from utils.atomic_yaml import save_yaml_atomic
 
 
 ASSET_FIELDS = {
-    "characters": {"name", "tags", "description", "starting_scene", "is_player", "portrait"},
+    "characters": {"name", "tags", "description", "starting_scene", "is_player", "portrait", "role_fields"},
     "styles": {"name", "tags", "content"},
     "entities": {
         "name", "tags", "description", "motive", "status", "mechanisms", "plans",
@@ -120,7 +122,7 @@ class AssetWorkshop:
         changes = raw.get("changes")
         if not isinstance(changes, dict):
             raise AssetWorkshopError("资产工坊修改必须提供 changes")
-        allowed = AI_FIELDS[self.asset_type] if actor == "ai" else ASSET_FIELDS[self.asset_type] - {"name", "portrait", "influence_refs"}
+        allowed = AI_FIELDS[self.asset_type] if actor == "ai" else ASSET_FIELDS[self.asset_type] - {"name", "portrait", "influence_refs", "role_fields"}
         unknown = set(changes) - allowed
         if unknown:
             raise AssetWorkshopError(f"这些字段不能由工坊修改：{', '.join(sorted(unknown))}")
@@ -148,6 +150,8 @@ class AssetWorkshop:
         validated = [self._validate(item, actor=actor) for item in operations]
         for operation in validated:
             updated = normalize_asset(self.asset_type, {**self.draft, **operation["changes"]})
+            if self.asset_type == 'characters':
+                updated = normalize_asset(self.asset_type, coordinate_character_write(self.draft, operation['changes']))
             if updated == self.draft:
                 continue
             self.snapshots.append({"draft": deepcopy(self.draft), "operations": deepcopy(self.operations)})
@@ -175,9 +179,9 @@ class AssetWorkshop:
             raise AssetWorkshopError("原资产已在其他位置发生变化，请关闭工坊后重新进入，避免覆盖新内容")
         # Preserve runtime/media fields that the workshop does not own.
         output = {**current, **self.draft}
-        temp = self.target_path.with_suffix(self.target_path.suffix + ".tmp")
-        temp.write_text(yaml.safe_dump(output, allow_unicode=True, sort_keys=False), encoding="utf-8")
-        temp.replace(self.target_path)
+        if self.asset_type == 'characters':
+            output = coordinate_character_write(current, self.draft)
+        save_yaml_atomic(self.target_path, output)
         self.base = deepcopy(self.draft)
         self.source_revision = asset_revision(self.base)
         self.operations = []
