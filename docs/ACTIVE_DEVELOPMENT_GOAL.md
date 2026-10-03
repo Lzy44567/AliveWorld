@@ -11,6 +11,7 @@ Updated: 2026-10-03
 - Resume condition: streaming acceptance first, then discuss/freeze the character product MVP before resuming character code. Current F1/U1 evidence and prior engineering plans below remain history.
 - Streaming stop gate reached: implementation and engineering acceptance complete (Python435, Node50, 130-module build, Playwright/Edge22). Exact boundary is in 23; no version bump/package/remote release. Do not expand into stop/replay infrastructure or character code merely because these tests passed.
 - Next verifiable outcome is a discussed character product MVP: explain the core loop and value hypothesis in 22c, choose the initial behavior/memory/change scope with the user, then amend 22b if needed. Technical audit approval alone does not authorize inventing that product behavior.
+- Character design continuation: optional authored mental cores and free-form persona are confirmed; user-controlled long-term personality evolution is confirmed. Defaults, approval policy, freeze semantics, relationship/ability boundaries and time simulation remain open in 22c. This is a documentation/discussion slice, not character implementation.
 
 ## Previous mainline — R0 engineering candidate (paused)
 
