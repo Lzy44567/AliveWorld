@@ -4,6 +4,7 @@ import { workshopStore } from '../../store/workshopStore';
 import { uiStore } from '../../store/uiStore';
 import WorldbookWorkshopDraft from './WorldbookWorkshopDraft.vue';
 import ExpandableTextarea from '../common/ExpandableTextarea.vue';
+import CharacterFieldsEditor from '../character/CharacterFieldsEditor.vue';
 
 const edit = ref({});
 const preferenceEditor = ref(null);
@@ -28,7 +29,7 @@ async function save() {
   }
   if (type.value === 'preferences') return;
   const fields = type.value === 'characters'
-    ? ['tags', 'description', 'starting_scene', 'is_player']
+    ? edit.value.role_fields ? ['tags', 'role_fields', 'is_player'] : ['tags', 'description', 'starting_scene', 'is_player', ...(edit.value.role_fields===null?['role_fields']:[])]
     : type.value === 'styles'
       ? ['tags', 'content']
       : ['tags', 'description', 'motive', 'status', 'mechanisms', 'plans', 'recent_actions', 'triggers', 'relationships', 'importance', 'is_active'];
@@ -77,11 +78,12 @@ const addRelationship = () => { (edit.value.relationships ||= []).push({ target:
           <WorldbookWorkshopDraft />
         </template>
         <template v-else-if="type==='characters'">
-          <p v-if="workshopStore.draft.role_fields" data-testid="workshop-role-semantics-warning" class="mb-3 rounded border border-amber-800 p-2 text-xs text-amber-200">此卡含独立字段。修改描述或开场并发布后转为自由文本，原始导入资料保留，现有对话不变；撤销回原稿则保留结构。</p>
+          <p v-if="workshopStore.draft.role_fields" data-testid="workshop-role-semantics-warning" class="mb-3 text-xs text-indigo-200">此卡含独立字段，修改示例不会清除其他设定；现有会话快照不变。</p>
           <p v-else-if="workshopStore.draft.role_fields===null" class="mb-3 text-xs text-slate-400">当前草稿已转为自由文本；发布前仍可撤销草稿改动。</p>
           <label class="mb-3 flex items-center gap-2 rounded border border-slate-700 p-2 text-xs text-slate-300"><input v-model="edit.is_player" type="checkbox">玩家扮演角色</label>
-          <label class="block"><span class="field-label">人物设定</span><ExpandableTextarea v-model="edit.description" label="人物设定" textarea-class="field h-64" /></label>
-          <label class="mt-3 block"><span class="field-label">登场情境</span><ExpandableTextarea v-model="edit.starting_scene" label="登场情境" textarea-class="field h-24" /></label>
+          <CharacterFieldsEditor v-model="edit.role_fields" :description="edit.description" :scene="edit.starting_scene" @free-text="value=>{edit.description=value.description;edit.starting_scene=value.starting_scene}" />
+          <template v-if="!edit.role_fields"><label class="block"><span class="field-label">人物设定</span><ExpandableTextarea v-model="edit.description" label="人物设定" textarea-class="field h-64" /></label>
+          <label class="mt-3 block"><span class="field-label">登场情境</span><ExpandableTextarea v-model="edit.starting_scene" label="登场情境" textarea-class="field h-24" /></label></template>
         </template>
         <template v-else-if="type==='styles'">
           <label class="block"><span class="field-label">文风规范</span><ExpandableTextarea v-model="edit.content" label="文风规范" textarea-class="field h-[60vh]" /></label>

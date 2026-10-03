@@ -132,6 +132,7 @@ const openEditAsset = async (name) => {
     } else {
       const res = await assetApi.getAssetDetail(getApiType(), name);
       p = res.parsed || {};
+      p.edit_revision = res.revision;
     }
 
     uiStore.editorData = { 
@@ -144,6 +145,7 @@ const openEditAsset = async (name) => {
         axiomsText: Array.isArray(p.axioms) ? p.axioms.join('\n') : (p.axioms || ''),
         starting_scene: p.starting_scene || '',
         role_fields: p.role_fields,
+        edit_revision: p.edit_revision,
         entries: (p.entries || []).map(entry => ({ ...entry, tags: Array.isArray(entry.tags) ? entry.tags.join(', ') : (entry.tags || '') })),
         is_active: p.is_active !== false,
         is_player: p.is_player || false, // 🚀 问题 3

@@ -3,6 +3,29 @@ import assert from 'node:assert/strict';
 import { createCharacterChatStore } from '../src/store/characterChatStore.js';
 import { characterStream, CharacterApiError } from '../src/api/characterChatApi.js';
 import { cardOpening } from '../src/utils/characterOpening.js';
+import { structuredDraft, compatibleRoleText, roleFieldsError } from '../src/utils/characterFields.js';
+
+test('structured conversion preserves original text and does not invent examples/opening', () => {
+  const fields = structuredDraft('自由人设😀', '旧场景');
+  assert.equal(fields.description, '自由人设😀'); assert.equal(fields.scenario, '旧场景');
+  assert.equal(fields.dialogue_examples, ''); assert.equal(fields.first_message, '');
+  assert.equal(roleFieldsError(fields), '');
+});
+
+test('structured limits count Unicode characters and never silently truncate', () => {
+  const fields = structuredDraft('😀'.repeat(16000));
+  assert.equal(roleFieldsError(fields), '');
+  fields.description += '😀'; assert.match(roleFieldsError(fields), /超过16000/);
+  assert.equal(Array.from(fields.description).length, 16001);
+  assert.ok(roleFieldsError({ ...structuredDraft(), extra: '' }));
+  assert.ok(roleFieldsError({ ...structuredDraft(), version: true }));
+});
+
+test('compatibility description labels examples but excludes optional author opening', () => {
+  const fields = { ...structuredDraft('人设', '情景'), personality: '谨慎', dialogue_examples: '表达参考', first_message: '独立开场' };
+  assert.match(compatibleRoleText(fields), /【对话示例】\n表达参考/);
+  assert.ok(!compatibleRoleText(fields).includes('独立开场'));
+});
 
 test('explicit card opening validates all v1 fields and never guesses legacy/source', () => {
   const fields = { version: 1, description: '', personality: '', scenario: '', dialogue_examples: '', first_message: '  你好😀  ' };

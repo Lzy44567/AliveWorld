@@ -111,8 +111,8 @@ export const gameApi = {
     if (!res.ok) throw new Error("拉取失败");
     return res.json();
   },
-  async updateLocalAsset(sessionId, assetType, assetName, payload, overwrite = true) {
-    const res = await fetch(`${API_URL}/${sessionId}/assets/${assetType}/${encodeURIComponent(assetName)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ parsed_data: payload, overwrite }) });
+  async updateLocalAsset(sessionId, assetType, assetName, payload, overwrite = true, expectedRevision) {
+    const res = await fetch(`${API_URL}/${sessionId}/assets/${assetType}/${encodeURIComponent(assetName)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ parsed_data: payload, overwrite, expected_revision: expectedRevision }) });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       throw new Error(data.detail || "更新失败");

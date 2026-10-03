@@ -11,8 +11,7 @@ from core.session_manager import active_sessions
 from utils.file_io import DATA_DIR, save_game_data
 from utils.asset_catalog import resolve_asset_path
 from core.worldbook import normalize_worldbook, save_worldbook_atomic, worldbook_write_guard
-from core.character_profiles import coordinate_character_write
-from utils.atomic_yaml import save_yaml_atomic
+from core.character_asset_write import CharacterWriteError, character_revision, write_character
 from core.image_generation.runtime import get_image_runtime
 from core.image_generation.portrait import task_is_local_portrait
 from core.image_generation.service import ImageTaskError
@@ -37,6 +36,7 @@ class PullAssetRequest(BaseModel):
 class LocalAssetUpdatePayload(BaseModel):
     parsed_data: Dict[str, Any]
     overwrite: bool = True
+    expected_revision: str | None = None
 
 class LocalAssetLifecyclePayload(BaseModel):
     new_name: str
@@ -56,6 +56,8 @@ def get_local_assets(session_id: str):
                 with open(f, 'r', encoding='utf-8') as file:
                     data = yaml.safe_load(file)
                     if data:
+                        if sub_dir == 'characters':
+                            data['edit_revision'] = character_revision(data)
                         data['is_active'] = data.get('is_active', True)
                         data['tags'] = data.get('tags', []) + ["本局独有"]
                         data['system_tags'] = system_tags_from_asset(data)
@@ -106,6 +108,14 @@ def update_local_asset(session_id: str, asset_type: str, asset_name: str, payloa
     local_dir = os.path.join(game.save_dir_path, asset_type)
     os.makedirs(local_dir, exist_ok=True)
     local_file = os.path.join(local_dir, f"{asset_name}.yml")
+    if asset_type == 'characters':
+        try:
+            output = write_character(local_file, dict(payload.parsed_data), expected_revision=payload.expected_revision, overwrite=payload.overwrite)
+            return {'status': 'success', 'revision': character_revision(output)}
+        except CharacterWriteError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        except (OSError, ValueError, yaml.YAMLError):
+            raise HTTPException(status_code=500, detail='角色卡保存失败，原文件保持不变') from None
     if os.path.exists(local_file) and not payload.overwrite:
         raise HTTPException(
             status_code=409,
@@ -119,16 +129,12 @@ def update_local_asset(session_id: str, asset_type: str, asset_name: str, payloa
                 loaded = yaml.safe_load(f) or {}
                 if isinstance(loaded, dict): existing_data = loaded
         parsed_data = {**existing_data, **dict(payload.parsed_data)}
-        if asset_type == 'characters':
-            parsed_data = coordinate_character_write(existing_data, dict(payload.parsed_data))
         if asset_type == "worldbooks":
             parsed_data = normalize_worldbook(parsed_data)
         if asset_type == "entities":
             parsed_data["influence_refs"] = game.undercurrent.causal_ledger.refs_for_entity(asset_name)
         if asset_type == "worldbooks":
             save_worldbook_atomic(local_file, parsed_data)
-        elif asset_type == 'characters':
-            save_yaml_atomic(local_file, parsed_data)
         else:
             with open(local_file, 'w', encoding='utf-8') as f:
                 yaml.safe_dump(parsed_data, f, allow_unicode=True, sort_keys=False)

@@ -12,8 +12,7 @@ from utils.file_io import DATA_DIR, CHAR_DIR, STYLE_DIR, WORLD_DIR, ENTITY_DIR, 
 from utils.asset_catalog import list_asset_names, list_asset_summaries, personal_asset_dir, resolve_asset_path, resolve_template_path
 from utils.sys_logger import read_logs_parsed
 from core.worldbook import normalize_worldbook, save_worldbook_atomic
-from core.character_profiles import coordinate_character_write
-from utils.atomic_yaml import save_yaml_atomic
+from core.character_asset_write import CharacterWriteError, character_revision, write_character
 from core.asset_lifecycle import AssetLifecycleError, clone_yaml_asset, normalize_asset_name, rename_yaml_asset
 from core.save_lifecycle import clone_save, rename_save
 from core.session_manager import (
@@ -41,6 +40,7 @@ class AssetPayload(BaseModel):
     content: Optional[str] = None
     parsed_data: Optional[Dict[str, Any]] = None
     overwrite: bool = False
+    expected_revision: Optional[str] = None
 
 class SavePromptsPayload(BaseModel):
     prompts: Dict[str, str]
@@ -125,6 +125,17 @@ async def save_asset(asset_type: str, asset_name: str, payload: AssetPayload):
     if existing_path and resolve_template_path(asset_type, asset_name) == existing_path:
         raise HTTPException(status_code=403, detail="模板资产不能被覆盖，请另存为个人资产")
     file_path = str(existing_path) if existing_path else os.path.join(DIR_MAP[asset_type], f"{asset_name}.yml")
+    if asset_type == 'characters':
+        try:
+            incoming = payload.parsed_data if payload.parsed_data is not None else yaml.safe_load(payload.content or '')
+            if not isinstance(incoming, dict):
+                raise CharacterWriteError('角色卡内容必须是对象')
+            output = write_character(file_path, incoming, expected_revision=payload.expected_revision, overwrite=payload.overwrite)
+            return {'status': 'success', 'revision': character_revision(output)}
+        except CharacterWriteError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        except (OSError, ValueError, yaml.YAMLError):
+            raise HTTPException(status_code=500, detail='角色卡保存失败，原文件保持不变') from None
     try:
         if payload.parsed_data:
             parsed_data = normalize_worldbook(payload.parsed_data) if asset_type == "worldbooks" else payload.parsed_data
@@ -135,26 +146,14 @@ async def save_asset(asset_type: str, asset_name: str, payload: AssetPayload):
             if existing_path and asset_type != "worldbooks":
                 existing_data = yaml.safe_load(existing_path.read_text(encoding='utf-8')) or {}
                 if isinstance(existing_data, dict): parsed_data = {**existing_data, **parsed_data}
-            if asset_type == 'characters':
-                parsed_data = coordinate_character_write(existing_data if existing_path else {}, payload.parsed_data)
             if asset_type == "worldbooks":
                 save_worldbook_atomic(file_path, parsed_data)
-            elif asset_type == 'characters':
-                save_yaml_atomic(file_path, parsed_data)
             else:
                 with open(file_path, 'w', encoding='utf-8') as f:
                     yaml.safe_dump(parsed_data, f, allow_unicode=True, sort_keys=False)
         else:
-            if asset_type == 'characters':
-                incoming = yaml.safe_load(payload.content)
-                if not isinstance(incoming, dict):
-                    raise ValueError('角色卡内容必须是对象')
-                existing = yaml.safe_load(existing_path.read_text(encoding='utf-8')) if existing_path else {}
-                result = coordinate_character_write(existing, incoming)
-                save_yaml_atomic(file_path, result)
-            else:
-                with open(file_path, 'w', encoding='utf-8') as f:
-                    f.write(payload.content)
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(payload.content)
         return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"保存失败: {str(e)}")
@@ -166,7 +165,8 @@ async def get_asset_detail(asset_type: str, asset_name: str):
     if path:
         try:
             content = path.read_text(encoding='utf-8')
-            return {"content": content, "parsed": yaml.safe_load(content) or {}}
+            parsed = yaml.safe_load(content) or {}
+            return {"content": content, "parsed": parsed, **({'revision': character_revision(parsed)} if asset_type == 'characters' else {})}
         except (OSError, yaml.YAMLError):
             raise HTTPException(status_code=500, detail="资产文件读取失败")
     raise HTTPException(status_code=404, detail="找不到该资产文件")

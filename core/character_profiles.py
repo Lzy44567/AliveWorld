@@ -37,7 +37,7 @@ def validate_role_fields(value):
 
 
 def coordinate_character_write(current, changes):
-    """Explicit structure wins; changed legacy text clears structure, never source."""
+    """Explicit structure wins; only explicit null may downgrade, never source."""
     current = current if isinstance(current, dict) else {}
     result = deepcopy({**current, **changes})
     if 'role_fields' in changes:
@@ -48,7 +48,7 @@ def coordinate_character_write(current, changes):
         key in changes and str(changes[key] or '').strip() != str(current.get(key) or '').strip()
         for key in ('description', 'starting_scene')
     ):
-        result['role_fields'] = None
+        raise CharacterProfileError('STRUCTURED_EDIT_REQUIRED：此卡含独立字段，请编辑独立字段或明确转为自由文本')
     if '_external_import' in current:
         result['_external_import'] = deepcopy(current['_external_import'])
     return result

@@ -38,12 +38,12 @@ export const assetApi = {
   },
 
 // 修改这个方法
-  async saveAsset(type, name, yamlContent, parsedData = null, overwrite = false) {
+  async saveAsset(type, name, yamlContent, parsedData = null, overwrite = false, expectedRevision) {
     const res = await fetch(`${BASE_URL}/assets/${type}/${encodeURIComponent(name)}`, {
       method: 'POST',
       headers: { "Content-Type": "application/json" },
       // 同时把原代码和解析后的表单对象传过去
-      body: JSON.stringify({ content: yamlContent, parsed_data: parsedData, overwrite })
+      body: JSON.stringify({ content: yamlContent, parsed_data: parsedData, overwrite, expected_revision: expectedRevision })
     });
     await requireOk(res, "保存资产失败");
     return await res.json();

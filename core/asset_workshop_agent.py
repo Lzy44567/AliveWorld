@@ -7,7 +7,7 @@ from typing import Any
 
 from core.ai_engine import robust_json_parse
 from core.json_stream import WORKSHOP_FIELDS
-from core.asset_workshop import AI_FIELDS, AssetWorkshop, AssetWorkshopError
+from core.asset_workshop import AssetWorkshop, AssetWorkshopError
 
 
 TYPE_GUIDANCE = {
@@ -58,10 +58,15 @@ class AssetWorkshopAgent:
     ) -> dict[str, Any]:
         if mode not in {"create", "refine", "review"}:
             raise AssetWorkshopError("未知的资产工坊模式")
+        structure_rule = (
+            "【结构规则】role_fields须保留version=1及完整五项文本；只改要求修改的字段，保留其他原文；示例是表达参考，不是历史。自由卡不可由AI升级/降级结构。\n"
+            if workshop.asset_type == 'characters' else ''
+        )
         prompt = (
             f"【工坊职责】{TYPE_GUIDANCE[workshop.asset_type]}\n"
             f"【当前工作模式】{mode}\n"
-            f"【可编辑字段】{', '.join(sorted(AI_FIELDS[workshop.asset_type]))}\n"
+            f"【可编辑字段】{', '.join(sorted(workshop.ai_fields()))}\n"
+            f"{structure_rule}"
             f"【当前草稿】\n{json.dumps(workshop.draft, ensure_ascii=False)}\n"
             f"【近期对话】\n{json.dumps(workshop.messages[-12:], ensure_ascii=False)}\n"
             f"【本轮权限】{'允许修改草稿' if commit_changes else '只讨论与提案，不修改草稿'}\n"

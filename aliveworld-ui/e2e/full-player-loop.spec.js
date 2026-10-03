@@ -216,6 +216,9 @@ test('玩家可导入世界包并一键建立带完整资产的独立故事', as
   await page.getByTestId('world-package-preview').locator('input').fill('世界包一键故事');
   await page.getByTestId('world-package-install-start').click();
   await expect(page.locator('[data-save-name="世界包一键故事"]')).toContainText('当前游玩');
+  // Loading updates the save list before the install action closes its library.
+  // Do not race that final close with reopening the management view.
+  await expect(page.getByTestId('resource-library')).toBeHidden();
 
   await openResourceLibrary(page, 'packages');
   await page.getByTestId('world-package-manage').click();

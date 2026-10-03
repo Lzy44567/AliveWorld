@@ -120,7 +120,9 @@ class CharacterSemanticsTests(unittest.TestCase):
         original = card()
         self.assertEqual(original['role_fields'], coordinate_character_write(original, {'tags': ['新标签']})['role_fields'])
         self.assertEqual(original['role_fields'], coordinate_character_write(original, {'description': original['description']})['role_fields'])
-        edited = coordinate_character_write(original, {'description': '新自由文本', '_external_import': {'source': 'spoof'}})
+        with self.assertRaisesRegex(CharacterProfileError, 'STRUCTURED_EDIT_REQUIRED'):
+            coordinate_character_write(original, {'description': '新自由文本'})
+        edited = coordinate_character_write(original, {'role_fields': None, 'description': '新自由文本', '_external_import': {'source': 'spoof'}})
         self.assertIsNone(edited['role_fields']); self.assertEqual(original['_external_import'], edited['_external_import'])
         structured = coordinate_character_write(original, {'role_fields': fields(description='新结构'), 'description': '过期描述'})
         self.assertTrue(structured['description'].startswith('新结构'))
@@ -130,10 +132,12 @@ class CharacterSemanticsTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             path = Path(temp) / 'card.yml'; original = card(); path.write_text(yaml.safe_dump(original, allow_unicode=True), encoding='utf-8')
             workshop = AssetWorkshop('test', 'characters', path, original)
-            workshop.apply_operations([{'op': 'update_fields', 'changes': {'description': 'AI新描述'}}], actor='ai')
+            with self.assertRaises(AssetWorkshopError):
+                workshop.apply_operations([{'op': 'update_fields', 'changes': {'description': 'AI新描述'}}], actor='ai')
+            workshop.apply_operations([{'op': 'update_fields', 'changes': {'role_fields': None, 'description': '手动转换'}}])
             self.assertIsNone(workshop.draft['role_fields']); workshop.undo()
             self.assertEqual(original['role_fields'], workshop.draft['role_fields'])
-            workshop.apply_operations([{'op': 'update_fields', 'changes': {'description': '新描述'}}])
+            workshop.apply_operations([{'op': 'update_fields', 'changes': {'role_fields': None, 'description': '新描述'}}])
             workshop.publish(); saved = yaml.safe_load(path.read_text(encoding='utf-8'))
             self.assertIsNone(saved['role_fields']); self.assertEqual(original['_external_import'], saved['_external_import'])
             path.write_text(yaml.safe_dump(original, allow_unicode=True), encoding='utf-8')
@@ -183,7 +187,7 @@ class CharacterSemanticsTests(unittest.TestCase):
             workshop.publish()
             self.assertEqual(original['role_fields'], yaml.safe_load(path.read_text(encoding='utf-8'))['role_fields'])
             workshop = AssetWorkshop('undo', 'characters', path, yaml.safe_load(path.read_text(encoding='utf-8')))
-            workshop.apply_operations([{'op': 'update_fields', 'changes': {'description': '临时修改'}}])
+            workshop.apply_operations([{'op': 'update_fields', 'changes': {'role_fields': None, 'description': '临时修改'}}])
             workshop.undo(); workshop.publish()
             saved = yaml.safe_load(path.read_text(encoding='utf-8'))
             self.assertEqual(original['role_fields'], saved['role_fields'])
@@ -192,16 +196,22 @@ class CharacterSemanticsTests(unittest.TestCase):
     def test_global_and_local_legacy_edit_entrypoints(self):
         from api.v1 import lobby_routes, local_asset_routes
         from core.session_manager import active_sessions
+        from core.character_asset_write import character_revision
+        from fastapi import HTTPException
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp); directory = root / 'characters'; directory.mkdir(); path = directory / '合成卡.yml'
             path.write_text(yaml.safe_dump(card(), allow_unicode=True), encoding='utf-8')
             with patch.object(lobby_routes, 'resolve_asset_path', return_value=path), patch.object(lobby_routes, 'resolve_template_path', return_value=None):
-                asyncio.run(lobby_routes.save_asset('characters', '合成卡', lobby_routes.AssetPayload(parsed_data={'description': '全局新文本'}, overwrite=True)))
+                with self.assertRaises(HTTPException):
+                    asyncio.run(lobby_routes.save_asset('characters', '合成卡', lobby_routes.AssetPayload(parsed_data={'description': '全局新文本'}, overwrite=True)))
+                asyncio.run(lobby_routes.save_asset('characters', '合成卡', lobby_routes.AssetPayload(parsed_data={'role_fields': None, 'description': '全局新文本'}, expected_revision=character_revision(card()), overwrite=True)))
             self.assertIsNone(yaml.safe_load(path.read_text(encoding='utf-8'))['role_fields'])
             path.write_text(yaml.safe_dump(card(), allow_unicode=True), encoding='utf-8')
             active_sessions['i1-test'] = SimpleNamespace(save_dir_path=str(root))
             try:
-                local_asset_routes.update_local_asset('i1-test', 'characters', '合成卡', local_asset_routes.LocalAssetUpdatePayload(parsed_data={'starting_scene': '局内新开场'}, overwrite=True))
+                with self.assertRaises(HTTPException):
+                    local_asset_routes.update_local_asset('i1-test', 'characters', '合成卡', local_asset_routes.LocalAssetUpdatePayload(parsed_data={'starting_scene': '局内新开场'}, overwrite=True))
+                local_asset_routes.update_local_asset('i1-test', 'characters', '合成卡', local_asset_routes.LocalAssetUpdatePayload(parsed_data={'role_fields': None, 'starting_scene': '局内新开场'}, expected_revision=character_revision(card()), overwrite=True))
                 self.assertIsNone(yaml.safe_load(path.read_text(encoding='utf-8'))['role_fields'])
             finally: active_sessions.pop('i1-test', None)
 

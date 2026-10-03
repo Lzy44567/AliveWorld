@@ -2,6 +2,10 @@
 
 Updated: 2026-10-04
 
+## Active delivery — B2 through dev.19 local portable package
+
+User authorizes goal-mode staged development through a local EXE package and confirms 1.6.0-dev.19, preserving dev.18 and no GitHub publication. B2a/b implemented: shared character write authority/revision guards, explicit structural conversion, independent field editor/workshop and atomic draft/publication recovery. Python522/Node82/build and first full browser33 passed; final cloned-card revision refresh/browser and exact-source Windows package recheck are in progress. C world/preferences and M memory remain separate design gates, not prerequisites silently added to this package. Final delivery evidence belongs here and TESTING; below sections are historical slice records.
+
 ## Completed slice — B1 optional author opening; next B2
 
 B1 completed (2026-10-04), following22h: optional explicit opening, atomic/frozen storage, safe context projection, no formal turn or ledger evidence, creation retry identity, visible opening and summaries. Python511/511, Node79/79, visibility check,144-module production build and complete Playwright/Edge33/33 (3.0m), wide/narrow screenshots inspected. Synthetic isolated data only; real-model semantic quality remains manual acceptance. Creation uncertainty is preserved in the running store, not claimed durable across application restart. No version bump, packaging or remote release this round; dev.18ZIP remains unchanged.

@@ -14,7 +14,7 @@ import WorldbookEntryEditorModal from '../worldbook/WorldbookEntryEditorModal.vu
 import InlineDeleteConfirm from '../common/InlineDeleteConfirm.vue';
 import AssetLifecycleModal from './AssetLifecycleModal.vue';
 import { workshopStore } from '../../store/workshopStore';
-import CharacterProfileDetails from '../character/CharacterProfileDetails.vue';
+import CharacterFieldsEditor from '../character/CharacterFieldsEditor.vue';
 
 const form = computed(() => uiStore.editorData.form);
 const type = computed(() => uiStore.editorData.type);
@@ -102,6 +102,11 @@ const confirmLifecycle = async (newName) => {
     uiStore.editorData.name = result.name;
     uiStore.editorData.isNew = false;
     form.value.name = result.name;
+    if (type.value === 'characters') {
+      form.value.edit_revision = uiStore.assetScope === 'local'
+        ? assetStore.characters.local.find(item => item.name === result.name)?.edit_revision
+        : (await assetApi.getAssetDetail('characters', result.name)).revision;
+    }
     if (action === 'clone') {
       const tags = typeof form.value.tags === 'string' ? form.value.tags.split(/[,，]/) : (form.value.tags || []);
       form.value.tags = tags.map(tag => String(tag).trim()).filter(tag => tag && tag !== '模板').join(', ');
@@ -147,10 +152,11 @@ const saveContent = async () => {
         form.value.name,
         payload,
         !uiStore.editorData.isNew,
+        form.value.edit_revision,
       );
       await assetStore.fetchLocalAssets(gameStore.sessionId);
     } else {
-      await assetApi.saveAsset(type.value, form.value.name, "", payload, !uiStore.editorData.isNew);
+      await assetApi.saveAsset(type.value, form.value.name, "", payload, !uiStore.editorData.isNew, form.value.edit_revision);
       await assetStore.fetchAssets(); 
     }
     
@@ -204,11 +210,7 @@ const saveContent = async () => {
         </template>
         
         <template v-else-if="type === 'characters'">
-          <div v-if="form.role_fields" data-testid="asset-structured-preview" class="rounded-lg border border-indigo-800 p-3">
-            <p class="text-xs text-indigo-200">此卡含独立字段。转为自由文本编辑并保存后，新会话使用编辑后的描述；现有对话不变，原始导入资料仍保留。取消不写入。</p>
-            <CharacterProfileDetails :profile="form.role_fields" />
-            <button data-testid="asset-convert-free-text" type="button" class="mt-3 rounded border border-indigo-600 px-3 py-2 text-xs" @click="form.role_fields=null">转为自由文本编辑</button>
-          </div>
+          <div data-testid="asset-structured-preview"><CharacterFieldsEditor v-model="form.role_fields" :description="form.desc" :scene="form.starting_scene" @free-text="value=>{form.desc=value.description;form.starting_scene=value.starting_scene}" /></div>
           <div class="flex items-center gap-3 p-3 bg-indigo-900/20 border border-indigo-900/50 rounded-lg"><input type="checkbox" v-model="form.is_player" class="w-5 h-5 rounded bg-slate-900 border-slate-700 text-indigo-500"><div><p class="text-sm font-bold text-indigo-300">将此角色设为主役 (Is Player)</p></div></div>
           <template v-if="!form.role_fields">
             <div><label class="text-xs text-slate-400 font-bold mb-1.5 block">背景与外观设定 (Description)</label><ExpandableTextarea data-testid="asset-description" v-model="form.desc" label="角色背景与外观设定" textarea-class="h-40 bg-[#0d0d12] border border-slate-700 text-slate-300 p-4 rounded-lg text-sm" /></div>

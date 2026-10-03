@@ -10,6 +10,7 @@ import yaml
 
 from core.asset_workshop import AssetWorkshop, AssetWorkshopError
 from core.asset_workshop_agent import AssetWorkshopAgent
+from core.character_asset_write import CharacterWriteError
 from core.asset_workshop_registry import (
     WORKSHOP_DIR, active_asset_workshops, find_resumable, load_asset_workshop,
     list_asset_workshop_history,
@@ -51,7 +52,10 @@ def _payload(workshop: AssetWorkshop) -> dict[str, Any]:
 
 
 def _get(workshop_id: str) -> AssetWorkshop:
-    workshop = load_asset_workshop(workshop_id)
+    try:
+        workshop = load_asset_workshop(workshop_id)
+    except (AssetWorkshopError, CharacterWriteError, OSError, ValueError):
+        raise HTTPException(status_code=409, detail='工坊发布结果待核对或与当前资产冲突，草稿保留；未重新写入资产') from None
     if not workshop:
         raise HTTPException(status_code=404, detail="资产工坊会话不存在")
     return workshop
@@ -134,9 +138,11 @@ def _chat_workshop(workshop_id, payload, *, on_text_delta=None):
 def apply_operations(workshop_id: str, payload: OperationsPayload):
     workshop = _get(workshop_id)
     try:
-        result = workshop.apply_operations(payload.operations, actor="player")
-        workshop.clear_proposal()
-        workshop.save_session(WORKSHOP_DIR)
+        def apply(candidate):
+            result = candidate.apply_operations(payload.operations, actor='player')
+            candidate.clear_proposal()
+            return result
+        result = workshop_chat_transaction(workshop, WORKSHOP_DIR, apply)
         return {**_payload(workshop), "applied": result["applied"]}
     except AssetWorkshopError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -147,8 +153,7 @@ def apply_operations(workshop_id: str, payload: OperationsPayload):
 def undo_workshop(workshop_id: str):
     workshop = _get(workshop_id)
     try:
-        workshop.undo()
-        workshop.save_session(WORKSHOP_DIR)
+        workshop_chat_transaction(workshop, WORKSHOP_DIR, lambda candidate: candidate.undo())
         return _payload(workshop)
     except AssetWorkshopError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -159,8 +164,9 @@ def undo_workshop(workshop_id: str):
 def publish_workshop(workshop_id: str):
     workshop = _get(workshop_id)
     try:
-        path = workshop.publish()
-        workshop.save_session(WORKSHOP_DIR)
+        path = workshop.publish(WORKSHOP_DIR)
+        if workshop.asset_type != 'characters':
+            workshop.save_session(WORKSHOP_DIR)
         return {**_payload(workshop), "published_path": str(path)}
-    except (AssetWorkshopError, OSError, yaml.YAMLError) as exc:
+    except (AssetWorkshopError, CharacterWriteError, OSError, yaml.YAMLError) as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc

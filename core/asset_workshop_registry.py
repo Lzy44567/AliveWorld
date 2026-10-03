@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 from core.asset_workshop import AssetWorkshop, asset_revision, normalize_asset
+from core.character_asset_write import character_revision
 from core.workshop_history import published_history
 from utils.file_io import DATA_DIR
 
@@ -44,7 +45,9 @@ def retarget_asset_workshops(old_path: str | Path, new_path: str | Path, *, recu
 
 def load_asset_workshop(workshop_id: str) -> AssetWorkshop | None:
     if workshop_id in active_asset_workshops:
-        return active_asset_workshops[workshop_id]
+        workshop = active_asset_workshops[workshop_id]
+        workshop.recover_publication(WORKSHOP_DIR)
+        return workshop
     path = WORKSHOP_DIR / f"{workshop_id}.json"
     if not path.exists():
         return None
@@ -53,12 +56,13 @@ def load_asset_workshop(workshop_id: str) -> AssetWorkshop | None:
     except (OSError, ValueError, KeyError, json.JSONDecodeError):
         return None
     active_asset_workshops[workshop.id] = workshop
+    workshop.recover_publication(WORKSHOP_DIR)
     return workshop
 
 
 def find_resumable(asset_type: str, target_path: Path, source: dict) -> AssetWorkshop | None:
     target = target_path.resolve()
-    current_revision = asset_revision(normalize_asset(asset_type, source))
+    current_revision = character_revision(source) if asset_type == 'characters' else asset_revision(normalize_asset(asset_type, source))
     candidates: list[AssetWorkshop] = []
     for path in WORKSHOP_DIR.glob("*.json") if WORKSHOP_DIR.exists() else []:
         workshop = load_asset_workshop(path.stem)
