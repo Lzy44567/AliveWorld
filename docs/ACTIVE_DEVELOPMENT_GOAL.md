@@ -1,17 +1,25 @@
 # Active development goal
 
-Updated: 2026-10-02
+Updated: 2026-10-03
 
-## Current mainline — staged character-mode design; F1/U1 implementation verified
+## Current mainline — R0 character private-chat contract; implementation next
+
+- Final goal: the first independently playable character private-chat loop, with saved conversations, character state, real streaming and safe retry/undo. Both messenger and roleplay presentation are user-confirmed session choices, sharing identity/history/ledger.
+- Current phase: freeze and review [22b](features/22b_character_private_chat_r0_contract.md), not implement a full group-chat/NPC engine. The contract defines bounded storage, source-aware ledger operations, action/attempt identity, atomic persistence, cancellation races, streaming preview and reconnect status queries.
+- Next verifiable slice: R1A storage/API/transaction tests without a real model; then R1B one-response request integration; then R2 streaming, session-owned frontend state and the reachable 游戏—角色—工坊 entry. User coding authorization applies to these reviewed slices; do not request a separate confirmation for each engineering milestone.
+- Delivery: F1/U1 is already committed as `c396700`. This round changes design documents only; historical tests below are not new R0 implementation evidence. Version remains `1.6.0-dev.16`; no package, push or release. Bundling after R2 acceptance is a recommendation, not a confirmed packaging instruction.
+- Deferred design gates: group chat, story NPC reuse, advanced external-card behaviors and world-rule revision history. Paid quality assessment and release authority remain separate from local engineering.
+
+## Completed F1/U1 engineering evidence (2026-10-02)
 
 - F1/U1 implemented and verified on 2026-10-02 within [22a](features/22a_first_slice_feedback_and_prompt_navigation.md): feedback uses one fresh snapshot per action, stale/unmounted results have no downstream effects, and manual sending remains explicit. Prompt modes preserve original registry order/permissions, guard dirty navigation and retain drafts on failures/authentication expiry.
 - Current evidence: frontend Node 35/35; targeted feedback/prompt Python 34/34; `tools/run_checks.ps1` passed Python 412/412, visibility checks, Node 35/35 and production build (129 modules); complete Playwright/Edge 22/22 passed. Browser guards, override/restore, empty/read-only modes, expired-auth draft selection and feedback new-content/failure were exercised. No paid API or real Issue submission.
-- Stop gate: F1/U1 is complete, not a role engine or streaming implementation. Next verifiable slice is Astra's detailed R0 schema/API/migration/streaming contract. Reviewed changes are included in a coherent local Git commit; no version bump, package, push or release.
+- Stop gate at that milestone: F1/U1 is complete, not a role engine or streaming implementation. Its next detailed R0 contract is now recorded in 22b. Reviewed F1/U1 changes are included in `c396700`; no version bump, package, push or release.
 
 - User confirmed independent character conversations as a behavior research environment; navigation will be 游戏—角色—工坊. In-story private chat is deferred.
 - User authorized 6.1 Sol medium/high coding after Astra freezes each design slice. [F1/U1 detailed contract](features/22a_first_slice_feedback_and_prompt_navigation.md) is implemented and verified. Remaining character/streaming design is separate from this completed slice; no paid model test or release action was authorized for it.
 - Canonical brief: [feature 22](features/22_character_mode_and_state_design.md). User confirmed “链式输出” means streaming, not repeated generation. Existing external JSON/PNG import support is preserved; richer field/behavior compatibility remains staged.
-- Next verifiable slice: detailed R0 session/state/API/migration and streaming transport/idempotency design before R1/R2; do not treat completed F1/U1 as full character-engine freeze.
+- The former next slice (detailed R0 design) is now recorded in 22b above; do not treat completed F1/U1 as character-engine implementation.
 - M1–M5 and W1a/W1b below are completed engineering history. Full world-rule revisions/committed-change undo and authoring UI remain deferred, not implemented by this change.
 - Acceptance: current F1/U1 test results are recorded above and in 22a. Historical milestone counts below remain distinct evidence for those earlier slices.
 

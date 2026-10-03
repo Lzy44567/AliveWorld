@@ -6,7 +6,9 @@
 
 ## 当前目标
 
-2026-10-02 F1/U1已完成工程验收（Python412/412、Node35/35、129模块构建、Playwright/Edge22/22）；[22a](features/22a_first_slice_feedback_and_prompt_navigation.md)记录真实实现与验证。当前回到角色模式R0详细设计门；角色引擎、身份迁移、流式传输尚未实现，不因两个UI安全切片完成而自动展开。未提交或发布，版本仍1.6.0-dev.16。以下2026-10-01为设计交接历史。
+2026-10-03 当前主线是[22b：独立角色私聊R0执行契约](features/22b_character_private_chat_r0_contract.md)。用户确认即时聊天/情景扮演两种会话表现，共用身份、历史与账本。按R1A存储/事务/API→R1B单次回应接入→R2流式与三模式UI实施；群聊、故事NPC及高级导入仍后置。本轮只形成设计，不宣称运行验收；打包建议在R2闭环后评审，尚未确定发行时点。
+
+2026-10-02 F1/U1已完成工程验收（Python412/412、Node35/35、129模块构建、Playwright/Edge22/22），已提交`c396700`；[22a](features/22a_first_slice_feedback_and_prompt_navigation.md)记录真实实现与验证。角色引擎、身份迁移、流式传输尚未实现。未打包或发布，版本仍1.6.0-dev.16。以下2026-10-01为设计交接历史。
 
 2026-10-01 当前优先主线为[角色模式分阶段设计](features/22_character_mode_and_state_design.md)：独立私聊先行，群聊与故事NPC复用后置；顶部游戏—角色—工坊，暂不做故事内私聊。“链式输出”已确认是流式输出；用户授权Astra设计完成后由6.1 Sol中/高编码。[F1/U1契约](features/22a_first_slice_feedback_and_prompt_navigation.md)已冻结，可先实施反馈快照/手动发送说明及提示词分类/未保存保护；角色schema/API/迁移与流式传输仍有设计门，未宣称全架构完成。以下旧“当前/下一步”均为历史；本次设计交接没有运行代码修改。
 
