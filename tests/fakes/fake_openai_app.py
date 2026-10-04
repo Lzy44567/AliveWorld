@@ -174,6 +174,8 @@ def _character_response(user: str) -> dict[str, Any] | str:
     content = current.get("content", "") if isinstance(current, dict) else str(current)
     mode = data.get("presentation_mode", "messenger")
     reply = f"自动验收角色回复（{mode}）：{content}"
+    if '【角色世界话题】' in content:
+        reply += ' 我们去钟楼看看吧。'
     if "【角色坏JSON】" in content:
         return json.dumps({"reply": reply, "ledger_ops": []}, ensure_ascii=False) + " trailing"
     if "【角色一次失败】" in content:

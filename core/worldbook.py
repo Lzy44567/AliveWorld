@@ -55,6 +55,11 @@ def build_retrieval_query(context_text: Any, action: Any, *, recent_chars: int =
     return f"{window}\n【当前行动】{action_text}".strip()
 
 
+def entry_keywords(entry: dict[str, Any]) -> list[str]:
+    """Shared literal-keyword parsing; callers own their permission/window rules."""
+    return [key.strip() for key in str(entry.get('keys', '')).replace('，', ',').split(',') if key.strip()]
+
+
 def _entry_id(name: str, content: str) -> str:
     digest = hashlib.sha1(f"{name}\n{content}".encode("utf-8")).hexdigest()[:12]
     return f"entry_{digest}"
@@ -161,7 +166,7 @@ class WorldbookRetriever:
                 continue
             reasons = []
             score = 0.0
-            keys = [key.strip() for key in entry["keys"].split(",") if key.strip()]
+            keys = entry_keywords(entry)
             matched = [key for key in keys if key.casefold() in query.casefold()]
             if matched:
                 score += 100.0

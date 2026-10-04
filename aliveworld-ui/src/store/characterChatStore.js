@@ -2,6 +2,7 @@ import { reactive } from 'vue';
 import { characterChatApi } from '../api/characterChatApi.js';
 import { createConversationPreferences, detailReadMarker } from '../utils/characterConversationList.js';
 import { createCharacterInteractionPreferences } from '../utils/characterInteraction.js';
+import { characterWorldReport } from '../utils/characterWorldReport.js';
 
 const uuid = () => globalThis.crypto.randomUUID();
 const terminal = status => ['committed', 'cancelled', 'failed', 'interrupted'].includes(status);
@@ -94,7 +95,10 @@ export function createCharacterChatStore(api = characterChatApi, delay = ms => n
       if (flight.request_id && data.request_id !== flight.request_id) return false;
       if (!Number.isInteger(data.seq) || data.seq <= flight.lastSeq || typeof data.request_id !== 'string') return false;
       flight.request_id = data.request_id; flight.lastSeq = data.seq;
-      if (name === 'accepted') ctx.contextNotice = Array.isArray(data.context_omissions) && data.context_omissions.some(item => item.field === 'dialogue_examples') ? '本次上下文预算不足，示例整段未发送。' : '';
+      if (name === 'accepted') {
+        ctx.contextNotice = Array.isArray(data.context_omissions) && data.context_omissions.some(item => item.field === 'dialogue_examples') ? '本次上下文预算不足，示例整段未发送。' : '';
+        ctx.worldReport = characterWorldReport(data.world_context_report);
+      }
       if (name === 'reply_delta') {
         if (typeof data.text !== 'string' || ctx.preview.length + data.text.length > 8000) throw new Error('预览超出安全长度，状态待确认');
         ctx.preview += data.text;
@@ -106,6 +110,7 @@ export function createCharacterChatStore(api = characterChatApi, delay = ms => n
       const ctx = this.context(id); if (ctx.inflight !== flight || flight.settled) return;
       flight.settled = true;
       if (Array.isArray(result.context_omissions)) ctx.contextNotice = result.context_omissions.some(item => item.field === 'dialogue_examples') ? '本次上下文预算不足，示例整段未发送。' : '';
+      if ('world_context_report' in result) ctx.worldReport = characterWorldReport(result.world_context_report);
       ctx.preview = '';
       // Never construct committed history from preview or supplier output.
       if (result.status === 'committed' || result.status === 'already_committed') {
@@ -145,6 +150,7 @@ export function createCharacterChatStore(api = characterChatApi, delay = ms => n
       const flight = { action_id: retry ? failed.action_id : uuid(), request_id: '', lastSeq: 0, operation, content: retry ? failed.content : ctx.draft, withdrawnInput: typeof last === 'string' ? last : last?.content || '', status: 'accepted' };
       ctx.inflight = flight; const active = ctx.inflight; ctx.busy = true; ctx.preview = ''; ctx.error = '';
       ctx.contextNotice = '';
+      ctx.worldReport = null;
       const payload = { client_action_id: flight.action_id, expected_revision: ctx.session.revision, operation, delivery: operation === 'undo' ? 'non_stream' : ctx.delivery };
       if (operation === 'send') payload.content = content;
       else payload.target_turn_id = ctx.session.turns.at(-1)?.turn_id;

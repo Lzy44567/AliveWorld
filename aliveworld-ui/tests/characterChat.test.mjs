@@ -4,6 +4,35 @@ import { createCharacterChatStore } from '../src/store/characterChatStore.js';
 import { characterStream, CharacterApiError } from '../src/api/characterChatApi.js';
 import { cardOpening } from '../src/utils/characterOpening.js';
 import { structuredDraft, compatibleRoleText, roleFieldsError } from '../src/utils/characterFields.js';
+import { characterWorldReport } from '../src/utils/characterWorldReport.js';
+
+const worldReport = () => ({ window_turns: 4, resident_count: 1, omitted_by_limit: 0, omitted_by_budget: 0, entries: [{ entry_id: 'entry', entry_name: '合成规则', source: 'recent', turn_distance: 1, planned: true }] });
+
+test('world matching display is a bounded whitelist without text or keywords', () => {
+  const raw = worldReport(); raw.full_book = 'secret'; raw.entries[0].quote = 'private';
+  const safe = characterWorldReport(raw);
+  assert.ok(safe); assert.ok(!JSON.stringify(safe).includes('secret')); assert.ok(!JSON.stringify(safe).includes('private'));
+  for (const change of [{ window_turns: 5 }, { resident_count: -1 }, { entries: Array(17).fill(raw.entries[0]) }, { entries: [{ ...raw.entries[0], source: 'current' }] }]) assert.equal(characterWorldReport({ ...raw, ...change }), null);
+});
+
+test('world reports remain in their initiating context and reject stale events', async () => {
+  const f = fixture(); await f.store.open('a'); const ctx = f.store.current;
+  ctx.inflight = { action_id: 'action', request_id: 'request', lastSeq: 0 }; const flight = ctx.inflight;
+  await f.store.open('b');
+  const data = { v: 1, session_id: 'a', action_id: 'action', request_id: 'request', seq: 1, world_context_report: worldReport() };
+  f.store.event('a', flight, 'accepted', data);
+  assert.equal(ctx.worldReport.entries[0].source, 'recent'); assert.equal(f.store.current.worldReport, undefined);
+  f.store.event('a', flight, 'accepted', { ...data, request_id: 'stale', seq: 2, world_context_report: null });
+  assert.ok(ctx.worldReport);
+});
+
+test('nonstream committed world report survives detail reload but not a new request', async () => {
+  let second = false;
+  const f = fixture({ action: async () => ({ status: 'committed', world_context_report: second ? null : worldReport() }) });
+  await f.store.open('a'); f.store.current.delivery = 'non_stream'; f.store.current.draft = 'one'; await f.store.run('a');
+  assert.ok(f.store.current.worldReport); second = true;
+  f.store.current.draft = 'two'; await f.store.run('a'); assert.equal(f.store.current.worldReport, null);
+});
 
 test('structured conversion preserves original text and does not invent examples/opening', () => {
   const fields = structuredDraft('自由人设😀', '旧场景');

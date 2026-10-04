@@ -344,8 +344,13 @@ test('小屏顶部故事角色工坊三个入口均可见可达', async ({ page,
 });
 
 test('角色与世界书用搜索卡片选择，世界规则进入请求且重载保留绑定', async ({ page, request }) => {
+  const sourceCard = await request.get(`/api/v1/lobby/assets/characters/${encodeURIComponent(cardName)}`);
+  if (sourceCard.status() === 404) {
+    const createdCard = await request.post(`/api/v1/lobby/assets/characters/${encodeURIComponent(cardName)}`, { data: { parsed_data: { name: cardName, description: '【AWTEST:角色独立卡】成年合成测试角色，保留本人立场。' } } });
+    expect(createdCard.ok()).toBeTruthy();
+  } else expect(sourceCard.ok()).toBeTruthy();
   const worldName = '角色世界合成卡';
-  const world = { name: worldName, overview: '【角色世界概述】合成测试背景', axioms: ['【角色世界公理】这里每晚有蓝色月亮'], entries: [] };
+  const world = { name: worldName, overview: '【角色世界概述】合成测试背景', axioms: ['【角色世界公理】这里每晚有蓝色月亮'], entries: [{ id: 'c1_tower', name: '钟楼规则', keys: '钟楼', content: '【C1世界条目】钟楼夜晚会响三次', tags: [] }] };
   const response = await request.post(`/api/v1/lobby/assets/worldbooks/${encodeURIComponent(worldName)}`, { data: { content: JSON.stringify(world), parsed_data: world, overwrite: false } });
   expect(response.ok()).toBeTruthy();
   await enterCharacters(page);
@@ -367,16 +372,35 @@ test('角色与世界书用搜索卡片选择，世界规则进入请求且重�
   await page.getByTestId('character-create').click();
   await expect(page.getByTestId('character-composer')).toBeVisible();
   await request.delete(`${fakeBase}/__test__/requests`);
-  await send(page, '看看月亮');
+  await send(page, '【角色世界话题】');
   const calls = await records(request);
   expect(calls).toHaveLength(1);
   expect(calls[0].user).toContain('角色世界公理');
+  expect(calls[0].user).not.toContain('【C1世界条目】');
+  await send(page, '继续看看');
+  const continued = (await records(request)).at(-1);
+  expect(JSON.parse(continued.user).world_related_entries[0].content).toContain('【C1世界条目】');
+  await page.getByRole('button', { name: '会话资料', exact: true }).click();
+  const report = page.getByTestId('character-world-report');
+  await report.locator('summary').click();
+  await expect(report).toContainText('钟楼规则 · 近第1回合聊天 · 计划发送');
+  await expect(report).not.toContainText('【C1世界条目】');
+  await page.getByTestId('character-delivery').uncheck();
+  await send(page, '好，继续', false);
+  await expect(report).toContainText('近第2回合聊天');
+  await report.locator('summary').click();
+  await expect(report).toHaveJSProperty('open', true);
+  await page.screenshot({ path: '../build/e2e-results/character-world-report-wide.png', fullPage: true });
+  await page.setViewportSize({ width: 520, height: 900 });
+  await page.screenshot({ path: '../build/e2e-results/character-world-report-narrow.png', fullPage: true });
+  await page.setViewportSize({ width: 1600, height: 1000 });
   await page.reload();
   await dismissStartup(page);
   await page.getByTestId('mode-character').click();
   await selectSession(page, request, '世界书载入验收');
   await page.getByRole('button', { name: '会话资料', exact: true }).click();
   await expect(page.getByTestId('character-world-details')).toContainText(worldName);
+  await expect(page.getByTestId('character-world-report')).toHaveCount(0);
   await page.screenshot({ path: '../build/e2e-results/character-world-binding.png', fullPage: true });
 });
 

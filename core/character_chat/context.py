@@ -5,6 +5,7 @@ from core.prompt_studio import compose_prompt, plan_model_request, RequestMessag
 from core.request_budget import budget_report
 from .models import CharacterSessionError, profile_projection
 from .opening import opening_context
+from .world_context import select_world_context, final_world_report
 
 
 def build_context(session, pending, budget_options=None):
@@ -26,21 +27,7 @@ def build_context(session, pending, budget_options=None):
         ledger.append(entry)
         if len(ledger) == 32:
             break
-    binding = session.get('world_binding')
-    rules, entries = None, []
-    if binding:
-        book = binding['snapshot']
-        rules = {key: book.get(key, '') for key in ('name', 'overview', 'axioms')}
-        for entry in book.get('entries', []):
-            if entry.get('is_active') is False or '待确认' in entry.get('tags', []):
-                continue
-            keys = [k.strip() for k in entry.get('keys', '').split(',') if k.strip()]
-            projected = {key: entry.get(key) for key in ('id', 'name', 'content', 'tags')}
-            if '常驻' in entry.get('tags', []) or '绝对规则' in entry.get('tags', []):
-                rules.setdefault('entries', []).append(projected)
-            elif any(k.casefold() in pending['content'].casefold() for k in keys):
-                entries.append(projected)
-        entries = entries[:16]
+    rules, entries, world_report = select_world_context(session, pending['content'])
     system = compose_prompt('character.reply', {'character.presentation_mode': pending['mode']})
     omitted = []
     while True:
@@ -58,6 +45,7 @@ def build_context(session, pending, budget_options=None):
         report = budget_report(plan.system_prompt, plan.user_prompt, options=budget_options, manifest=plan.prompt_manifest)
         if report['fits']:
             report['omitted'] = omitted
+            report['world_context'] = final_world_report(world_report, sum('world_entry_id' in item for item in omitted))
             return plan, messages, {e['entry_id'] for e in ledger}, report
         if entries:
             omitted.append({'world_entry_id': entries.pop()['id']})

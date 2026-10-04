@@ -2,6 +2,12 @@
 
 Updated: 2026-10-04
 
+## Completed slice — C1 worldbook continuity and observable matching
+
+User continued after dev.19 delivery. Follow22g/22i: first bounded current-input + recent public formal-message worldbook matching, safe request-scoped report and UI explanation, no extra model calls or data migration. C2 preference default is awaiting a product answer and is not implemented in C1; M remains a separate gate. Final C1 goal is source delivery with narrow/full/browser verification and Git/docs evidence, without a new version/package/GitHub release.
+
+C1 completed: Python531/531, Node85/85, visibility and148-module production build passed; full Edge33/33 (3.0m), final standalone worldbook check1/1 (13.4s). Expanded matching reports visually inspected at1600x1000 and520x900. Request/visibility/budget/withdrawal ownership verified using isolated synthetic data, no paid calls. Source delivery only; dev.19ZIP unchanged. Next gate C2 requires the user's default preference-card choice and its persisted authorization/retry contract; M is not substituted for it.
+
 ## Completed delivery — B2 through dev.19 local portable package
 
 User authorized 1.6.0-dev.19 local EXE, preserving dev.18 and no GitHub publication. A/B1/B2 delivered: messenger UI, explicit author opening, independent character fields/examples, shared target CAS and atomic draft/publication recovery. Source commit aa37ef4. Final Python522/Node82/build and complete Edge33/33 (3.4m) passed; wide/narrow fields visually checked. Windows main EXE/updater built, package privacy/version/overwrite preservation and embedded frontend exact hash verified; ZIP SHA256 954d4b91ee6d1ce82307bf3c344986a7a44be5703ed5d885e6275f8341e5dc4b. No player data or paid API calls. Desktop EXE launch and real-model quality remain player acceptance, not claimed automatic evidence.

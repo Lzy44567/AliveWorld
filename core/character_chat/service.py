@@ -318,7 +318,8 @@ class CharacterChatService:
         try:
             omissions = [{k: item[k] for k in ('participant_id', 'field')}
                          for item in job['report'].get('omitted', []) if item.get('field') == 'dialogue_examples']
-            event('accepted', {'base_revision': job['session']['revision'], 'delivery': job['delivery'], 'context_omissions': omissions})
+            world_report = job['report'].get('world_context')
+            event('accepted', {'base_revision': job['session']['revision'], 'delivery': job['delivery'], 'context_omissions': omissions, 'world_context_report': world_report})
             # A cancel that won before this coroutine started must still make zero calls.
             authoritative = self.repository.load(sid)
             if action_view(authoritative, action_by_id(authoritative, aid), rid)['status'] != 'pending':
@@ -350,6 +351,7 @@ class CharacterChatService:
                 return action_view(value, action, rid), True
             result = self.repository.transaction(sid, commit)
             result['context_omissions'] = omissions
+            result['world_context_report'] = world_report
             if result['status'] == 'committed':
                 event('committed', result)
             else:
