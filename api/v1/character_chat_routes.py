@@ -17,6 +17,7 @@ from core.character_chat.capacity import capacity_report
 from core.character_chat.errors import ERROR_STATUS, message, retryable
 from core.character_chat.repository import CharacterSessionRepository
 from core.character_chat.service import CharacterChatService, action_by_id, action_view, session_view, session_summary, visible_turn
+from core.character_chat.cognition import public_index
 from core.worldbook import normalize_worldbook
 from utils.asset_catalog import resolve_asset_path
 from utils.runtime_paths import PATHS
@@ -189,6 +190,21 @@ async def ledger(sid: str, view: str = 'public'):
         return {'ledger': public_ledger(repository.load(sid), spoiler=view == 'spoiler'), 'view': view}
     except Exception as exc:
         return error_response(exc)
+
+
+@router.get('/{sid}/memory/cognition')
+async def cognition_index(sid: str, request: Request):
+    try:
+        if request.query_params or await request.body():
+            raise CharacterSessionError('INVALID_REQUEST')
+        value = repository.load(sid)
+        if value.get('schema_version') != 1:
+            raise CharacterSessionError('SCHEMA_READ_ONLY')
+        return JSONResponse(public_index(value), headers={'Cache-Control': 'no-store'})
+    except Exception as exc:
+        response = error_response(exc)
+        response.headers['Cache-Control'] = 'no-store'
+        return response
 
 
 @router.patch('/{sid}')

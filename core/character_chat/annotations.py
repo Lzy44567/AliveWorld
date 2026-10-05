@@ -43,23 +43,31 @@ def parse_annotations(values, ops):
     return indexed
 
 
-def chain_root(entry, session):
-    by_id = {e['entry_id']: e for e in session['ledger']}
+def chain_root(entry, session, *, by_id=None, cache=None):
+    if by_id is None:
+        by_id = {e['entry_id']: e for e in session['ledger']}
+    cache = {} if cache is None else cache
     current, seen = entry, set()
     for _ in range(2048):
         eid = current['entry_id']
         if eid in seen:
-            return None
+            break
+        if eid in cache:
+            root = cache[eid]
+            cache.update({key: root for key in seen})
+            return root
         seen.add(eid)
         previous_id = current.get('supersedes_entry_id')
         if previous_id is None:
+            cache.update({key: eid for key in seen})
             return eid
         previous = by_id.get(previous_id)
         if previous is None or previous.get('status') != 'superseded' or any(previous.get(k) != entry.get(k) for k in ('subject_instance_id', 'kind', 'about_instance_id')):
-            return None
+            break
         if not set(current['visibility']['audience_instance_ids']) <= set(previous['visibility']['audience_instance_ids']):
-            return None
+            break
         current = previous
+    cache.update({key: None for key in seen})
     return None
 
 

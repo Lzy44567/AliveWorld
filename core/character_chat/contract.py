@@ -7,7 +7,7 @@ from uuid import uuid4
 from .models import CharacterSessionError, json_bytes, text, validate_depth
 from .protocol import V1, V2, result_keys
 from .annotations import parse_annotations, validate_annotation
-from .memory import select_memory, public
+from .memory import select_memory, public, formal_messages
 
 
 def now():
@@ -69,6 +69,11 @@ def _plan_turn(session, action, attempt, raw, allowed_messages, projected_entry_
     result = parse_result(raw, contract_id)
     annotations = parse_annotations(result['memory_annotations'], result['ledger_ops']) if contract_id == V2 else {}
     candidate = copy.deepcopy(session)
+    formal = formal_messages(session)
+    for message in allowed_messages:
+        original = formal.get(message['message_id'])
+        if original is None or any(message.get(k) != original.get(k) for k in ('message_id', 'turn_id', 'speaker_instance_id', 'content', 'visibility')):
+            raise CharacterSessionError('CONTRACT_INVALID')
     pending = attempt['pending_input']
     participants = {p['controller']: p['instance_id'] for p in session['participants']}
     audience = list(participants.values())

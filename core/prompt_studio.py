@@ -23,6 +23,7 @@ from core.story_length import story_length_instruction
 from core.world_change_events import SIGNAL_INSTRUCTION
 from core.character_chat.prompts import CORE as CHARACTER_CORE, CONTRACT as CHARACTER_CONTRACT, PRESENTATION as CHARACTER_PRESENTATION
 from core.character_chat.prompts import CORE_V2 as CHARACTER_CORE_V2, CONTRACT_V2 as CHARACTER_CONTRACT_V2
+from core.character_chat.prompts import M3_GUIDANCE
 from utils.runtime_paths import PATHS
 
 
@@ -64,6 +65,24 @@ def _settlement_section(name: str) -> Callable[[], str]:
 
 
 SLICES: tuple[PromptSlice, ...] = (
+    PromptSlice("character.reply.m3.v1.core", "character.reply.m3.v1", "角色 M3 私聊职责 v1", "system", 100,
+                "有界正式原文召回；旧v1/v2 core覆盖未自动应用，旧身份保留可见，可显式复制编辑本片。", True, (),
+                lambda: CHARACTER_CORE + M3_GUIDANCE, "engine", "static", True),
+    PromptSlice("character.reply.m3.v1.contract", "character.reply.m3.v1", "角色 M3 严格回复契约 v1", "system", 200,
+                "沿用严格reply.v1，不提高原文或索引可信度。", False, (),
+                lambda: CHARACTER_CONTRACT, "engine", "static", True),
+    PromptSlice("character.reply.m3.v1.presentation", "character.reply.m3.v1", "角色 M3 表现方式 v1", "system", 300,
+                "共用原表现方式规则。", False, ("character.presentation_mode",),
+                lambda: CHARACTER_PRESENTATION, "feature", "configuration", True),
+    PromptSlice("character.reply.m3.v2.core", "character.reply.m3.v2", "角色 M3 私聊职责 v2", "system", 100,
+                "有界正式原文召回；旧v1/v2 core覆盖未自动应用，旧身份保留可见，可显式复制编辑本片。", True, (),
+                lambda: CHARACTER_CORE_V2 + M3_GUIDANCE, "engine", "static", True),
+    PromptSlice("character.reply.m3.v2.contract", "character.reply.m3.v2", "角色 M3 严格回复契约 v2", "system", 200,
+                "沿用严格reply.v2及自动注解边界。", False, (),
+                lambda: CHARACTER_CONTRACT_V2, "engine", "static", True),
+    PromptSlice("character.reply.m3.v2.presentation", "character.reply.m3.v2", "角色 M3 表现方式 v2", "system", 300,
+                "共用原表现方式规则。", False, ("character.presentation_mode",),
+                lambda: CHARACTER_PRESENTATION, "feature", "configuration", True),
     PromptSlice("character.reply.v2.core", "character.reply.v2", "角色私聊职责 v2", "system", 100,
                 "自动重要记忆版本独立职责，不继承旧v1覆盖。", True, (),
                 lambda: CHARACTER_CORE_V2, "engine", "static", True),
@@ -341,6 +360,7 @@ class ModelRequestPlan:
     trace_label: str
     mode: str
     contract_id: str
+    context_contract_id: str | None = None
 
 
 def plan_model_request(
@@ -352,6 +372,7 @@ def plan_model_request(
     trace_label: str,
     mode: str,
     contract_id: str,
+    context_contract_id: str | None = None,
 ) -> ModelRequestPlan:
     """Create an immutable request plan while preserving exact message text."""
     user_prompt = ""
@@ -374,6 +395,8 @@ def plan_model_request(
                 (system.text + "\0" + user_prompt).encode("utf-8")
             ).hexdigest()[:16],
         })
+    if context_contract_id is not None:
+        manifest = [dict(item, contextContractId=context_contract_id) for item in manifest]
     return ModelRequestPlan(
         system_prompt=system.text,
         user_prompt=user_prompt,
@@ -383,6 +406,7 @@ def plan_model_request(
         trace_label=trace_label,
         mode=mode,
         contract_id=contract_id,
+        context_contract_id=context_contract_id,
     )
 
 

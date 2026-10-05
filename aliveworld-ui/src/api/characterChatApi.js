@@ -54,6 +54,7 @@ export const characterChatApi = {
   ledger: (id, view = 'public') => request(sid(id) + '/ledger?' + new URLSearchParams({ view })),
   get: id => request(sid(id)),
   capacity: id => request(sid(id) + '/capacity'),
+  cognition: id => request(sid(id) + '/memory/cognition'),
   create: payload => request('', 'POST', payload),
   update: (id, payload) => request(sid(id), 'PATCH', payload),
   markMemory: (id, payload) => request(sid(id) + '/memory/important', 'PUT', payload),

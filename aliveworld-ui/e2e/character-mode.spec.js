@@ -34,6 +34,51 @@ async function savedSession(request, title) {
 
 test.describe.configure({ mode: 'serial' });
 
+test('M3公开认知、完整旧原文召回、修订撤回和小屏', async ({ page, request }) => {
+  test.setTimeout(120000);
+  await request.post(`/api/v1/lobby/assets/characters/${encodeURIComponent(cardName)}`, { data: { parsed_data: { name:cardName,description:'独立合成成年角色' },overwrite:true } });
+  await request.delete(`${fakeBase}/__test__/requests`);
+  await enterCharacters(page);await createSession(page,'M3认知验收');
+  const original='【角色账本】【记忆M1】平时喜欢海边散步 Coffee，但暴雨时不要去海边。';
+  await send(page,original);
+  let saved=await savedSession(request,'M3认知验收');const root=saved.ledger.find(e=>e.kind==='knowledge').entry_id;
+  await page.getByRole('button',{name:'会话资料',exact:true}).click();
+  const panel=page.getByTestId('character-cognition-panel');await panel.locator('summary').click();
+  await expect(panel.locator(`[data-cognition-id="${root}"]`)).toContainText('对方明确说过');
+  await expect(panel).not.toContainText('内部记录');
+  await panel.getByRole('button',{name:'角色推测或意图',exact:true}).click();await expect(panel).toContainText('没有符合筛选');
+  await panel.getByRole('button',{name:'全部来源',exact:true}).click();
+  await panel.getByRole('button',{name:'未指定',exact:true}).click();await expect(panel.locator(`[data-cognition-id="${root}"]`)).toBeVisible();
+  await panel.getByRole('button',{name:'查看来源',exact:true}).click();
+  await expect(page.locator(`[data-source-entry="${root}"]`)).toContainText(original);
+  await page.getByTestId('character-composer').fill('保留草稿');await panel.getByRole('button',{name:'纠正记忆',exact:true}).click();await expect(page.getByTestId('character-composer')).toHaveValue('保留草稿');await page.getByTestId('character-composer').fill('');
+  await page.getByRole('button',{name:'收起资料',exact:true}).click();
+  for(let i=0;i<22;i++) {
+    const result=await request.post(`${sessionsBase}/${saved.session_id}/actions`,{data:{client_action_id:crypto.randomUUID(),expected_revision:saved.revision,operation:'send',delivery:'non_stream',content:`无关闲谈${i}`}});
+    expect((await result.json()).status).toBe('committed');saved=await savedSession(request,'M3认知验收');
+  }
+  await page.reload();await dismissStartup(page);await page.getByTestId('mode-character').click();await selectSession(page,request,'M3认知验收');
+  await send(page,'海边 Coffee 的约定有什么限定？');
+  await page.getByRole('button',{name:'会话资料',exact:true}).click();
+  const recallPanel=page.getByTestId('character-source-recall-report');await recallPanel.locator('summary').click();
+  await expect(recallPanel).toContainText('关联旧原文已送入请求');await recallPanel.getByRole('button',{name:'查看当前来源'}).click();await expect(page.locator(`[data-source-entry="${root}"]`)).toContainText(original);
+  await page.getByRole('button',{name:'收起资料',exact:true}).click();
+  await send(page,'【记忆M3修订】海边 Coffee 的约定有什么限定？');
+  const data=JSON.parse((await records(request)).at(-1).user);
+  expect(data.context_contract_id).toBe('character.context.m3.v1');expect(data.history.some(m=>m.content===original)).toBe(false);
+  expect(data.recalled_sources.map(m=>m.content)).toContain(original);expect(data.recalled_sources.length).toBeLessThanOrEqual(4);expect(data.recalled_sources.reduce((n,m)=>n+Array.from(m.content).length,0)).toBeLessThanOrEqual(4000);
+  saved=await savedSession(request,'M3认知验收');const revised=saved.ledger.find(e=>e.supersedes_entry_id===root);expect(revised).toBeTruthy();
+  await page.getByRole('button',{name:'会话资料',exact:true}).click();
+  await page.getByTestId('character-source-recall-report').locator('summary').click();await expect(page.getByTestId('character-source-recall-report')).toContainText('关联旧原文已送入请求');
+  await panel.locator('summary').click();await expect(panel.locator(`[data-cognition-id="${revised.entry_id}"]`)).toContainText('已修订此前认知');
+  await page.screenshot({path:'../build/e2e-results/character-m3-wide.png'});
+  await page.setViewportSize({width:520,height:900});expect(await panel.evaluate(el=>el.scrollWidth<=el.clientWidth+1)).toBeTruthy();await page.screenshot({path:'../build/e2e-results/character-m3-narrow.png'});
+  await page.getByRole('button',{name:'关闭资料'}).click();page.once('dialog',dialog=>dialog.accept());await page.getByTestId('character-undo').click();
+  await expect.poll(async()=> (await (await request.get(`${sessionsBase}/${saved.session_id}/memory/cognition`)).json()).entries.some(e=>e.entry_id===root)).toBeTruthy();
+  await page.setViewportSize({width:1600,height:1000});
+  await page.reload();await dismissStartup(page);await page.getByTestId('mode-character').click();await selectSession(page,request,'M3认知验收');await page.getByRole('button',{name:'会话资料',exact:true}).click();await page.getByTestId('character-source-recall-report').locator('summary').click();await expect(page.getByTestId('character-source-recall-report')).toContainText('尚无本次');
+});
+
 test('M4a容量只读、正式回合刷新、临界提醒与小屏说明', async ({ page, request }) => {
   await request.post(`/api/v1/lobby/assets/characters/${encodeURIComponent(cardName)}`, { data: { parsed_data: { name: cardName, description: '独立合成成年角色' }, overwrite: true } });
   await enterCharacters(page); await createSession(page, '容量验收');

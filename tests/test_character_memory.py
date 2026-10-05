@@ -17,12 +17,16 @@ from tests.test_character_chat_lifecycle import FakeTransport
 def fixture(count=40):
     session = create_session(str(uuid4()), {'name': '合成', 'description': '固定人设'}, {'kind': 'character', 'key': '合成'})
     ai = next(p['instance_id'] for p in session['participants'] if p['controller'] == 'ai')
+    user = next(p['instance_id'] for p in session['participants'] if p['controller'] == 'user')
     audience = [p['instance_id'] for p in session['participants']]
     for i in range(count):
         mid, tid = str(uuid4()), str(uuid4())
         content = '曾承诺一起去海边散步 Coffee tomorrow' if i == 0 else f'普通闲谈编号{i}'
-        session['turns'].append({'turn_id': tid, 'user_message': {'message_id': mid, 'content': content, 'visibility': {'audience_instance_ids': audience}},
-                                 'ai_message': {'message_id': str(uuid4()), 'content': '好的', 'visibility': {'audience_instance_ids': audience}}})
+        def message(message_id, speaker, value):
+            return {'message_id': message_id, 'turn_id': tid, 'speaker_instance_id': speaker, 'content': value,
+                    'presentation_mode': 'messenger', 'visibility': {'audience_instance_ids': audience}, 'created_at': session['created_at']}
+        session['turns'].append({'turn_id': tid, 'user_message': message(mid, user, content),
+                                 'ai_message': message(str(uuid4()), ai, '好的')})
         session['ledger'].append({'entry_id': str(uuid4()), 'subject_instance_id': ai, 'kind': 'knowledge', 'content': content,
                                   'status': 'active', 'created_turn_id': tid, 'visibility': {'audience_instance_ids': audience},
                                   'source': {'type': 'player_statement', 'message_ids': [mid], 'evidence': [{'message_id': mid, 'quote': content}]}})

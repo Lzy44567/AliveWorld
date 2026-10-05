@@ -16,6 +16,7 @@ from .protocol import contract_for, attempt_contract
 from .notices import notice_for
 from . import memory_operations
 from .limits import MAX_ACTIONS, MAX_ATTEMPTS, MAX_TURNS
+from .context_contract import M3, context_contract
 
 
 def pending_attempt(session):
@@ -147,7 +148,8 @@ class CharacterChatService:
                 for action in value['requests']:
                     for attempt in action['attempts']:
                         if attempt['status'] == 'pending':
-                            action['retry_input'] = dict(attempt.pop('pending_input'), reply_contract_id=attempt_contract(attempt))
+                            action['retry_input'] = dict(attempt.pop('pending_input'), reply_contract_id=attempt_contract(attempt),
+                                                         context_contract_id=context_contract(attempt))
                             attempt.update(status='interrupted', error_code='PROCESS_INTERRUPTED', ended_at=now())
                             changed = True
                 return None, changed
@@ -305,7 +307,7 @@ class CharacterChatService:
                     existing['target_turn_id'] = target
                 value['requests'].append(existing)
             attempt = {'request_id': str(uuid4()), 'base_revision': value['revision'], 'status': 'pending', 'created_at': now(),
-                       'reply_contract_id': contract_for(value)}
+                       'reply_contract_id': contract_for(value), 'context_contract_id': M3}
             if retry_token:
                 attempt.update(retry_of=payload['retry_of'], retry_token=retry_token)
             existing['attempts'].append(attempt)
@@ -321,7 +323,8 @@ class CharacterChatService:
             slot = True
             attempt['pending_input'] = {'content': content, 'mode': mode,
                 'user_message_id': str(uuid4()), 'ai_message_id': str(uuid4())}
-            existing['retry_input'] = dict(copy.deepcopy(attempt['pending_input']), reply_contract_id=attempt_contract(attempt))
+            existing['retry_input'] = dict(copy.deepcopy(attempt['pending_input']), reply_contract_id=attempt_contract(attempt),
+                                           context_contract_id=context_contract(attempt))
             job = {'session': copy.deepcopy(value), 'action_id': aid, 'request_id': attempt['request_id'], 'delivery': delivery}
             return {'job': {'session_id': sid, 'action_id': aid, 'request_id': attempt['request_id'],
                             'base_revision': value['revision'], 'delivery': delivery}}, True
@@ -338,7 +341,7 @@ class CharacterChatService:
                 preference_settings = session_settings(snapshot)
                 preferences = self.preference_loader(preference_settings) if preference_settings['enabled'] else []
                 plan, messages, entries, report = build_context(snapshot, attempt['pending_input'], config.get('budget_options'), preferences=preferences,
-                                                               contract_id=attempt_contract(attempt))
+                                                               contract_id=attempt_contract(attempt), context_contract_id=context_contract(attempt))
                 job.update(config=config, plan=plan, messages=messages, entries=entries, report=report)
                 with self.lock:
                     self.jobs[job['request_id']] = job
@@ -360,7 +363,8 @@ class CharacterChatService:
             if attempt is None:
                 raise CharacterSessionError('ACTION_NOT_FOUND')
             if attempt['status'] == 'pending':
-                action['retry_input'] = dict(attempt.pop('pending_input'), reply_contract_id=attempt_contract(attempt))
+                action['retry_input'] = dict(attempt.pop('pending_input'), reply_contract_id=attempt_contract(attempt),
+                                             context_contract_id=context_contract(attempt))
                 attempt.update(status=status, error_code=code, ended_at=now())
                 return action_view(value, action, rid), True
             return action_view(value, action, rid), False
@@ -401,7 +405,9 @@ class CharacterChatService:
                          for item in job['report'].get('omitted', []) if item.get('field') == 'dialogue_examples']
             world_report = job['report'].get('world_context')
             memory_report = job['report'].get('memory_context')
-            event('accepted', {'base_revision': job['session']['revision'], 'delivery': job['delivery'], 'context_omissions': omissions, 'world_context_report': world_report, 'memory_context_report': memory_report})
+            source_report = job['report'].get('source_recall')
+            event('accepted', {'base_revision': job['session']['revision'], 'delivery': job['delivery'], 'context_omissions': omissions, 'world_context_report': world_report, 'memory_context_report': memory_report,
+                               **({'source_recall_report': source_report} if source_report is not None else {})})
             # A cancel that won before this coroutine started must still make zero calls.
             authoritative = self.repository.load(sid)
             if action_view(authoritative, action_by_id(authoritative, aid), rid)['status'] != 'pending':
@@ -435,6 +441,8 @@ class CharacterChatService:
             result['context_omissions'] = omissions
             result['world_context_report'] = world_report
             result['memory_context_report'] = memory_report
+            if source_report is not None:
+                result['source_recall_report'] = source_report
             if result['status'] == 'committed':
                 event('committed', result)
             else:

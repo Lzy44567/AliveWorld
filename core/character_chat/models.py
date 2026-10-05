@@ -14,6 +14,7 @@ from .memory import settings as memory_settings, MemoryVersionError
 from .annotations import validate_annotation
 from .protocol import attempt_contract, validate_contract, ReplyContractError, V2
 from .notices import validate_notice
+from .context_contract import context_contract, validate_context_contract, ContextContractError, LEGACY
 from .limits import MAX_TURNS, MAX_LEDGER, MAX_ACTIONS, MAX_ATTEMPTS, MAX_ACTIVE, MAX_EXTENSIONS_BYTES
 
 
@@ -283,6 +284,7 @@ def validate_records(value):
                 raise CharacterSessionError('SESSION_CORRUPT')
             for attempt in attempts:
                 attempt_contract(attempt)
+                context_contract(attempt)
                 attempt_count += 1
                 rid = canonical_id(attempt['request_id'])
                 if rid in request_ids or attempt['status'] not in {'pending', 'committed', 'failed', 'cancelled', 'interrupted'}:
@@ -302,6 +304,7 @@ def validate_records(value):
                     raise CharacterSessionError('SESSION_CORRUPT')
             if 'retry_input' in action:
                 validate_contract(action['retry_input'].get('reply_contract_id', 'character.reply.v1'))
+                validate_context_contract(action['retry_input'].get('context_contract_id', LEGACY))
             if action.get('archived_turn') is not None:
                 turn(action['archived_turn'], archived=True)
                 if action['archived_turn']['action_id'] != action['action_id']:
@@ -389,6 +392,8 @@ def validate_records(value):
                        for p in [t.get('pending_input', {})] for k in ('user_message_id', 'ai_message_id') if k in p}
         validate_opening(value.get('opening'), ai_id, value['created_at'],
                          turn_ids | action_ids | request_ids | message_ids | entry_ids | pending_ids | participant_ids)
+    except ContextContractError:
+        raise CharacterSessionError('CONTEXT_CONTRACT_UNSUPPORTED') from None
     except ReplyContractError:
         raise CharacterSessionError('REPLY_CONTRACT_UNSUPPORTED') from None
     except (KeyError, TypeError, ValueError, AttributeError, StopIteration):

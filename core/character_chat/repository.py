@@ -73,7 +73,9 @@ class CharacterSessionRepository:
                 return copy.deepcopy(value)
             try:
                 validate_session(value)
-            except CharacterSessionError:
+            except CharacterSessionError as exc:
+                if exc.code == 'CONTEXT_CONTRACT_UNSUPPORTED':
+                    raise
                 raise CharacterSessionError("SESSION_CORRUPT") from None
             return copy.deepcopy(value)
 

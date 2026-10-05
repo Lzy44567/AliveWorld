@@ -1,8 +1,16 @@
 # Active development goal
 
-Updated: 2026-10-05
+Updated: 2026-10-06
 
-## Active — M4a capacity diagnosis to the next design gate
+## Completed — M3 local cognition and bounded source recall
+
+2026-10-06: user authorizes goal mode, design then implementation. Main agent read the complete Astra [22q contract](features/22q_character_cognition_m3_contract.md). Deliver a rebuildable session-local ledger index and at most4 whole linked old formal messages/4000 Unicode characters, final budget/evidence closure and independent frozen context identity, compatible reply.v1/v2, public index/recall UI and isolated full acceptance/local Git. Do not infer semantic preference conditions with lexical matching, share across sessions, expand capacity, add model calls, bump version, package or publish. Next verifiable slice: backend/context/API and frontend index/source report, then lifecycle/privacy/browser/visual verification. C3/C4/C5 remain independent unfrozen engineering gates.
+
+M3 completed: final Python606/606 (24.226s), all Node109/109 (character57), visibility and158-module production build passed. Final complete Edge38/38 passed (5.3m), including actual source projection beyond20 turns, public index/source filtering, source links, draft preservation, old-source revision and undo/reload; wide1600x1000/narrow520x900 latest screenshots inspected. Initial new test fixture errors and small-screen selector timeout were repaired without relaxing runtime policy. Source/shared-group first-selection order and budget closure verified. Existing537.38KB bundle warning remainsP2. Goal audit in22q maps full requirements to current implementation/evidence; no paid model, player data, capacity, version, package or remote changes.
+
+Next verifiable design gate is C3 structured OOC and role agency: preserve the already chosen expandable textbox above the composer, freeze dual-draft/pending/retry/history/authorization contracts before code. Then C4 message groups and C5 bounded contact; do not silently implement these or claim complete companionship/semantic psychology at this M3 boundary.
+
+## Completed — M4a capacity diagnosis to the next design gate
 
 User explicitly enables goal mode after confirming22p is ready for implementation. Final outcome is a truthful session-local capacity view and non-blocking near-limit warning, not unlimited memory. Implement the pure report, read-only GET, guarded frontend refresh and foldable panel, then isolated narrow/full/browser acceptance and categorized docs/local Git. Do not raise constants, delete/archive source records, introduce paid calls, bump version, package or publish.
 

@@ -173,6 +173,9 @@ def _character_response(user: str) -> dict[str, Any] | str:
     contract_id = data.get('reply_contract_id', 'character.reply.v1')
     if contract_id not in {'character.reply.v1', 'character.reply.v2'}:
         raise ValueError('Unknown test reply contract')
+    context_id = data.get('context_contract_id', 'character.context.v1')
+    if context_id not in {'character.context.v1', 'character.context.m3.v1'}:
+        raise ValueError('Unknown test context contract')
     def output(ops, annotations=None):
         result = {'reply': reply, 'ledger_ops': ops}
         if contract_id == 'character.reply.v2':
@@ -221,6 +224,20 @@ def _character_response(user: str) -> dict[str, Any] | str:
                 operation.update(op='supersede', target_entry_id=target['entry_id'])
         operations = [operation]
         annotations = [{'op_index': 0, 'reason': 'relationship_turn' if high else 'explicit_boundary'}]
+    if context_id == 'character.context.m3.v1' and '【记忆M3修订】' in content:
+        user_id = next(p['instance_id'] for p in data['participants'] if p['controller'] == 'user')
+        recalled = [m for m in data.get('recalled_sources', []) if m['speaker_instance_id'] == user_id]
+        target = next((e for e in data.get('ledger', []) if e['kind'] == 'knowledge' and any(m['message_id'] in e['source']['message_ids'] for m in recalled)), None)
+        if target:
+            message = next(m for m in recalled if m['message_id'] in target['source']['message_ids'])
+            reply += ' 收到旧声明的限定语：' + message['content'][:300]
+            operations = [{'op': 'supersede', 'target_entry_id': target['entry_id'], 'kind': 'knowledge',
+                'content': '收到旧声明的限定语：' + message['content'][:300], 'source': {'type': 'player_statement',
+                    'message_ids': [message['message_id']], 'evidence': [{'message_id': message['message_id'], 'quote': message['content'][:240]}]},
+                'visibility': target['visibility']}]
+            if target.get('about_instance_id') is not None:
+                operations[0]['about_instance_id'] = target['about_instance_id']
+            annotations = []
     return output(operations, annotations)
 
 

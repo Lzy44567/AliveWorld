@@ -8,6 +8,7 @@ from core.request_budget import normalize_usage
 from .models import CharacterSessionError
 from .stream_json import ReplyPreview
 from .protocol import validate_contract
+from .context_contract import validate_context_contract, LEGACY, ContextContractError
 
 
 class CharacterTransport:
@@ -23,6 +24,10 @@ class CharacterTransport:
         return config
 
     async def generate(self, config, plan, report, delivery, emit):
+        try:
+            validate_context_contract(plan.context_contract_id if plan.context_contract_id is not None else LEGACY)
+        except ContextContractError:
+            raise CharacterSessionError('CONTEXT_CONTRACT_UNSUPPORTED') from None
         try:
             validate_contract(plan.contract_id)
         except ValueError:
