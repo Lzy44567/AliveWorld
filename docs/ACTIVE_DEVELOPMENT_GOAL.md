@@ -2,6 +2,14 @@
 
 Updated: 2026-10-06
 
+## Current — C4 bound streaming / multibubble implementation
+
+Latest user definition supersedes the historical display question below: streaming and progressive character display are one feature, with no independent animation switch; streaming and whole-bubble gaps are mutually exclusive, or both off. Astra completed [22u](features/22u_character_display_and_multibubble_execution.md) and [22v](features/22v_character_message_groups_storage.md), both read fully by the main agent. No new gameplay question is needed. Goal mode continues A → B → C → V, stopping at the verified real-session migration/packaging boundary, not after a decorative switch. No new stop button, forced interruption, C5, capacity expansion, paid call or remote publication.
+
+A is implemented but not enabled for existing sessions: explicit reply.v3, strict 1–6 messages / 8000-codepoint / 65536-byte output, stable local-source mapping, independent incremental messages[N].text lexer and transport dispatch. First and later bubbles preview before complete JSON arrives; private paths stay hidden; final validation remains mandatory. 12 new tests, targeted35/35 and full Python649/649 (26.060s) pass. Old contract selection, contexts, session storage and frontend remain unchanged; this is not complete C4 or an EXE. Next verifiable slice: schema2 reader/validation and pure synthetic migration, then group lifecycle, queues and UI. Real player data is not read or converted.
+
+Historical headings below do not override this contract.
+
 Current discussion supersedes the stop-control proposal below: user does not recommend adding a stop button because players cannot react quickly and truncation adds lifecycle complexity. Requested Astra to refine optional provider streaming, local character-reveal animation, and once-generated bubble groups with deterministic length-based gaps. This turn is design-only. Do not add a new stop control, assume it is required to finish C4, or delete the existing character cancellation implementation without separate authorization. Design must prevent repeated animation/double delays and separate unvalidated preview, official delivery and read status. Historical notes below are not current authorization.
 
 Astra refinement completed in22t and reviewed in full; main review removed the draft's repeated automatic-truncation recommendation, retaining the already confirmed short-burst completion then response to accumulated inputs. One remaining display question: when local animations are enabled, buffer/validate before showing rather than also display the same provider preview. Timing/array schema/storage migration still require concrete implementation design, not more approval of interruption policy. This documentation-only slice has no new runtime tests, code, package or version changes.

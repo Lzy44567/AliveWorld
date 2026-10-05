@@ -12,7 +12,7 @@ from .opening import make_opening, normalize_opening, validate_opening
 from .preferences import validate_settings
 from .memory import settings as memory_settings, MemoryVersionError
 from .annotations import validate_annotation
-from .protocol import attempt_contract, validate_contract, ReplyContractError, V2
+from .protocol import attempt_contract, validate_contract, ReplyContractError, V2, V3
 from .notices import validate_notice
 from .context_contract import context_contract, validate_context_contract, ContextContractError, LEGACY, C3
 from .ooc import validate_stored_ooc
@@ -285,7 +285,8 @@ def validate_records(value):
             if not isinstance(attempts, list) or not attempts:
                 raise CharacterSessionError('SESSION_CORRUPT')
             for attempt in attempts:
-                attempt_contract(attempt)
+                if attempt_contract(attempt) == V3:
+                    raise ReplyContractError('v3 requires message-group storage')
                 context_contract(attempt)
                 attempt_count += 1
                 rid = canonical_id(attempt['request_id'])
@@ -309,7 +310,8 @@ def validate_records(value):
                     raise CharacterSessionError('SESSION_CORRUPT')
             if 'retry_input' in action:
                 retry_input = action['retry_input']
-                validate_contract(retry_input.get('reply_contract_id', 'character.reply.v1'))
+                if validate_contract(retry_input.get('reply_contract_id', 'character.reply.v1')) == V3:
+                    raise ReplyContractError('v3 requires message-group storage')
                 retry_context = validate_context_contract(retry_input.get('context_contract_id', LEGACY))
                 validate_stored_ooc(retry_input)
                 text(retry_input['content'], 4000)

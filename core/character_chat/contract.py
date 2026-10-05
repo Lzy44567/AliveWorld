@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 from .models import CharacterSessionError, json_bytes, text, validate_depth
-from .protocol import V1, V2, result_keys
+from .protocol import V1, V2, V3, result_keys
 from .annotations import parse_annotations, validate_annotation
 from .memory import select_memory, public, formal_messages
 
@@ -33,10 +33,16 @@ def parse_result(raw, contract_id=V1):
         json_bytes(value)  # Reject isolated surrogate code points even without streaming.
         if not isinstance(value, dict) or set(value) != result_keys(contract_id):
             raise CharacterSessionError('CONTRACT_INVALID')
-        text(value['reply'], 8000)
+        if contract_id == V3:
+            from .message_groups import validate_messages
+            if next(iter(value), None) != 'messages':
+                raise CharacterSessionError('CONTRACT_INVALID')
+            validate_messages(value['messages'])
+        else:
+            text(value['reply'], 8000)
         if not isinstance(value['ledger_ops'], list) or len(value['ledger_ops']) > 6:
             raise CharacterSessionError('CONTRACT_INVALID')
-        if contract_id == V2:
+        if contract_id in {V2, V3}:
             parse_annotations(value['memory_annotations'], value['ledger_ops'])
         return value
     except (ValueError, TypeError, UnicodeError, RecursionError):

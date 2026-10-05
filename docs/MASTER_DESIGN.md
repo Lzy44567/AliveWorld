@@ -6,6 +6,8 @@
 
 ## 当前目标
 
+2026-10-06最新：按用户绑定流式与逐字显示，和整气泡间隔互斥或全关；不新增动画开关/停止按钮。Astra[22u](features/22u_character_display_and_multibubble_execution.md)/[22v](features/22v_character_message_groups_storage.md)冻结多气泡协议及消息组存储阶段，目的模式按A/B/C/V推进。A片v3解析与实时路径lexer已通过649项Python；尚未启用UI/真实会话，不能称多气泡功能完成。具体当前证据见ACTIVE/TESTING，旧包保持不变。
+
 2026-10-06最新设计更新：用户不新增停止按钮，委托Astra在22t统一流式预览、本地逐字动画、按字数气泡间隔的组合与后台恢复；生成、正式送达、已读分别处理，避免双重等待。先沿已确认连续短批完成后回应期间新输入，不把任意新消息截断设为默认。本轮仅文档；现行状态见ACTIVE。
 
 2026-10-06现行：[22t](features/22t_character_conversation_c4_design.md)由Astra完善角色动机/接话与消息组方案。仅独立C4-0短接话指导已接入M3/C3，仍单reply；其余多气泡、插话队列、迁移/未读/恢复是候选。气泡节奏控制权与确定性打断入口等待产品选择，不自动冻结或编码。见ACTIVE/TESTING，旧包不变。

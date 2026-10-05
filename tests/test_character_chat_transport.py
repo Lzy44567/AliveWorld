@@ -129,3 +129,44 @@ class CharacterTransportTests(unittest.IsolatedAsyncioTestCase):
         self.plan = replace(self.plan, contract_id='character.reply.v99')
         with self.assertRaises(CharacterSessionError) as exc: await self.run_transport('stream')
         self.assertEqual('REPLY_CONTRACT_UNSUPPORTED', exc.exception.code); self.assertEqual(2, len(self.calls))
+
+    async def test_v3_one_sdk_call_separate_realtime_bubbles_and_private_paths(self):
+        from core.character_chat.protocol import V3
+        from tests.test_character_multibubble_protocol import result, visible
+        value = result('第一条🙂', '第二条')
+        # Preview never exposes a private same-named nested field. Final contract
+        # validation (not transport) will reject the deliberately bad ledger.
+        value['ledger_ops'] = [{'source': {'text': 'PRIVATE'}, 'content': 'SECRET'}]
+        raw = json.dumps(value, ensure_ascii=True)
+        chunks = []
+        for index, char in enumerate(raw):
+            event = {'id': 's', 'object': 'chat.completion.chunk', 'choices': [{'index': 0,
+                'delta': {'content': char}, 'finish_reason': 'stop' if index == len(raw) - 1 else None}]}
+            chunks.append('data: ' + json.dumps(event) + '\n\n')
+        def handler(request):
+            self.calls.append(json.loads(request.content))
+            return httpx.Response(200, headers={'content-type': 'text/event-stream'},
+                                  content=''.join(chunks) + 'data: [DONE]\n\n')
+        self.handler = handler
+        self.plan = replace(self.plan, contract_id=V3)
+        events = []
+        with patch('core.character_chat.transport.AsyncOpenAI', side_effect=self.factory), \
+                patch('core.character_chat.transport.begin_llm_trace', return_value='safe'), \
+                patch('core.character_chat.transport.finish_llm_trace') as finish:
+            actual = await CharacterTransport().generate(self.config, self.plan, self.report, 'stream', events.append)
+        self.assertEqual(raw, actual)
+        self.assertEqual({0: '第一条🙂', 1: '第二条'}, visible(events))
+        self.assertEqual(1, len(self.calls))
+        self.assertEqual(2, sum(e['kind'] == 'preview_start' for e in events))
+        self.assertNotIn('SECRET', str(finish.mock_calls))
+
+    async def test_v3_nonstream_still_one_call_no_preview_or_implicit_retry(self):
+        from core.character_chat.protocol import V3
+        from tests.test_character_multibubble_protocol import result
+        self.plan = replace(self.plan, contract_id=V3)
+        raw = json.dumps(result('一', '二', '三'))
+        self.response_body['choices'][0]['message']['content'] = raw
+        actual, _, _ = await self.run_transport()
+        self.assertEqual(raw, actual)
+        self.assertEqual(1, len(self.calls))
+        self.assertNotIn('stream', self.calls[0])
