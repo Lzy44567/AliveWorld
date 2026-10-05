@@ -187,7 +187,7 @@ class MemoryLifecycleTests(unittest.IsolatedAsyncioTestCase):
         self.transport.with_ledger = False
         for i in range(21): await self.send(f'新回合{i}')
         old_mid = root_entry['source']['message_ids'][0]
-        self.transport.raw = json.dumps({'reply': '不能伪造经历', 'ledger_ops': [{'op': 'add', 'kind': 'experience', 'content': '非法重新包装旧事实',
+        self.transport.raw = json.dumps({'reply': '不能伪造经历', 'memory_annotations': [], 'ledger_ops': [{'op': 'add', 'kind': 'experience', 'content': '非法重新包装旧事实',
             'source': {'type': 'dialogue_event', 'message_ids': [old_mid], 'evidence': [{'message_id': old_mid, 'quote': '旧来源只在账本里'}]},
             'visibility': root_entry['visibility']}]}, ensure_ascii=False)
         before = self.repo.load(self.sid)

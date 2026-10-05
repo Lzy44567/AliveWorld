@@ -208,6 +208,42 @@ async def memory_sources(sid: str, entry_id: str):
         return error_response(exc)
 
 
+@router.put('/{sid}/memory/automatic')
+async def enable_automatic_memory(sid: str, request: Request):
+    try:
+        payload = await body(request, {'expected_revision', 'enabled'}, {'expected_revision', 'enabled'})
+        return service.memory_update(sid, payload['expected_revision'], 'enable', payload['enabled'])
+    except Exception as exc:
+        return error_response(exc)
+
+
+@router.put('/{sid}/memory/automatic-selection')
+async def automatic_memory_selection(sid: str, request: Request):
+    try:
+        payload = await body(request, {'expected_revision', 'entry_id', 'dismissed'}, {'expected_revision', 'entry_id', 'dismissed'})
+        return service.memory_update(sid, payload['expected_revision'], 'selection', payload['entry_id'], payload['dismissed'])
+    except Exception as exc:
+        return error_response(exc)
+
+
+@router.post('/{sid}/memory/automatic-selection/release')
+async def release_automatic_memory_selection(sid: str, request: Request):
+    try:
+        payload = await body(request, {'expected_revision', 'root_entry_id'}, {'expected_revision', 'root_entry_id'})
+        return service.memory_update(sid, payload['expected_revision'], 'release', payload['root_entry_id'])
+    except Exception as exc:
+        return error_response(exc)
+
+
+@router.put('/{sid}/memory/notice-ack')
+async def acknowledge_memory_notice(sid: str, request: Request):
+    try:
+        payload = await body(request, {'expected_revision', 'action_id'}, {'expected_revision', 'action_id'})
+        return service.memory_update(sid, payload['expected_revision'], 'acknowledge', payload['action_id'])
+    except Exception as exc:
+        return error_response(exc)
+
+
 @router.delete('/{sid}')
 async def delete(sid: str, request: Request):
     try:

@@ -13,6 +13,7 @@ import CharacterOpeningMessage from './CharacterOpeningMessage.vue';
 import CharacterWorldContextReport from './CharacterWorldContextReport.vue';
 import CharacterPreferenceSettings from './CharacterPreferenceSettings.vue';
 import CharacterMemoryPanel from './CharacterMemoryPanel.vue';
+import CharacterMemoryNotice from './CharacterMemoryNotice.vue';
 import { shouldSendCharacterKey } from '../../utils/characterInteraction.js';
 
 const creating = ref(false), aiCard = ref(''), userCard = ref(''), worldCard = ref(''), title = ref(''), mode = ref('messenger'), createBusy = ref(false), createError = ref('');
@@ -118,6 +119,7 @@ onUnmounted(() => { mounted = false; document.removeEventListener('visibilitycha
 
       <div v-else-if="session?.schema_read_only" class="p-5 text-amber-200">此会话由更高版本创建，当前版本仅保留原文件。请升级后查看与继续对话。</div>
       <template v-else-if="session">
+        <CharacterMemoryNotice :notice="ctx.memoryNotice" @close="store.closeMemoryNotice(session.session_id)" />
         <div ref="messagePane" data-testid="character-history" class="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-4 md:p-6 space-y-5">
           <button v-if="turns.length && !ctx.historyComplete" class="text-xs text-slate-400 block mx-auto" :disabled="ctx.historyLoading" @click="store.loadEarlier(store.activeId)">{{ ctx.historyLoading?'载入中…':'载入更早的对话' }}</button>
           <CharacterOpeningMessage v-if="session.opening" :opening="session.opening" :name="participant('ai')?.display_name" />
@@ -145,7 +147,7 @@ onUnmounted(() => { mounted = false; document.removeEventListener('visibilitycha
       <details v-if="session.opening" class="mt-4 text-sm"><summary>本会话预设开场</summary><p class="mt-2 whitespace-pre-wrap break-words select-text text-slate-400">{{ session.opening.content }}</p><p class="mt-2 text-xs text-slate-500">创建后冻结，不是正式回合或玩家行动证据。</p></details>
       <details v-for="p in session.participants" :key="p.instance_id" class="mt-5 text-sm"><summary class="cursor-pointer">{{ p.display_name }} · {{ p.controller==='ai'?'AI扮演':'用户扮演' }}</summary><CharacterProfileDetails v-if="p.profile_snapshot?.semantics==='role_fields_v1'" :profile="p.profile_snapshot" /><template v-else><p class="mt-2 whitespace-pre-wrap text-slate-400 select-text">{{ p.profile_snapshot?.description }}</p><details v-if="p.profile_snapshot?.starting_scene" class="mt-2"><summary>角色场景资料</summary><p class="whitespace-pre-wrap select-text">{{ p.profile_snapshot.starting_scene }}</p></details></template></details>
       <div class="mt-5 text-sm" data-testid="character-world-details"><p>世界书 · {{ session.world_binding?.name || '未载入' }}</p><template v-if="session.world_binding"><p class="mt-2 text-xs text-slate-500">创建时快照，不随源资产自动变化。关键词参考本次输入与最近4回合的双方公开聊天，历史文本有长度限制；不扫描全部历史。</p><p class="mt-2 text-xs text-slate-500">世界设定不是角色已知的一切；本版本尚无条目级秘密权限。</p><CharacterWorldContextReport :report="ctx.worldReport" /></template></div>
-      <CharacterMemoryPanel :session="session" :report="ctx.memoryReport" :disabled="ctx.busy || ctx.settingsBusy || readonly" :source-loader="(id,entry)=>store.memorySources(id,entry)" @mark="(entry,important)=>store.markMemory(session.session_id,entry,important)" @correct="entry=>store.correctMemory(session.session_id,entry)" />
+      <CharacterMemoryPanel :session="session" :report="ctx.memoryReport" :disabled="ctx.busy || ctx.settingsBusy || readonly" :source-loader="(id,entry)=>store.memorySources(id,entry)" @mark="(entry,important)=>store.markMemory(session.session_id,entry,important)" @correct="entry=>store.correctMemory(session.session_id,entry)" @enable-automatic="store.enableAutomaticMemory(session.session_id)" @select-automatic="(entry,dismissed)=>store.selectAutomaticMemory(session.session_id,entry,dismissed)" @release-automatic="root=>store.releaseAutomaticMemory(session.session_id,root)" />
       <button data-testid="character-spoiler" class="text-xs text-amber-300 mt-4" @click="ctx.spoiler ? store.clearSpoiler() : store.loadSpoiler(store.activeId).catch(e=>ctx.error=e.message)">{{ ctx.spoiler ? '隐藏内部记录' : '查看角色内部记录（剧透）' }}</button>
       <div v-if="ctx.spoiler" data-testid="character-private-ledger" class="space-y-2 mt-2"><div v-for="entry in ctx.spoiler" :key="entry.entry_id" class="text-sm rounded bg-amber-950/40 p-2 whitespace-pre-wrap select-text">{{ entry.content || entry.text || entry.summary }}</div></div>
       <h4 class="mt-6 text-sm font-bold text-indigo-200">会话设置</h4>

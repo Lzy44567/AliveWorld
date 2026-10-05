@@ -51,7 +51,10 @@ class FakeTransport:
             if self.supersede:
                 op.update(op='supersede', target_entry_id=data['ledger'][0]['entry_id'])
             ops.append(op)
-        return json.dumps({'reply': reply, 'ledger_ops': ops}, ensure_ascii=False)
+        result = {'reply': reply, 'ledger_ops': ops}
+        if plan.contract_id == 'character.reply.v2':
+            result['memory_annotations'] = []
+        return json.dumps(result, ensure_ascii=False)
 
 
 class CharacterLifecycleTests(unittest.IsolatedAsyncioTestCase):
@@ -61,8 +64,10 @@ class CharacterLifecycleTests(unittest.IsolatedAsyncioTestCase):
         self.repo = CharacterSessionRepository(Path(self.temp.name))
         self.transport = FakeTransport()
         self.service = CharacterChatService(self.repo, self.transport)
-        self.session = self.repo.create(create_session(str(uuid4()), {'name': '合成角色', 'description': '合成固定底稿'},
-            {'kind': 'character', 'key': '合成角色'}))
+        legacy = create_session(str(uuid4()), {'name': '合成角色', 'description': '合成固定底稿'},
+            {'kind': 'character', 'key': '合成角色'})
+        legacy['extensions'].pop('character_memory')  # Preserve the comprehensive strict v1 regression path.
+        self.session = self.repo.create(legacy)
         self.sid = self.session['session_id']
 
     def begin(self, *, operation='send', content='合成输入', target=None, aid=None, revision=None):

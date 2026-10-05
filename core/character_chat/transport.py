@@ -7,6 +7,7 @@ from core.model_connections.runtime import get_task_connection
 from core.request_budget import normalize_usage
 from .models import CharacterSessionError
 from .stream_json import ReplyPreview
+from .protocol import validate_contract
 
 
 class CharacterTransport:
@@ -22,6 +23,10 @@ class CharacterTransport:
         return config
 
     async def generate(self, config, plan, report, delivery, emit):
+        try:
+            validate_contract(plan.contract_id)
+        except ValueError:
+            raise CharacterSessionError('REPLY_CONTRACT_UNSUPPORTED') from None
         trace = begin_llm_trace('character.reply', config['model'], '[private content omitted]',
                                 '[private content omitted]', 'json', plan.prompt_manifest)
         started, usage, error = time.monotonic(), None, None
@@ -47,7 +52,7 @@ class CharacterTransport:
                             raise CharacterSessionError('CONTRACT_INVALID')
                         return raw
                     stream = await client.chat.completions.create(**kwargs, stream=True)
-                    preview = ReplyPreview(emit)
+                    preview = ReplyPreview(emit, plan.contract_id)
                     parts, finish, count = [], None, 0
                     last_content = time.monotonic()
                     try:

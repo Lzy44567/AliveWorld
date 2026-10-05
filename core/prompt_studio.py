@@ -22,6 +22,7 @@ from core.story_experience import DEFAULT_STORY_EXPERIENCE, story_experience_ins
 from core.story_length import story_length_instruction
 from core.world_change_events import SIGNAL_INSTRUCTION
 from core.character_chat.prompts import CORE as CHARACTER_CORE, CONTRACT as CHARACTER_CONTRACT, PRESENTATION as CHARACTER_PRESENTATION
+from core.character_chat.prompts import CORE_V2 as CHARACTER_CORE_V2, CONTRACT_V2 as CHARACTER_CONTRACT_V2
 from utils.runtime_paths import PATHS
 
 
@@ -63,6 +64,15 @@ def _settlement_section(name: str) -> Callable[[], str]:
 
 
 SLICES: tuple[PromptSlice, ...] = (
+    PromptSlice("character.reply.v2.core", "character.reply.v2", "角色私聊职责 v2", "system", 100,
+                "自动重要记忆版本独立职责，不继承旧v1覆盖。", True, (),
+                lambda: CHARACTER_CORE_V2, "engine", "static", True),
+    PromptSlice("character.reply.v2.contract", "character.reply.v2", "角色回复与自动记忆契约 v2", "system", 200,
+                "严格三字段、op注解与来源权限；不增加模型调用。", False, (),
+                lambda: CHARACTER_CONTRACT_V2, "engine", "static", True),
+    PromptSlice("character.reply.v2.presentation", "character.reply.v2", "私聊表现模式 v2", "system", 300,
+                "即时聊天与情景扮演共用同一领域引擎。", False, ("character.presentation_mode",),
+                lambda: CHARACTER_PRESENTATION, "feature", "configuration", True),
     PromptSlice("character.reply.core", "character.reply", "角色私聊职责", "system", 100,
                 "实际接入独立角色对话；冻结角色资料，不执行人格演变。", True, (),
                 lambda: CHARACTER_CORE, "engine", "static", True),

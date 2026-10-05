@@ -170,6 +170,14 @@ def _response_for(kind: str, system: str, user: str) -> dict[str, Any] | str:
 def _character_response(user: str) -> dict[str, Any] | str:
     """The character fixture never reuses story/workshop result contracts."""
     data = json.loads(user)
+    contract_id = data.get('reply_contract_id', 'character.reply.v1')
+    if contract_id not in {'character.reply.v1', 'character.reply.v2'}:
+        raise ValueError('Unknown test reply contract')
+    def output(ops, annotations=None):
+        result = {'reply': reply, 'ledger_ops': ops}
+        if contract_id == 'character.reply.v2':
+            result['memory_annotations'] = annotations or []
+        return result
     current = data.get("current_user_message", data.get("current_input", {}))
     content = current.get("content", "") if isinstance(current, dict) else str(current)
     mode = data.get("presentation_mode", "messenger")
@@ -177,14 +185,14 @@ def _character_response(user: str) -> dict[str, Any] | str:
     if '【角色世界话题】' in content:
         reply += ' 我们去钟楼看看吧。'
     if "【角色坏JSON】" in content:
-        return json.dumps({"reply": reply, "ledger_ops": []}, ensure_ascii=False) + " trailing"
+        return json.dumps(output([]), ensure_ascii=False) + " trailing"
     if "【角色一次失败】" in content:
         with _lock:
             attempts = sum(record["kind"] == "character.reply" and
                            json.loads(record["user"]).get("current_user_message", {}).get("content") == content
                            for record in _requests)
         if attempts == 1:
-            return json.dumps({"reply": reply, "ledger_ops": []}, ensure_ascii=False) + " trailing"
+            return json.dumps(output([]), ensure_ascii=False) + " trailing"
     operations = []
     if "【角色账本】" in content:
         participants = data["participants"]
@@ -197,7 +205,23 @@ def _character_response(user: str) -> dict[str, Any] | str:
             {"op": "add", "kind": "belief", "content": "内部记录：暂时相信用户陈述",
              "source": {**source, "type": "model_inference"}, "visibility": {"audience_instance_ids": [ai_id]}},
         ]
-    return {"reply": reply, "ledger_ops": operations}
+    annotations = []
+    if contract_id == 'character.reply.v2' and ('【记忆M2边界】' in content or '【记忆M2高光】' in content):
+        participants = data['participants']
+        user_id = next(p['instance_id'] for p in participants if p['controller'] == 'user')
+        public_ids = [p['instance_id'] for p in participants]
+        high = '【记忆M2高光】' in content
+        source = {'type': 'dialogue_event' if high else 'player_statement', 'message_ids': [current['message_id']],
+                  'evidence': [{'message_id': current['message_id'], 'quote': content[:240]}]}
+        operation = {'op': 'add', 'kind': 'experience' if high else 'knowledge', 'content': content[:400],
+                     'about_instance_id': user_id, 'source': source, 'visibility': {'audience_instance_ids': public_ids}}
+        if '【M2修订】' in content:
+            target = next((e for e in data.get('ledger', []) if e['kind'] == operation['kind'] and e.get('about_instance_id') == user_id), None)
+            if target:
+                operation.update(op='supersede', target_entry_id=target['entry_id'])
+        operations = [operation]
+        annotations = [{'op_index': 0, 'reason': 'relationship_turn' if high else 'explicit_boundary'}]
+    return output(operations, annotations)
 
 
 @app.get("/v1/models")

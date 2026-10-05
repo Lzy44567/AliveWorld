@@ -113,7 +113,7 @@ class CharacterWorldTransportTests(unittest.IsolatedAsyncioTestCase):
                 events = []; result = await service.execute(start['job']['request_id'], lambda name, data: events.append((name, data)))
                 self.assertEqual(events[0][1]['world_context_report'], result['world_context_report'])
                 return result
-            transport.raw = json.dumps({'reply': '看月亮', 'ledger_ops': []})
+            transport.raw = json.dumps({'reply': '看月亮', 'ledger_ops': [], 'memory_annotations': []})
             await run('你好')
             transport.raw = None
             second = await run('继续', delivery='non_stream')

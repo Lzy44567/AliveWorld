@@ -5,10 +5,94 @@ import { characterStream, CharacterApiError } from '../src/api/characterChatApi.
 import { cardOpening } from '../src/utils/characterOpening.js';
 import { structuredDraft, compatibleRoleText, roleFieldsError } from '../src/utils/characterFields.js';
 import { characterWorldReport } from '../src/utils/characterWorldReport.js';
-import { characterMemoryReport, correctionDraft, memorySourceMessages } from '../src/utils/characterMemory.js';
+import { characterMemoryReport, correctionDraft, memorySourceMessages, automaticMemoryState, memoryNotice } from '../src/utils/characterMemory.js';
+import { createMemoryNoticeCache } from '../src/utils/characterMemoryNotices.js';
 
 const memoryId = '11111111-1111-4111-8111-111111111111';
 const memoryReport = () => ({ entries: [{ entry_id: memoryId, reason: 'important', state: 'budget' }] });
+const autoState = () => ({ version: 2, automatic_enabled: true, important_entry_ids: [], protected_entries: [], inactive_root_ids: [], automatic_entries: [{ entry_id: memoryId, root_entry_id: memoryId, reason: 'explicit_boundary', level: 'important', dismissed: false }], inactive_dismissed_root_ids: [], notice_ack_revision: 0 });
+const noticeStorage = () => { const data = new Map(); return { getItem: k => data.get(k) ?? null, setItem: (k, v) => data.set(k, v), removeItem: k => data.delete(k) }; };
+
+test('M2 automatic settings and notices are bounded public whitelists', () => {
+  const raw = autoState(); raw.secret = 'private'; raw.automatic_entries[0].meaning = 'private';
+  assert.deepEqual(automaticMemoryState(raw), autoState());
+  for (const change of [{ version: 3 }, { automatic_enabled: 'yes' }, { notice_ack_revision: true }, { automatic_entries: Array(129).fill(raw.automatic_entries[0]) }, { automatic_entries: [{ ...raw.automatic_entries[0], level: 'highlight' }] }]) assert.equal(automaticMemoryState({ ...raw, ...change }), null);
+  assert.ok(characterMemoryReport({ entries: [{ entry_id: memoryId, reason: 'auto_highlight', state: 'sent' }] }));
+  const n = { action_id: memoryId, committed_revision: 2, entry_ids: [memoryId], secret: 'private' };
+  assert.deepEqual(memoryNotice(n), { action_id: memoryId, committed_revision: 2, entry_ids: [memoryId] });
+  assert.equal(memoryNotice({ ...n, committed_revision: true }), null);
+  assert.equal(memoryNotice({ ...n, entry_ids: [memoryId, memoryId] }), null);
+});
+
+test('M2 notice identities persist without text and corruption suppresses history replay', () => {
+  const storage = noticeStorage(), cache = createMemoryNoticeCache(storage);
+  assert.equal(cache.claim('a', memoryId), true); assert.equal(cache.claim('a', memoryId), false);
+  assert.equal(createMemoryNoticeCache(storage).claim('a', memoryId), false);
+  assert.equal(cache.claim('b', memoryId), true); cache.removeSession('a');
+  assert.equal(createMemoryNoticeCache(storage).claim('a', memoryId), true);
+  const broken = { getItem: () => '{broken', setItem: () => {} };
+  assert.equal(createMemoryNoticeCache(broken).claim('a', memoryId), false);
+  assert.equal(createMemoryNoticeCache({ getItem: () => null, setItem: () => { throw Error('quota'); } }).claim('a', memoryId), false);
+});
+
+test('M2 explicit enable and dismissal preserve session fields and initiating ownership', async () => {
+  const wait = deferred(); let payload;
+  const f = fixture({ enableAutomaticMemory: async (id, value) => { payload = value; await wait.promise; return { session_id: id, revision: 2, memory_settings: autoState() }; } });
+  await f.store.open('a'); f.store.current.draft = '原草稿';
+  const task = f.store.enableAutomaticMemory('a'); await f.store.open('b'); wait.resolve(); await task;
+  assert.deepEqual(payload, { expected_revision: 1, enabled: true });
+  assert.equal(f.store.context('a').session.memory_settings.version, 2); assert.equal(f.store.context('a').draft, '原草稿'); assert.deepEqual(f.store.context('a').session.turns, []);
+  assert.equal(f.store.current.session.memory_settings, undefined);
+});
+
+test('M2 lost setting response reloads authority without toggling or automatic retry', async () => {
+  let calls = 0;
+  const f = fixture({ selectAutomaticMemory: async () => { ++calls; f.sessions.a.memory_settings = autoState(); f.sessions.a.memory_settings.automatic_entries[0].dismissed = true; throw Error('lost'); } });
+  await f.store.open('a'); await f.store.selectAutomaticMemory('a', memoryId, true);
+  assert.equal(calls, 1); assert.equal(f.store.current.session.memory_settings.automatic_entries[0].dismissed, true); assert.equal(f.store.current.settingsBusy, false);
+  f.store.current.busy = true; await f.store.selectAutomaticMemory('a', memoryId, false); assert.equal(calls, 1);
+});
+
+test('M2 current successful send shows one public notice and acknowledges real action only', async () => {
+  const calls = [], storage = noticeStorage();
+  const f = fixture({ action: async (id, p) => { f.sessions[id].revision = 2; f.sessions[id].memory_settings = autoState(); return { status: 'committed', memory_notice: { action_id: p.client_action_id, committed_revision: 2, entry_ids: [memoryId] } }; }, acknowledgeMemoryNotice: async (id, p) => { calls.push(p); const state = autoState(); state.notice_ack_revision = 2; return { session_id: id, revision: 3, memory_settings: state }; } }, storage);
+  await f.store.open('a'); f.store.setVisible(true); f.store.current.draft = 'hello'; await f.store.run('a');
+  assert.equal(f.store.current.memoryNotice.entry_ids.length, 1); assert.equal(calls.length, 1);
+  assert.equal(calls[0].action_id, f.store.current.memoryNotice.action_id); assert.equal(calls[0].expected_revision, 2);
+  await f.store.open('a'); assert.equal(f.store.current.memoryNotice, null);
+});
+
+test('M2 background or regenerated replies never surface a first-time notice', async () => {
+  const f = fixture({}, noticeStorage()); await f.store.open('a'); f.store.setVisible(true);
+  const ctx = f.store.current, flight = { action_id: memoryId, operation: 'regenerate', content: '' }; ctx.inflight = flight; ctx.busy = true;
+  await f.store.settle('a', ctx.inflight, { status: 'committed', memory_notice: { action_id: memoryId, committed_revision: 1, entry_ids: [memoryId] } });
+  assert.equal(ctx.memoryNotice, null);
+  const other = { action_id: memoryId, operation: 'send', content: '' }; ctx.inflight = other; ctx.busy = true;
+  await f.store.open('b'); await f.store.settle('a', ctx.inflight, { status: 'committed', memory_notice: { action_id: memoryId, committed_revision: 1, entry_ids: [memoryId] } });
+  assert.equal(ctx.memoryNotice, null); assert.equal(f.store.current.memoryNotice, null);
+});
+
+test('M2 lost acknowledgement reloads before one bounded idempotent supplement, never generates', async () => {
+  for (const committed of [false, true]) {
+    let calls = 0;
+    const f = fixture({ acknowledgeMemoryNotice: async (id, p) => {
+      calls++;
+      if (calls === 1) {
+        if (committed) { f.sessions[id].revision = 3; f.sessions[id].memory_settings.notice_ack_revision = 2; }
+        throw Error('response lost');
+      }
+      assert.equal(p.expected_revision, 2);
+      f.sessions[id].revision = 3; f.sessions[id].memory_settings.notice_ack_revision = 2;
+      return { session_id: id, revision: 3, memory_settings: f.sessions[id].memory_settings };
+    } });
+    f.sessions.a.revision = 2; f.sessions.a.memory_settings = autoState();
+    await f.store.open('a');
+    await f.store.acknowledgeMemoryNotice('a', { action_id: memoryId, committed_revision: 2 });
+    assert.equal(calls, committed ? 1 : 2);
+    assert.equal(f.store.current.session.memory_settings.notice_ack_revision, 2);
+    assert.equal(f.store.current.error, '');
+  }
+});
 test('memory report and source projections are bounded whitelists; correction never overwrites draft', () => {
   const raw = memoryReport(); raw.private_count = 5; raw.entries[0].quote = 'private';
   assert.deepEqual(characterMemoryReport(raw), memoryReport());
@@ -115,10 +199,10 @@ test('busy creation is not duplicated and definite rejection permits editing', a
 });
 
 const deferred = () => { let resolve; const promise = new Promise(r => resolve = r); return { promise, resolve }; };
-function fixture(overrides = {}) {
+function fixture(overrides = {}, storage) {
   const sessions = { a: { session_id: 'a', revision: 1, turns: [], ledger: [], pending: null }, b: { session_id: 'b', revision: 1, turns: [], ledger: [], pending: null } };
   const api = { list: async () => ({ sessions: Object.values(sessions) }), get: async id => structuredClone(sessions[id]), ...overrides };
-  return { sessions, api, store: createCharacterChatStore(api, async () => {}) };
+  return { sessions, api, store: createCharacterChatStore(api, async () => {}, storage) };
 }
 
 test('preference settings update is owned by initiating session and revision, not the active view', async () => {

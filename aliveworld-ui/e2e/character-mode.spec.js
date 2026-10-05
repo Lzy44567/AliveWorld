@@ -34,6 +34,55 @@ async function savedSession(request, title) {
 
 test.describe.configure({ mode: 'serial' });
 
+test('M2自动重要记忆公开来源、取消恢复、通知去重和末轮撤回', async ({ page, request }) => {
+  await request.post(`/api/v1/lobby/assets/characters/${encodeURIComponent(cardName)}`, { data: { parsed_data: { name: cardName, description: '独立合成成年角色' }, overwrite: true } });
+  await enterCharacters(page); await createSession(page, 'M2自动记忆验收');
+  await send(page, '【记忆M2边界】我不喜欢被催促，请记住这个边界。');
+  await expect(page.getByTestId('character-memory-notice')).toBeVisible();
+  let saved = await savedSession(request, 'M2自动记忆验收');
+  expect(saved.memory_settings.version).toBe(2);
+  await expect.poll(async () => (await savedSession(request, 'M2自动记忆验收')).memory_settings.notice_ack_revision).toBeGreaterThan(0);
+  const root = saved.memory_settings.automatic_entries.find(e => e.reason === 'explicit_boundary');
+  expect(root).toBeTruthy();
+  await page.getByRole('button', { name: '会话资料', exact: true }).click();
+  const panel = page.getByTestId('character-memory-panel'), item = panel.locator(`[data-entry-id="${root.entry_id}"]`);
+  await expect(item).toContainText('自动重要 · 明确边界');
+  await item.getByTestId('character-memory-auto-select').click();
+  await expect(item.getByTestId('character-memory-auto-select')).toHaveText('恢复自动选取');
+  await item.getByTestId('character-memory-mark').click();
+  await expect(item.getByTestId('character-memory-mark')).toHaveText('★ 取消重要');
+  await page.reload(); await dismissStartup(page); await page.getByTestId('mode-character').click();
+  await selectSession(page, request, 'M2自动记忆验收');
+  await expect(page.getByTestId('character-memory-notice')).toHaveCount(0);
+  await page.getByRole('button', { name: '会话资料', exact: true }).click();
+  await expect(item.getByTestId('character-memory-auto-select')).toHaveText('恢复自动选取');
+  await expect(item.getByTestId('character-memory-mark')).toHaveText('★ 取消重要');
+  await item.getByTestId('character-memory-auto-select').click();
+  await expect(item.getByTestId('character-memory-auto-select')).toHaveText('取消自动选取');
+  await item.getByText('来源证据', { exact: true }).click();
+  await item.getByRole('button', { name: '查看关联原文' }).click();
+  await expect(item).toContainText('我不喜欢被催促');
+  await page.getByTestId('character-composer').fill('保留我的草稿');
+  await item.getByRole('button', { name: '纠正记忆', exact: true }).click();
+  await expect(page.getByTestId('character-composer')).toHaveValue('保留我的草稿');
+  await page.getByTestId('character-composer').fill('');
+  await page.screenshot({ path: '../build/e2e-results/character-m2-wide.png', fullPage: true });
+  await page.setViewportSize({ width: 520, height: 900 });
+  expect(await panel.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+  await page.screenshot({ path: '../build/e2e-results/character-m2-narrow.png', fullPage: true });
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  await page.getByRole('button', { name: '关闭资料' }).click();
+  const beforeRegenerate = (await savedSession(request, 'M2自动记忆验收')).turns.at(-1).turn_id;
+  page.once('dialog', dialog => dialog.accept()); await page.getByTestId('character-regenerate').click();
+  await expect.poll(async () => (await savedSession(request, 'M2自动记忆验收')).turns.at(-1).turn_id).not.toBe(beforeRegenerate);
+  await expect(page.getByTestId('character-preview')).toBeHidden();
+  await expect(page.getByTestId('character-memory-notice')).toHaveCount(0);
+  page.once('dialog', dialog => dialog.accept()); await page.getByTestId('character-undo').click();
+  await expect(page.getByTestId('character-ai-message')).toHaveCount(0);
+  saved = await savedSession(request, 'M2自动记忆验收');
+  expect(saved.memory_settings.automatic_entries).toEqual([]);
+});
+
 test('M1公开记忆重要保护、旧话题取材、来源、纠正草稿及重载取消', async ({ page, request }) => {
   test.setTimeout(120000);
   await request.post(`/api/v1/lobby/assets/characters/${encodeURIComponent(cardName)}`, { data: { parsed_data: { name: cardName, description: '独立合成成年角色' }, overwrite: true } });

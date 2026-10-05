@@ -11,6 +11,9 @@ from core.character_profiles import CharacterProfileError, ROLE_SEMANTICS, valid
 from .opening import make_opening, normalize_opening, validate_opening
 from .preferences import validate_settings
 from .memory import settings as memory_settings, MemoryVersionError
+from .annotations import validate_annotation
+from .protocol import attempt_contract, validate_contract, ReplyContractError, V2
+from .notices import validate_notice
 
 
 SCHEMA_VERSION = 1
@@ -134,7 +137,8 @@ def create_session(creation_id: str, ai_profile: dict, ai_asset_ref: dict,
             "title": title, "revision": 0, "created_at": now, "updated_at": now,
             "presentation_mode": presentation_mode, "participants": participants,
             "world_binding": None, "turns": [], "ledger": [], "requests": [],
-            "extensions": {}}
+            "extensions": {'character_memory': {'version': 2, 'important_entry_ids': [],
+                'dismissed_auto_root_ids': [], 'notice_ack_revision': 0}}}
     if opening_text:
         result['opening'] = make_opening(opening_text, participants[1]['instance_id'], now)
     return result
@@ -226,7 +230,7 @@ def validate_records(value):
     try:
         participant_ids = {p['instance_id'] for p in value['participants']}
         turn_ids, action_ids, request_ids, message_ids, entry_ids = set(), set(), set(), set(), set()
-        messages, inverses = {}, []
+        messages, inverses, turn_records = {}, [], {}
         ai_id = next(p['instance_id'] for p in value['participants'] if p['controller'] == 'ai')
         user_id = next(p['instance_id'] for p in value['participants'] if p['controller'] == 'user')
         def turn(record, *, archived=False):
@@ -236,6 +240,7 @@ def validate_records(value):
             if record['turn_id'] in turn_ids:
                 raise CharacterSessionError('SESSION_CORRUPT')
             turn_ids.add(record['turn_id'])
+            turn_records[record['turn_id']] = record
             for key in ('user_message', 'ai_message'):
                 m = record[key]
                 canonical_id(m['message_id'])
@@ -260,6 +265,7 @@ def validate_records(value):
             for eid in inverse['added_entry_ids']:
                 canonical_id(eid)
             inverses.extend(inverse['previous_entries'])
+            validate_notice(record)
         for record in value['turns']:
             turn(record)
         pending_count, attempt_count = 0, 0
@@ -275,6 +281,7 @@ def validate_records(value):
             if not isinstance(attempts, list) or not attempts:
                 raise CharacterSessionError('SESSION_CORRUPT')
             for attempt in attempts:
+                attempt_contract(attempt)
                 attempt_count += 1
                 rid = canonical_id(attempt['request_id'])
                 if rid in request_ids or attempt['status'] not in {'pending', 'committed', 'failed', 'cancelled', 'interrupted'}:
@@ -292,9 +299,13 @@ def validate_records(value):
                         raise CharacterSessionError('SESSION_CORRUPT')
                 elif 'pending_input' in attempt:
                     raise CharacterSessionError('SESSION_CORRUPT')
+            if 'retry_input' in action:
+                validate_contract(action['retry_input'].get('reply_contract_id', 'character.reply.v1'))
             if action.get('archived_turn') is not None:
                 turn(action['archived_turn'], archived=True)
                 if action['archived_turn']['action_id'] != action['action_id']:
+                    raise CharacterSessionError('SESSION_CORRUPT')
+                if action['archived_turn'].get('memory_notice') and action['operation'] != 'send':
                     raise CharacterSessionError('SESSION_CORRUPT')
         if pending_count > 1:
             raise CharacterSessionError('SESSION_CORRUPT')
@@ -306,6 +317,8 @@ def validate_records(value):
             owner = next(a for a in value['requests'] if a['action_id'] == record['action_id'])
             attempt = next(t for t in owner['attempts'] if t['request_id'] == record['request_id'])
             if owner.get('result_turn_id') != record['turn_id'] or owner.get('result_state') != 'active' or attempt['status'] != 'committed':
+                raise CharacterSessionError('SESSION_CORRUPT')
+            if record.get('memory_notice') and owner['operation'] != 'send':
                 raise CharacterSessionError('SESSION_CORRUPT')
         active_count = 0
         for index, entry in enumerate([*value['ledger'], *inverses]):
@@ -351,13 +364,33 @@ def validate_records(value):
                 text(evidence['quote'], 240)
                 if evidence['quote'] not in messages[evidence['message_id']]['content']:
                     raise CharacterSessionError('SESSION_CORRUPT')
+            if 'memory_annotation' in entry:
+                validate_annotation(entry['memory_annotation'], entry, user_id)
+                origin = turn_records[entry['created_turn_id']]
+                owner = next(a for a in value['requests'] if a['action_id'] == origin['action_id'])
+                origin_attempt = next(a for a in owner['attempts'] if a['request_id'] == origin['request_id'])
+                if attempt_contract(origin_attempt) != V2 or not entry['source']['message_ids'] or not entry['source']['evidence']:
+                    raise CharacterSessionError('SESSION_CORRUPT')
+                if entry['source']['type'] == 'player_statement' and any(messages[mid]['speaker_instance_id'] != user_id for mid in entry['source']['message_ids']):
+                    raise CharacterSessionError('SESSION_CORRUPT')
+                if entry['source']['type'] == 'dialogue_event' and any(messages[mid]['turn_id'] != entry['created_turn_id'] for mid in entry['source']['message_ids']):
+                    raise CharacterSessionError('SESSION_CORRUPT')
         if active_count > 128:
             raise CharacterSessionError('SESSION_LIMIT')
+        by_id = {e['entry_id']: e for e in value['ledger']}
+        for record in value['turns']:
+            if record.get('memory_notice'):
+                for eid in record['memory_notice']['entry_ids']:
+                    e = by_id.get(eid)
+                    if not e or not e.get('memory_annotation') or e['created_turn_id'] != record['turn_id'] or set(e['visibility']['audience_instance_ids']) != participant_ids or e.get('supersedes_entry_id'):
+                        raise CharacterSessionError('SESSION_CORRUPT')
         pending_ids = {p[k] for a in value['requests'] for t in a['attempts']
                        for p in [t.get('pending_input', {})] for k in ('user_message_id', 'ai_message_id') if k in p}
         validate_opening(value.get('opening'), ai_id, value['created_at'],
                          turn_ids | action_ids | request_ids | message_ids | entry_ids | pending_ids | participant_ids)
-    except (KeyError, TypeError, ValueError, AttributeError):
+    except ReplyContractError:
+        raise CharacterSessionError('REPLY_CONTRACT_UNSUPPORTED') from None
+    except (KeyError, TypeError, ValueError, AttributeError, StopIteration):
         raise CharacterSessionError('SESSION_CORRUPT') from None
 
 

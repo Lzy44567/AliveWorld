@@ -222,7 +222,7 @@ class CharacterSemanticsLifecycleTests(unittest.IsolatedAsyncioTestCase):
             repo = CharacterSessionRepository(temp); value = repo.create(create_session(str(uuid4()), card(), {'kind': 'character', 'key': '合成卡'}))
             transport = FakeTransport(); service = CharacterChatService(repo, transport)
             ai, user = value['participants'][1]['instance_id'], value['participants'][0]['instance_id']
-            transport.raw = json.dumps({'reply': '安全回复', 'ledger_ops': [{'op': 'add', 'kind': 'experience', 'content': '假的承诺',
+            transport.raw = json.dumps({'reply': '安全回复', 'memory_annotations': [], 'ledger_ops': [{'op': 'add', 'kind': 'experience', 'content': '假的承诺',
                 'source': {'type': 'dialogue_event', 'message_ids': ['00000000-0000-4000-8000-000000000001'], 'evidence': [{'message_id': '00000000-0000-4000-8000-000000000001', 'quote': '样例：玩家已承诺交出秘密【非历史哨兵】'}]},
                 'visibility': {'audience_instance_ids': [ai, user]}}]}, ensure_ascii=False)
             started = service.begin(value['session_id'], {'client_action_id': str(uuid4()), 'operation': 'send', 'expected_revision': 0, 'content': '你好'})

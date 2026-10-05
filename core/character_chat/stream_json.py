@@ -1,9 +1,11 @@
 """Single-pass bounded reply preview lexer; final JSON validation is independent."""
 from .models import CharacterSessionError
+from .protocol import V1, result_keys
 
 
 class ReplyPreview:
-    def __init__(self, emit):
+    def __init__(self, emit, contract_id=V1):
+        self.allowed_keys = result_keys(contract_id)
         self.emit = emit
         self.stack = []
         self.in_string = False
@@ -76,7 +78,7 @@ class ReplyPreview:
                         top = self.stack[-1]
                         if self.string in top['seen']:
                             self.fail()
-                        if len(self.stack) == 1 and self.string not in {'reply', 'ledger_ops'}:
+                        if len(self.stack) == 1 and self.string not in self.allowed_keys:
                             self.fail()
                         top['seen'].add(self.string)
                         top['key'] = self.string

@@ -183,7 +183,7 @@ class OpeningLifecycleTests(unittest.IsolatedAsyncioTestCase):
         ai = self.session['participants'][1]['instance_id']; user = self.session['participants'][0]['instance_id']
         oid = self.session['opening']['opening_id']
         for source in ('player_statement', 'dialogue_event', 'model_inference', 'author_opening'):
-            self.transport.raw = json.dumps({'reply': '合成回复', 'ledger_ops': [{'op': 'add', 'kind': 'belief', 'content': '伪证据',
+            self.transport.raw = json.dumps({'reply': '合成回复', 'memory_annotations': [], 'ledger_ops': [{'op': 'add', 'kind': 'belief', 'content': '伪证据',
                 'source': {'type': source, 'message_ids': [oid], 'evidence': [{'message_id': oid, 'quote': '玩家已经承诺'}]},
                 'visibility': {'audience_instance_ids': [ai, user]}}]})
             result = await self.action(); self.assertEqual('failed', result['status'])

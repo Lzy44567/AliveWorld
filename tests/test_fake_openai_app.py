@@ -39,6 +39,14 @@ class FakeOpenAIAppTests(unittest.TestCase):
         self.assertIn("你好，中文与emoji🙂", output["reply"])
         self.assertEqual(self.client.get("/__test__/requests").json()["requests"][0]["kind"], "character.reply")
 
+    def test_character_v2_selected_only_by_explicit_protocol_marker(self):
+        data = {'reply_contract_id': 'character.reply.v2', 'current_input': {'content': '你好'}}
+        raw = self._chat('character.reply.v2', json.dumps(data)).json()['choices'][0]['message']['content']
+        self.assertEqual({'reply', 'ledger_ops', 'memory_annotations'}, set(json.loads(raw)))
+        del data['reply_contract_id']
+        raw = self._chat('character.reply.v2', json.dumps(data)).json()['choices'][0]['message']['content']
+        self.assertEqual({'reply', 'ledger_ops'}, set(json.loads(raw)))
+
     def test_character_sse_streams_only_once_and_finishes_strict_json(self):
         with patch("tests.fakes.fake_openai_app.time.sleep") as delay:
             response = self.client.post("/v1/chat/completions", json={

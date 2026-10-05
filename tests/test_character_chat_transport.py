@@ -1,5 +1,6 @@
 import json
 import unittest
+from dataclasses import replace
 from unittest.mock import patch
 
 import httpx
@@ -110,3 +111,21 @@ class CharacterTransportTests(unittest.IsolatedAsyncioTestCase):
             with self.assertRaises(CharacterSessionError):
                 await self.run_transport('stream')
         self.assertEqual(2, len(self.calls))
+
+    async def test_v2_sdk_stream_accepts_annotations_only_with_frozen_protocol(self):
+        raw = json.dumps({'reply': '回复🙂', 'ledger_ops': [], 'memory_annotations': []}, ensure_ascii=True)
+        def handler(request):
+            self.calls.append(json.loads(request.content))
+            event = {'id': 's', 'object': 'chat.completion.chunk', 'choices': [{'index': 0,
+                'delta': {'content': raw}, 'finish_reason': 'stop'}]}
+            return httpx.Response(200, headers={'content-type': 'text/event-stream'},
+                                  content='data: ' + json.dumps(event) + '\n\ndata: [DONE]\n\n')
+        self.handler = handler
+        self.plan = replace(self.plan, contract_id='character.reply.v2')
+        actual, _, _ = await self.run_transport('stream')
+        self.assertEqual(raw, actual); self.assertEqual(1, len(self.calls))
+        self.plan = replace(self.plan, contract_id='character.reply.v1')
+        with self.assertRaises(CharacterSessionError): await self.run_transport('stream')
+        self.plan = replace(self.plan, contract_id='character.reply.v99')
+        with self.assertRaises(CharacterSessionError) as exc: await self.run_transport('stream')
+        self.assertEqual('REPLY_CONTRACT_UNSUPPORTED', exc.exception.code); self.assertEqual(2, len(self.calls))

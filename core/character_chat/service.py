@@ -12,6 +12,9 @@ from .transport import CharacterTransport
 from .errors import message, retryable
 from .preferences import session_settings, validate_settings, load_preferences
 from .memory import settings as memory_settings, public_state, valid_candidates, public, root_for, formal_messages
+from .protocol import contract_for, attempt_contract
+from .notices import notice_for
+from . import memory_operations
 
 
 def pending_attempt(session):
@@ -65,11 +68,15 @@ def action_view(session, action, request_id=None):
             result['turn'] = visible_turn(turn)
             result['turn_id'] = turn['turn_id']
             result['ledger'] = public_ledger(session)
+            notice = notice_for(session, action)
+            if notice:
+                result['memory_notice'] = notice
     return result
 
 
 def visible_turn(turn):
-    return {k: copy.deepcopy(v) for k, v in turn.items() if k != 'ledger_inverse'}
+    allowed = {'turn_id', 'action_id', 'request_id', 'user_message', 'ai_message', 'mode_at_generation', 'committed_revision', 'created_at'}
+    return {k: copy.deepcopy(v) for k, v in turn.items() if k in allowed}
 
 
 def session_summary(session):
@@ -139,7 +146,7 @@ class CharacterChatService:
                 for action in value['requests']:
                     for attempt in action['attempts']:
                         if attempt['status'] == 'pending':
-                            action['retry_input'] = attempt.pop('pending_input')
+                            action['retry_input'] = dict(attempt.pop('pending_input'), reply_contract_id=attempt_contract(attempt))
                             attempt.update(status='interrupted', error_code='PROCESS_INTERRUPTED', ended_at=now())
                             changed = True
                 return None, changed
@@ -200,7 +207,9 @@ class CharacterChatService:
                 roots.remove(root)
                 changed = True
             if changed:
-                value['extensions']['character_memory'] = {'version': 1, 'important_entry_ids': roots}
+                config = memory_settings(value)
+                config['important_entry_ids'] = roots
+                value['extensions']['character_memory'] = config
                 value['revision'] += 1
             return session_view(value), changed
         return self.repository.transaction(sid, update)
@@ -220,6 +229,18 @@ class CharacterChatService:
             raise CharacterSessionError('INVALID_REQUEST')
         return {'entry_id': entry_id, 'revision': value['revision'], 'messages': [
             {k: copy.deepcopy(m[k]) for k in ('message_id', 'speaker_instance_id', 'content')} for m in selected]}
+
+    def memory_update(self, sid, revision, operation, *args):
+        self._check_blocked(sid)
+        if operation not in {'enable', 'selection', 'release', 'acknowledge'}:
+            raise CharacterSessionError('INVALID_REQUEST')
+        def update(value):
+            writable(value, revision)
+            changed = getattr(memory_operations, operation)(value, *args)
+            if changed:
+                value['revision'] += 1
+            return {'session_id': sid, 'revision': value['revision'], 'memory_settings': public_state(value)}, changed
+        return self.repository.transaction(sid, update)
 
     def begin(self, sid, payload, *, retry_action_id=None):
         self._check_blocked(sid)
@@ -282,7 +303,8 @@ class CharacterChatService:
                 if target:
                     existing['target_turn_id'] = target
                 value['requests'].append(existing)
-            attempt = {'request_id': str(uuid4()), 'base_revision': value['revision'], 'status': 'pending', 'created_at': now()}
+            attempt = {'request_id': str(uuid4()), 'base_revision': value['revision'], 'status': 'pending', 'created_at': now(),
+                       'reply_contract_id': contract_for(value)}
             if retry_token:
                 attempt.update(retry_of=payload['retry_of'], retry_token=retry_token)
             existing['attempts'].append(attempt)
@@ -298,7 +320,7 @@ class CharacterChatService:
             slot = True
             attempt['pending_input'] = {'content': content, 'mode': mode,
                 'user_message_id': str(uuid4()), 'ai_message_id': str(uuid4())}
-            existing['retry_input'] = copy.deepcopy(attempt['pending_input'])
+            existing['retry_input'] = dict(copy.deepcopy(attempt['pending_input']), reply_contract_id=attempt_contract(attempt))
             job = {'session': copy.deepcopy(value), 'action_id': aid, 'request_id': attempt['request_id'], 'delivery': delivery}
             return {'job': {'session_id': sid, 'action_id': aid, 'request_id': attempt['request_id'],
                             'base_revision': value['revision'], 'delivery': delivery}}, True
@@ -314,7 +336,8 @@ class CharacterChatService:
                     archive_last(snapshot, 'replaced')
                 preference_settings = session_settings(snapshot)
                 preferences = self.preference_loader(preference_settings) if preference_settings['enabled'] else []
-                plan, messages, entries, report = build_context(snapshot, attempt['pending_input'], config.get('budget_options'), preferences=preferences)
+                plan, messages, entries, report = build_context(snapshot, attempt['pending_input'], config.get('budget_options'), preferences=preferences,
+                                                               contract_id=attempt_contract(attempt))
                 job.update(config=config, plan=plan, messages=messages, entries=entries, report=report)
                 with self.lock:
                     self.jobs[job['request_id']] = job
@@ -336,7 +359,7 @@ class CharacterChatService:
             if attempt is None:
                 raise CharacterSessionError('ACTION_NOT_FOUND')
             if attempt['status'] == 'pending':
-                action['retry_input'] = attempt.pop('pending_input')
+                action['retry_input'] = dict(attempt.pop('pending_input'), reply_contract_id=attempt_contract(attempt))
                 attempt.update(status=status, error_code=code, ended_at=now())
                 return action_view(value, action, rid), True
             return action_view(value, action, rid), False
@@ -396,7 +419,7 @@ class CharacterChatService:
                     if not value['turns'] or value['turns'][-1]['turn_id'] != action['target_turn_id']:
                         raise CharacterSessionError('REVISION_CONFLICT')
                     archive_last(value, 'replaced')
-                candidate, turn = plan_turn(value, action, attempt, raw, job['messages'], job['entries'])
+                candidate, turn = plan_turn(value, action, attempt, raw, job['messages'], job['entries'], job['plan'].contract_id)
                 value.clear()
                 value.update(candidate)
                 action = action_by_id(value, aid)

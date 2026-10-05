@@ -5,6 +5,9 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 from .models import CharacterSessionError, json_bytes, text, validate_depth
+from .protocol import V1, V2, result_keys
+from .annotations import parse_annotations, validate_annotation
+from .memory import select_memory, public
 
 
 def now():
@@ -20,7 +23,7 @@ def unique_object(pairs):
     return value
 
 
-def parse_result(raw):
+def parse_result(raw, contract_id=V1):
     try:
         if not isinstance(raw, str) or len(raw.encode('utf-8')) > 65536:
             raise CharacterSessionError('CONTRACT_INVALID')
@@ -28,11 +31,13 @@ def parse_result(raw):
                            parse_constant=lambda _: (_ for _ in ()).throw(CharacterSessionError('CONTRACT_INVALID')))
         validate_depth(value, 12)
         json_bytes(value)  # Reject isolated surrogate code points even without streaming.
-        if not isinstance(value, dict) or set(value) != {'reply', 'ledger_ops'}:
+        if not isinstance(value, dict) or set(value) != result_keys(contract_id):
             raise CharacterSessionError('CONTRACT_INVALID')
         text(value['reply'], 8000)
         if not isinstance(value['ledger_ops'], list) or len(value['ledger_ops']) > 6:
             raise CharacterSessionError('CONTRACT_INVALID')
+        if contract_id == V2:
+            parse_annotations(value['memory_annotations'], value['ledger_ops'])
         return value
     except (ValueError, TypeError, UnicodeError, RecursionError):
         raise CharacterSessionError('CONTRACT_INVALID') from None
@@ -40,8 +45,10 @@ def parse_result(raw):
 
 def public_ledger(session, spoiler=False):
     ids = {p['instance_id'] for p in session['participants']}
-    return copy.deepcopy([e for e in session['ledger'] if e['status'] == 'active'
-                          and (spoiler or set(e['visibility']['audience_instance_ids']) == ids)])
+    allowed = {'entry_id', 'subject_instance_id', 'kind', 'content', 'source', 'visibility',
+               'status', 'created_turn_id', 'about_instance_id', 'supersedes_entry_id', 'memory_annotation'}
+    return [{k: copy.deepcopy(v) for k, v in e.items() if k in allowed} for e in session['ledger'] if e['status'] == 'active'
+            and (spoiler or set(e['visibility']['audience_instance_ids']) == ids)]
 
 
 def reverse_ledger(session, inverse):
@@ -51,15 +58,16 @@ def reverse_ledger(session, inverse):
     session['ledger'] = [copy.deepcopy(previous.get(e['entry_id'], e)) for e in session['ledger']]
 
 
-def plan_turn(session, action, attempt, raw, allowed_messages, projected_entry_ids):
+def plan_turn(session, action, attempt, raw, allowed_messages, projected_entry_ids, contract_id=V1):
     try:
-        return _plan_turn(session, action, attempt, raw, allowed_messages, projected_entry_ids)
+        return _plan_turn(session, action, attempt, raw, allowed_messages, projected_entry_ids, contract_id)
     except (ValueError, TypeError, KeyError, UnicodeError, RecursionError):
         raise CharacterSessionError('CONTRACT_INVALID') from None
 
 
-def _plan_turn(session, action, attempt, raw, allowed_messages, projected_entry_ids):
-    result = parse_result(raw)
+def _plan_turn(session, action, attempt, raw, allowed_messages, projected_entry_ids, contract_id):
+    result = parse_result(raw, contract_id)
+    annotations = parse_annotations(result['memory_annotations'], result['ledger_ops']) if contract_id == V2 else {}
     candidate = copy.deepcopy(session)
     pending = attempt['pending_input']
     participants = {p['controller']: p['instance_id'] for p in session['participants']}
@@ -75,7 +83,7 @@ def _plan_turn(session, action, attempt, raw, allowed_messages, projected_entry_
     messages = {m['message_id']: m for m in [*allowed_messages, user, reply]}
     inverse = {'added_entry_ids': [], 'previous_entries': []}
     touched = set()
-    for op in result['ledger_ops']:
+    for op_index, op in enumerate(result['ledger_ops']):
         if not isinstance(op, dict):
             raise CharacterSessionError('CONTRACT_INVALID')
         required = {'op', 'kind', 'content', 'source', 'visibility'}
@@ -134,6 +142,8 @@ def _plan_turn(session, action, attempt, raw, allowed_messages, projected_entry_
                  'visibility': copy.deepcopy(visibility), 'status': 'active', 'created_turn_id': turn_id}
         if about is not None:
             entry['about_instance_id'] = about
+        if op_index in annotations:
+            entry['memory_annotation'] = validate_annotation(annotations[op_index], entry, participants['user'])
         if op['op'] == 'supersede':
             target = op['target_entry_id']
             old = next((e for e in candidate['ledger'] if e['entry_id'] == target), None)
@@ -155,4 +165,11 @@ def _plan_turn(session, action, attempt, raw, allowed_messages, projected_entry_
             'user_message': user, 'ai_message': reply, 'mode_at_generation': pending['mode'],
             'ledger_inverse': inverse, 'committed_revision': session['revision'] + 1, 'created_at': timestamp}
     candidate['turns'].append(turn)
+    if annotations and action['operation'] == 'send':
+        _, report = select_memory(candidate, pending['content'])
+        selected = {e['entry_id'] for e in report if e['reason'] in {'auto_important', 'auto_highlight'}}
+        ids = [e['entry_id'] for e in candidate['ledger'] if e['entry_id'] in inverse['added_entry_ids']
+               and e['entry_id'] in selected and not e.get('supersedes_entry_id') and public(e, candidate)]
+        if ids:
+            turn['memory_notice'] = {'action_id': action['action_id'], 'committed_revision': turn['committed_revision'], 'entry_ids': ids}
     return candidate, turn
