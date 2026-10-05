@@ -2,6 +2,12 @@
 
 Updated: 2026-10-06
 
+## Completed — C3 structured OOC and single-step role agency
+
+User continues after completed M3. Main agent fully read Astra [22r contract](features/22r_character_ooc_c3_contract.md); independent review added stored OOC/owning-context consistency. Delivered one-turn structured OOC accompanying dialogue, immutable paired inputs across retry/regeneration/recovery, source/history/world-match isolation, required budget, independent context identity, dual-draft composer and distinct historical notes. No pure OOC, persistent controls, paid analysis, C4/C5, capacity, version/package/remote change; normal no-OOC requests remain M3, strict reply.v1/v2 unchanged.
+
+C3 completed: final Python630/630 (23.250s), all Node116/116, visibility and160-module production build passed. C3 Edge1/1 (23.3s), initial full Edge39/39 (5.4m), final rebuilt full Edge39/39 (5.3m, C3 23.5s) all passed with no skip. Latest wide1600x1000/narrow520x900 screenshots inspected; no horizontal overflow. Independent Astra audit found no remaining actionable P0/P1. Existing541.51KB bundle warning remainsP2; real-model naturalness/OOC semantic leakage unverified. Docs/player guide/categorized changelogs updated and source changes delivered to local Git. No player data, paid calls, version/package or remote changes. Goal stops here: next independent C4 message-group/partial-delivery contract, thenC5 bounded contact. Do not silently start either.
+
 ## Completed — M3 local cognition and bounded source recall
 
 2026-10-06: user authorizes goal mode, design then implementation. Main agent read the complete Astra [22q contract](features/22q_character_cognition_m3_contract.md). Deliver a rebuildable session-local ledger index and at most4 whole linked old formal messages/4000 Unicode characters, final budget/evidence closure and independent frozen context identity, compatible reply.v1/v2, public index/recall UI and isolated full acceptance/local Git. Do not infer semantic preference conditions with lexical matching, share across sessions, expand capacity, add model calls, bump version, package or publish. Next verifiable slice: backend/context/API and frontend index/source report, then lifecycle/privacy/browser/visual verification. C3/C4/C5 remain independent unfrozen engineering gates.

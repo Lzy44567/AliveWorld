@@ -16,7 +16,8 @@ from .protocol import contract_for, attempt_contract
 from .notices import notice_for
 from . import memory_operations
 from .limits import MAX_ACTIONS, MAX_ATTEMPTS, MAX_TURNS
-from .context_contract import M3, context_contract
+from .context_contract import M3, C3, context_contract
+from .ooc import normalize_ooc, OocInputError
 
 
 def pending_attempt(session):
@@ -64,6 +65,8 @@ def action_view(session, action, request_id=None):
             result[key] = attempt[key]
     if attempt['status'] in {'failed', 'cancelled', 'interrupted'} and action.get('retry_input'):
         result['retry_input'] = action['retry_input']['content']
+        if action['retry_input'].get('ooc_note'):
+            result['retry_ooc_note'] = action['retry_input']['ooc_note']
     if action.get('result_state') == 'active':
         turn = next((t for t in session['turns'] if t['turn_id'] == action['result_turn_id']), None)
         if turn:
@@ -77,7 +80,7 @@ def action_view(session, action, request_id=None):
 
 
 def visible_turn(turn):
-    allowed = {'turn_id', 'action_id', 'request_id', 'user_message', 'ai_message', 'mode_at_generation', 'committed_revision', 'created_at'}
+    allowed = {'turn_id', 'action_id', 'request_id', 'user_message', 'ai_message', 'mode_at_generation', 'committed_revision', 'created_at', 'ooc_note'}
     return {k: copy.deepcopy(v) for k, v in turn.items() if k in allowed}
 
 
@@ -247,6 +250,16 @@ class CharacterChatService:
 
     def begin(self, sid, payload, *, retry_action_id=None):
         self._check_blocked(sid)
+        allowed = ({'expected_revision', 'retry_of', 'retry_token', 'delivery'} if retry_action_id else
+                   {'client_action_id', 'expected_revision', 'operation', 'content', 'target_turn_id', 'delivery', 'ooc_note'})
+        if not isinstance(payload, dict) or not set(payload) <= allowed:
+            raise CharacterSessionError('INVALID_REQUEST')
+        try:
+            ooc = normalize_ooc(payload.get('ooc_note'))
+        except OocInputError as exc:
+            raise CharacterSessionError(exc.code) from None
+        if not retry_action_id and payload.get('operation') != 'send' and {'ooc_note', 'content'}.intersection(payload):
+            raise CharacterSessionError('INVALID_REQUEST')
         delivery = payload.get('delivery', 'stream')
         if not isinstance(delivery, str) or delivery not in {'stream', 'non_stream'}:
             raise CharacterSessionError('INVALID_REQUEST')
@@ -257,7 +270,7 @@ class CharacterChatService:
         job = None
         slot = False
         def start(value):
-            nonlocal job, slot
+            nonlocal job, slot, ooc
             existing = next((a for a in value['requests'] if a['action_id'] == aid), None)
             if retry_action_id:
                 if existing is None:
@@ -271,6 +284,7 @@ class CharacterChatService:
                     raise CharacterSessionError('STALE_RETRY')
                 operation, content, target = existing['operation'], existing['retry_input']['content'], existing.get('target_turn_id')
                 mode = existing['retry_input']['mode']
+                ooc = existing['retry_input'].get('ooc_note', '')
             else:
                 operation = payload.get('operation')
                 if not isinstance(operation, str) or operation not in {'send', 'regenerate', 'undo'}:
@@ -285,8 +299,10 @@ class CharacterChatService:
                     canonical_id(target)
                     if content is not None:
                         raise CharacterSessionError('INVALID_REQUEST')
-                fingerprint = hashlib.sha256(json_bytes({'operation': operation, 'content': content,
-                    'target_turn_id': target, 'mode': mode})).hexdigest()
+                identity = {'operation': operation, 'content': content, 'target_turn_id': target, 'mode': mode}
+                if ooc:
+                    identity['ooc_note'] = ooc
+                fingerprint = hashlib.sha256(json_bytes(identity)).hexdigest()
                 if existing:
                     if existing['fingerprint'] != fingerprint:
                         raise CharacterSessionError('IDEMPOTENCY_MISMATCH')
@@ -298,6 +314,7 @@ class CharacterChatService:
                 if not value['turns'] or value['turns'][-1]['turn_id'] != target:
                     raise CharacterSessionError('REVISION_CONFLICT')
                 content = value['turns'][-1]['user_message']['content']
+                ooc = value['turns'][-1].get('ooc_note', '')
             if operation != 'undo' and operation == 'send' and len(value['turns']) >= MAX_TURNS:
                 raise CharacterSessionError('SESSION_LIMIT')
             if not existing:
@@ -307,7 +324,7 @@ class CharacterChatService:
                     existing['target_turn_id'] = target
                 value['requests'].append(existing)
             attempt = {'request_id': str(uuid4()), 'base_revision': value['revision'], 'status': 'pending', 'created_at': now(),
-                       'reply_contract_id': contract_for(value), 'context_contract_id': M3}
+                       'reply_contract_id': contract_for(value), 'context_contract_id': C3 if ooc and operation != 'undo' else M3}
             if retry_token:
                 attempt.update(retry_of=payload['retry_of'], retry_token=retry_token)
             existing['attempts'].append(attempt)
@@ -323,6 +340,8 @@ class CharacterChatService:
             slot = True
             attempt['pending_input'] = {'content': content, 'mode': mode,
                 'user_message_id': str(uuid4()), 'ai_message_id': str(uuid4())}
+            if ooc:
+                attempt['pending_input']['ooc_note'] = ooc
             existing['retry_input'] = dict(copy.deepcopy(attempt['pending_input']), reply_contract_id=attempt_contract(attempt),
                                            context_contract_id=context_contract(attempt))
             job = {'session': copy.deepcopy(value), 'action_id': aid, 'request_id': attempt['request_id'], 'delivery': delivery}

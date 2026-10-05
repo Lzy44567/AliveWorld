@@ -47,6 +47,14 @@ class FakeOpenAIAppTests(unittest.TestCase):
         raw = self._chat('character.reply.v2', json.dumps(data)).json()['choices'][0]['message']['content']
         self.assertEqual({'reply', 'ledger_ops'}, set(json.loads(raw)))
 
+    def test_character_c3_accepts_identity_without_echoing_ooc_as_dialogue(self):
+        data = {'reply_contract_id': 'character.reply.v2', 'context_contract_id': 'character.context.c3.v1',
+                'current_user_message': {'content': '正式台词'}, 'current_ooc_note': '独立场外说明'}
+        raw = self._chat('character.reply.c3.v2', json.dumps(data)).json()['choices'][0]['message']['content']
+        output = json.loads(raw)
+        self.assertEqual({'reply', 'ledger_ops', 'memory_annotations'}, set(output))
+        self.assertIn('正式台词', output['reply']); self.assertNotIn('独立场外说明', output['reply'])
+
     def test_character_sse_streams_only_once_and_finishes_strict_json(self):
         with patch("tests.fakes.fake_openai_app.time.sleep") as delay:
             response = self.client.post("/v1/chat/completions", json={

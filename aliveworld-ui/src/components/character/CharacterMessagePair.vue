@@ -11,6 +11,11 @@ const time = computed(() => {
 <template>
   <div class="space-y-4" data-testid="character-message-pair">
     <time v-if="time" class="block text-center text-[11px] text-slate-500">{{ time }}</time>
+    <details v-if="turn.ooc_note" data-testid="character-turn-ooc" class="text-xs text-slate-400 border border-slate-800 rounded-lg px-3 py-2">
+      <summary class="cursor-pointer">本轮场外提示（非角色台词）</summary>
+      <p class="whitespace-pre-wrap break-words select-text mt-2">{{ turn.ooc_note }}</p>
+      <p class="mt-2 text-slate-500">仅用于此轮生成，重试／重生成会沿用；此说明字段不作为角色经历来源或全局偏好。撤回保留技术档案，清空输入框不删除此记录。</p>
+    </details>
     <div class="flex items-start justify-end gap-2 md:gap-3">
       <div class="min-w-0 max-w-[calc(100%_-_3rem)] md:max-w-[72%]">
         <p class="mb-1 text-right text-[11px] text-slate-500">{{ userName || '我' }}</p>

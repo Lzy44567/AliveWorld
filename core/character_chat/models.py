@@ -14,7 +14,8 @@ from .memory import settings as memory_settings, MemoryVersionError
 from .annotations import validate_annotation
 from .protocol import attempt_contract, validate_contract, ReplyContractError, V2
 from .notices import validate_notice
-from .context_contract import context_contract, validate_context_contract, ContextContractError, LEGACY
+from .context_contract import context_contract, validate_context_contract, ContextContractError, LEGACY, C3
+from .ooc import validate_stored_ooc
 from .limits import MAX_TURNS, MAX_LEDGER, MAX_ACTIONS, MAX_ATTEMPTS, MAX_ACTIVE, MAX_EXTENSIONS_BYTES
 
 
@@ -236,6 +237,7 @@ def validate_records(value):
         ai_id = next(p['instance_id'] for p in value['participants'] if p['controller'] == 'ai')
         user_id = next(p['instance_id'] for p in value['participants'] if p['controller'] == 'user')
         def turn(record, *, archived=False):
+            validate_stored_ooc(record)
             canonical_id(record['turn_id'])
             canonical_id(record['action_id'])
             canonical_id(record['request_id'])
@@ -295,6 +297,9 @@ def validate_records(value):
                 if attempt['status'] == 'pending':
                     pending_count += 1
                     pending = attempt['pending_input']
+                    validate_stored_ooc(pending)
+                    if bool(pending.get('ooc_note')) != (context_contract(attempt) == C3):
+                        raise CharacterSessionError('SESSION_CORRUPT')
                     text(pending['content'], 4000)
                     canonical_id(pending['user_message_id'])
                     canonical_id(pending['ai_message_id'])
@@ -303,8 +308,19 @@ def validate_records(value):
                 elif 'pending_input' in attempt:
                     raise CharacterSessionError('SESSION_CORRUPT')
             if 'retry_input' in action:
-                validate_contract(action['retry_input'].get('reply_contract_id', 'character.reply.v1'))
-                validate_context_contract(action['retry_input'].get('context_contract_id', LEGACY))
+                retry_input = action['retry_input']
+                validate_contract(retry_input.get('reply_contract_id', 'character.reply.v1'))
+                retry_context = validate_context_contract(retry_input.get('context_contract_id', LEGACY))
+                validate_stored_ooc(retry_input)
+                text(retry_input['content'], 4000)
+                canonical_id(retry_input['user_message_id'])
+                canonical_id(retry_input['ai_message_id'])
+                if retry_input['mode'] not in {'messenger', 'roleplay'}:
+                    raise CharacterSessionError('SESSION_CORRUPT')
+                if bool(retry_input.get('ooc_note')) != (retry_context == C3):
+                    raise CharacterSessionError('SESSION_CORRUPT')
+                if (retry_context == C3) != (context_contract(attempts[-1]) == C3):
+                    raise CharacterSessionError('SESSION_CORRUPT')
             if action.get('archived_turn') is not None:
                 turn(action['archived_turn'], archived=True)
                 if action['archived_turn']['action_id'] != action['action_id']:
@@ -315,6 +331,11 @@ def validate_records(value):
             raise CharacterSessionError('SESSION_CORRUPT')
         if attempt_count > MAX_ATTEMPTS:
             raise CharacterSessionError('SESSION_LIMIT')
+        for record in turn_records.values():
+            owner = next((a for a in value['requests'] if a['action_id'] == record['action_id']), None)
+            attempt = next((t for t in owner['attempts'] if t['request_id'] == record['request_id']), None) if owner else None
+            if attempt is None or bool(record.get('ooc_note')) != (context_contract(attempt) == C3):
+                raise CharacterSessionError('SESSION_CORRUPT')
         for record in value['turns']:
             if record['action_id'] not in action_ids or record['request_id'] not in request_ids:
                 raise CharacterSessionError('SESSION_CORRUPT')

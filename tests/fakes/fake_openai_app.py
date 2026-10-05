@@ -174,7 +174,7 @@ def _character_response(user: str) -> dict[str, Any] | str:
     if contract_id not in {'character.reply.v1', 'character.reply.v2'}:
         raise ValueError('Unknown test reply contract')
     context_id = data.get('context_contract_id', 'character.context.v1')
-    if context_id not in {'character.context.v1', 'character.context.m3.v1'}:
+    if context_id not in {'character.context.v1', 'character.context.m3.v1', 'character.context.c3.v1'}:
         raise ValueError('Unknown test context contract')
     def output(ops, annotations=None):
         result = {'reply': reply, 'ledger_ops': ops}

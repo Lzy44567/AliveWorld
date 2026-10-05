@@ -23,7 +23,7 @@ from core.story_length import story_length_instruction
 from core.world_change_events import SIGNAL_INSTRUCTION
 from core.character_chat.prompts import CORE as CHARACTER_CORE, CONTRACT as CHARACTER_CONTRACT, PRESENTATION as CHARACTER_PRESENTATION
 from core.character_chat.prompts import CORE_V2 as CHARACTER_CORE_V2, CONTRACT_V2 as CHARACTER_CONTRACT_V2
-from core.character_chat.prompts import M3_GUIDANCE
+from core.character_chat.prompts import M3_GUIDANCE, C3_GUIDANCE, AGENCY_GUIDANCE
 from utils.runtime_paths import PATHS
 
 
@@ -65,9 +65,33 @@ def _settlement_section(name: str) -> Callable[[], str]:
 
 
 SLICES: tuple[PromptSlice, ...] = (
+    PromptSlice("character.reply.c3.v1.core", "character.reply.c3.v1", "角色 C3 私聊职责 v1", "system", 100,
+                "单步自主与有界来源召回；旧legacy/M3覆盖不自动应用。", True, (),
+                lambda: CHARACTER_CORE + M3_GUIDANCE.replace('character.context.m3.v1', 'character.context.c3.v1') + AGENCY_GUIDANCE, "engine", "static", True),
+    PromptSlice("character.reply.c3.v1.ooc", "character.reply.c3.v1", "角色 C3 场外输入身份 v1", "system", 150,
+                "本轮场外说明与正式台词、经历、来源及同意隔离。", False, (),
+                lambda: C3_GUIDANCE, "engine", "static", True),
+    PromptSlice("character.reply.c3.v1.contract", "character.reply.c3.v1", "角色 C3 严格回复契约 v1", "system", 200,
+                "保持严格reply.v1，无场外输出字段。", False, (),
+                lambda: CHARACTER_CONTRACT, "engine", "static", True),
+    PromptSlice("character.reply.c3.v1.presentation", "character.reply.c3.v1", "角色 C3 表现方式 v1", "system", 300,
+                "沿用原表现方式。", False, ("character.presentation_mode",),
+                lambda: CHARACTER_PRESENTATION, "feature", "configuration", True),
+    PromptSlice("character.reply.c3.v2.core", "character.reply.c3.v2", "角色 C3 私聊职责 v2", "system", 100,
+                "单步自主与有界来源召回；旧legacy/M3覆盖不自动应用。", True, (),
+                lambda: CHARACTER_CORE_V2 + M3_GUIDANCE.replace('character.context.m3.v1', 'character.context.c3.v1') + AGENCY_GUIDANCE, "engine", "static", True),
+    PromptSlice("character.reply.c3.v2.ooc", "character.reply.c3.v2", "角色 C3 场外输入身份 v2", "system", 150,
+                "本轮场外说明与正式台词、经历、来源及同意隔离。", False, (),
+                lambda: C3_GUIDANCE, "engine", "static", True),
+    PromptSlice("character.reply.c3.v2.contract", "character.reply.c3.v2", "角色 C3 严格回复契约 v2", "system", 200,
+                "保持严格reply.v2及现有注解，不新增输出字段。", False, (),
+                lambda: CHARACTER_CONTRACT_V2, "engine", "static", True),
+    PromptSlice("character.reply.c3.v2.presentation", "character.reply.c3.v2", "角色 C3 表现方式 v2", "system", 300,
+                "沿用原表现方式。", False, ("character.presentation_mode",),
+                lambda: CHARACTER_PRESENTATION, "feature", "configuration", True),
     PromptSlice("character.reply.m3.v1.core", "character.reply.m3.v1", "角色 M3 私聊职责 v1", "system", 100,
                 "有界正式原文召回；旧v1/v2 core覆盖未自动应用，旧身份保留可见，可显式复制编辑本片。", True, (),
-                lambda: CHARACTER_CORE + M3_GUIDANCE, "engine", "static", True),
+                lambda: CHARACTER_CORE + M3_GUIDANCE + AGENCY_GUIDANCE, "engine", "static", True),
     PromptSlice("character.reply.m3.v1.contract", "character.reply.m3.v1", "角色 M3 严格回复契约 v1", "system", 200,
                 "沿用严格reply.v1，不提高原文或索引可信度。", False, (),
                 lambda: CHARACTER_CONTRACT, "engine", "static", True),
@@ -76,7 +100,7 @@ SLICES: tuple[PromptSlice, ...] = (
                 lambda: CHARACTER_PRESENTATION, "feature", "configuration", True),
     PromptSlice("character.reply.m3.v2.core", "character.reply.m3.v2", "角色 M3 私聊职责 v2", "system", 100,
                 "有界正式原文召回；旧v1/v2 core覆盖未自动应用，旧身份保留可见，可显式复制编辑本片。", True, (),
-                lambda: CHARACTER_CORE_V2 + M3_GUIDANCE, "engine", "static", True),
+                lambda: CHARACTER_CORE_V2 + M3_GUIDANCE + AGENCY_GUIDANCE, "engine", "static", True),
     PromptSlice("character.reply.m3.v2.contract", "character.reply.m3.v2", "角色 M3 严格回复契约 v2", "system", 200,
                 "沿用严格reply.v2及自动注解边界。", False, (),
                 lambda: CHARACTER_CONTRACT_V2, "engine", "static", True),

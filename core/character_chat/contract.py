@@ -169,6 +169,8 @@ def _plan_turn(session, action, attempt, raw, allowed_messages, projected_entry_
     turn = {'turn_id': turn_id, 'action_id': action['action_id'], 'request_id': attempt['request_id'],
             'user_message': user, 'ai_message': reply, 'mode_at_generation': pending['mode'],
             'ledger_inverse': inverse, 'committed_revision': session['revision'] + 1, 'created_at': timestamp}
+    if pending.get('ooc_note'):
+        turn['ooc_note'] = pending['ooc_note']
     candidate['turns'].append(turn)
     if annotations and action['operation'] == 'send':
         _, report = select_memory(candidate, pending['content'])

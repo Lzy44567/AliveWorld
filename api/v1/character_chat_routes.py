@@ -358,7 +358,7 @@ async def deliver(sid, request, payload, retry_action_id=None):
 @router.post('/{sid}/actions')
 async def action(sid: str, request: Request):
     try:
-        payload = await body(request, {'client_action_id', 'expected_revision', 'operation', 'content', 'target_turn_id', 'delivery'},
+        payload = await body(request, {'client_action_id', 'expected_revision', 'operation', 'content', 'target_turn_id', 'delivery', 'ooc_note'},
                              {'client_action_id', 'expected_revision', 'operation'})
         return await deliver(sid, request, payload)
     except Exception as exc:

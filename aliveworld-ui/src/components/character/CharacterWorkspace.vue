@@ -15,6 +15,8 @@ import CharacterPreferenceSettings from './CharacterPreferenceSettings.vue';
 import CharacterMemoryPanel from './CharacterMemoryPanel.vue';
 import CharacterMemoryNotice from './CharacterMemoryNotice.vue';
 import CharacterCapacityPanel from './CharacterCapacityPanel.vue';
+import CharacterOocComposer from './CharacterOocComposer.vue';
+import { oocError } from '../../utils/characterOoc.js';
 import { capacityWarning } from '../../utils/characterCapacity.js';
 import { shouldSendCharacterKey } from '../../utils/characterInteraction.js';
 
@@ -65,7 +67,7 @@ async function remove() {
   try { await store.remove(store.activeId); } catch (e) { ctx.value.error = e.message; }
 }
 function undo() { if (window.confirm('撤回最后一轮对话及其局内记录？')) run('undo'); }
-function regenerate() { if (window.confirm('重新生成最后一轮回复？失败时保留原回复。')) run('regenerate'); }
+function regenerate() { if (window.confirm('沿用末轮台词及场外提示重新生成？失败时保留原回复；不会发送当前草稿。')) run('regenerate'); }
 watch(() => [store.activeId, turns.value.length, ctx.value?.preview, ctx.value?.busy], async () => {
   if (ctx.value?.historyLoading) return;
   await nextTick(); if (messagePane.value) messagePane.value.scrollTop = messagePane.value.scrollHeight;
@@ -138,10 +140,16 @@ onUnmounted(() => { mounted = false; document.removeEventListener('visibilitycha
         </div>
         <div class="shrink-0 border-t border-slate-800 p-3 space-y-2">
           <p v-if="ctx.contextNotice" data-testid="character-context-notice" class="text-xs text-amber-300">{{ ctx.contextNotice }}</p>
-          <div v-if="ctx.error" data-testid="character-error" class="text-sm text-rose-300 flex flex-wrap items-center gap-2"><span>{{ ctx.error }}</span><button v-if="ctx.failure?.retryable && !ctx.busy" data-testid="character-retry" class="underline" @click="run(ctx.failure.operation,true)">重试本次生成</button><button v-if="ctx.busy && ctx.inflight?.status==='unknown'" class="underline" @click="store.recover(store.activeId,ctx.inflight)">核对状态</button></div>
+          <div v-if="ctx.error" data-testid="character-error" class="text-sm text-rose-300 flex flex-wrap items-center gap-2"><span>{{ ctx.error }}</span><button v-if="ctx.failure?.retryable && !ctx.busy" data-testid="character-retry" class="underline" @click="run(ctx.failure.operation,true)">重试原台词及场外提示</button><button v-if="ctx.busy && ctx.inflight?.status==='unknown'" class="underline" @click="store.recover(store.activeId,ctx.inflight)">核对状态</button></div>
           <button v-if="ctx.needsReload" class="text-xs underline text-amber-300" @click="store.open(store.activeId)">重新载入记录</button>
           <div v-if="turns.length" class="flex justify-end gap-3 text-xs text-slate-500"><button data-testid="character-regenerate" :disabled="ctx.busy || ctx.settingsBusy || readonly" @click="regenerate">重新生成末轮</button><button data-testid="character-undo" :disabled="ctx.busy || ctx.settingsBusy || readonly" @click="undo">撤回末轮</button></div>
-          <form class="space-y-2" @submit.prevent="run('send')"><textarea v-model="ctx.draft" data-testid="character-composer" rows="3" maxlength="4000" class="field !mt-0 resize-none" :placeholder="ctx.sendKey==='ctrl_enter'?'输入消息；Enter 换行，Ctrl+Enter 发送':'输入消息；Enter 发送，Shift+Enter 换行'" @compositionstart="composing=true" @compositionend="composing=false" @keydown="keydown"></textarea><div class="flex justify-end items-center gap-3"><span class="text-[11px] text-slate-500">{{ ctx.sendKey==='ctrl_enter'?'Ctrl+Enter 发送':'Enter 发送 · Shift+Enter 换行' }}</span><button v-if="ctx.busy" data-testid="character-stop" type="button" class="rounded-lg bg-amber-900 px-5 py-2 disabled:opacity-40" :disabled="!ctx.inflight?.request_id" @click="store.stop(store.activeId)">停止</button><button v-else data-testid="character-send" class="rounded-lg bg-indigo-700 px-5 py-2 disabled:opacity-40" :disabled="!ctx.draft.trim() || ctx.needsReload || ctx.settingsBusy">发送</button></div></form>
+          <form class="space-y-2" @submit.prevent="run('send')">
+            <CharacterOocComposer v-model="ctx.oocDraft" v-model:open="ctx.oocOpen" />
+            <p v-if="ctx.oocDraft.trim() && !ctx.draft.trim()" class="text-xs text-slate-400">请同时输入角色台词；暂不支持仅发送场外提示。</p>
+            <p v-if="oocError(ctx.oocDraft)" class="text-xs text-rose-300">{{ oocError(ctx.oocDraft) }}</p>
+            <textarea v-model="ctx.draft" data-testid="character-composer" rows="3" maxlength="4000" class="field !mt-0 resize-none" :placeholder="ctx.sendKey==='ctrl_enter'?'输入消息；Enter 换行，Ctrl+Enter 发送':'输入消息；Enter 发送，Shift+Enter 换行'" @compositionstart="composing=true" @compositionend="composing=false" @keydown="keydown"></textarea>
+            <div class="flex justify-end items-center gap-3"><span class="text-[11px] text-slate-500">{{ ctx.sendKey==='ctrl_enter'?'Ctrl+Enter 发送':'Enter 发送 · Shift+Enter 换行' }}</span><button v-if="ctx.busy" data-testid="character-stop" type="button" class="rounded-lg bg-amber-900 px-5 py-2 disabled:opacity-40" :disabled="!ctx.inflight?.request_id" @click="store.stop(store.activeId)">停止</button><button v-else data-testid="character-send" class="rounded-lg bg-indigo-700 px-5 py-2 disabled:opacity-40" :disabled="!ctx.draft.trim() || Boolean(oocError(ctx.oocDraft)) || ctx.needsReload || ctx.settingsBusy">发送</button></div>
+          </form>
         </div>
       </template>
       <div v-else class="flex-1 flex flex-col items-center justify-center gap-4 text-slate-400"><p>独立的一对一角色对话，保存后可随时继续。</p><button class="bg-indigo-700 rounded-lg px-5 py-2 text-white" @click="creating=true">新对话</button></div>

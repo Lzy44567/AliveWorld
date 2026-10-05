@@ -1,6 +1,7 @@
 """Versioned input evidence permissions, independent from reply protocols."""
 LEGACY = 'character.context.v1'
 M3 = 'character.context.m3.v1'
+C3 = 'character.context.c3.v1'
 
 
 class ContextContractError(ValueError):
@@ -8,7 +9,7 @@ class ContextContractError(ValueError):
 
 
 def validate_context_contract(value):
-    if not isinstance(value, str) or value not in {LEGACY, M3}:
+    if not isinstance(value, str) or value not in {LEGACY, M3, C3}:
         raise ContextContractError('Unsupported context contract')
     return value
 

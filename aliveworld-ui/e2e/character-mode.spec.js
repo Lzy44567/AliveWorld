@@ -34,6 +34,57 @@ async function savedSession(request, title) {
 
 test.describe.configure({ mode: 'serial' });
 
+test('C3场外双输入、身份隔离、原输入重试与重生成及宽窄界面', async ({page,request}) => {
+  test.setTimeout(120000);
+  await request.post(`/api/v1/lobby/assets/characters/${encodeURIComponent(cardName)}`, {data:{parsed_data:{name:cardName,description:'独立合成成年角色'},overwrite:true}});
+  await request.delete(`${fakeBase}/__test__/requests`);
+  await enterCharacters(page);await createSession(page,'C3双输入验收');
+  await page.getByTestId('character-ooc-toggle').click();
+  const note='本轮放慢节奏，保留角色自身立场。仅场外秘密C3';
+  const ooc=page.getByTestId('character-ooc-composer');
+  await ooc.fill(note);await expect(page.getByTestId('character-send')).toBeDisabled();
+  await ooc.press('Enter');await expect(ooc).toBeVisible();expect((await records(request)).length).toBe(0);
+  await ooc.fill(note);await page.getByTestId('character-composer').fill('【角色账本】我今天想去散步');
+  const oocBox=await ooc.boundingBox(),dialogueBox=await page.getByTestId('character-composer').boundingBox();
+  expect(oocBox.y).toBeLessThan(dialogueBox.y);
+  await page.screenshot({path:'../build/e2e-results/character-c3-wide.png'});
+  await page.setViewportSize({width:520,height:900});
+  await expect(ooc).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
+  await page.screenshot({path:'../build/e2e-results/character-c3-narrow.png'});
+  await page.setViewportSize({width:1600,height:1000});
+  await page.getByTestId('character-ooc-toggle').click();await expect(ooc).toBeHidden();
+  await expect(page.getByTestId('character-ooc-attached')).toContainText('本次含场外提示');
+  await page.getByTestId('character-send').click();await expect(page.getByTestId('character-preview')).toBeVisible();await expect(page.getByTestId('character-preview')).toBeHidden();
+  await expect(page.getByTestId('character-turn-ooc')).toHaveCount(1);
+  let saved=await savedSession(request,'C3双输入验收');expect(saved.turns[0].ooc_note).toBe(note);
+  expect(saved.turns[0].user_message.content).not.toContain(note);
+  let data=JSON.parse((await records(request)).at(-1).user);
+  expect(data.context_contract_id).toBe('character.context.c3.v1');expect(data.current_ooc_note).toBe(note);
+  expect(JSON.stringify(saved.ledger)).not.toContain(note);expect(data.recalled_sources).toEqual([]);
+  await page.getByTestId('character-ooc-toggle').click();await ooc.fill('新场外草稿');await page.getByTestId('character-composer').fill('新台词草稿');
+  page.once('dialog',dialog=>dialog.accept());await page.getByTestId('character-regenerate').click();
+  await expect(page.getByTestId('character-preview')).toBeVisible();await expect(page.getByTestId('character-preview')).toBeHidden();
+  await expect(page.getByTestId('character-composer')).toHaveValue('新台词草稿');await expect(ooc).toHaveValue('新场外草稿');
+  data=JSON.parse((await records(request)).at(-1).user);expect(data.current_ooc_note).toBe(note);
+  await page.getByTestId('character-ooc-clear').click();await send(page,'下一轮普通台词');
+  data=JSON.parse((await records(request)).at(-1).user);expect(data.context_contract_id).toBe('character.context.m3.v1');
+  expect(JSON.stringify(data)).not.toContain(note);expect('current_ooc_note' in data).toBeFalsy();
+  await ooc.fill('失败原场外');await page.getByTestId('character-composer').fill('【角色一次失败】C3失败恢复');
+  await page.getByTestId('character-send').click();await expect(page.getByTestId('character-error')).toBeVisible();
+  await expect(page.getByTestId('character-retry')).toContainText('原台词及场外提示');
+  await ooc.fill('失败之后新场外');await page.getByTestId('character-composer').fill('失败之后新台词');
+  await page.getByTestId('character-retry').click();await expect(page.getByTestId('character-preview')).toBeVisible();await expect(page.getByTestId('character-preview')).toBeHidden();
+  data=JSON.parse((await records(request)).at(-1).user);expect(data.current_ooc_note).toBe('失败原场外');
+  await expect(ooc).toHaveValue('失败之后新场外');await expect(page.getByTestId('character-composer')).toHaveValue('失败之后新台词');
+  await page.getByTestId('character-ooc-clear').click();await page.getByTestId('character-composer').fill('');
+  page.once('dialog',dialog=>dialog.accept());await page.getByTestId('character-undo').click();
+  await expect(ooc).toHaveValue('失败原场外');await expect(page.getByTestId('character-composer')).toHaveValue('【角色一次失败】C3失败恢复');
+  await page.reload();await dismissStartup(page);await page.getByTestId('mode-character').click();
+  saved=await savedSession(request,'C3双输入验收');await page.getByTestId(`character-session-${saved.session_id}`).click();
+  await expect(page.getByTestId('character-turn-ooc')).toHaveCount(1);
+  await page.getByTestId('character-turn-ooc').locator('summary').click();await expect(page.getByTestId('character-turn-ooc')).toContainText(note);
+});
+
 test('M3公开认知、完整旧原文召回、修订撤回和小屏', async ({ page, request }) => {
   test.setTimeout(120000);
   await request.post(`/api/v1/lobby/assets/characters/${encodeURIComponent(cardName)}`, { data: { parsed_data: { name:cardName,description:'独立合成成年角色' },overwrite:true } });

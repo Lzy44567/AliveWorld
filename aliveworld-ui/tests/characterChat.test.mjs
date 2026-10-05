@@ -8,6 +8,71 @@ import { characterWorldReport } from '../src/utils/characterWorldReport.js';
 import { characterMemoryReport, correctionDraft, memorySourceMessages, automaticMemoryState, memoryNotice } from '../src/utils/characterMemory.js';
 import { createMemoryNoticeCache } from '../src/utils/characterMemoryNotices.js';
 import { characterCapacity, capacityWarning } from '../src/utils/characterCapacity.js';
+import { oocLength, oocError, restoreInputPair } from '../src/utils/characterOoc.js';
+
+test('OOC Unicode limits and dual restore never mix old and new drafts', () => {
+  assert.equal(oocLength(' 😀 '.repeat(1000)), 2998);
+  assert.equal(oocError('😀'.repeat(1000)), ''); assert.match(oocError('😀'.repeat(1001)), /1000/);
+  assert.match(oocError('\ud800'), /无效/);
+  const ctx={draft:'',oocDraft:'new',oocOpen:false};
+  assert.equal(restoreInputPair(ctx,'old','old-note'),false);assert.equal(ctx.draft,'');
+  ctx.oocDraft='';assert.equal(restoreInputPair(ctx,'old','old-note'),true);assert.equal(ctx.oocOpen,true);
+});
+
+test('OOC send freezes both drafts, session switch and edits preserve both new inputs', async () => {
+  const wait=deferred();let payload;
+  const f=fixture({action:async(_,p)=>{payload=structuredClone(p);await wait.promise;return{status:'committed'};}});
+  await f.store.open('a');const ctx=f.store.current;ctx.draft=' original ';ctx.oocDraft=' note ';ctx.oocOpen=false;
+  const task=f.store.run('a');assert.equal(payload.content,'original');assert.equal(payload.ooc_note,'note');
+  ctx.oocDraft='new';await f.store.open('b');wait.resolve();await task;
+  assert.equal(ctx.draft,' original ');assert.equal(ctx.oocDraft,'new');assert.equal(f.store.current.oocDraft,'');
+});
+
+test('OOC unchanged successful pair clears together, empty OOC omitted and OOC-only does not send', async () => {
+  const payloads=[];const f=fixture({action:async(_,p)=>{payloads.push(p);return{status:'committed'};}});
+  await f.store.open('a');const ctx=f.store.current;ctx.draft='dialogue';ctx.oocDraft=' note ';
+  await f.store.run('a');assert.equal(ctx.draft,'');assert.equal(ctx.oocDraft,'');
+  ctx.draft='dialogue';ctx.oocDraft=' ';await f.store.run('a');assert.ok(!('ooc_note'in payloads[1]));
+  ctx.oocDraft='only';await f.store.run('a');assert.equal(payloads.length,2);
+  ctx.draft='dialogue';ctx.oocDraft='😀'.repeat(1001);await f.store.run('a');assert.equal(payloads.length,2);
+});
+
+test('OOC retry uses original server pair, changed drafts preserved; reload restores only empty pair', async () => {
+  let calls=0;let retryPayload;
+  const f=fixture({action:async()=>{calls++;return{status:'failed',request_id:'rid',retryable:true};},retry:async(_,__,p)=>{retryPayload=p;return{status:'committed'};}});
+  await f.store.open('a');const ctx=f.store.current;ctx.draft='old';ctx.oocDraft='old-note';await f.store.run('a');
+  ctx.draft='new';ctx.oocDraft='new-note';await f.store.run('a','send',true);
+  assert.ok(!('content'in retryPayload));assert.ok(!('ooc_note'in retryPayload));assert.equal(calls,1);
+  assert.equal(ctx.draft,'new');assert.equal(ctx.oocDraft,'new-note');
+  f.sessions.a.last_failed_action={base_revision:1,retry_input:'old',retry_ooc_note:'old-note',operation:'send',status:'failed'};
+  ctx.draft='';ctx.oocDraft='new-note';await f.store.open('a');assert.equal(ctx.draft,'');assert.equal(ctx.oocDraft,'new-note');
+  ctx.oocDraft='';await f.store.open('a');assert.equal(ctx.draft,'old');assert.equal(ctx.oocDraft,'old-note');
+});
+
+test('OOC undo restores original pair only to empty editor; regeneration never sends new draft', async () => {
+  const payloads=[];const f=fixture({action:async(_,p)=>{payloads.push(p);return{status:'committed'};}});
+  f.sessions.a.turns=[{turn_id:'turn',user_message:{content:'original'},ooc_note:'original-note'}];
+  await f.store.open('a');const ctx=f.store.current;await f.store.run('a','undo');
+  assert.equal(ctx.draft,'original');assert.equal(ctx.oocDraft,'original-note');
+  ctx.draft='new';ctx.oocDraft='new-note';await f.store.run('a','regenerate');
+  assert.ok(!('content'in payloads[1]));assert.ok(!('ooc_note'in payloads[1]));assert.equal(ctx.oocDraft,'new-note');
+  ctx.draft='';await f.store.run('a','undo');assert.equal(ctx.draft,'');assert.equal(ctx.oocDraft,'new-note');
+});
+
+test('pending reload failure takes original input pair from authoritative terminal, not empty flight', async () => {
+  const f=fixture();await f.store.open('a');const ctx=f.store.current;
+  ctx.inflight={action_id:'action',fromReload:true,content:''};ctx.busy=true;
+  await f.store.settle('a',ctx.inflight,{status:'interrupted',operation:'send',retry_input:'original',retry_ooc_note:'note',request_id:'request'});
+  assert.equal(ctx.failure.content,'original');assert.equal(ctx.failure.oocDraft,'note');
+  assert.equal(ctx.draft,'original');assert.equal(ctx.oocDraft,'note');
+});
+
+test('local retry retains raw draft snapshots despite normalized server retry projection', async () => {
+  const f=fixture({action:async()=>({status:'failed',request_id:'request',retry_input:'dialogue',retry_ooc_note:'note'}),retry:async()=>({status:'committed'})});
+  await f.store.open('a');const ctx=f.store.current;ctx.draft=' dialogue ';ctx.oocDraft=' note ';
+  await f.store.run('a');assert.equal(ctx.failure.content,' dialogue ');assert.equal(ctx.failure.oocDraft,' note ');
+  await f.store.run('a','send',true);assert.equal(ctx.draft,'');assert.equal(ctx.oocDraft,'');
+});
 
 const capacityFixture = (sessionId = 'a', used = 0) => ({ session_id: sessionId, revision: 1, version: 1, public_counts: { formal_turns: { used, limit: 512, state: used === 512 ? 'at_limit' : used >= 410 ? 'near' : 'normal' }, actions: { used: 0, limit: 2048, state: 'normal' }, attempts: { used: 0, limit: 4096, state: 'normal' } }, recording_pressure: 'normal', operation_capacity: { send: used === 512 ? 'blocked' : 'not_known_blocked', retry: 'not_known_blocked', regenerate: 'not_known_blocked', undo: 'not_known_blocked' } });
 

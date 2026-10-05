@@ -7,6 +7,7 @@ import { characterMemoryReport, correctionDraft, memorySourceMessages, automatic
 import { createMemoryNoticeCache } from '../utils/characterMemoryNotices.js';
 import { characterCapacity, capacityWarning } from '../utils/characterCapacity.js';
 import { characterCognition, sourceRecallReport } from '../utils/characterCognition.js';
+import { oocText, oocError, restoreInputPair } from '../utils/characterOoc.js';
 
 const uuid = () => globalThis.crypto.randomUUID();
 const terminal = status => ['committed', 'cancelled', 'failed', 'interrupted'].includes(status);
@@ -18,7 +19,7 @@ export function createCharacterChatStore(api = characterChatApi, delay = ms => n
     listComplete: false, listWarning: '', visible: false, creationPending: null, creationBusy: false, preferences: createConversationPreferences(storage), interaction: createCharacterInteractionPreferences(storage),
     get current() { return this.contexts[this.activeId] || null; },
     context(id) {
-      if (!this.contexts[id]) this.contexts[id] = { session: null, draft: '', busy: false, settingsBusy: false, preview: '', inflight: null, failure: null, error: '', ...this.interaction.get(id), historyLoading: false, historyComplete: false, needsReload: false, spoiler: null };
+      if (!this.contexts[id]) this.contexts[id] = { session: null, draft: '', oocDraft: '', oocOpen: false, busy: false, settingsBusy: false, preview: '', inflight: null, failure: null, error: '', ...this.interaction.get(id), historyLoading: false, historyComplete: false, needsReload: false, spoiler: null };
       return this.contexts[id];
     },
     setInteraction(id, changes) {
@@ -103,8 +104,8 @@ export function createCharacterChatStore(api = characterChatApi, delay = ms => n
         void this.refreshCapacity(id);
         const failed = ctx.session.last_failed_action;
         if (!ctx.busy && failed && failed.base_revision === ctx.session.revision && typeof failed.retry_input === 'string') {
-          ctx.failure = { ...failed, content: failed.retry_input, retryable: !['PERSISTENCE_FAILED', 'SESSION_LIMIT'].includes(failed.error_code) };
-          if (!ctx.draft && failed.operation === 'send') ctx.draft = failed.retry_input;
+          ctx.failure = { ...failed, content: failed.retry_input, oocDraft: failed.retry_ooc_note || '', retryable: !['PERSISTENCE_FAILED', 'SESSION_LIMIT'].includes(failed.error_code) };
+          if (failed.operation === 'send') restoreInputPair(ctx, failed.retry_input, failed.retry_ooc_note);
           ctx.error = failed.status === 'interrupted' ? '上次生成因程序中断未保存，可明确重试。' : '上次生成未完成，原记录保持不变。';
         }
         if (ctx.session.pending && !ctx.busy) {
@@ -167,12 +168,16 @@ export function createCharacterChatStore(api = characterChatApi, delay = ms => n
       ctx.preview = '';
       // Never construct committed history from preview or supplier output.
       if (result.status === 'committed' || result.status === 'already_committed') {
-        if (flight.operation === 'send' && ctx.draft === flight.content) ctx.draft = '';
-        if (flight.operation === 'undo' && !ctx.draft) ctx.draft = flight.withdrawnInput || '';
+        if (flight.operation === 'send' && ctx.draft === flight.content && ctx.oocDraft === (flight.oocDraft || '')) { ctx.draft = ''; ctx.oocDraft = ''; }
+        if (flight.operation === 'undo') restoreInputPair(ctx, flight.withdrawnInput, flight.withdrawnOoc);
         ctx.failure = null; ctx.error = '';
       } else {
         ctx.error = result.message || (result.status === 'cancelled' ? '已停止，临时内容未保存。' : '生成失败，原记录保持不变。');
-        ctx.failure = { ...flight, request_id: result.request_id || flight.request_id, retryable: result.retryable !== false, status: result.status };
+        ctx.failure = { ...flight, operation: result.operation || flight.operation,
+          content: flight.fromReload && typeof result.retry_input === 'string' ? result.retry_input : flight.content,
+          oocDraft: flight.fromReload && typeof result.retry_input === 'string' ? result.retry_ooc_note || '' : flight.oocDraft || '',
+          request_id: result.request_id || flight.request_id, retryable: result.retryable !== false, status: result.status };
+        if (flight.fromReload && ctx.failure.operation === 'send') restoreInputPair(ctx, ctx.failure.content, ctx.failure.oocDraft);
       }
       try { ctx.session = await api.get(id); ctx.needsReload = false; ctx.spoiler = null; } catch (e) { ctx.needsReload = true; ctx.error = '终态已返回，但载入记录失败：' + e.message; }
       ctx.busy = false; ctx.inflight = null; await this.refreshList();
@@ -209,9 +214,10 @@ export function createCharacterChatStore(api = characterChatApi, delay = ms => n
       const ctx = this.context(id); if (ctx.busy || ctx.settingsBusy || !ctx.session || ctx.needsReload || ctx.session.schema_read_only) return;
       this.preferences.ensure(detailReadMarker(ctx.session));
       const content = ctx.draft.trim(); if (operation === 'send' && !retry && !content) return;
+      if (operation === 'send' && !retry && oocError(ctx.oocDraft)) { ctx.error = oocError(ctx.oocDraft); return; }
       const failed = ctx.failure;
-      const last = ctx.session.turns?.at(-1)?.user_message;
-      const flight = { action_id: retry ? failed.action_id : uuid(), request_id: '', lastSeq: 0, operation, content: retry ? failed.content : ctx.draft, withdrawnInput: typeof last === 'string' ? last : last?.content || '', status: 'accepted' };
+      const lastTurn = ctx.session.turns?.at(-1), last = lastTurn?.user_message;
+      const flight = { action_id: retry ? failed.action_id : uuid(), request_id: '', lastSeq: 0, operation, content: retry ? failed.content : ctx.draft, oocDraft: retry ? failed.oocDraft || '' : ctx.oocDraft, withdrawnInput: typeof last === 'string' ? last : last?.content || '', withdrawnOoc: lastTurn?.ooc_note || '', status: 'accepted' };
       ctx.inflight = flight; const active = ctx.inflight; ctx.busy = true; ctx.preview = ''; ctx.error = '';
       ctx.contextNotice = '';
       ctx.worldReport = null;
@@ -219,7 +225,7 @@ export function createCharacterChatStore(api = characterChatApi, delay = ms => n
       ctx.sourceRecallReport = null;
       ctx.memoryNotice = null;
       const payload = { client_action_id: flight.action_id, expected_revision: ctx.session.revision, operation, delivery: operation === 'undo' ? 'non_stream' : ctx.delivery };
-      if (operation === 'send') payload.content = content;
+      if (operation === 'send') { payload.content = content; if (oocText(flight.oocDraft)) payload.ooc_note = oocText(flight.oocDraft); }
       else payload.target_turn_id = ctx.session.turns.at(-1)?.turn_id;
       try {
         const callback = (name, data) => this.event(id, active, name, data);
