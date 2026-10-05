@@ -2,6 +2,10 @@
 
 Updated: 2026-10-06
 
+Current discussion supersedes the stop-control proposal below: user does not recommend adding a stop button because players cannot react quickly and truncation adds lifecycle complexity. Requested Astra to refine optional provider streaming, local character-reveal animation, and once-generated bubble groups with deterministic length-based gaps. This turn is design-only. Do not add a new stop control, assume it is required to finish C4, or delete the existing character cancellation implementation without separate authorization. Design must prevent repeated animation/double delays and separate unvalidated preview, official delivery and read status. Historical notes below are not current authorization.
+
+Astra refinement completed in22t and reviewed in full; main review removed the draft's repeated automatic-truncation recommendation, retaining the already confirmed short-burst completion then response to accumulated inputs. One remaining display question: when local animations are enabled, buffer/validate before showing rather than also display the same provider preview. Timing/array schema/storage migration still require concrete implementation design, not more approval of interruption policy. This documentation-only slice has no new runtime tests, code, package or version changes.
+
 Latest clarification: pacing authority resolved to deterministic content-length timing plus a player on/off toggle, not model seconds or player speed slider. Exact delay/cap remains design work; each-character0.1s was an example.22t section11 distinguishes generated versus delivered bubbles and an unobtrusive composer stop control (not between messages). Story/workshop stop gap is recordedP1, not silently implemented or substituted for C4. Current turn updates design only.
 
 ## Latest — C4 conversation guidance complete, product choices remain
