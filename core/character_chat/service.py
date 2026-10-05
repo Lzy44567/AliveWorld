@@ -15,6 +15,7 @@ from .memory import settings as memory_settings, public_state, valid_candidates,
 from .protocol import contract_for, attempt_contract
 from .notices import notice_for
 from . import memory_operations
+from .limits import MAX_ACTIONS, MAX_ATTEMPTS, MAX_TURNS
 
 
 def pending_attempt(session):
@@ -289,13 +290,13 @@ class CharacterChatService:
                         raise CharacterSessionError('IDEMPOTENCY_MISMATCH')
                     return {'existing': action_view(value, existing)}, False
             writable(value, payload.get('expected_revision'))
-            if len(value['requests']) >= 2048 or sum(len(a['attempts']) for a in value['requests']) >= 4096:
+            if len(value['requests']) >= MAX_ACTIONS or sum(len(a['attempts']) for a in value['requests']) >= MAX_ATTEMPTS:
                 raise CharacterSessionError('SESSION_LIMIT')
             if operation in {'regenerate', 'undo'}:
                 if not value['turns'] or value['turns'][-1]['turn_id'] != target:
                     raise CharacterSessionError('REVISION_CONFLICT')
                 content = value['turns'][-1]['user_message']['content']
-            if operation != 'undo' and operation == 'send' and len(value['turns']) >= 512:
+            if operation != 'undo' and operation == 'send' and len(value['turns']) >= MAX_TURNS:
                 raise CharacterSessionError('SESSION_LIMIT')
             if not existing:
                 existing = {'action_id': aid, 'operation': operation, 'fingerprint': fingerprint, 'mode_at_action': mode,

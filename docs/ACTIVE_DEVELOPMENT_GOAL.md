@@ -2,7 +2,15 @@
 
 Updated: 2026-10-05
 
-## Active — character chat design gates then staged Sol implementation
+## Active — M4a capacity diagnosis to the next design gate
+
+User explicitly enables goal mode after confirming22p is ready for implementation. Final outcome is a truthful session-local capacity view and non-blocking near-limit warning, not unlimited memory. Implement the pure report, read-only GET, guarded frontend refresh and foldable panel, then isolated narrow/full/browser acceptance and categorized docs/local Git. Do not raise constants, delete/archive source records, introduce paid calls, bump version, package or publish.
+
+M4a completed: unchanged hard limits extracted for validation/report consistency, private storage dimensions only produce combined pressure; public turn/action/attempt counts retain their distinction. NarrowPython10/Nodecharacter50 and M4aEdge1/1(9.7s) passed, wide1600x1000/narrow520x900 visuals checked. tools/run_checks.ps1 succeeded; finalPython581/581, allNode102/102, visibility,155-module production build and completeEdge37/37(5.1m) passed. Final Python rerun after adding the hard-limit retry assertion passed in24.228s. Existing527.35KB bundle warning remainsP2; no paid calls, player data, package or remote changes.
+
+Goal reached at this slice boundary: capacity view/near-warning/read-only API/accurate lifecycle explanation are delivered, no storage expansion or automatic summarizer. Next verifiable work is the independent M3 local cognition/source recall contract in22n, followed by C3 structured OOC, C4 message-group delivery and C5 bounded contact contracts. Existing user choices need not be re-asked. Stop implementation before these unfrozen protocols; do not quietly start storage migration or call this complete character companionship.
+
+## Completed — character chat M2 design and staged implementation
 
 Latest user authorizes Astra to complete the related character-chat designs, then 6.1 Sol to implement approved slices until the design boundary. Final goal is the basic one-to-one character loop and companion memory, not immediate real-model experience testing. M1 remains complete; first next slice is M2 automatic sourced importance/highlights after its protocol gate.22m records agency/OOC, multi-bubble and proactive-contact directions; ordinary parentheses do not prove OOC, roleplay statements do not authorize real-user profiling. Proactive contact is default-off, once-per-idle-cycle planning with prewritten delayed messages rather than provider polling; recent editing activity suspends idle time but a leftover draft does not, per-role contact caps and global caps/token budget are required. These are design requirements, not a running scheduler. WeChat channel remains future and unverified.
 

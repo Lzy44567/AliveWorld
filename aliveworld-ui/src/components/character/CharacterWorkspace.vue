@@ -14,6 +14,8 @@ import CharacterWorldContextReport from './CharacterWorldContextReport.vue';
 import CharacterPreferenceSettings from './CharacterPreferenceSettings.vue';
 import CharacterMemoryPanel from './CharacterMemoryPanel.vue';
 import CharacterMemoryNotice from './CharacterMemoryNotice.vue';
+import CharacterCapacityPanel from './CharacterCapacityPanel.vue';
+import { capacityWarning } from '../../utils/characterCapacity.js';
 import { shouldSendCharacterKey } from '../../utils/characterInteraction.js';
 
 const creating = ref(false), aiCard = ref(''), userCard = ref(''), worldCard = ref(''), title = ref(''), mode = ref('messenger'), createBusy = ref(false), createError = ref('');
@@ -28,6 +30,9 @@ const ctx = computed(() => store.current);
 const session = computed(() => ctx.value?.session);
 const turns = computed(() => session.value?.turns || []);
 const readonly = computed(() => Boolean(session.value?.schema_read_only || ctx.value?.needsReload));
+const capacityAlert = computed(() => capacityWarning(ctx.value?.capacity));
+function showCapacity() { details.value = true; ctx.value.capacityOpen = true; void store.refreshCapacity(session.value.session_id); }
+function capacityToggle(value) { if (ctx.value.capacityOpen === value) return; ctx.value.capacityOpen = value; if (value) void store.refreshCapacity(session.value.session_id); }
 const composing = ref(false);
 const participant = controller => session.value?.participants?.find(p => p.controller === controller);
 const run = (operation, retry = false) => store.run(store.activeId, operation, retry);
@@ -120,6 +125,7 @@ onUnmounted(() => { mounted = false; document.removeEventListener('visibilitycha
       <div v-else-if="session?.schema_read_only" class="p-5 text-amber-200">此会话由更高版本创建，当前版本仅保留原文件。请升级后查看与继续对话。</div>
       <template v-else-if="session">
         <CharacterMemoryNotice :notice="ctx.memoryNotice" @close="store.closeMemoryNotice(session.session_id)" />
+        <div v-if="capacityAlert" data-testid="character-capacity-warning" role="status" class="text-xs text-amber-200 px-4 py-2">{{ capacityAlert }} <button class="underline" @click="showCapacity">查看容量</button></div>
         <div ref="messagePane" data-testid="character-history" class="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-4 md:p-6 space-y-5">
           <button v-if="turns.length && !ctx.historyComplete" class="text-xs text-slate-400 block mx-auto" :disabled="ctx.historyLoading" @click="store.loadEarlier(store.activeId)">{{ ctx.historyLoading?'载入中…':'载入更早的对话' }}</button>
           <CharacterOpeningMessage v-if="session.opening" :opening="session.opening" :name="participant('ai')?.display_name" />
@@ -151,6 +157,7 @@ onUnmounted(() => { mounted = false; document.removeEventListener('visibilitycha
       <button data-testid="character-spoiler" class="text-xs text-amber-300 mt-4" @click="ctx.spoiler ? store.clearSpoiler() : store.loadSpoiler(store.activeId).catch(e=>ctx.error=e.message)">{{ ctx.spoiler ? '隐藏内部记录' : '查看角色内部记录（剧透）' }}</button>
       <div v-if="ctx.spoiler" data-testid="character-private-ledger" class="space-y-2 mt-2"><div v-for="entry in ctx.spoiler" :key="entry.entry_id" class="text-sm rounded bg-amber-950/40 p-2 whitespace-pre-wrap select-text">{{ entry.content || entry.text || entry.summary }}</div></div>
       <h4 class="mt-6 text-sm font-bold text-indigo-200">会话设置</h4>
+      <CharacterCapacityPanel :report="ctx.capacity" :loading="ctx.capacityLoading" :error="ctx.capacityError" :open="ctx.capacityOpen" @toggle="capacityToggle" @refresh="store.refreshCapacity(session.session_id)" />
       <CharacterPreferenceSettings :settings="session.preference_settings" :disabled="ctx.busy || ctx.settingsBusy || readonly" @update="updatePreferences" />
       <div class="mt-3"><CharacterPresentationPicker :model-value="session.presentation_mode" test-id="character-mode" :disabled="ctx.busy || ctx.settingsBusy || readonly" @update:model-value="updateMode" /></div>
       <label class="mt-5 flex items-center justify-between gap-3 text-sm">流式输出<input data-testid="character-delivery" type="checkbox" role="switch" :checked="ctx.delivery==='stream'" :disabled="ctx.busy" @change="store.setInteraction(store.activeId,{delivery:$event.target.checked?'stream':'non_stream'})"></label>

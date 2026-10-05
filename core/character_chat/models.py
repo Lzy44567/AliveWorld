@@ -14,6 +14,7 @@ from .memory import settings as memory_settings, MemoryVersionError
 from .annotations import validate_annotation
 from .protocol import attempt_contract, validate_contract, ReplyContractError, V2
 from .notices import validate_notice
+from .limits import MAX_TURNS, MAX_LEDGER, MAX_ACTIONS, MAX_ATTEMPTS, MAX_ACTIVE, MAX_EXTENSIONS_BYTES
 
 
 SCHEMA_VERSION = 1
@@ -184,7 +185,7 @@ def validate_session(value: object) -> None:
             except CharacterProfileError:
                 raise CharacterSessionError('SESSION_CORRUPT') from None
         validate_asset_ref(p.get("asset_ref"), required=p["controller"] == "ai")
-    for key, limit in (("turns", 512), ("ledger", 2048), ("requests", 2048)):
+    for key, limit in (("turns", MAX_TURNS), ("ledger", MAX_LEDGER), ("requests", MAX_ACTIONS)):
         if not isinstance(value.get(key), list):
             raise CharacterSessionError("SESSION_CORRUPT")
         if len(value[key]) > limit:
@@ -206,7 +207,7 @@ def validate_session(value: object) -> None:
             validate_settings(value['extensions']['character_preferences'])
         except ValueError:
             raise CharacterSessionError('SESSION_CORRUPT') from None
-    if len(json_bytes(value["extensions"])) > 32 * 1024:
+    if len(json_bytes(value["extensions"])) > MAX_EXTENSIONS_BYTES:
         raise CharacterSessionError("SESSION_LIMIT")
     binding = value.get('world_binding')
     if binding is not None:
@@ -309,7 +310,7 @@ def validate_records(value):
                     raise CharacterSessionError('SESSION_CORRUPT')
         if pending_count > 1:
             raise CharacterSessionError('SESSION_CORRUPT')
-        if attempt_count > 4096:
+        if attempt_count > MAX_ATTEMPTS:
             raise CharacterSessionError('SESSION_LIMIT')
         for record in value['turns']:
             if record['action_id'] not in action_ids or record['request_id'] not in request_ids:
@@ -375,7 +376,7 @@ def validate_records(value):
                     raise CharacterSessionError('SESSION_CORRUPT')
                 if entry['source']['type'] == 'dialogue_event' and any(messages[mid]['turn_id'] != entry['created_turn_id'] for mid in entry['source']['message_ids']):
                     raise CharacterSessionError('SESSION_CORRUPT')
-        if active_count > 128:
+        if active_count > MAX_ACTIVE:
             raise CharacterSessionError('SESSION_LIMIT')
         by_id = {e['entry_id']: e for e in value['ledger']}
         for record in value['turns']:

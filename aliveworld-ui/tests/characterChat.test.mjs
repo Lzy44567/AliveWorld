@@ -7,6 +7,44 @@ import { structuredDraft, compatibleRoleText, roleFieldsError } from '../src/uti
 import { characterWorldReport } from '../src/utils/characterWorldReport.js';
 import { characterMemoryReport, correctionDraft, memorySourceMessages, automaticMemoryState, memoryNotice } from '../src/utils/characterMemory.js';
 import { createMemoryNoticeCache } from '../src/utils/characterMemoryNotices.js';
+import { characterCapacity, capacityWarning } from '../src/utils/characterCapacity.js';
+
+const capacityFixture = (sessionId = 'a', used = 0) => ({ session_id: sessionId, revision: 1, version: 1, public_counts: { formal_turns: { used, limit: 512, state: used === 512 ? 'at_limit' : used >= 410 ? 'near' : 'normal' }, actions: { used: 0, limit: 2048, state: 'normal' }, attempts: { used: 0, limit: 4096, state: 'normal' } }, recording_pressure: 'normal', operation_capacity: { send: used === 512 ? 'blocked' : 'not_known_blocked', retry: 'not_known_blocked', regenerate: 'not_known_blocked', undo: 'not_known_blocked' } });
+
+test('capacity decoder whitelists data and validates counts, states and known gates', () => {
+  const raw = capacityFixture(); raw.private_count = 44;
+  assert.deepEqual(characterCapacity(raw, 'a'), capacityFixture());
+  assert.equal(characterCapacity(raw, 'b'), null);
+  assert.equal(characterCapacity({ ...raw, revision: true }, 'a'), null);
+  raw.public_counts.formal_turns.used = true; assert.equal(characterCapacity(raw, 'a'), null);
+  assert.equal(capacityWarning(capacityFixture()), '');
+  assert.match(capacityWarning(capacityFixture('a', 410)), /接近/);
+  assert.match(capacityWarning(capacityFixture('a', 512)), /上限/);
+  const bad = capacityFixture('a', 512); bad.operation_capacity.undo = 'blocked'; assert.equal(characterCapacity(bad, 'a'), null);
+});
+
+test('capacity refresh discards out-of-order responses even at the same domain revision', async () => {
+  const waits = [deferred(), deferred()]; let index = 0;
+  const f = fixture({ capacity: async () => waits[index++].promise });
+  f.store.context('a').session = structuredClone(f.sessions.a);
+  const first = f.store.refreshCapacity('a'), second = f.store.refreshCapacity('a');
+  waits[1].resolve(capacityFixture('a', 410)); await second;
+  waits[0].resolve(capacityFixture()); await first;
+  assert.equal(f.store.context('a').capacity.public_counts.formal_turns.used, 410);
+});
+
+test('capacity is session owned; errors and deletion do not become false zero capacity', async () => {
+  const wait = deferred();
+  const f = fixture({ capacity: async () => wait.promise });
+  f.store.context('a').session = structuredClone(f.sessions.a); f.store.context('a').draft = '保留草稿';
+  const task = f.store.refreshCapacity('a'); f.store.activeId = 'b'; wait.resolve(capacityFixture()); await task;
+  assert.equal(f.store.context('a').draft, '保留草稿'); assert.equal(f.store.context('b').capacity, undefined);
+  f.api.capacity = async () => { throw Error('offline'); }; await f.store.refreshCapacity('a');
+  assert.equal(f.store.context('a').capacity, null); assert.match(f.store.context('a').capacityError, /暂时无法读取/);
+  const later = deferred(); f.api.capacity = async () => later.promise;
+  const pending = f.store.refreshCapacity('a'); delete f.store.contexts.a; later.resolve(capacityFixture()); await pending;
+  assert.equal(f.store.contexts.a, undefined);
+});
 
 const memoryId = '11111111-1111-4111-8111-111111111111';
 const memoryReport = () => ({ entries: [{ entry_id: memoryId, reason: 'important', state: 'budget' }] });
@@ -201,7 +239,7 @@ test('busy creation is not duplicated and definite rejection permits editing', a
 const deferred = () => { let resolve; const promise = new Promise(r => resolve = r); return { promise, resolve }; };
 function fixture(overrides = {}, storage) {
   const sessions = { a: { session_id: 'a', revision: 1, turns: [], ledger: [], pending: null }, b: { session_id: 'b', revision: 1, turns: [], ledger: [], pending: null } };
-  const api = { list: async () => ({ sessions: Object.values(sessions) }), get: async id => structuredClone(sessions[id]), ...overrides };
+  const api = { list: async () => ({ sessions: Object.values(sessions) }), get: async id => structuredClone(sessions[id]), capacity: async id => ({ ...capacityFixture(id), revision: sessions[id].revision }), ...overrides };
   return { sessions, api, store: createCharacterChatStore(api, async () => {}, storage) };
 }
 

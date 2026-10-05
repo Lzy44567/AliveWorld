@@ -53,6 +53,7 @@ export const characterChatApi = {
   list: cursor => request('?' + new URLSearchParams({ view: 'summary', ...(cursor ? { cursor } : {}) })),
   ledger: (id, view = 'public') => request(sid(id) + '/ledger?' + new URLSearchParams({ view })),
   get: id => request(sid(id)),
+  capacity: id => request(sid(id) + '/capacity'),
   create: payload => request('', 'POST', payload),
   update: (id, payload) => request(sid(id), 'PATCH', payload),
   markMemory: (id, payload) => request(sid(id) + '/memory/important', 'PUT', payload),

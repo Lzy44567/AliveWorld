@@ -12,7 +12,7 @@ ERROR_MESSAGES = {'SESSION_BUSY': '当前对话正在生成，请等待或停止
     'CONTEXT_LIMIT': '必要角色资料与近期对话超出上下文预算，请缩小资料或调整接口预算。',
     'PERSISTENCE_FAILED': '保存失败，对话已暂停写入，请重启后核对状态。',
     'SESSION_DELETED': '此对话已删除，请用新的创建标识开始新对话。',
-    'SESSION_LIMIT': '此对话已达到记录或文件上限，原内容仍可查看，请新建对话继续。',
+    'SESSION_LIMIT': '已达到当前会话的某项记录或保存上限，本次未完成；原有内容保留。可查看容量说明。',
     'MEMORY_MARK_LIMIT': '最多标记8条重要记忆，请先取消一条（失效标记也可取消）。',
     'MEMORY_VERSION_UNSUPPORTED': '此会话的记忆格式来自其他版本，请升级后再操作；原文件未修改。',
     'MEMORY_DISMISS_LIMIT': '自动选取消槽已达128条，请先释放失效的取消记录。',

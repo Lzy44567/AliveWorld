@@ -34,6 +34,35 @@ async function savedSession(request, title) {
 
 test.describe.configure({ mode: 'serial' });
 
+test('M4a容量只读、正式回合刷新、临界提醒与小屏说明', async ({ page, request }) => {
+  await request.post(`/api/v1/lobby/assets/characters/${encodeURIComponent(cardName)}`, { data: { parsed_data: { name: cardName, description: '独立合成成年角色' }, overwrite: true } });
+  await enterCharacters(page); await createSession(page, '容量验收');
+  await page.getByRole('button', { name: '会话资料', exact: true }).click();
+  const panel = page.getByTestId('character-capacity-panel');
+  await panel.locator('summary').first().click();
+  await expect(page.getByTestId('character-capacity-turns')).toHaveText('正式回合：0 / 512');
+  await page.getByRole('button', { name: '收起资料', exact: true }).click();
+  await send(page, '容量测试第一条');
+  await page.getByRole('button', { name: '会话资料', exact: true }).click();
+  await expect(page.getByTestId('character-capacity-turns')).toHaveText('正式回合：1 / 512');
+  const saved = await savedSession(request, '容量验收');
+  const real = await (await request.get(`${sessionsBase}/${saved.session_id}/capacity`)).json();
+  expect(real.public_counts.actions.used).toBe(1); expect(real.public_counts.attempts.used).toBe(1);
+  expect(Object.keys(real).sort()).toEqual(['operation_capacity','public_counts','recording_pressure','revision','session_id','version']);
+  // Synthetic near-pressure projection exercises UI only, not storage expansion.
+  await page.route(`**${sessionsBase}/${saved.session_id}/capacity`, route => route.fulfill({ json: { ...real, recording_pressure: 'near' } }));
+  await page.getByTestId('character-capacity-refresh').click();
+  await expect(page.getByTestId('character-capacity-warning')).toContainText('接近');
+  await expect(panel).toContainText('撤回会保留归档');
+  await page.setViewportSize({ width: 1600, height: 1000 }); await page.screenshot({ path: '../build/e2e-results/character-capacity-wide.png' });
+  await page.setViewportSize({ width: 520, height: 900 }); await page.screenshot({ path: '../build/e2e-results/character-capacity-narrow.png' });
+  expect(await panel.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBeTruthy();
+  await page.route(`**${sessionsBase}/${saved.session_id}/capacity`, route => route.abort());
+  await page.getByTestId('character-capacity-refresh').click();
+  await expect(panel).toContainText('暂时无法读取容量');
+  await expect(page.getByTestId('character-capacity-turns')).toHaveCount(0);
+});
+
 test('M2自动重要记忆公开来源、取消恢复、通知去重和末轮撤回', async ({ page, request }) => {
   await request.post(`/api/v1/lobby/assets/characters/${encodeURIComponent(cardName)}`, { data: { parsed_data: { name: cardName, description: '独立合成成年角色' }, overwrite: true } });
   await enterCharacters(page); await createSession(page, 'M2自动记忆验收');

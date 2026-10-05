@@ -13,6 +13,7 @@ from core.character_chat.models import (CharacterSessionError, CREATION_NAMESPAC
                                         canonical_id, create_session, json_bytes, text, validate_depth)
 from core.character_chat.contract import public_ledger, unique_object
 from core.character_chat.opening import normalize_opening
+from core.character_chat.capacity import capacity_report
 from core.character_chat.errors import ERROR_STATUS, message, retryable
 from core.character_chat.repository import CharacterSessionRepository
 from core.character_chat.service import CharacterChatService, action_by_id, action_view, session_view, session_summary, visible_turn
@@ -23,6 +24,16 @@ from utils.runtime_paths import PATHS
 router = APIRouter(prefix='/api/v1/character-sessions', tags=['character'])
 repository = CharacterSessionRepository(PATHS.data_dir / 'character_sessions')
 service = CharacterChatService(repository)
+
+
+@router.get('/{sid}/capacity')
+async def capacity(sid: str, request: Request):
+    try:
+        if request.query_params or await request.body():
+            raise CharacterSessionError('INVALID_REQUEST')
+        return JSONResponse(capacity_report(repository.load(canonical_id(sid))), headers={'Cache-Control': 'no-store'})
+    except CharacterSessionError as exc:
+        return error_response(exc)
 
 def error_response(exc, **identity):
     code = getattr(exc, 'code', 'SESSION_CORRUPT')

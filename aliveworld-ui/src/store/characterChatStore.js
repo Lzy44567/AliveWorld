@@ -5,6 +5,7 @@ import { createCharacterInteractionPreferences } from '../utils/characterInterac
 import { characterWorldReport } from '../utils/characterWorldReport.js';
 import { characterMemoryReport, correctionDraft, memorySourceMessages, automaticMemoryState, memoryNotice } from '../utils/characterMemory.js';
 import { createMemoryNoticeCache } from '../utils/characterMemoryNotices.js';
+import { characterCapacity, capacityWarning } from '../utils/characterCapacity.js';
 
 const uuid = () => globalThis.crypto.randomUUID();
 const terminal = status => ['committed', 'cancelled', 'failed', 'interrupted'].includes(status);
@@ -23,6 +24,20 @@ export function createCharacterChatStore(api = characterChatApi, delay = ms => n
       const ctx = this.context(id);
       if (ctx.busy || !this.interaction.set(id, changes)) return;
       Object.assign(ctx, this.interaction.get(id));
+    },
+    async refreshCapacity(id) {
+      const ctx = this.contexts[id];
+      if (!ctx?.session || ctx.session.schema_read_only) return;
+      const seq = ctx.capacitySeq = (ctx.capacitySeq || 0) + 1;
+      ctx.capacityLoading = true; ctx.capacityError = '';
+      try {
+        const report = characterCapacity(await api.capacity(id), id);
+        if (this.contexts[id] !== ctx || seq !== ctx.capacitySeq) return;
+        if (!report || report.revision < ctx.session.revision) throw Error('容量状态待重新核对');
+        ctx.capacity = report;
+      } catch (e) {
+        if (this.contexts[id] === ctx && seq === ctx.capacitySeq) { ctx.capacity = null; ctx.capacityError = '暂时无法读取容量，请刷新状态。'; }
+      } finally { if (this.contexts[id] === ctx && seq === ctx.capacitySeq) ctx.capacityLoading = false; }
     },
     async refreshList() {
       const generation = ++listGeneration; this.loading = true;
@@ -57,6 +72,7 @@ export function createCharacterChatStore(api = characterChatApi, delay = ms => n
       for (const item of Object.values(this.contexts)) item.memoryNotice = null;
       try {
         ctx.session = await api.get(id); ctx.error = ''; ctx.needsReload = false;
+        void this.refreshCapacity(id);
         const failed = ctx.session.last_failed_action;
         if (!ctx.busy && failed && failed.base_revision === ctx.session.revision && typeof failed.retry_input === 'string') {
           ctx.failure = { ...failed, content: failed.retry_input, retryable: !['PERSISTENCE_FAILED', 'SESSION_LIMIT'].includes(failed.error_code) };
@@ -77,7 +93,7 @@ export function createCharacterChatStore(api = characterChatApi, delay = ms => n
       try {
         const session = await api.create(JSON.parse(JSON.stringify(this.creationPending)));
         this.context(session.session_id).session = session; this.activeId = session.session_id;
-        this.creationPending = null;
+        this.creationPending = null; void this.refreshCapacity(session.session_id);
         await this.refreshList(); return session;
       } catch (e) {
         if (['INVALID_REQUEST', 'INPUT_LIMIT', 'ROLE_FIELDS_INVALID', 'SESSION_DELETED', 'IDEMPOTENCY_MISMATCH', 'SCHEMA_READ_ONLY'].includes(e.code)) this.creationPending = null;
@@ -130,6 +146,7 @@ export function createCharacterChatStore(api = characterChatApi, delay = ms => n
       }
       try { ctx.session = await api.get(id); ctx.needsReload = false; ctx.spoiler = null; } catch (e) { ctx.needsReload = true; ctx.error = '终态已返回，但载入记录失败：' + e.message; }
       ctx.busy = false; ctx.inflight = null; await this.refreshList();
+      void this.refreshCapacity(id);
       if (result.status === 'committed' && flight.operation === 'send' && !flight.fromReload && !ctx.needsReload && this.visible && this.activeId === id) {
         const notice = memoryNotice(result.memory_notice);
         if (notice && notice.action_id === flight.action_id && notice.committed_revision <= ctx.session.revision && notice.committed_revision > (ctx.session.memory_settings?.notice_ack_revision || 0) && noticeCache.claim(id, notice.action_id)) {
@@ -184,6 +201,7 @@ export function createCharacterChatStore(api = characterChatApi, delay = ms => n
           ctx.preview = ''; ctx.error = e.message; ctx.busy = false; ctx.inflight = null;
           try { ctx.session = await api.get(id); } catch { ctx.needsReload = true; }
         } else await this.recover(id, active);
+        if (!ctx.busy) void this.refreshCapacity(id);
       }
     },
     async loadSpoiler(id) {
@@ -201,7 +219,7 @@ export function createCharacterChatStore(api = characterChatApi, delay = ms => n
       if (ctx.busy || ctx.settingsBusy || ctx.needsReload || ctx.session.schema_read_only) return;
       ctx.settingsBusy = true;
       try { ctx.session = await api.update(id, { expected_revision: ctx.session.revision, ...changes }); await this.refreshList(); }
-      finally { ctx.settingsBusy = false; }
+      finally { ctx.settingsBusy = false; if (ctx.capacityOpen || capacityWarning(ctx.capacity)) void this.refreshCapacity(id); }
     },
     correctMemory(id, entry) {
       const ctx = this.context(id);
@@ -228,7 +246,7 @@ export function createCharacterChatStore(api = characterChatApi, delay = ms => n
           try { ctx.session = await api.get(id); ctx.needsReload = false; } catch { ctx.needsReload = true; }
         }
         return false;
-      } finally { ctx.settingsBusy = false; }
+      } finally { ctx.settingsBusy = false; if (ctx.capacityOpen || capacityWarning(ctx.capacity)) void this.refreshCapacity(id); }
     },
     async enableAutomaticMemory(id) { return this.memoryMutation(id, 'enableAutomaticMemory', { enabled: true }); },
     async acknowledgeMemoryNotice(id, notice) {
@@ -258,7 +276,7 @@ export function createCharacterChatStore(api = characterChatApi, delay = ms => n
           ctx.error = '标记结果需核对：' + e.message;
           try { ctx.session = await api.get(id); ctx.needsReload = false; } catch { ctx.needsReload = true; }
         }
-      } finally { ctx.settingsBusy = false; }
+      } finally { ctx.settingsBusy = false; if (ctx.capacityOpen || capacityWarning(ctx.capacity)) void this.refreshCapacity(id); }
     },
     async remove(id) { const ctx = this.context(id); if (ctx.busy || ctx.settingsBusy || ctx.needsReload || ctx.session.schema_read_only) return; await api.remove(id, ctx.session.revision); this.preferences.remove(id); this.interaction.remove(id); noticeCache.removeSession(id); delete this.contexts[id]; if (this.activeId === id) this.activeId = ''; await this.refreshList(); },
   });
