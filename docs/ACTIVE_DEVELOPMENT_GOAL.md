@@ -4,7 +4,7 @@ Updated: 2026-10-05
 
 ## Active design gate — M character long-term memory
 
-User asks to discuss memory realism, highlight experiences and companion reliability. Record22k as a product discussion, not a frozen architecture or coding authorization. C1/C2 remain complete source slices; do not start unrelated work or rewrite dev.19. Final design goal: define what reliable personal continuity means, which memories get protected, and whether deliberate fading is optional. Next verifiable step is user choices on default experience, highlight selection and protected memories; then source/permission/budget/recovery engineering contract. No runtime modifications in this discussion.
+User confirmed stable companion continuity first, optional realistic fading later, automatic highlight selection with non-blocking notice and player correction, protected explicit preferences/boundaries/promises/relationship changes.22k now separates these confirmations from proposed highlight signals and detailed user-profile scopes. Next product choice: session-local role-aware profile versus global actual-player profile; then freeze extraction timing, provenance/permission, budget and recovery. Not a frozen engineering architecture or coding authorization. C1/C2 remain complete source slices; no runtime/version/package/remote changes during this discussion.
 
 ## Completed slice — C2 opt-in confirmed preferences
 
