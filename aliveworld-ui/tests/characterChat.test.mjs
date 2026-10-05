@@ -88,6 +88,30 @@ function fixture(overrides = {}) {
   const api = { list: async () => ({ sessions: Object.values(sessions) }), get: async id => structuredClone(sessions[id]), ...overrides };
   return { sessions, api, store: createCharacterChatStore(api, async () => {}) };
 }
+
+test('preference settings update is owned by initiating session and revision, not the active view', async () => {
+  const wait = deferred(); let payload;
+  const f = fixture({ update: async (id, value) => { payload = { id, value }; await wait.promise; return { ...f.sessions[id], revision: 2, preference_settings: value.preference_settings }; } });
+  await f.store.open('a');
+  const settings = { enabled: true, include_sensitive: false };
+  const task = f.store.update('a', { preference_settings: settings });
+  assert.equal(f.store.context('a').settingsBusy, true);
+  await f.store.open('b'); wait.resolve(); await task;
+  assert.equal(payload.id, 'a'); assert.equal(payload.value.expected_revision, 1);
+  assert.deepEqual(f.store.context('a').session.preference_settings, settings);
+  assert.equal(f.store.current.session.preference_settings, undefined); assert.equal(f.store.activeId, 'b');
+});
+
+test('failed preference settings update preserves server state and cannot run while busy', async () => {
+  let calls = 0;
+  const f = fixture({ update: async () => { calls++; throw Error('revision conflict'); } });
+  f.sessions.a.preference_settings = { enabled: false, include_sensitive: false };
+  await f.store.open('a');
+  await assert.rejects(f.store.update('a', { preference_settings: { enabled: true, include_sensitive: true } }));
+  assert.equal(f.store.current.session.preference_settings.enabled, false); assert.equal(f.store.current.settingsBusy, false);
+  f.store.current.busy = true; await f.store.update('a', { preference_settings: { enabled: true, include_sensitive: false } });
+  assert.equal(calls, 1);
+});
 test('streams survive session switches; committed reload belongs to initiating session and preserves new drafts', async () => {
   const wait = deferred(); let callback, payload;
   const f = fixture({ action: async (_, p, cb) => { callback = cb; payload = p; await wait.promise; return { status: 'committed' }; } });

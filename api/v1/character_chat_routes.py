@@ -183,8 +183,10 @@ async def ledger(sid: str, view: str = 'public'):
 @router.patch('/{sid}')
 async def patch(sid: str, request: Request):
     try:
-        payload = await body(request, {'expected_revision', 'title', 'presentation_mode'}, {'expected_revision'})
-        return service.metadata(sid, payload['expected_revision'], payload.get('title'), payload.get('presentation_mode'))
+        payload = await body(request, {'expected_revision', 'title', 'presentation_mode', 'preference_settings'}, {'expected_revision'})
+        if 'preference_settings' in payload and not isinstance(payload['preference_settings'], dict):
+            raise CharacterSessionError('INVALID_REQUEST')
+        return service.metadata(sid, payload['expected_revision'], payload.get('title'), payload.get('presentation_mode'), payload.get('preference_settings'))
     except Exception as exc:
         return error_response(exc)
 

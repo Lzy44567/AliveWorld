@@ -41,6 +41,20 @@ class CharacterRouteTests(unittest.TestCase):
         self.assertEqual(201, response.status_code, response.text)
         self.sid = response.json()['session_id']
 
+    def test_preference_settings_are_strict_persisted_and_not_global(self):
+        url = self.prefix + '/' + self.sid
+        default = {'enabled': False, 'include_sensitive': False}
+        self.assertEqual(default, self.client.get(url).json()['preference_settings'])
+        for bad in (None, [], {'enabled': True}, {'enabled': 1, 'include_sensitive': False}, {'enabled': False, 'include_sensitive': True}):
+            response = self.client.patch(url, json={'expected_revision': 0, 'preference_settings': bad})
+            self.assertEqual(400, response.status_code)
+        enabled = {'enabled': True, 'include_sensitive': True}
+        response = self.client.patch(url, json={'expected_revision': 0, 'preference_settings': enabled})
+        self.assertEqual(200, response.status_code); self.assertEqual(enabled, response.json()['preference_settings'])
+        self.assertEqual(enabled, self.client.get(url).json()['preference_settings'])
+        self.assertEqual(409, self.client.patch(url, json={'expected_revision': 0, 'preference_settings': default}).status_code)
+        self.asset.assert_called_once()
+
     def test_creation_duplicate_before_asset_reads_and_tombstone_replay(self):
         self.asset.reset_mock()
         duplicate = self.client.post(self.prefix, json=self.create_payload)

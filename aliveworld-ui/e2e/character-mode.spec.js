@@ -136,6 +136,52 @@ async function selectSession(page, request, title) {
   return session;
 }
 
+test('角色偏好默认关闭，独立授权敏感内容并保存，关闭后不再拼接', async ({ page, request }) => {
+  const name = 'C2偏好合成角色';
+  const asset = await request.post(`/api/v1/lobby/assets/characters/${encodeURIComponent(name)}`, { data: { parsed_data: { name, description: '合成成年角色，保留本人立场。' } } });
+  expect(asset.ok()).toBeTruthy();
+  const declared = [];
+  for (const [text, category, sensitive] of [['【C2普通】偏好自然闲聊', 'story', false], ['【C2敏感】合成隐私哨兵', 'adult', true]]) {
+    const response = await request.post('/api/v1/preferences/declare', { data: { text, category, sensitive } });
+    expect(response.ok()).toBeTruthy(); declared.push((await response.json()).preference.id);
+  }
+  try {
+    await enterCharacters(page); await page.getByTestId('character-new').click();
+    await page.getByTestId('character-title').fill('C2偏好验收'); await page.getByTestId('character-ai-card').click();
+    const picker = page.getByTestId('asset-card-picker'); await picker.getByTestId('asset-picker-search').fill(name);
+    await picker.getByRole('button', { name, exact: true }).click(); await page.getByTestId('character-create').click();
+    await expect(page.getByTestId('character-composer')).toBeVisible();
+    await page.getByRole('button', { name: '会话资料', exact: true }).click();
+    const enabled = page.getByTestId('character-preferences-enabled');
+    await expect(enabled).not.toBeChecked(); await expect(page.getByTestId('character-preferences-sensitive')).toHaveCount(0);
+    await request.delete(`${fakeBase}/__test__/requests`); await send(page, '默认请求');
+    expect(JSON.parse((await records(request)).at(-1).user)).not.toHaveProperty('user_preferences');
+    await enabled.click(); await expect(enabled).toBeChecked();
+    await send(page, '启用普通偏好');
+    let projection = JSON.parse((await records(request)).at(-1).user).user_preferences;
+    expect(projection.some(item => item.statement.includes('【C2普通】'))).toBeTruthy();
+    expect(projection.some(item => item.statement.includes('【C2敏感】'))).toBeFalsy();
+    await page.getByTestId('character-preferences-sensitive').click(); await expect(page.getByTestId('character-preferences-sensitive')).toBeChecked();
+    await page.getByTestId('character-delivery').uncheck(); await send(page, '明确敏感授权', false);
+    projection = JSON.parse((await records(request)).at(-1).user).user_preferences;
+    expect(projection.some(item => item.statement.includes('【C2敏感】'))).toBeTruthy();
+    await page.screenshot({ path: '../build/e2e-results/character-preferences-wide.png', fullPage: true });
+    await page.setViewportSize({ width: 520, height: 900 });
+    await page.getByTestId('character-preference-settings').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: '../build/e2e-results/character-preferences-narrow.png', fullPage: true });
+    await page.setViewportSize({ width: 1600, height: 1000 }); await page.reload(); await dismissStartup(page);
+    await page.getByTestId('mode-character').click(); await selectSession(page, request, 'C2偏好验收');
+    await page.getByRole('button', { name: '会话资料', exact: true }).click();
+    await expect(enabled).toBeChecked(); await expect(page.getByTestId('character-preferences-sensitive')).toBeChecked();
+    await enabled.click(); await expect(enabled).not.toBeChecked();
+    await send(page, '关闭后请求', false); expect(JSON.parse((await records(request)).at(-1).user)).not.toHaveProperty('user_preferences');
+    const persisted = await savedSession(request, 'C2偏好验收');
+    expect(persisted.preference_settings).toEqual({ enabled: false, include_sensitive: false });
+  } finally {
+    for (const id of declared) expect((await request.delete(`/api/v1/preferences/${encodeURIComponent(id)}`)).ok()).toBeTruthy();
+  }
+});
+
 test('会话搜索置顶持久化，后台完成未读，当前资料与小屏边栏', async ({ page, request }) => {
   await enterCharacters(page);
   // Create the shared source through the public API because this runs before the legacy serial suite.

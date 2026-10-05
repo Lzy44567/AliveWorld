@@ -1,6 +1,10 @@
 # Active development goal
 
-Updated: 2026-10-04
+Updated: 2026-10-05
+
+## Completed slice — C2 opt-in confirmed preferences
+
+User continued after C1; follow22j. Adopt the previously stated conservative default (off, per-session manual opt-in), not a claim of an explicit option answer. Read-only confirmed preferences, independent sensitive authorization, persisted revision-guarded settings, frozen current request and renewed authorization on explicit retry/regenerate implemented. No private-chat analysis, stored preference copies, memory work, version/package or remote actions. Python preference/routes18 and Node character24 narrow checks passed; full Python542/Node87/visibility/149-module build, standalone Edge1/1 (13.0s) and full34/34 (3.0m) passed. Wide/narrow UI visually checked. dev.19 ZIP hash remains unchanged; C1/C2 are source-only additions after its build. Next verifiable gate is real-model quality/package acceptance or the separate M sourced-memory design, not automatic M implementation or rewriting the dev.19 archive.
 
 ## Completed slice — C1 worldbook continuity and observable matching
 

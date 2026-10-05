@@ -10,6 +10,7 @@ from .contract import now, plan_turn, public_ledger, reverse_ledger
 from .context import build_context
 from .transport import CharacterTransport
 from .errors import message, retryable
+from .preferences import session_settings, validate_settings, load_preferences
 
 
 def pending_attempt(session):
@@ -101,6 +102,7 @@ def session_view(session, *, detail=True):
         'request_id': pair[1]['request_id'], 'status': 'pending', 'base_revision': pair[1]['base_revision']}
     value = {k: session[k] for k in ('session_id', 'title', 'revision', 'presentation_mode', 'created_at', 'updated_at')}
     value['pending'] = pending
+    value['preference_settings'] = session_settings(session)
     value['participants'] = [{k: copy.deepcopy(p[k]) for k in ('instance_id', 'controller', 'display_name')}
                              | {'profile_snapshot': profile_projection(p, detail=True)}
                              for p in session['participants']]
@@ -115,9 +117,10 @@ def session_view(session, *, detail=True):
 
 
 class CharacterChatService:
-    def __init__(self, repository, transport=None, *, recover=True):
+    def __init__(self, repository, transport=None, *, recover=True, preference_loader=None):
         self.repository = repository
         self.transport = transport or CharacterTransport()
+        self.preference_loader = preference_loader or load_preferences
         self.slots = BoundedSemaphore(4)
         self.jobs = {}
         self.tasks = {}
@@ -148,20 +151,27 @@ class CharacterChatService:
         if sid in self.blocked:
             raise CharacterSessionError('PERSISTENCE_FAILED')
 
-    def metadata(self, sid, revision, title=None, presentation_mode=None):
+    def metadata(self, sid, revision, title=None, presentation_mode=None, preference_settings=None):
         self._check_blocked(sid)
-        if title is None and presentation_mode is None:
+        if title is None and presentation_mode is None and preference_settings is None:
             raise CharacterSessionError('INVALID_REQUEST')
         if title is not None:
             text(title, 80)
         if presentation_mode is not None and (not isinstance(presentation_mode, str) or presentation_mode not in {'messenger', 'roleplay'}):
             raise CharacterSessionError('INVALID_REQUEST')
+        if preference_settings is not None:
+            try:
+                preference_settings = validate_settings(preference_settings)
+            except ValueError:
+                raise CharacterSessionError('INVALID_REQUEST') from None
         def update(value):
             writable(value, revision)
             if title is not None:
                 value['title'] = title
             if presentation_mode is not None:
                 value['presentation_mode'] = presentation_mode
+            if preference_settings is not None:
+                value['extensions']['character_preferences'] = copy.deepcopy(preference_settings)
             value['revision'] += 1
             return session_view(value), True
         return self.repository.transaction(sid, update)
@@ -257,7 +267,9 @@ class CharacterChatService:
                 attempt = action['attempts'][-1]
                 if action['operation'] == 'regenerate':
                     archive_last(snapshot, 'replaced')
-                plan, messages, entries, report = build_context(snapshot, attempt['pending_input'], config.get('budget_options'))
+                preference_settings = session_settings(snapshot)
+                preferences = self.preference_loader(preference_settings) if preference_settings['enabled'] else []
+                plan, messages, entries, report = build_context(snapshot, attempt['pending_input'], config.get('budget_options'), preferences=preferences)
                 job.update(config=config, plan=plan, messages=messages, entries=entries, report=report)
                 with self.lock:
                     self.jobs[job['request_id']] = job

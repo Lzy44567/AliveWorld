@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from uuid import UUID, uuid4, uuid5
 from core.character_profiles import CharacterProfileError, ROLE_SEMANTICS, validate_role_fields, structured_projection
 from .opening import make_opening, normalize_opening, validate_opening
+from .preferences import validate_settings
 
 
 SCHEMA_VERSION = 1
@@ -189,6 +190,11 @@ def validate_session(value: object) -> None:
     if not isinstance(value.get("extensions"), dict):
         raise CharacterSessionError("SESSION_CORRUPT")
     validate_depth(value["extensions"], 8)
+    if 'character_preferences' in value['extensions']:
+        try:
+            validate_settings(value['extensions']['character_preferences'])
+        except ValueError:
+            raise CharacterSessionError('SESSION_CORRUPT') from None
     if len(json_bytes(value["extensions"])) > 32 * 1024:
         raise CharacterSessionError("SESSION_LIMIT")
     binding = value.get('world_binding')

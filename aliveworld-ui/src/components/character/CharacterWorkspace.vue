@@ -11,6 +11,7 @@ import CharacterMessagePair from './CharacterMessagePair.vue';
 import CharacterOpeningEditor from './CharacterOpeningEditor.vue';
 import CharacterOpeningMessage from './CharacterOpeningMessage.vue';
 import CharacterWorldContextReport from './CharacterWorldContextReport.vue';
+import CharacterPreferenceSettings from './CharacterPreferenceSettings.vue';
 import { shouldSendCharacterKey } from '../../utils/characterInteraction.js';
 
 const creating = ref(false), aiCard = ref(''), userCard = ref(''), worldCard = ref(''), title = ref(''), mode = ref('messenger'), createBusy = ref(false), createError = ref('');
@@ -42,6 +43,11 @@ async function open(id) { creating.value = false; listOpen.value = false; await 
 async function updateMode(value) {
   const id = store.activeId;
   try { await store.update(id, { presentation_mode: value }); }
+  catch (e) { store.context(id).error = e.message; }
+}
+async function updatePreferences(value) {
+  const id = store.activeId;
+  try { await store.update(id, { preference_settings: value }); }
   catch (e) { store.context(id).error = e.message; }
 }
 function keydown(event) {
@@ -142,6 +148,7 @@ onUnmounted(() => { mounted = false; document.removeEventListener('visibilitycha
       <button data-testid="character-spoiler" class="text-xs text-amber-300 mt-4" @click="ctx.spoiler ? store.clearSpoiler() : store.loadSpoiler(store.activeId).catch(e=>ctx.error=e.message)">{{ ctx.spoiler ? '隐藏内部记录' : '查看角色内部记录（剧透）' }}</button>
       <div v-if="ctx.spoiler" data-testid="character-private-ledger" class="space-y-2 mt-2"><div v-for="entry in ctx.spoiler" :key="entry.entry_id" class="text-sm rounded bg-amber-950/40 p-2 whitespace-pre-wrap select-text">{{ entry.content || entry.text || entry.summary }}</div></div>
       <h4 class="mt-6 text-sm font-bold text-indigo-200">会话设置</h4>
+      <CharacterPreferenceSettings :settings="session.preference_settings" :disabled="ctx.busy || ctx.settingsBusy || readonly" @update="updatePreferences" />
       <div class="mt-3"><CharacterPresentationPicker :model-value="session.presentation_mode" test-id="character-mode" :disabled="ctx.busy || ctx.settingsBusy || readonly" @update:model-value="updateMode" /></div>
       <label class="mt-5 flex items-center justify-between gap-3 text-sm">流式输出<input data-testid="character-delivery" type="checkbox" role="switch" :checked="ctx.delivery==='stream'" :disabled="ctx.busy" @change="store.setInteraction(store.activeId,{delivery:$event.target.checked?'stream':'non_stream'})"></label>
       <p class="mt-1 text-xs text-slate-500">{{ ctx.delivery==='stream'?'收到内容时逐步显示；验证保存后才成为正式消息。':'等待完整回复后显示。' }}</p>

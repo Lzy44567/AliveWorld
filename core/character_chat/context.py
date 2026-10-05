@@ -8,7 +8,8 @@ from .opening import opening_context
 from .world_context import select_world_context, final_world_report
 
 
-def build_context(session, pending, budget_options=None):
+def build_context(session, pending, budget_options=None, *, preferences=None):
+    preferences = [dict(item) for item in (preferences or [])]
     ai = next(p['instance_id'] for p in session['participants'] if p['controller'] == 'ai')
     participants = [{'instance_id': p['instance_id'], 'controller': p['controller'],
                      'profile': profile_projection(p)} for p in session['participants']]
@@ -39,6 +40,8 @@ def build_context(session, pending, budget_options=None):
                 'current_ai_message_id': pending['ai_message_id'], 'presentation_mode': pending['mode']}
         if session.get('opening'):
             data['author_opening'] = opening_context(session['opening'])
+        if preferences:
+            data['user_preferences'] = preferences
         plan = plan_model_request(system, [RequestMessagePart('character.context', json.dumps(data, ensure_ascii=False))],
                                   temperature=0.8, max_tokens=None, trace_label='character.reply',
                                   mode='json', contract_id='character.reply.v1')
@@ -47,7 +50,10 @@ def build_context(session, pending, budget_options=None):
             report['omitted'] = omitted
             report['world_context'] = final_world_report(world_report, sum('world_entry_id' in item for item in omitted))
             return plan, messages, {e['entry_id'] for e in ledger}, report
-        if entries:
+        if preferences:
+            preferences.pop()
+            omitted.append({'field': 'user_preferences'})
+        elif entries:
             omitted.append({'world_entry_id': entries.pop()['id']})
         elif any(p['profile'].get('semantics') == 'role_fields_v1' and p['profile'].get('dialogue_examples') for p in participants):
             p = next(p for p in participants if p['profile'].get('semantics') == 'role_fields_v1' and p['profile'].get('dialogue_examples'))
