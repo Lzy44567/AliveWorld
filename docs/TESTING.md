@@ -1,5 +1,13 @@
 # AliveWorld 测试流程
 
+## C1/C2/M1本地验收包（2026-10-05）
+
+- 再验Python553/Node90/可见性/151模块构建与完整Edge35（3.8分钟）通过。Windows主EXE/更新助手真实编译，便携包结构、版本、排除配置/玩家数据/日志/开发目录、覆盖保留UserData通过。
+- 实际EXE PYZ包含14个character模块，memory/preferences/world_context均在，项目tests模块不在；嵌入前端JS哈希一致，ZIP内README/INSTALL_WINDOWS/USER_GUIDE均与源码哈希一致。首次文档检查发现README和安装说明复制早于文本更新，已重新封包后逐个验准。
+- PackageOnly会读到陈旧LASTEXITCODE，虽然PowerShell验证通过仍可能误报失败；去掉这处不适用的原生退出码判断，成功完成时明确归零。实际以继承LASTEXITCODE=1跑PackageOnly通过；ArchiveSuffix含../被参数白名单在构建前拒绝。启动器/发布说明7项回归通过。
+- 版本选择无答复，未提升公开VERSION或覆盖原dev.19；独立文件`AliveWorld-1.6.0-dev.19-windows-x64-M1-20261005.zip` SHA256=`08f697eff346e85f68c88b717d3b90337e60ce066e5918b927b665aeef576b02`。旧包hash仍954d4b91ee6d1ce82307bf3c344986a7a44be5703ed5d885e6275f8341e5dc4b，原dist本地UserData由脚本备份保留且不进入ZIP。包/日志未提交Git，无远程发布。
+- 真实桌面窗口启动、外部电脑与真实模型扮演质量未由本次自动测试验证；程序内显示dev.19是保留版本的结果，不是本包漏打新代码。
+
 ## M1有来源记忆（2026-10-05，源码片）
 
 - 记忆专项10项：中英文/NFKC/完整英文词/单位上限、超过20回合与32候选、保护优先/32条8意图、私有/无正式来源过滤、预算整条省略与最终报告/证据一致、非法链/循环、设置严格校验、8根限额/取消/幂等/CAS/原子写失败、来源/supersede/撤回/失败重生成/失效释放、busy/跨会话/私有/未知版本、旧引文不扩张新经历证据。路由新增严格白名单/设值/重载/来源投影验收；合成夹具的save修订需正确递增，未放松CAS。

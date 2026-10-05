@@ -1,7 +1,9 @@
 param(
     [switch]$PackageOnly,
     [switch]$SkipFrontendBuild,
-    [switch]$SkipDependencyInstall
+    [switch]$SkipDependencyInstall,
+    [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9.-]{0,63}$')]
+    [string]$ArchiveSuffix
 )
 
 $ErrorActionPreference = "Stop"
@@ -10,6 +12,7 @@ $Python = Join-Path $Project ".venv\Scripts\python.exe"
 $Version = (Get-Content -LiteralPath (Join-Path $Project "VERSION") -Raw).Trim()
 $ReleaseDir = Join-Path $Project "release"
 $PortableName = "AliveWorld-$Version-windows-x64"
+if ($ArchiveSuffix) { $PortableName += "-$ArchiveSuffix" }
 $ArchiveRootName = "AliveWorld"
 $ZipPath = Join-Path $ReleaseDir "$PortableName.zip"
 
@@ -96,7 +99,8 @@ try {
 }
 
 & (Join-Path $Project "tools\test_windows_portable_package.ps1") -ZipPath $ZipPath -ExpectedVersion $Version
-if ($LASTEXITCODE -ne 0) { throw "Portable package verification failed." }
+# The PowerShell verifier throws on failure. LASTEXITCODE is a native-process
+# result and can be stale in PackageOnly mode; do not treat it as this result.
 
 $Hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $ZipPath).Hash.ToLowerInvariant()
 Set-Content -LiteralPath "$ZipPath.sha256" -Encoding ascii -Value "$Hash  $PortableName.zip"
@@ -107,3 +111,4 @@ Write-Host "Build output for local smoke test: $(Join-Path $Project 'dist\AliveW
 Write-Host "Local smoke-test UserData is preserved across builds and excluded from the ZIP."
 Write-Host "The ZIP always contains a stable AliveWorld root so overwrite upgrades preserve UserData."
 Write-Host "Distribute the ZIP above; the release directory does not keep a second unpacked copy."
+$global:LASTEXITCODE = 0
