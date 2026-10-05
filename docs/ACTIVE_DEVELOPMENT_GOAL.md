@@ -2,6 +2,8 @@
 
 Updated: 2026-10-06
 
+Latest clarification: pacing authority resolved to deterministic content-length timing plus a player on/off toggle, not model seconds or player speed slider. Exact delay/cap remains design work; each-character0.1s was an example.22t section11 distinguishes generated versus delivered bubbles and an unobtrusive composer stop control (not between messages). Story/workshop stop gap is recordedP1, not silently implemented or substituted for C4. Current turn updates design only.
+
 ## Latest — C4 conversation guidance complete, product choices remain
 
 User authorizes Astra design and continued coding, but pacing authority remains undecided. Astra task was quota-interrupted without a file; explicit retry completed [22t](features/22t_character_conversation_c4_design.md), main agent read it fully. Only C4-0 is independently frozen and implemented: short conversation guidance in existing M3/C3 core, single reply, no new request/schema/UI/queue. Current input/evidence/contract/legacy/override behavior retained. Seven new tests and full Python637/637(23.641s), Node116/116, visibility and160-module build passed; related EdgeC3/M3 2/2(1.1m) passed. No new full39-browser run or real-model quality claim. Next: resolve pacing authority and ordinary interjection versus immediate interruption, then finish the multi-bubble migration/delivery plan; neither selection nor candidate schema is silently frozen. C5, capacity, version/package/remote remain out of scope. Existing packages unchanged. Use this heading over historical boundary records below.
