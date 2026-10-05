@@ -2,6 +2,10 @@
 
 Updated: 2026-10-06
 
+## Latest — C4 conversation guidance complete, product choices remain
+
+User authorizes Astra design and continued coding, but pacing authority remains undecided. Astra task was quota-interrupted without a file; explicit retry completed [22t](features/22t_character_conversation_c4_design.md), main agent read it fully. Only C4-0 is independently frozen and implemented: short conversation guidance in existing M3/C3 core, single reply, no new request/schema/UI/queue. Current input/evidence/contract/legacy/override behavior retained. Seven new tests and full Python637/637(23.641s), Node116/116, visibility and160-module build passed; related EdgeC3/M3 2/2(1.1m) passed. No new full39-browser run or real-model quality claim. Next: resolve pacing authority and ordinary interjection versus immediate interruption, then finish the multi-bubble migration/delivery plan; neither selection nor candidate schema is silently frozen. C5, capacity, version/package/remote remain out of scope. Existing packages unchanged. Use this heading over historical boundary records below.
+
 ## Current boundary — C4 message-group delivery design
 
 Latest user clarification supersedes unconditional interrupt-cancel and restart-no-send proposals: distinguish continuous short bursts, waiting for the player, and responding then returning to a topic; minimum visual gap0.1s, one call per group, group-level undo/regenerate, durable unread/background/reopen behavior.22s section7 records current requirements, role-guidance implementation versus gaps and process-exit limits. No code changed. Next design must integrate role response strategy and delivery behavior, not merely schema/animations. Ordinary interjections versus corrections/stop and offline recovery remain to be specified.
