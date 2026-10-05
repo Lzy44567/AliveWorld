@@ -4,6 +4,8 @@ Updated: 2026-10-06
 
 ## Current boundary — C4 message-group delivery design
 
+Latest user clarification supersedes unconditional interrupt-cancel and restart-no-send proposals: distinguish continuous short bursts, waiting for the player, and responding then returning to a topic; minimum visual gap0.1s, one call per group, group-level undo/regenerate, durable unread/background/reopen behavior.22s section7 records current requirements, role-guidance implementation versus gaps and process-exit limits. No code changed. Next design must integrate role response strategy and delivery behavior, not merely schema/animations. Ordinary interjections versus corrections/stop and offline recovery remain to be specified.
+
 User authorizes staged continuation to the design/package boundary. C3 is committed as `a5d202e`, worktree was clean. Read the existing22m/22n product requirements and inspected actual single-message validation, plan/ledger inverse and public preview paths. [22s](features/22s_character_message_delivery_design_gate.md) records the C4 design gate, partial-delivery/op-dependency risks, acceptance and C4-D→A→B→C→V→package sequence. This is a documentation-only boundary review, not C4 implementation or new runtime acceptance. Next verifiable artifact is a complete frozen C4 protocol/storage/delivery/recovery contract. Stop before changing runtime schemas, C5, version, package or remote state; do not substitute frontend delays for authoritative delivery. Existing630/116/39 results belong to C3, not this document review.
 
 ## Completed — C3 structured OOC and single-step role agency
