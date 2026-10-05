@@ -1,11 +1,11 @@
 """Permission-first, bounded context construction with whole-entry trimming."""
 import json
-import re
 from core.prompt_studio import compose_prompt, plan_model_request, RequestMessagePart
 from core.request_budget import budget_report
 from .models import CharacterSessionError, profile_projection
 from .opening import opening_context
 from .world_context import select_world_context, final_world_report
+from .memory import select_memory, final_report
 
 
 def build_context(session, pending, budget_options=None, *, preferences=None):
@@ -14,20 +14,8 @@ def build_context(session, pending, budget_options=None, *, preferences=None):
     participants = [{'instance_id': p['instance_id'], 'controller': p['controller'],
                      'profile': profile_projection(p)} for p in session['participants']]
     turns = session['turns'][-20:]
-    visible = [e for e in session['ledger'] if e['status'] == 'active' and ai in e['visibility']['audience_instance_ids']]
-    words = set(re.findall(r'\w+', pending['content'].casefold()))
-    visible.sort(key=lambda e: (-sum(w in e['content'].casefold() for w in words), -next(
-        (i for i, t in enumerate(session['turns']) if t['turn_id'] == e['created_turn_id']), -1), e['entry_id']))
-    intents = 0
-    ledger = []
-    for entry in visible:
-        if entry['kind'] == 'intent':
-            intents += 1
-            if intents > 8:
-                continue
-        ledger.append(entry)
-        if len(ledger) == 32:
-            break
+    ledger, memory_candidates = select_memory(session, pending['content'])
+    selected_ids = {e['entry_id'] for e in ledger}
     rules, entries, world_report = select_world_context(session, pending['content'])
     system = compose_prompt('character.reply', {'character.presentation_mode': pending['mode']})
     omitted = []
@@ -49,6 +37,7 @@ def build_context(session, pending, budget_options=None, *, preferences=None):
         if report['fits']:
             report['omitted'] = omitted
             report['world_context'] = final_world_report(world_report, sum('world_entry_id' in item for item in omitted))
+            report['memory_context'] = final_report(memory_candidates, selected_ids, {e['entry_id'] for e in ledger})
             return plan, messages, {e['entry_id'] for e in ledger}, report
         if preferences:
             preferences.pop()

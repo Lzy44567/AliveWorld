@@ -3,6 +3,7 @@ import { characterChatApi } from '../api/characterChatApi.js';
 import { createConversationPreferences, detailReadMarker } from '../utils/characterConversationList.js';
 import { createCharacterInteractionPreferences } from '../utils/characterInteraction.js';
 import { characterWorldReport } from '../utils/characterWorldReport.js';
+import { characterMemoryReport, correctionDraft, memorySourceMessages } from '../utils/characterMemory.js';
 
 const uuid = () => globalThis.crypto.randomUUID();
 const terminal = status => ['committed', 'cancelled', 'failed', 'interrupted'].includes(status);
@@ -50,6 +51,7 @@ export function createCharacterChatStore(api = characterChatApi, delay = ms => n
     async open(id) {
       this.clearSpoiler();
       this.activeId = id; const ctx = this.context(id);
+      ctx.memoryReport = null;
       try {
         ctx.session = await api.get(id); ctx.error = ''; ctx.needsReload = false;
         const failed = ctx.session.last_failed_action;
@@ -98,6 +100,7 @@ export function createCharacterChatStore(api = characterChatApi, delay = ms => n
       if (name === 'accepted') {
         ctx.contextNotice = Array.isArray(data.context_omissions) && data.context_omissions.some(item => item.field === 'dialogue_examples') ? '本次上下文预算不足，示例整段未发送。' : '';
         ctx.worldReport = characterWorldReport(data.world_context_report);
+        ctx.memoryReport = characterMemoryReport(data.memory_context_report);
       }
       if (name === 'reply_delta') {
         if (typeof data.text !== 'string' || ctx.preview.length + data.text.length > 8000) throw new Error('预览超出安全长度，状态待确认');
@@ -111,6 +114,7 @@ export function createCharacterChatStore(api = characterChatApi, delay = ms => n
       flight.settled = true;
       if (Array.isArray(result.context_omissions)) ctx.contextNotice = result.context_omissions.some(item => item.field === 'dialogue_examples') ? '本次上下文预算不足，示例整段未发送。' : '';
       if ('world_context_report' in result) ctx.worldReport = characterWorldReport(result.world_context_report);
+      if ('memory_context_report' in result) ctx.memoryReport = characterMemoryReport(result.memory_context_report);
       ctx.preview = '';
       // Never construct committed history from preview or supplier output.
       if (result.status === 'committed' || result.status === 'already_committed') {
@@ -151,6 +155,7 @@ export function createCharacterChatStore(api = characterChatApi, delay = ms => n
       ctx.inflight = flight; const active = ctx.inflight; ctx.busy = true; ctx.preview = ''; ctx.error = '';
       ctx.contextNotice = '';
       ctx.worldReport = null;
+      ctx.memoryReport = null;
       const payload = { client_action_id: flight.action_id, expected_revision: ctx.session.revision, operation, delivery: operation === 'undo' ? 'non_stream' : ctx.delivery };
       if (operation === 'send') payload.content = content;
       else payload.target_turn_id = ctx.session.turns.at(-1)?.turn_id;
@@ -185,6 +190,29 @@ export function createCharacterChatStore(api = characterChatApi, delay = ms => n
       ctx.settingsBusy = true;
       try { ctx.session = await api.update(id, { expected_revision: ctx.session.revision, ...changes }); await this.refreshList(); }
       finally { ctx.settingsBusy = false; }
+    },
+    correctMemory(id, entry) {
+      const ctx = this.context(id);
+      const draft = correctionDraft(entry, ctx.draft);
+      if (draft === null) { ctx.error = '输入框已有未发送内容，请先保存或发送，再创建纠正草稿。'; return; }
+      ctx.draft = draft;
+      ctx.error = '';
+    },
+    async memorySources(id, entry) { return memorySourceMessages(await api.memorySources(id, entry), entry); },
+    async markMemory(id, entry, important) {
+      const ctx = this.context(id);
+      if (ctx.busy || ctx.settingsBusy || ctx.needsReload || !ctx.session || ctx.session.schema_read_only) return;
+      ctx.settingsBusy = true;
+      ctx.memoryReport = null;
+      try {
+        const result = await api.markMemory(id, { expected_revision: ctx.session.revision, entry_id: entry, important });
+        if (this.contexts[id] === ctx) { ctx.session = result; ctx.memoryReport = null; ctx.error = ''; }
+      } catch (e) {
+        if (this.contexts[id] === ctx) {
+          ctx.error = '标记结果需核对：' + e.message;
+          try { ctx.session = await api.get(id); ctx.needsReload = false; } catch { ctx.needsReload = true; }
+        }
+      } finally { ctx.settingsBusy = false; }
     },
     async remove(id) { const ctx = this.context(id); if (ctx.busy || ctx.settingsBusy || ctx.needsReload || ctx.session.schema_read_only) return; await api.remove(id, ctx.session.revision); this.preferences.remove(id); this.interaction.remove(id); delete this.contexts[id]; if (this.activeId === id) this.activeId = ''; await this.refreshList(); },
   });

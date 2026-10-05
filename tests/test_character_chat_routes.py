@@ -41,6 +41,27 @@ class CharacterRouteTests(unittest.TestCase):
         self.assertEqual(201, response.status_code, response.text)
         self.sid = response.json()['session_id']
 
+    def test_memory_mark_and_sources_strict_safe_revision_and_reload(self):
+        self.transport.with_ledger = True
+        url = self.prefix + '/' + self.sid
+        result = self.client.post(url + '/actions', json={'client_action_id': str(uuid4()), 'expected_revision': 0,
+            'operation': 'send', 'delivery': 'non_stream', 'content': '合成偏好与承诺'}).json()
+        self.assertEqual('committed', result['status'])
+        entry = self.client.get(url).json()['ledger'][0]['entry_id']
+        endpoint = url + '/memory/important'
+        payload = {'expected_revision': 1, 'entry_id': entry, 'important': True}
+        for changes in ({'important': 1}, {'important': None}, {'expected_revision': True}, {'entry_id': '../bad'}, {'extra': 'bad'}):
+            self.assertEqual(400, self.client.put(endpoint, json={**payload, **changes}).status_code)
+        response = self.client.put(endpoint, json=payload)
+        self.assertEqual(200, response.status_code)
+        self.assertEqual([entry], response.json()['memory_settings']['important_entry_ids'])
+        self.assertEqual(409, self.client.put(endpoint, json=payload).status_code)
+        source = self.client.get(url + f'/memory/{entry}/sources')
+        self.assertEqual('合成偏好与承诺', source.json()['messages'][0]['content'])
+        self.assertNotIn('archived_turn', source.text)
+        self.assertEqual(400, self.client.get(url + f'/memory/{uuid4()}/sources').status_code)
+        self.assertEqual(2, self.client.get(url).json()['revision'])
+
     def test_preference_settings_are_strict_persisted_and_not_global(self):
         url = self.prefix + '/' + self.sid
         default = {'enabled': False, 'include_sensitive': False}

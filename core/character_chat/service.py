@@ -11,6 +11,7 @@ from .context import build_context
 from .transport import CharacterTransport
 from .errors import message, retryable
 from .preferences import session_settings, validate_settings, load_preferences
+from .memory import settings as memory_settings, public_state, valid_candidates, public, root_for, formal_messages
 
 
 def pending_attempt(session):
@@ -103,6 +104,7 @@ def session_view(session, *, detail=True):
     value = {k: session[k] for k in ('session_id', 'title', 'revision', 'presentation_mode', 'created_at', 'updated_at')}
     value['pending'] = pending
     value['preference_settings'] = session_settings(session)
+    value['memory_settings'] = public_state(session)
     value['participants'] = [{k: copy.deepcopy(p[k]) for k in ('instance_id', 'controller', 'display_name')}
                              | {'profile_snapshot': profile_projection(p, detail=True)}
                              for p in session['participants']]
@@ -175,6 +177,49 @@ class CharacterChatService:
             value['revision'] += 1
             return session_view(value), True
         return self.repository.transaction(sid, update)
+
+    def memory_mark(self, sid, revision, entry_id, important):
+        self._check_blocked(sid)
+        canonical_id(entry_id)
+        if type(important) is not bool:
+            raise CharacterSessionError('INVALID_REQUEST')
+        def update(value):
+            writable(value, revision)
+            roots = memory_settings(value)['important_entry_ids']
+            entry = next((e for e in valid_candidates(value) if e['entry_id'] == entry_id and public(e, value)), None)
+            if entry is None and not (not important and entry_id in roots):
+                raise CharacterSessionError('INVALID_REQUEST')
+            root = root_for(entry, value) if entry else entry_id
+            changed = False
+            if important and not root:
+                if len(roots) == 8:
+                    raise CharacterSessionError('MEMORY_MARK_LIMIT')
+                roots.append(entry_id)
+                changed = True
+            elif not important and root in roots:
+                roots.remove(root)
+                changed = True
+            if changed:
+                value['extensions']['character_memory'] = {'version': 1, 'important_entry_ids': roots}
+                value['revision'] += 1
+            return session_view(value), changed
+        return self.repository.transaction(sid, update)
+
+    def memory_sources(self, sid, entry_id):
+        canonical_id(entry_id)
+        value = self.repository.load(sid)
+        if value.get('schema_version') != 1:
+            raise CharacterSessionError('SCHEMA_READ_ONLY')
+        entry = next((e for e in valid_candidates(value) if e['entry_id'] == entry_id and public(e, value)), None)
+        if entry is None:
+            raise CharacterSessionError('INVALID_REQUEST')
+        messages = formal_messages(value)
+        ids = {p['instance_id'] for p in value['participants']}
+        selected = [messages[mid] for mid in entry['source']['message_ids']]
+        if any(set(m['visibility']['audience_instance_ids']) != ids for m in selected):
+            raise CharacterSessionError('INVALID_REQUEST')
+        return {'entry_id': entry_id, 'revision': value['revision'], 'messages': [
+            {k: copy.deepcopy(m[k]) for k in ('message_id', 'speaker_instance_id', 'content')} for m in selected]}
 
     def begin(self, sid, payload, *, retry_action_id=None):
         self._check_blocked(sid)
@@ -331,7 +376,8 @@ class CharacterChatService:
             omissions = [{k: item[k] for k in ('participant_id', 'field')}
                          for item in job['report'].get('omitted', []) if item.get('field') == 'dialogue_examples']
             world_report = job['report'].get('world_context')
-            event('accepted', {'base_revision': job['session']['revision'], 'delivery': job['delivery'], 'context_omissions': omissions, 'world_context_report': world_report})
+            memory_report = job['report'].get('memory_context')
+            event('accepted', {'base_revision': job['session']['revision'], 'delivery': job['delivery'], 'context_omissions': omissions, 'world_context_report': world_report, 'memory_context_report': memory_report})
             # A cancel that won before this coroutine started must still make zero calls.
             authoritative = self.repository.load(sid)
             if action_view(authoritative, action_by_id(authoritative, aid), rid)['status'] != 'pending':
@@ -364,6 +410,7 @@ class CharacterChatService:
             result = self.repository.transaction(sid, commit)
             result['context_omissions'] = omissions
             result['world_context_report'] = world_report
+            result['memory_context_report'] = memory_report
             if result['status'] == 'committed':
                 event('committed', result)
             else:

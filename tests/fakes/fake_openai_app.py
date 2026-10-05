@@ -192,7 +192,7 @@ def _character_response(user: str) -> dict[str, Any] | str:
         source = {"type": "player_statement", "message_ids": [current["message_id"]],
                   "evidence": [{"message_id": current["message_id"], "quote": content[:240]}]}
         operations = [
-            {"op": "add", "kind": "knowledge", "content": "公开记录：收到用户陈述",
+            {"op": "add", "kind": "knowledge", "content": content[:400] if '【记忆M1】' in content else "公开记录：收到用户陈述",
              "source": source, "visibility": {"audience_instance_ids": [p["instance_id"] for p in participants]}},
             {"op": "add", "kind": "belief", "content": "内部记录：暂时相信用户陈述",
              "source": {**source, "type": "model_inference"}, "visibility": {"audience_instance_ids": [ai_id]}},

@@ -191,6 +191,23 @@ async def patch(sid: str, request: Request):
         return error_response(exc)
 
 
+@router.put('/{sid}/memory/important')
+async def mark_memory(sid: str, request: Request):
+    try:
+        payload = await body(request, {'expected_revision', 'entry_id', 'important'}, {'expected_revision', 'entry_id', 'important'})
+        return service.memory_mark(sid, payload['expected_revision'], payload['entry_id'], payload['important'])
+    except Exception as exc:
+        return error_response(exc)
+
+
+@router.get('/{sid}/memory/{entry_id}/sources')
+async def memory_sources(sid: str, entry_id: str):
+    try:
+        return service.memory_sources(sid, entry_id)
+    except Exception as exc:
+        return error_response(exc)
+
+
 @router.delete('/{sid}')
 async def delete(sid: str, request: Request):
     try:

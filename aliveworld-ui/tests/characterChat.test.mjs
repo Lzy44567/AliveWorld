@@ -5,6 +5,38 @@ import { characterStream, CharacterApiError } from '../src/api/characterChatApi.
 import { cardOpening } from '../src/utils/characterOpening.js';
 import { structuredDraft, compatibleRoleText, roleFieldsError } from '../src/utils/characterFields.js';
 import { characterWorldReport } from '../src/utils/characterWorldReport.js';
+import { characterMemoryReport, correctionDraft, memorySourceMessages } from '../src/utils/characterMemory.js';
+
+const memoryId = '11111111-1111-4111-8111-111111111111';
+const memoryReport = () => ({ entries: [{ entry_id: memoryId, reason: 'important', state: 'budget' }] });
+test('memory report and source projections are bounded whitelists; correction never overwrites draft', () => {
+  const raw = memoryReport(); raw.private_count = 5; raw.entries[0].quote = 'private';
+  assert.deepEqual(characterMemoryReport(raw), memoryReport());
+  assert.equal(characterMemoryReport({ entries: [{ ...raw.entries[0], reason: 'private' }] }), null);
+  assert.equal(characterMemoryReport({ entries: Array(129).fill(raw.entries[0]) }), null);
+  assert.equal(correctionDraft({ content: '合成承诺' }, '未发送的草稿'), null);
+  assert.match(correctionDraft({ content: '合成承诺' }), /我要更正/);
+  const source = { entry_id: memoryId, revision: 1, messages: [{ message_id: memoryId, speaker_instance_id: memoryId, content: '合成原文', private: 'secret' }] };
+  assert.ok(!JSON.stringify(memorySourceMessages(source, memoryId)).includes('secret'));
+  assert.throws(() => memorySourceMessages(source, 'another'));
+});
+test('memory marking belongs to initiating session, no optimistic success, correction keeps draft', async () => {
+  let resolve;
+  const f = fixture({ markMemory: async () => new Promise(r => resolve = r) });
+  await f.store.open('a'); const original = f.store.current;
+  const change = f.store.markMemory('a', memoryId, true);
+  assert.equal(original.settingsBusy, true);
+  await f.store.open('b'); resolve({ ...original.session, revision: 2, memory_settings: { important_entry_ids: [memoryId] } });
+  await change; assert.equal(original.session.revision, 2); assert.notEqual(f.store.current.session.revision, 2);
+  f.store.correctMemory('a', { content: '承诺' }); assert.match(original.draft, /我要更正/);
+  const draft = original.draft; f.store.correctMemory('a', { content: '另一条' }); assert.equal(original.draft, draft);
+});
+test('memory marking lost response reloads authority without toggling or retry', async () => {
+  let calls = 0;
+  const f = fixture({ markMemory: async () => { ++calls; throw Error('lost'); } });
+  await f.store.open('a'); await f.store.markMemory('a', memoryId, true);
+  assert.equal(calls, 1); assert.equal(f.store.current.settingsBusy, false); assert.match(f.store.current.error, /需核对/);
+});
 
 const worldReport = () => ({ window_turns: 4, resident_count: 1, omitted_by_limit: 0, omitted_by_budget: 0, entries: [{ entry_id: 'entry', entry_name: '合成规则', source: 'recent', turn_distance: 1, planned: true }] });
 

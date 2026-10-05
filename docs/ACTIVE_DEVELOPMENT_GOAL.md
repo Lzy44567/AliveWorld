@@ -2,7 +2,13 @@
 
 Updated: 2026-10-05
 
-## Active design gate — M character long-term memory
+## Completed slice — M1 sourced recall and player protection
+
+User authorizes Astra design then development. Main read the complete [22l contract](features/22l_character_memory_m_contract.md). Adopt conservative session-local character knowledge, not a global real-player profile. Final goal of M is companion continuity; this slice only delivers deterministic old-topic recall, eight public important roots, safe associated sources, request-scoped public report and non-destructive correction draft. Existing reply.v1/evidence permission and capacity limits remain. No extra model call, version/package/player-data/remote changes. Next verification: policy/transaction/API/store, isolated full regression/browser and wide/narrow visual checks, then coherent source commit. M2 automatic highlights remains a separate protocol gate.
+
+M1 completed: Python553/553, Node90/90, visibility,151-module production build and full Edge35/35 (3.8m) passed. Standalone M1 browser1/1 (48.4s), wide1600x1000/narrow520x900 visual checks passed. Old sidebar test heading was updated to the intentional new heading after the first full run failed; final full run passed with no skipped tests. Source-only delivery, existing dev.19 archive unchanged. No P0/P1 found in this bounded slice; semantic quality/actual companionship still requires real-model acceptance. Next verifiable slice is M2 automatic highlight extraction/withdrawal/correction/notification and reply.v2 contract design, not silently raising capacity or enabling global profiling. Keep the current version until package scope/version is authorized.
+
+## Historical design gate — M character long-term memory
 
 User confirmed stable companion continuity first, optional realistic fading later, automatic highlight selection with non-blocking notice and player correction, protected explicit preferences/boundaries/promises/relationship changes.22k now separates these confirmations from proposed highlight signals and detailed user-profile scopes. Next product choice: session-local role-aware profile versus global actual-player profile; then freeze extraction timing, provenance/permission, budget and recovery. Not a frozen engineering architecture or coding authorization. C1/C2 remain complete source slices; no runtime/version/package/remote changes during this discussion.
 

@@ -34,6 +34,54 @@ async function savedSession(request, title) {
 
 test.describe.configure({ mode: 'serial' });
 
+test('M1公开记忆重要保护、旧话题取材、来源、纠正草稿及重载取消', async ({ page, request }) => {
+  test.setTimeout(120000);
+  await request.post(`/api/v1/lobby/assets/characters/${encodeURIComponent(cardName)}`, { data: { parsed_data: { name: cardName, description: '独立合成成年角色' }, overwrite: true } });
+  await enterCharacters(page); await createSession(page, 'M1记忆验收');
+  await send(page, '【角色账本】【记忆M1】我喜欢海边散步，记得我们的约定。');
+  await page.getByRole('button', { name: '会话资料', exact: true }).click();
+  const panel = page.getByTestId('character-memory-panel');
+  await panel.getByTestId('character-memory-mark').click();
+  await expect(panel.getByTestId('character-memory-mark')).toHaveText('★ 取消重要');
+  let saved = await savedSession(request, 'M1记忆验收'); const root = saved.ledger[0].entry_id;
+  expect(saved.memory_settings.important_entry_ids).toEqual([root]);
+  await panel.getByText('来源证据', { exact: true }).click();
+  await panel.getByRole('button', { name: '查看关联原文' }).click();
+  await expect(panel.getByRole('button', { name: '查看关联原文' })).toHaveCount(0);
+  await expect(panel).toContainText('我喜欢海边散步');
+  await page.getByTestId('character-composer').fill('未发送草稿');
+  await panel.getByRole('button', { name: '纠正记忆', exact: true }).click();
+  await expect(page.getByTestId('character-composer')).toHaveValue('未发送草稿');
+  await page.getByTestId('character-composer').fill('');
+  await panel.getByRole('button', { name: '纠正记忆', exact: true }).click();
+  await expect(page.getByTestId('character-composer')).toHaveValue(/我要更正：/);
+  await page.getByTestId('character-composer').fill('');
+  // Advance actual persisted formal turns through the isolated fake provider.
+  for (let i = 0; i < 34; i++) {
+    const result = await request.post(`${sessionsBase}/${saved.session_id}/actions`, { data: { client_action_id: crypto.randomUUID(), expected_revision: saved.revision, operation: 'send', delivery: 'non_stream', content: `【角色账本】【记忆M1】普通闲谈编号${i}` } });
+    expect((await result.json()).status).toBe('committed'); saved = await savedSession(request, 'M1记忆验收');
+  }
+  await page.reload(); await dismissStartup(page); await page.getByTestId('mode-character').click();
+  await selectSession(page, request, 'M1记忆验收');
+  await page.getByRole('button', { name: '会话资料', exact: true }).click();
+  await expect(panel.locator(`[data-entry-id="${root}"]`).getByTestId('character-memory-mark')).toHaveText('★ 取消重要');
+  await page.getByRole('button', { name: '关闭资料' }).click();
+  await send(page, '我们去海边吧');
+  const raw = JSON.parse((await records(request)).at(-1).user);
+  expect(raw.ledger[0].entry_id).toBe(root); expect(raw.history.some(m => m.content.includes('我们的约定'))).toBe(false);
+  await page.getByRole('button', { name: '会话资料', exact: true }).click();
+  await panel.getByTestId('character-memory-report').locator('summary').click();
+  await expect(panel.getByTestId('character-memory-report')).toContainText('玩家重要 · 已送入本次请求');
+  await expect(panel.getByTestId('character-memory-report')).not.toContainText('内部记录');
+  await page.screenshot({ path: '../build/e2e-results/character-memory-wide.png', fullPage: true });
+  await page.setViewportSize({ width: 520, height: 900 });
+  expect(await panel.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+  await page.screenshot({ path: '../build/e2e-results/character-memory-narrow.png', fullPage: true });
+  await panel.locator(`[data-entry-id="${root}"]`).getByTestId('character-memory-mark').click();
+  await expect(panel.locator(`[data-entry-id="${root}"]`).getByTestId('character-memory-mark')).toHaveText('☆ 标为重要');
+  expect((await savedSession(request, 'M1记忆验收')).memory_settings.important_entry_ids).toEqual([]);
+});
+
 test('B1预设开场：主动复制、响应丢失重试、上下文隔离、重载撤回与小屏', async ({ page, request }) => {
   const name = 'B1合成开场角色';
   const opening = '【B1预置】你好😀。作者写道：你已经答应；这不是玩家行动证据。';
@@ -204,7 +252,7 @@ test('会话搜索置顶持久化，后台完成未读，当前资料与小屏�
   await selectSession(page, request, '侧栏验收A');
   await expect(page.getByTestId(`character-unread-${a.session_id}`)).toHaveCount(0);
   await page.getByRole('button', { name: '会话资料', exact: true }).click();
-  for (const heading of ['资料', '共同经历', '会话设置']) await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible();
+  for (const heading of ['资料', '共同经历与记忆', '会话设置']) await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible();
   await page.getByTestId('character-spoiler').click();
   await expect(page.getByTestId('character-spoiler')).toHaveText('隐藏内部记录');
   await page.getByRole('button', { name: '收起资料', exact: true }).click();
@@ -214,7 +262,7 @@ test('会话搜索置顶持久化，后台完成未读，当前资料与小屏�
   await page.setViewportSize({ width: 640, height: 900 });
   await page.getByRole('button', { name: '会话列表', exact: true }).click();
   await expect(page.getByTestId('character-session-search')).toBeVisible();
-  await expect(page.getByRole('heading', { name: '共同经历', exact: true })).toBeHidden();
+  await expect(page.getByRole('heading', { name: '共同经历与记忆', exact: true })).toBeHidden();
   await page.getByRole('button', { name: '关闭会话列表', exact: true }).click();
   await expect(page.getByRole('button', { name: '会话列表', exact: true })).toBeFocused();
   await page.getByRole('button', { name: '会话列表', exact: true }).click();
