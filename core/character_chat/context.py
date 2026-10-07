@@ -13,6 +13,13 @@ from .recall import recall_candidates, close_groups, trim_group, public_report, 
 
 
 def build_context(session, pending, budget_options=None, *, preferences=None, contract_id=None, context_contract_id=M3):
+    batches = [(t['turn_id'], [t['user_message'], t['ai_message']]) for t in session['turns']]
+    return _build_context(session, pending, batches, budget_options, preferences=preferences,
+                          contract_id=contract_id, context_contract_id=context_contract_id)
+
+
+def _build_context(session, pending, history_batches, budget_options=None, *, preferences=None, contract_id=None, context_contract_id=M3):
+    """Common old-protocol payload builder; histories contain actual messages."""
     contract_id = validate_contract(contract_id or contract_for(session))
     context_contract_id = validate_context_contract(context_contract_id)
     try:
@@ -26,18 +33,18 @@ def build_context(session, pending, budget_options=None, *, preferences=None, co
     ai = next(p['instance_id'] for p in session['participants'] if p['controller'] == 'ai')
     participants = [{'instance_id': p['instance_id'], 'controller': p['controller'],
                      'profile': profile_projection(p)} for p in session['participants']]
-    turns = session['turns'][-20:]
+    turns = list(history_batches[-20:])
     ledger, memory_candidates = select_memory(session, pending['content'])
     selected_ids = {e['entry_id'] for e in ledger}
     rules, entries, world_report = select_world_context(session, pending['content'])
     task = (f'character.reply.{"c3" if context_contract_id == C3 else "m3"}.v{2 if contract_id == V2 else 1}'
             if has_recall else 'character.reply.v2' if contract_id == V2 else 'character.reply')
     system = compose_prompt(task, {'character.presentation_mode': pending['mode']})
-    initial_messages = [m for t in turns for m in (t['user_message'], t['ai_message']) if ai in m['visibility']['audience_instance_ids']]
+    initial_messages = [m for _, batch in turns for m in batch if ai in m['visibility']['audience_instance_ids']]
     groups = recall_candidates(session, ledger, pending['content'], initial_messages) if has_recall else []
     omitted = []
     while True:
-        messages = [m for t in turns for m in (t['user_message'], t['ai_message'])
+        messages = [m for _, batch in turns for m in batch
                     if ai in m['visibility']['audience_instance_ids']]
         data = {'reply_contract_id': contract_id, 'participants': participants, 'world_rules': rules, 'world_related_entries': entries,
                 'ledger': ledger, 'history': messages,
@@ -75,7 +82,7 @@ def build_context(session, pending, budget_options=None, *, preferences=None, co
         elif trim_group(groups):
             omitted.append({'field': 'recalled_sources'})
         elif len(turns) > 2:
-            omitted.append({'turn_id': turns.pop(0)['turn_id']})
+            omitted.append({'turn_id': turns.pop(0)[0]})
         elif ledger:
             omitted.append({'entry_id': ledger.pop()['entry_id']})
         else:

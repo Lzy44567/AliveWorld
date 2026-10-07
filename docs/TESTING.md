@@ -1,5 +1,12 @@
 # AliveWorld 测试流程
 
+## C4-B5a旧协议上下文/容量准备（2026-10-08）
+
+- 新增7项旧上下文与3项逻辑组容量测试，专项10/10（0.013秒）；旧M3/C3及C4上下文相关60/60（3.760秒），最终完整Python721/721（33.641秒）通过。
+- 严格验证六种V1/V2×LEGACY/M3/C3装配组合、旧缺可选协议字段默认、协议/OOC冲突不重解释、原user/ai ID保持、真实多气泡history不合并/重复、未回应队列隔离、旧regenerate排除原输入/AI、整组预算裁剪且原输入不截断。纯上下文无服务调用或玩家写入。
+- schema2 capacity显式version2、formal_groups按逻辑保留组而非气泡计数；失败档案只耗action/attempt；原capacity_report仍拒schema2，未来格式拒入新reader，私人ledger数量不公开。
+- Astra新增22v第13节后主代理全文读取；尚未实现legacy_execution validator、显式重试/提交事务及service分派，不能把721项称旧重试可执行或C4闭环。API/生产/UI未切换，无新增Node/build/Edge/EXE证据；这些层的旧成绩仍仅历史。
+
 ## C4-B4后台调度（2026-10-08收尾，隔离服务）
 
 - 新增21项服务级Python；主代理专项21/21（5.805秒），Astra最终复核专项21/21。中断后原全量process handle已不存在，未把其推测为成功；10月8日重新实际运行完整Python711/711（37.491秒）通过。

@@ -4,6 +4,8 @@
 
 ## 2026-10-07 隔离实现与工程细化（当前生效）
 
+2026-10-08 B5a准备片：主代理全文读取第13节后，提取`context._build_context`供真实消息批共享旧协议装配/预算，新增`legacy_context.py`；旧schema1入口仍供应实际双消息，兼容入口供应schema2真实多消息组，不造假turn。V1/V2×LEGACY/M3/C3、默认/冲突/OOC、旧regenerate源排除及整组预算有7项测试；显式schema2逻辑组capacity另有3项。第13节的legacy_execution字段验证、重试/提交纯生命周期、服务分派尚未实施；本片不能执行旧retry，生产入口及玩家数据不变。
+
 B4独立`group_service.py`已将真实async worker接到隔离schema2 repository；不由前端订阅或页面生命周期拥有任务。生成槽在领取前预留，生成完成立即释放，gaps由服务器短计时事务送达；正常批末合并已排队输入，失败/取消停住，不自动收费。启动恢复worker仅送有效候选尾，旧队列留待显式继续；恢复期间新输入是新的明确授权。取消后立即retry/send通过待唤醒记录避免旧worker finally丢失新任务。事件只带单组正式前缀及轻量游标/计数，不反复包含全部历史或私人账本；GET当前历史最多20组及未回应输入。生产路由/创建默认不变，旧attempt执行适配仍未实现。本片无玩家文件读写或新包。
 
 B3上下文片已接到隔离组事务：`group_context.py`按attempt截止与领取身份构建`current_user_messages/current_ooc_notes`，不合成旧turn。共享memory/recall/world reader显式支持schema2，旧schema1路径保留；独立C4四切片不沿用旧覆盖。正式历史按最近20个完整结束组、seq排序，当前输入单独发送；超额队列未领取输入即便早于截止也排除。候选尾、撤回/替换组、历史OOC不作来源。重生成先逆账；旧原文召回保持ID/seq，预算整组裁剪与最终证据闭包。本片仍未接生产服务/UI或真实迁移；下一是后台调度与旧attempt适配，不是打包完成。
@@ -161,3 +163,60 @@ active组（含generating/delivering）最多512；所有groups包括归档受�
 最低测试：三态提交差异；候选不入formal；gaps末条账本；X/Y独立ID及一次认领；失败继续/重试不双回应；revision追加不误冲突而epoch变更拒迟到；两窗口同action幂等；容量预留；重生期间新输入拒替换；批撤回整轮；已读单调；崩溃恢复；旧pending/retry/OOC/归档、未知版本、迁移备份失败各点；旧memory/recall结果等价。
 
 本合同无新增玩法问题。B片可按工程合同开始合成实现；真实迁移仍停在最终说明和用户确认门。若实现发现既有ID/归档约束与以上算法不兼容，先修合成适配和文档，不直接修用户数据。
+
+## 13. 窄兼容片：转换后的旧attempt显式重试
+
+2026-10-08补充，仅覆盖转换保留的v1/v2失败/取消/中断attempt。不把旧attempt改成v3、不重新生成user/ai ID、不把旧pending输入提前正式化；成功才添加schema2单气泡组。之后正常新send继续v3/C4。现有group_service只执行C4、retry_group拒绝旧协议，这是真实待补缺口，不宣称已经兼容。
+
+### 13.1 可复用与不可直接复用
+
+- 复用旧context.build_context的任务身份选择、单current_user_message/current_ai_message_id、C3 OOC条件、预算裁剪顺序、opening/世界书/偏好/有界召回规则；复用旧PromptSlice与覆盖语义，不用C4 core解释旧输出。
+- 复用transport.generate的v1/v2 ReplyPreview、一次调用/零自动重试；服务事件适配把字符串delta映射ordinal=0，不对旧字符串调用GroupPreview。
+- 复用parse_result(raw, original_contract)、parse_annotations（仅v2）、共享plan_ledger；不调用plan_turn再迁移它生成的临时会话，也不伪造turns或拼接新组多个气泡骗旧校验。
+- 复用schema2 repository原子事务、四槽、发布后保存核对、public_group、read游标及整批inverse；旧重试只有一气泡，gaps选择等价非流式立即送达，没有额外计时队列。
+
+### 13.2 精确持久字段与身份约束
+
+action.legacy_retry_snapshot仍为重试权威输入，严格字段content、mode、user_message_id、ai_message_id，可选ooc_note、reply_contract_id、context_contract_id。缺协议时沿旧默认V1/LEGACY解读；显式协议和最近旧attempt必须一致，bool(ooc_note)必须等价context=C3。OOC为空不能冒用C3，有OOC不能降级legacy/M3。
+
+每次显式旧重试仍新增legacy_attempt=true的attempt，保留request_id、base_revision、status、created_at、reply_contract_id、context_contract_id、retry_of、retry_token。新增仅本兼容分支允许的legacy_execution对象，字段固定为group_id、context_epoch、history_cutoff_seq、display_mode。group_id本次由程序分配，失败重试不复用组ID；user/ai ID始终沿原snapshot。终态使用既有ended_at/error_code/committed_revision。
+
+legacy_execution只表示待提交旧回复，不是正式组/输入；pending时不在groups建立要求input_ids已存在的空组，也不把snapshot复制到公共state。一个会话最多一个pending旧execution或忙碌新组。公共busy摘要可显示其group_id/request_id及generating，但不假称存在正式input_ids。
+
+成功后groups新增complete单气泡组，group_id取legacy_execution.group_id，input_ids仅原snapshot.user_message_id，AI取原snapshot.ai_message_id；mode用原snapshot.mode，display按attempt快照。attempt继续标legacy_attempt，不变v3；group到该attempt的反向关系新增严格校验。failed/cancelled/interrupted的legacy_execution允许没有group，committed则必须有唯一对应group。
+
+旧snapshot双消息ID必须互异，且在显式重试开始和提交时都不得撞正式/归档消息、参与者、组、action/request、ledger、opening或其它有效预留。历史失败attempt之间复用同一snapshot ID是重试链合法别名，不按不同消息重复计数；不同action不可共享这些预留。成功后清除action的可重试snapshot，attempt可保留有界审计快照，但不再构成可执行重试权。
+
+### 13.3 重试前置和原子提交
+
+显式retry须命中action最近failed/cancelled/interrupted旧attempt，retry_token重放先查身份再查CAS；已有成功result、被后续操作替代或原用户/AI身份冲突则STALE_RETRY。一次legacy执行占一个现有attempt和四槽之一，不自动收费重试。失败/取消后仍必须显式继续。
+
+本兼容执行沿旧schema1的忙碌语义：开始前要求没有待回应schema2输入；pending期间新send及修改语境返回SESSION_BUSY并保留客户端草稿，不新增排队行为。这是一次旧attempt兼容路径，不改变正常v3连续批/连发规则；如此旧pending用户消息仍可保持“成功才正式”的承诺，无需预分配虚假正式seq或在新玩家输入后倒插旧话。若已有新正式输入，应继续正常v3，不强行执行过时旧retry；返回可解释的STALE_RETRY。
+
+旧send的retry只允许位于最新已解决历史之后：除原旧失败记录外不能有后来已接受的新输入或新完成组。迁移后判断用requests原有顺序及group关联，不用迁移合成seq猜旧attempt时间。旧regenerate则要求target仍是最新完整active组、没有后续输入依赖；失败不改目标组。
+
+提交先重验pending、epoch、owner、原协议、snapshot身份及无后续输入，再解析旧reply，构造独立的正式user/AI消息（原ID/正文/模式，提交时分配相邻seq和真实时间）。以本次完整允许正式来源+这两个待提交消息调用plan_ledger，current集合仅这两个ID，origin为新group_id；旧历史不能借dialogue_event变本轮经历。
+
+旧regenerate先在临时上下文副本逆目标inverse并排除目标AI和目标输入；旧snapshot使用它原来预留的新user ID，不能把它改成目标输入ID。成功同一事务：逆旧账、目标组replaced、旧独占输入withdrawn、插入原snapshot用户消息和单气泡新组、应用新ledger/inverse/notice、标owner成功。失败/保存失败保留原组、旧输入和账本完整。原文/ID不按内容相同合并。
+
+### 13.4 旧上下文构建不造假turn
+
+新增build_legacy_retry_context读取schema2已结束组，将其真实消息按seq投影为history，当前旧snapshot仍用旧单输入字段。LEGACY不新增recalled_sources/context标记，M3/C3沿原字段；C3仅当前ooc_note，不泄漏历史OOC。重生成使用上述逆账副本；候选/归档/未来消息及未领取输入一律排除。
+
+最小实现是从context.build_context提取可共享的“已有历史批+当前输入载荷→预算循环”私有帮助函数，schema1调用仍供应真实旧双消息批，兼容调用供应schema2真实多消息批。也可暂时保留窄适配构建器，但不得临时制造schema1 turns、把一组拼成假reply或重复user消息。旧history本来是消息数组，允许真实多气泡原文，不必更改旧输出/context协议。
+
+返回的allowed_messages必须就是最终实际发送的真实原文投影；提交时按核心字段核对权威message，不能要求旧投影必有新seq，也不能因缺seq接受任意内容。预算当前输入/OOC不裁剪、历史按完整组裁剪；旧召回仍最多4条/4000字符，身份不扩权。偏好按执行时当前授权读取，沿现有旧retry规则，不恢复已撤销授权。
+
+### 13.5 服务接线、取消与恢复
+
+group_service.retry按原attempt身份分派retry_group或begin_legacy_retry；worker查询新增execution_for_request统一返回任务描述，不迫使current_attempt找到尚不存在的group。busy检测同时覆盖pending legacy execution，防止正常worker绕过它认领新输入。
+
+_generate依任务协议选择build_group_context或build_legacy_retry_context；accepted保留group_id，仅预留一个旧AI ID，旧字符串预览转换为单气泡start/delta/end（只首次start、最终验证前end仍属临时），commit分别分派。广播仍只在保存成功后确认，预览失败不持久化、不入未读；新成功组可沿public_group原位替换ordinal=0。
+
+cancel/close/start的终态函数同时覆盖无实体group的旧execution：仅标attempt失败/取消/中断，保留重试snapshot，不生成假输入/空AI/组。取消赢在调用前零调用；取消后立即retry/send仍走已修wake_pending机制。启动将pending旧execution标interrupted，不调用供应商、不自动创建组；成功后的旧组就是普通complete组，后续新send默认v3。
+
+### 13.6 最小实施顺序和验收
+
+先补legacy_snapshot协议/OOC/ID/owner与execution严格验证→纯旧上下文适配及parse/planner→无group旧execution生命周期→服务分派/字符串预览→隔离临时仓库回归。不能在这片修改生产路由、运行真实迁移或扩展显示需求。
+
+验收覆盖V1/V2×LEGACY/M3及V1/V2×C3合法组合；丢失可选字段按旧默认、矛盾协议/OOC拒绝；原user/AI ID贯穿多次失败/取消/中断/retry；重复retry_token零额外调用；旧regenerate失败保留、成功原子替换、来源/高光/撤回准确；新多气泡历史进入旧单reply请求但不拼接假来源；流式失败无正式输入、保存失败无广播；取消前零调用/取消立即重试/重启零自动费用；兼容pending期间send忙碌不丢草稿；成功后下一正常请求v3。所有旧schema1测试保持不变，无新玩家产品问题。

@@ -1,6 +1,6 @@
 # Active development goal
 
-Updated: 2026-10-07
+Updated: 2026-10-08
 
 ## Current — C4 bound streaming / multibubble implementation
 
@@ -9,6 +9,12 @@ Latest user definition supersedes the historical display question below: streami
 A is implemented but not enabled for existing sessions: explicit reply.v3, strict 1–6 messages / 8000-codepoint / 65536-byte output, stable local-source mapping, independent incremental messages[N].text lexer and transport dispatch. First and later bubbles preview before complete JSON arrives; private paths stay hidden; final validation remains mandatory. 12 new tests, targeted35/35 and full Python649/649 (26.060s) pass. Old contract selection, contexts, session storage and frontend remain unchanged; this is not complete C4 or an EXE. Next verifiable slice: schema2 reader/validation and pure synthetic migration, then group lifecycle, queues and UI. Real player data is not read or converted.
 
 Historical headings below do not override this contract.
+
+### B5a legacy-context preparation — 2026-10-08
+
+Astra added22v section13; the main agent read it fully. Implemented shared old-protocol context budget assembly with actual message batches, plus isolated legacy-retry context over true schema2 history. It keeps original user/AI IDs, v1/v2 and LEGACY/M3/C3 identities, OOC permissions and old prompt override selection; no synthetic turns or joined AI text. Schema2 capacity has an explicit version2 logical-group report, while old readers remain unchanged. New10 tests cover six protocol/context combinations, defaults/conflicts, regenerated history, whole-group trimming and reserved/failed capacity.
+
+This prepares but does not execute old retries: legacy_execution strict validation, pure retry/commit lifecycle and service dispatch remain next. Then production/API/public projections, frontend and completeV/migration gate. Do not call B5a compatible retry completion or a packaging node. No player data/provider/API activation/version change.
 
 ### B4 server-owned scheduler progress — 2026-10-07
 
