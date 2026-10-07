@@ -55,12 +55,22 @@ def units(value, limit=128):
 
 
 def formal_messages(session):
+    if session.get('schema_version') == 2:
+        from .group_records import formal_messages as group_messages
+        return group_messages(session)
     return {m['message_id']: m for t in session['turns'] for m in (t['user_message'], t['ai_message'])}
+
+
+def origin_order(session):
+    if session.get('schema_version') == 2:
+        from .group_records import active_groups
+        return {g['group_id']: i for i, g in enumerate(active_groups(session))}
+    return {t['turn_id']: i for i, t in enumerate(session['turns'])}
 
 
 def valid_candidates(session):
     ai = next(p['instance_id'] for p in session['participants'] if p['controller'] == 'ai')
-    turns = {t['turn_id'] for t in session['turns']}
+    turns = set(origin_order(session))
     messages = formal_messages(session)
     return [e for e in session['ledger'] if e['status'] == 'active' and ai in e['visibility']['audience_instance_ids']
             and e['subject_instance_id'] == ai and e['created_turn_id'] in turns
@@ -116,7 +126,7 @@ def public_state(session):
 
 def select_memory(session, current_input):
     query = set(units(current_input))
-    order = {t['turn_id']: i for i, t in enumerate(session['turns'])}
+    order = origin_order(session)
     candidates = valid_candidates(session)
     scores = {e['entry_id']: len(query.intersection(units(e['content'], limit=None))) for e in candidates}
     roots = {e['entry_id']: root_for(e, session) for e in candidates}

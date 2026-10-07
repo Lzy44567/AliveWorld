@@ -4,6 +4,8 @@
 
 ## 2026-10-07 隔离实现与工程细化（当前生效）
 
+B3上下文片已接到隔离组事务：`group_context.py`按attempt截止与领取身份构建`current_user_messages/current_ooc_notes`，不合成旧turn。共享memory/recall/world reader显式支持schema2，旧schema1路径保留；独立C4四切片不沿用旧覆盖。正式历史按最近20个完整结束组、seq排序，当前输入单独发送；超额队列未领取输入即便早于截止也排除。候选尾、撤回/替换组、历史OOC不作来源。重生成先逆账；旧原文召回保持ID/seq，预算整组裁剪与最终证据闭包。本片仍未接生产服务/UI或真实迁移；下一是后台调度与旧attempt适配，不是打包完成。
+
 已完成B1纯转换/reader/严格校验及B2纯事务原型：旧repository默认仍schema1，仅隔离测试显式注入schema2 validator；没有生产路由/默认格式切换，没有真实文件转换。共享账本planner供旧双消息和新组使用；不把多输入合成假消息。
 
 - `character.context.c4.v1`承载未来独立输入数组；schema1明确拒绝C4/v3，不把支持新协议等同已有存档可用。

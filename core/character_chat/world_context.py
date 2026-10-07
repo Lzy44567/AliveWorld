@@ -10,9 +10,21 @@ RELATED_LIMIT = 16
 def public_recent_messages(session):
     audience = {p['instance_id'] for p in session['participants']}
     messages, used = [], 0
-    for distance, turn in enumerate(reversed(session['turns'][-RECENT_TURNS:]), 1):
-        for key in ('ai_message', 'user_message'):
-            message = turn[key]
+    if session.get('schema_version') == 2:
+        from .group_records import formal_messages, active_groups
+        formal = formal_messages(session)
+        groups = [g for g in active_groups(session) if g['status'] in {'complete', 'partial_failed'}][-RECENT_TURNS:]
+        batches = [[formal[mid] for mid in g['input_ids'] if mid in formal] +
+                   [b['message'] for b in g['bubbles'][:g['delivered_count']]] for g in groups]
+        batches = [sorted(batch, key=lambda m: m['seq'], reverse=True) for batch in batches]
+    else:
+        batches = [[turn['ai_message'], turn['user_message']] for turn in session['turns'][-RECENT_TURNS:]]
+    seen = set()
+    for distance, batch in enumerate(reversed(batches), 1):
+        for message in batch:
+            if message['message_id'] in seen:
+                continue
+            seen.add(message['message_id'])
             if not audience.issubset(message['visibility']['audience_instance_ids']):
                 continue
             content = message['content']

@@ -7,7 +7,8 @@ MESSAGE_FIELDS = ('message_id', 'turn_id', 'speaker_instance_id', 'content', 'pr
 
 
 def project_message(message):
-    return {key: copy.deepcopy(message[key]) for key in MESSAGE_FIELDS}
+    fields = (*MESSAGE_FIELDS, 'seq') if 'seq' in message else MESSAGE_FIELDS
+    return {key: copy.deepcopy(message[key]) for key in fields if key in message}
 
 
 def recall_candidates(session, ledger, current_input, initial_history):

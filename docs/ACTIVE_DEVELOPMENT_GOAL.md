@@ -10,6 +10,12 @@ A is implemented but not enabled for existing sessions: explicit reply.v3, stric
 
 Historical headings below do not override this contract.
 
+### B3 multi-input context progress — 2026-10-07
+
+C4 context assembly is now implemented in isolation: independent claimed messages/OOC links, immutable cutoff, whole completed-group history, bounded exact-source recall, world/preference budgets and a separate four-slice prompt identity. Old schema1 creation/service/overrides remain unchanged. Future and unclaimed inputs, withdrawn/replaced answers, candidate tails and historical OOC cannot enter the new request. Regeneration reverses old ledger before context selection. Astra's read-only review found no blocking defect; requested combined queue/recall-budget coverage was added.
+
+Next verifiable slice is the actual background service scheduler: single provider call per group, stream events, persisted delivery/queue ownership, failure/explicit continuation, reopening/read cursor and legacy-attempt adaptation. Then wire frontend in-place bubbles and mutually exclusive display controls, run full browser validation and reach the explicit real-session migration/package gate. B3 is not complete C4 or a new EXE; do not stop or shrink the goal here. Evidence is recorded in TESTING.
+
 ### B1/B2 isolation progress — 2026-10-07
 
 Schema2 strict validation, formal/candidate projections, pure deterministic legacy conversion and aggregate mutations are implemented in isolated modules. Repository injection defaults to the old schema1 validator, so live conversations/default creation stay unchanged. Stream/instant atomic batch, gaps first/next delivery, batch-end ledger, explicit continuation after failure, bounded queued-input prefix, stable retry, group undo/regeneration, read cursor and startup rescheduling have29 synthetic tests. Shared envelope and ledger validation retain the old path. Astra review's concrete interjection/undo/retry-capacity defects were fixed and regression-tested. No real player files, provider calls, route/UI activation or EXE change.

@@ -24,6 +24,7 @@ from core.world_change_events import SIGNAL_INSTRUCTION
 from core.character_chat.prompts import CORE as CHARACTER_CORE, CONTRACT as CHARACTER_CONTRACT, PRESENTATION as CHARACTER_PRESENTATION
 from core.character_chat.prompts import CORE_V2 as CHARACTER_CORE_V2, CONTRACT_V2 as CHARACTER_CONTRACT_V2
 from core.character_chat.prompts import M3_GUIDANCE, C3_GUIDANCE, AGENCY_GUIDANCE, CONVERSATION_GUIDANCE
+from core.character_chat.prompts import CORE_V3, CONTRACT_V3, C4_GUIDANCE, C4_OOC_GUIDANCE
 from utils.runtime_paths import PATHS
 
 
@@ -65,6 +66,18 @@ def _settlement_section(name: str) -> Callable[[], str]:
 
 
 SLICES: tuple[PromptSlice, ...] = (
+    PromptSlice("character.reply.c4.v3.core", "character.reply.c4.v3", "角色多气泡职责", "system", 100,
+                "独立多输入、有限回应及有界来源；不沿用旧切片覆盖。", True, (),
+                lambda: CORE_V3 + C4_GUIDANCE + AGENCY_GUIDANCE + CONVERSATION_GUIDANCE, "engine", "static", True),
+    PromptSlice("character.reply.c4.v3.ooc", "character.reply.c4.v3", "角色多输入场外身份", "system", 150,
+                "每条场外说明与对应正式台词身份隔离。", False, (),
+                lambda: C4_OOC_GUIDANCE, "engine", "static", True),
+    PromptSlice("character.reply.c4.v3.contract", "character.reply.c4.v3", "角色严格多气泡契约", "system", 200,
+                "单次请求生成完整有界消息组和来源记录。", False, (),
+                lambda: CONTRACT_V3, "engine", "static", True),
+    PromptSlice("character.reply.c4.v3.presentation", "character.reply.c4.v3", "角色多气泡表现方式", "system", 300,
+                "表现方式与显示动画分离。", False, ("character.presentation_mode",),
+                lambda: CHARACTER_PRESENTATION, "feature", "configuration", True),
     PromptSlice("character.reply.c3.v1.core", "character.reply.c3.v1", "角色 C3 私聊职责 v1", "system", 100,
                 "单步自主与有界来源召回；旧legacy/M3覆盖不自动应用。", True, (),
                 lambda: CHARACTER_CORE + M3_GUIDANCE.replace('character.context.m3.v1', 'character.context.c3.v1') + AGENCY_GUIDANCE + CONVERSATION_GUIDANCE, "engine", "static", True),
