@@ -10,6 +10,12 @@ A is implemented but not enabled for existing sessions: explicit reply.v3, stric
 
 Historical headings below do not override this contract.
 
+### B4 server-owned scheduler progress — 2026-10-07
+
+The opt-in schema2 service now runs actual asynchronous group workers: four provider slots reserved before input claims, one call per bounded group, realtime preview events, persisted gap delivery without subscribers, batch-end queued-input coalescing, monotone read acknowledgement and group actions. Candidate tails/private ledger never enter public events. Persistence failure is not broadcast as success; undelivered valid tails remain recoverable. Cancel then immediate retry/send has an explicit lost-wakeup regression.
+
+Startup recovery delivers only already-generated tails; old queued inputs do not trigger new model charges. New explicit input during recovery authorizes normal continuation. Pending generation becomes interrupted, with no automatic retry. Astra identified both the cancellation wakeup and restart-with-queue hazards; fixes and regressions were added. Production constructors/routes remain unchanged and no real sessions were converted. Next is legacy-attempt execution compatibility and schema2 API/public projections, then frontend streaming-in-bubbles, display switches and full browser/migration verification. This is not the full goal or a package node.
+
 ### B3 multi-input context progress — 2026-10-07
 
 C4 context assembly is now implemented in isolation: independent claimed messages/OOC links, immutable cutoff, whole completed-group history, bounded exact-source recall, world/preference budgets and a separate four-slice prompt identity. Old schema1 creation/service/overrides remain unchanged. Future and unclaimed inputs, withdrawn/replaced answers, candidate tails and historical OOC cannot enter the new request. Regeneration reverses old ledger before context selection. Astra's read-only review found no blocking defect; requested combined queue/recall-budget coverage was added.
