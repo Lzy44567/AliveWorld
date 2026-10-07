@@ -1,8 +1,31 @@
 """Explicit user memory settings mutations, independent of generation orchestration."""
 from .models import CharacterSessionError, canonical_id
-from .memory import settings, valid_candidates, public
+from .memory import settings, valid_candidates, public, root_for
 from .annotations import chain_root
-from .notices import notice_for
+from .notices import notice_for, completed_record
+
+
+def mark(session, entry_id, important):
+    canonical_id(entry_id)
+    if type(important) is not bool:
+        raise CharacterSessionError('INVALID_REQUEST')
+    value = settings(session)
+    roots = value['important_entry_ids']
+    entry = next((e for e in valid_candidates(session) if e['entry_id'] == entry_id and public(e, session)), None)
+    if entry is None and not (not important and entry_id in roots):
+        raise CharacterSessionError('INVALID_REQUEST')
+    root = root_for(entry, session) if entry else entry_id
+    if important and not root:
+        if len(roots) == 8:
+            raise CharacterSessionError('MEMORY_MARK_LIMIT')
+        roots.append(entry_id)
+    elif not important and root in roots:
+        roots.remove(root)
+    else:
+        return False
+    value['important_entry_ids'] = roots
+    session['extensions']['character_memory'] = value
+    return True
 
 
 def enable(session, enabled):
@@ -63,7 +86,12 @@ def acknowledge(session, action_id):
     action = next((a for a in session['requests'] if a['action_id'] == action_id), None)
     if not action or action['operation'] != 'send':
         raise CharacterSessionError('INVALID_REQUEST')
-    turn = next((t for t in session['turns'] if t['turn_id'] == action.get('result_turn_id')), action.get('archived_turn'))
+    turn = completed_record(session, action)
+    if turn is None:
+        if session.get('schema_version') == 2:
+            turn = next((g for g in session['groups'] if g['group_id'] == action.get('result_group_id')), None)
+        else:
+            turn = action.get('archived_turn')
     if not turn or not turn.get('memory_notice'):
         raise CharacterSessionError('INVALID_REQUEST')
     notice = notice_for(session, action)

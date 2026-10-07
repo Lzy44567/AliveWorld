@@ -2,10 +2,30 @@
 import copy
 
 
+def completed_record(session, action):
+    if session.get('schema_version') == 2:
+        return next((g for g in session['groups'] if g['group_id'] == action.get('result_group_id')
+                     and g['status'] == 'complete'), None)
+    return next((t for t in session['turns'] if t['turn_id'] == action.get('result_turn_id')), None)
+
+
+def attach_notice(session, record, action, query):
+    """Derived only at final settlement; candidate messages cannot notify."""
+    if action['operation'] != 'send':
+        return
+    from .memory import select_memory, public
+    _, report = select_memory(session, query)
+    selected = {e['entry_id'] for e in report if e['reason'] in {'auto_important', 'auto_highlight'}}
+    ids = [e['entry_id'] for e in session['ledger'] if e['entry_id'] in record['ledger_inverse']['added_entry_ids']
+           and e['entry_id'] in selected and not e.get('supersedes_entry_id') and public(e, session)]
+    if ids:
+        record['memory_notice'] = {'action_id': action['action_id'], 'committed_revision': record['committed_revision'], 'entry_ids': ids}
+
+
 def notice_for(session, action):
     if action.get('operation') != 'send' or action.get('result_state') != 'active':
         return None
-    turn = next((t for t in session['turns'] if t['turn_id'] == action.get('result_turn_id')), None)
+    turn = completed_record(session, action)
     if not turn or not turn.get('memory_notice'):
         return None
     notice = turn['memory_notice']
@@ -15,7 +35,7 @@ def notice_for(session, action):
     entries = {e['entry_id']: e for e in session['ledger']}
     ids = [eid for eid in notice['entry_ids'] if eid in turn['ledger_inverse']['added_entry_ids']
            and eid in entries and entries[eid].get('memory_annotation')
-           and entries[eid]['created_turn_id'] == turn['turn_id']
+           and entries[eid]['created_turn_id'] == turn.get('group_id', turn.get('turn_id'))
            and entries[eid]['status'] == 'active'
            and set(entries[eid]['visibility']['audience_instance_ids']) == public_ids]
     return dict(copy.deepcopy(notice), entry_ids=ids) if ids else None

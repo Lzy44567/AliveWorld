@@ -13,6 +13,7 @@ from .contract import now, parse_result, plan_ledger, reverse_ledger
 from .annotations import parse_annotations
 from .message_groups import resolve_local_sources
 from .group_records import pending_inputs, active_groups, capacity_groups, formal_messages
+from .notices import attach_notice
 
 GAP_SECONDS_PER_CHARACTER = 0.1
 MIN_GAP_SECONDS = 0.1
@@ -212,6 +213,8 @@ def settle_ledger(session, group):
         action.update(result_state='active', resolved_by_group_id=group['group_id'])
     owner = next(a for a in session['requests'] if a['action_id'] == group['action_id'])
     owner['result_group_id'] = group['group_id']
+    query = '\n'.join(i['message']['content'] for i in session['inputs'] if i['input_id'] in group['input_ids'])
+    attach_notice(session, group, owner, query)
 
 
 def deliver(session, group, timestamp=None, expected_ordinal=None):
@@ -375,6 +378,17 @@ def retry_group(session, action_id, request_id, retry_token, display_mode='strea
         if existing.get('retry_of') != request_id:
             raise CharacterSessionError('IDEMPOTENCY_MISMATCH')
         return copy.deepcopy(existing), False
+    previous = require_group_retry(session, action, request_id)
+    if display_mode not in {'stream', 'gaps', 'instant'}:
+        raise CharacterSessionError('STALE_RETRY')
+    created = create_group(session, action, list(previous['input_ids']), display_mode)
+    new_attempt = action['attempts'][-1]
+    new_attempt.update(retry_of=request_id, retry_token=retry_token)
+    return copy.deepcopy(new_attempt), True
+
+
+def require_group_retry(session, action, request_id):
+    """Shared pure eligibility for execution and public retry affordances."""
     previous = action['attempts'][-1] if action['attempts'] else None
     if (previous is None or previous['request_id'] != request_id or previous['status'] not in {'failed', 'cancelled', 'interrupted'}
             or previous.get('reply_contract_id') != V3):
@@ -386,12 +400,7 @@ def retry_group(session, action_id, request_id, retry_token, display_mode='strea
         latest_batch(session, action['target_group_id'])
     elif not set(previous['input_ids']) <= unresolved:
         raise CharacterSessionError('STALE_RETRY')
-    if display_mode not in {'stream', 'gaps', 'instant'}:
-        raise CharacterSessionError('STALE_RETRY')
     occupied = len(capacity_groups(session)) - (1 if action['operation'] == 'regenerate' else 0)
     if sum(len(a['attempts']) for a in session['requests']) >= MAX_ATTEMPTS or occupied >= MAX_TURNS:
         raise CharacterSessionError('SESSION_LIMIT')
-    created = create_group(session, action, list(previous['input_ids']), display_mode)
-    new_attempt = action['attempts'][-1]
-    new_attempt.update(retry_of=request_id, retry_token=retry_token)
-    return copy.deepcopy(new_attempt), True
+    return previous

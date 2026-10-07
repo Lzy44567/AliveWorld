@@ -9,32 +9,11 @@ from .preferences import load_preferences, session_settings
 from .group_context import build_group_context
 from .group_lifecycle import (accept_input, claim_inputs, busy, current_attempt, commit_generated, check_revision,
                               deliver, fail_generation, recover_groups, mark_read, batch_action, retry_group)
-from .group_records import conversation_projection, unread_messages, pending_inputs, active_groups
-from .contract import public_ledger
 from .errors import ERROR_MESSAGES
 from .legacy_context import build_legacy_retry_context, legacy_snapshot
 from .legacy_lifecycle import execution_for_request, begin_legacy_retry, commit_legacy
-
-
-def public_group(group):
-    keys = ('group_id', 'action_id', 'request_id', 'input_ids', 'status', 'display_mode',
-            'mode_at_generation', 'delivered_count', 'created_at', 'committed_revision', 'error_code')
-    value = {k: copy.deepcopy(group[k]) for k in keys if k in group}
-    value['bubbles'] = copy.deepcopy(group['bubbles'][:group['delivered_count']])
-    return value
-
-
-def public_session(session):
-    group = busy(session)
-    groups = [g for g in active_groups(session) if g['status'] in {'complete', 'partial_failed', 'delivering', 'generating'}][-20:]
-    ids = {mid for g in groups for mid in g['input_ids']} | {
-        b['message']['message_id'] for g in groups for b in g['bubbles'][:g['delivered_count']]}
-    ids |= {i['input_id'] for i in pending_inputs(session)}
-    return {'session_id': session['session_id'], 'revision': session['revision'],
-            'messages': [row for row in conversation_projection(session) if row['message']['message_id'] in ids],
-            'ledger': public_ledger(session),
-            'read_ai_seq': session['read_ai_seq'], 'unread_count': len(unread_messages(session)),
-            'queued_count': len(pending_inputs(session)), 'busy_group': public_group(group) if group else None}
+from .group_views import public_group, public_session
+from . import group_settings
 
 
 class CharacterGroupService:
@@ -163,6 +142,29 @@ class CharacterGroupService:
         changed = self._transaction(sid, lambda s: mark_read(s, seq))
         return {'changed': changed, **self.view(sid)}
 
+    def metadata(self, sid, revision, title=None, presentation_mode=None, preference_settings=None):
+        self._check(sid)
+        self._transaction(sid, lambda s: group_settings.metadata(s, revision, title, presentation_mode, preference_settings))
+        return self.view(sid)
+
+    def memory_mark(self, sid, revision, entry_id, important):
+        self._check(sid)
+        self._transaction(sid, lambda s: group_settings.mark_memory(s, revision, entry_id, important))
+        return self.view(sid)
+
+    def memory_update(self, sid, revision, operation, *args):
+        self._check(sid)
+        self._transaction(sid, lambda s: group_settings.update_memory(s, revision, operation, *args))
+        value = self.view(sid)
+        return {k: value[k] for k in ('session_id', 'revision', 'memory_settings')}
+
+    def memory_sources(self, sid, entry_id):
+        self._check(sid)
+        value = self.repository.load(sid)
+        if value.get('schema_version') != 2:
+            raise CharacterSessionError('SCHEMA_READ_ONLY')
+        return group_settings.memory_sources(value, entry_id)
+
     async def batch(self, sid, payload, display_mode='stream'):
         self._check(sid)
         self.set_display(sid, display_mode)
@@ -243,7 +245,11 @@ class CharacterGroupService:
                 plan, messages, entries, report = build_group_context(snapshot, attempt['request_id'], budget_options, preferences=preferences)
                 mode, reserved = attempt['display_mode'], attempt['reserved_ai_ids']
             self._publish(sid, 'accepted', attempt, display_mode=mode,
-                          reserved_ai_ids=reserved, base_revision=attempt['base_revision'])
+                          reserved_ai_ids=reserved, base_revision=attempt['base_revision'],
+                          context_omissions=[{k: item[k] for k in ('participant_id', 'field')}
+                                            for item in report.get('omitted', []) if item.get('field') == 'dialogue_examples'],
+                          **{public: report[key] for public, key in (('world_context_report', 'world_context'),
+                             ('memory_context_report', 'memory_context'), ('source_recall_report', 'source_recall')) if key in report})
             legacy_started = False
             def preview(body):
                 nonlocal legacy_started

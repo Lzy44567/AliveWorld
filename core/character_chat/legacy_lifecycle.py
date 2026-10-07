@@ -61,6 +61,19 @@ def begin_legacy_retry(session, action_id, retry_of, retry_token, display_mode='
             if attempt.get('retry_of') != retry_of:
                 raise CharacterSessionError('IDEMPOTENCY_MISMATCH')
             return copy.deepcopy(attempt), False
+    snapshot, contract, context = require_legacy_retry(session, action, retry_of)
+    attempt = {'request_id': str(uuid4()), 'base_revision': session['revision'], 'status': 'pending',
+               'created_at': now(), 'legacy_attempt': True, 'reply_contract_id': contract,
+               'context_contract_id': context, 'retry_of': retry_of, 'retry_token': retry_token,
+               'legacy_retry_snapshot': copy.deepcopy(snapshot),
+               'legacy_execution': {'group_id': str(uuid4()), 'context_epoch': session['context_epoch'],
+                                    'history_cutoff_seq': session['next_seq'] - 1, 'display_mode': display_mode}}
+    action['legacy_retry_snapshot'] = snapshot
+    action['attempts'].append(attempt)
+    return copy.deepcopy(attempt), True
+
+
+def require_legacy_retry(session, action, retry_of):
     if pending_legacy(session) or any(g['status'] in {'generating', 'delivering'} for g in active_groups(session)):
         raise CharacterSessionError('SESSION_BUSY')
     previous = action['attempts'][-1] if action['attempts'] else {}
@@ -71,15 +84,7 @@ def begin_legacy_retry(session, action_id, retry_of, retry_token, display_mode='
     count = len(capacity_groups(session)) - (action['operation'] == 'regenerate')
     if count >= MAX_TURNS or sum(len(a['attempts']) for a in session['requests']) >= MAX_ATTEMPTS:
         raise CharacterSessionError('SESSION_LIMIT')
-    attempt = {'request_id': str(uuid4()), 'base_revision': session['revision'], 'status': 'pending',
-               'created_at': now(), 'legacy_attempt': True, 'reply_contract_id': contract,
-               'context_contract_id': context, 'retry_of': retry_of, 'retry_token': retry_token,
-               'legacy_retry_snapshot': copy.deepcopy(snapshot),
-               'legacy_execution': {'group_id': str(uuid4()), 'context_epoch': session['context_epoch'],
-                                    'history_cutoff_seq': session['next_seq'] - 1, 'display_mode': display_mode}}
-    action['legacy_retry_snapshot'] = snapshot
-    action['attempts'].append(attempt)
-    return copy.deepcopy(attempt), True
+    return snapshot, contract, context
 
 
 def fail_legacy(session, rid, status='failed', error_code='PROVIDER_FAILED'):

@@ -10,6 +10,12 @@ A is implemented but not enabled for existing sessions: explicit reply.v3, stric
 
 Historical headings below do not override this contract.
 
+### B6 public records and auxiliary mutations — 2026-10-08
+
+Astra froze22v section14 and the main agent read it fully: actual-schema dispatch, explicit new-schema creation only with the matching UI, no automatic player migration, JSON commands separate from long SSE subscriptions, shared provider slots/lifespan, source/notice/read and mixed-schema acceptance. Implemented isolated schema2 detail/summary/action projections, whole-group pagination, owner resolution for merged inputs, shared pure retry eligibility and auxiliary metadata/memory/source operations. Candidate tails/import metadata/inverses remain private. Title and notice acknowledgements may run while busy without changing context_epoch; semantic mutations require no generation/delivery/unanswered inputs. V3 batch-end notice and archive-safe acknowledgement now work.
+
+Astra found and the main agent fixed an action/attempt identity mixup: undo must expose its control attempt, while explicit old request queries must not carry a newer group/notice. Added regressions. Next verifiable slice: mixed-schema runtime with shared four slots and app lifespan, then JSON actions/long SSE/read/groups HTTP wiring, C frontend and full V. Routes and new UI creation remain unchanged; this is not a package/migration node. Evidence in TESTING; no version/provider/player-data/remote change.
+
 ### B5b legacy execution/service — 2026-10-08
 
 Converted old attempts now have a strict, nonformal execution reservation, explicit retry/terminal/atomic single-bubble commit and protocol-aware background service dispatch. Original user/AI IDs and v1/v2/context/OOC remain frozen; failed/cancelled/interrupted execution adds no formal messages. Legacy regeneration keeps the target until success, then reverses ledger and replaces its exclusive input atomically. Startup interrupts pending execution without a model call. Retry-token replay, pre-provider cancellation, source/highlight notice, batch undo and next normal v3 request have synthetic regressions.

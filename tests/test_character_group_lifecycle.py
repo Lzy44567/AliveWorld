@@ -96,6 +96,7 @@ class GroupLifecycleTests(unittest.TestCase):
         group = self.complete(sent['attempt'], value)
         before = self.load()
         self.assertEqual([], before['ledger'])
+        self.assertNotIn('memory_notice', before['groups'][0])
         self.assertEqual(1, len(before['groups'][0]['ledger_plan']))
         self.assertNotIn(sent['attempt']['reserved_ai_ids'][1], formal_messages(before))
         self.mutate(lambda s: deliver(s, s['groups'][0], self.clock + timedelta(seconds=10), 1))
@@ -103,6 +104,13 @@ class GroupLifecycleTests(unittest.TestCase):
         self.assertEqual(sent['attempt']['reserved_ai_ids'][1], after['ledger'][0]['source']['message_ids'][0])
         self.assertEqual('complete', after['groups'][0]['status'])
         self.assertEqual([], after['groups'][0]['ledger_plan'])
+        from core.character_chat.notices import notice_for
+        from core.character_chat.memory_operations import acknowledge
+        owner = after['requests'][0]
+        notice = notice_for(after, owner)
+        self.assertEqual([after['ledger'][0]['entry_id']], notice['entry_ids'])
+        self.assertTrue(acknowledge(after, owner['action_id']))
+        self.assertFalse(acknowledge(after, owner['action_id']))
 
     def test_new_inputs_while_generating_or_delivering_do_not_cancel_batch(self):
         sent, _ = self.send('A', claim=True, mode='gaps')
@@ -123,6 +131,27 @@ class GroupLifecycleTests(unittest.TestCase):
         self.assertEqual([], pending_inputs(self.load()))
         self.assertEqual(2, sum(len(a['attempts']) for a in self.load()['requests']))
         self.assertIsNone(self.mutate(lambda s: claim_inputs(s)))
+
+    def test_group_notice_ack_after_undo_does_not_revive_archived_memory(self):
+        sent, _ = self.send(claim=True, mode='instant')
+        value = result('约定')
+        ids = [p['instance_id'] for p in self.initial['participants']]
+        value['ledger_ops'] = [{'op': 'add', 'kind': 'experience', 'content': '建立约定',
+                               'source': {'type': 'dialogue_event', 'message_ids': ['b0'],
+                                          'evidence': [{'message_id': 'b0', 'quote': '约定'}]},
+                               'visibility': {'audience_instance_ids': ids}}]
+        value['memory_annotations'] = [{'op_index': 0, 'reason': 'commitment'}]
+        group = self.complete(sent['attempt'], value)
+        session = self.load()
+        from core.character_chat.notices import notice_for
+        from core.character_chat.memory_operations import acknowledge
+        self.assertIsNotNone(notice_for(session, session['requests'][0]))
+        batch_action(session, {'client_action_id': str(uuid4()), 'expected_revision': session['revision'],
+                               'operation': 'undo', 'target_group_id': group['group_id']})
+        validate_schema2(session)
+        self.assertIsNone(notice_for(session, session['requests'][0]))
+        self.assertFalse(acknowledge(session, session['requests'][0]['action_id']))
+        self.assertEqual([], session['ledger'])
 
     def test_idempotent_send_and_cas_conflict_no_duplicate_input(self):
         aid = str(uuid4())

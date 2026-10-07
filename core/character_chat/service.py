@@ -198,24 +198,8 @@ class CharacterChatService:
             raise CharacterSessionError('INVALID_REQUEST')
         def update(value):
             writable(value, revision)
-            roots = memory_settings(value)['important_entry_ids']
-            entry = next((e for e in valid_candidates(value) if e['entry_id'] == entry_id and public(e, value)), None)
-            if entry is None and not (not important and entry_id in roots):
-                raise CharacterSessionError('INVALID_REQUEST')
-            root = root_for(entry, value) if entry else entry_id
-            changed = False
-            if important and not root:
-                if len(roots) == 8:
-                    raise CharacterSessionError('MEMORY_MARK_LIMIT')
-                roots.append(entry_id)
-                changed = True
-            elif not important and root in roots:
-                roots.remove(root)
-                changed = True
+            changed = memory_operations.mark(value, entry_id, important)
             if changed:
-                config = memory_settings(value)
-                config['important_entry_ids'] = roots
-                value['extensions']['character_memory'] = config
                 value['revision'] += 1
             return session_view(value), changed
         return self.repository.transaction(sid, update)

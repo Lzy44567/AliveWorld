@@ -222,3 +222,88 @@ cancel/close/start的终态函数同时覆盖无实体group的旧execution：仅
 先补legacy_snapshot协议/OOC/ID/owner与execution严格验证→纯旧上下文适配及parse/planner→无group旧execution生命周期→服务分派/字符串预览→隔离临时仓库回归。不能在这片修改生产路由、运行真实迁移或扩展显示需求。
 
 验收覆盖V1/V2×LEGACY/M3及V1/V2×C3合法组合；丢失可选字段按旧默认、矛盾协议/OOC拒绝；原user/AI ID贯穿多次失败/取消/中断/retry；重复retry_token零额外调用；旧regenerate失败保留、成功原子替换、来源/高光/撤回准确；新多气泡历史进入旧单reply请求但不拼接假来源；流式失败无正式输入、保存失败无广播；取消前零调用/取消立即重试/重启零自动费用；兼容pending期间send忙碌不丢草稿；成功后下一正常请求v3。所有旧schema1测试保持不变，无新玩家产品问题。
+
+## 14. 窄API、公共投影与长订阅接线合同
+
+2026-10-08。当前routes全局持有旧service，POST actions同时执行并返回SSE，断开会取消生成；store仅有一个inflight/preview且忙碌禁发，仍依赖turns。这些路径必须按存储格式分派，不能把新service挂在旧deliver函数后就宣称后台送达完成。本节只冻结接线工程，不运行真实迁移、不加玩法。
+
+### 14.1 格式分派、新建及进程生命周期
+
+repository校验器支持schema1/2，加载后按实际schema选择旧CharacterChatService或CharacterGroupService；未知版本只读摘要、所有修改拒绝。不要通过请求里的display_mode猜存储格式。schema1维持旧执行/投影/turns路径，schema2使用新组路径，GET/list/POST均不能调用convert_legacy_session隐式转换文件。
+
+创建payload新增可选schema_version，仅1/2；缺省仍1以兼容旧客户端。新前端在C4完整端到端验收后明确发送2，新会话直接构建schema2空结构，不先写schema1再迁移。合成测试现在可显式创建2；生产新前端创建2的开关与可用messages/groups UI同步开放，不能只开放后端让旧UI空白。
+
+创建幂等先检查现有sid/墓碑，再读取资产。schema2的创建fingerprint将schema_version=2纳入身份；缺省/显式1沿原fingerprint不变。相同creation_id请求不同格式返回IDEMPOTENCY_MISMATCH，不迁移原会话。旧资产快照/世界绑定/opening冻结规则不变。
+
+在应用lifespan同一asyncio loop构造/start/close新service；不在同步路由、线程池或每请求创建独立loop/worker。startup仅执行已定义恢复，shutdown取消worker并等待持久终态。生产单进程门继续生效：WEB_CONCURRENCY>1在C4可写/订阅入口拒绝，不能让两个进程各自恢复同组。
+
+新service的四槽是进程角色生成总预算，不按路由/订阅再造四槽。混合schema1/2并存时，提取进程共享槽适配器：旧begin非阻塞try_acquire，C4 worker可等待，均在同loop由同一计数器支撑；每次释放一次。不能给旧service和新service各4槽变成8，也不能阻塞event loop等待线程信号量。gaps正式送达不占供应商槽。
+
+### 14.2 公共投影，不伪造turn
+
+schema2 GET详情固定返回schema_version:2、session_id/title/revision/created_at/updated_at/presentation_mode、participants公共投影、opening、world_binding名称、preference_settings/memory_settings及以下字段：
+
+| 字段 | 权威与边界 |
+| --- | --- |
+| messages | 当前页正式message行，沿conversation_projection的{message,group_id,ooc_note?}；按seq排序，OOC仅来自本会话正式输入 |
+| groups | 当前页组公共元数据及已送达bubbles；input_ids不等于伪造一个user_message |
+| busy_group | 当前生成/送达公共摘要；legacy pending可无正式输入，绝不暴露snapshot/candidate/ledger_plan |
+| queued_count | 已保存待回应条数，不表示已认领或已收费 |
+| read_ai_seq/unread_count | 服务端已读游标和正式AI未读数 |
+| ledger | 仅public_ledger默认投影，不含私有记录；spoiler仍需原显式入口 |
+| last_failed_action | 安全action投影；不凭base_revision==当前revision判断是否仍可重试 |
+| next_cursor | 当前正式组页之前的cursor，有无更早历史以它为准 |
+
+详情默认最新20个可展示active组，并合并当前pending正式输入，ID去重、seq排序；失败仅有输入时仍能看见已发台词。groups不公开replaced/withdrawn档案；group中已送达前缀与messages可能表示同一消息，前端必须按message_id唯一渲染，不重复两遍。
+
+摘要沿用列表需要的session_id/title/revision/ai_name/created_at等，新增schema_version、busy摘要、queued_count、read_ai_seq/unread_count。last_activity_at/last_message_preview/last_message_kind取最后正式消息（user或AI）；latest_ai_message_id/latest_ai_committed_revision另取最新正式AI，不以候选、预览或updated_at冒充新消息。schema1摘要和本地已读方式原样保留。
+
+GET /{sid}/groups?before=<group_id>&limit=20（1–50）仅schema2，返回{schema_version,session_id,revision,groups,messages,next_cursor}；以active组创建顺序向前整组分页，合并其input_ids及正式AI，按seq显示。pending输入仅详情附加，不伪造分页组。cursor因撤回/重生成失效返回REVISION_CONFLICT并要求重取最新详情，不静默漏页。GET /turns只支持schema1，schema2明确拒绝；新客户端根据schema选端点。
+
+GET /actions/{aid}投影保留session_id/action_id/operation/request_id?/base_revision?/revision、status、result_state、group_id?/resolved_by_group_id?、group_status?、error_code?/retryable及合法memory_notice。status区分queued（未领取）、pending（生成）、committed（生成成功）、failed/cancelled/interrupted；committed+group_status=delivering不等于整批完成。queued action后来可能由别的owner attempt回应，必须通过resolved_by_group_id/组input_ids查其实际归属，不能硬取自身attempts[-1]。
+
+显式request_id查询必须属于指定action；不返回完整requests/attempts、保留AI ID数组之外的候选、inverse、内部epoch或供应商配置。legacy失败可沿旧retry_input/retry_ooc_note供恢复；schema2普通失败用input_ids引用已有消息，不把已保存台词塞回草稿造成重复发送。重试按钮资格由服务端当前约束判定，不由旧base_revision等式推断。
+
+### 14.3 memory、cognition、source、notice与metadata适配
+
+memory.formal_messages/origin_order、cognition.public_index、recall已支持schema2，复用它们而非造turn；API cognition/source/ledger/capacity去掉硬编码schema==1，改为明确支持版本验证后分派。source接口保持entry_id/revision/messages形状，只取当前有效且双方可见的原消息，候选、归档、私有来源不可取；不按气泡文本拼接替换原ID。
+
+本节审阅时notice_for与memory_operations.acknowledge仍查turns，主代理已并行补齐schema2批末attach_notice及notice/ack适配；沿该实现继续，不重复开发。统一记录解析规则为schema1沿旧turn/archived_turn，schema2从result_group_id取真实组；notice只认owner send action、complete且active组、实际inverse新增entry和公共有效来源。连发子action通过组owner指向同一通知，不能每条输入发一遍。ack保持单调notice_ack_revision；归档通知无效返回无变化，不复活旧高光。
+
+memory_mark/enable/selection/release复用现有纯领域操作与public_state；schema2包装器使用check_revision及busy/queued检查而不是旧writable(pending-only)。改变模型取材的记忆/偏好/表现模式操作要求无生成、无送达、无待回应输入，成功revision+1、context_epoch+1。标题可忙时改，仅revision+1。notice ack仅确认展示，不改变语义，忙时允许、epoch不变；read ack同样不改epoch。
+
+PATCH metadata字段仍仅title/presentation_mode/preference_settings，不能顺手改卡或world_binding；混合标题+语义字段请求整体按更严格规则原子处理，不部分成功。返回对应schema详情。容量schema2沿capacity_groups/action/attempt/file预算，不用len(turns)，格式未知仍拒绝。删除需检查普通组及legacy pending忙碌、CAS与原墓碑规则，不删除角色资产。
+
+### 14.4 HTTP命令与长期SSE分离
+
+schema2 POST /actions仍承载send/undo/regenerate，但只接受保存/排队命令并快速返回JSON，send使用content/ooc_note，批操作使用target_group_id；旧target_turn_id只给schema1使用。返回202表示queued/pending/delivering，200表示幂等终态/已完成控制操作；始终返回安全action投影和当前revision，不等待模型或依赖HTTP连接存活。
+
+POST /actions/{aid}/retry、/requests/{rid}/cancel同样JSON，不复用旧deliver；断开POST不取消已提交操作，响应丢失由client_action_id/retry_token和GET status核对，不重建付费请求。schema1保留既有POST-SSE语义，不在此暗改老会话行为。
+
+新增GET /{sid}/events供schema2会话长期订阅。注册前验证sid/schema/权限，与命令同loop；订阅只收事件，不拥有任务。先注册callback再发送ready（含当前revision、连接stream_id），接着心跳/事件，避免查询后再订阅的状态窗口。客户端尽量等ready再POST；如果已先发命令，则ready后GET详情/status补齐，不能假定一定收到了accepted。
+
+每连接有界队列（沿64帧并加256KiB总文本上限），15秒心跳；断连/溢出只detach此订阅，**绝不调用cancel、绝不await或持有worker**。溢出关闭并要求重连核对；callback仅put_nowait，不同步等待网络。无无限事件回放/预览缓存；Last-Event-ID不用于重放私人正文。每次重连有新stream_id，清理本地临时预览并GET权威状态；当前生成已错过的文字不靠模型重生成补流，最终正式组仍原位还原。
+
+事件带session_id、stream_id、单连接递增event_seq；涉及请求时另带action_id/request_id/group_id及既有请求seq。服务当前request_id=null事件也要靠连接event_seq排序，不用全局None计数器推断会话顺序。accepted/preview均不正式，group_saved/input_saved只在持久成功后发送，state_changed为刷新提示。事件只传当次正式组/轻量计数和安全预算报告，不塞整份历史/ledger/候选/配置。
+
+没有任何订阅时worker照常运行。切会话detach旧订阅不取消原组；列表用既有summary刷新机制在打开/返回/当前事件后核对后台未读，不为所有历史会话建立无界SSE连接，不新建全局事件总线。
+
+PUT /{sid}/read接受严格{seq}（非负安全整数），调用单调mark_read；无需expected_revision，旧ack不能覆盖新消息，也不读未来seq。返回revision/read_ai_seq/unread_count；无变化不递增。仅前台实际呈现正式气泡后发ack，预览不ack，后台/GET详情不自动读。schema1继续原本地游标。
+
+### 14.5 display/delivery与前端最小分支
+
+schema2命令允许display_mode=stream|gaps|instant。为兼容请求仅含delivery时：stream→stream、non_stream→instant；都缺按既有stream默认。两字段同时给时必须一致（gaps要求non_stream），冲突INVALID_REQUEST，不静默择一。schema1仅接受原delivery字段，新store对旧格式不发display_mode。HTTP响应是否SSE由schema决定，不能以delivery=stream判断schema2 POST需要长连接。
+
+前端保留两个互斥开关（流式/气泡间隔）及全关，不用下拉/独立逐字。设置变化影响下一次attempt；发送payload带明确display_mode，当前组按已保存快照。客户端持久设置是显示偏好，不是服务端候选权威；旧interaction.delivery映射一次，不给non_stream用户自动开启gaps。
+
+store按schema分支：旧run/event/settle保持；schema2分别保存commandPending（仅HTTP保存中）、busy_group、queued输入、previewByRequestOrdinal和subscription。普通v3忙时允许发送，不再以ctx.busy一概禁发；legacy兼容busy仍由服务端拒绝并保留草稿。草稿只在input_saved/成功JSON确认对应client_action_id后清除，模型失败不回填已正式输入；丢响应保留并按原action核对。
+
+组预览使用reserved_ai_ids映射稳定气泡键，后续气泡实时追加；确认后同键换正式message，不先清空再整页加载造成重播闪烁。对终态/seq缺口重载权威详情，绝不从预览组装历史。分页按message_id去重、seq排序；不要让group.bubbles和messages各画一遍。停止仅保留现有生成取消能力，不在gaps余量阶段新增按钮。
+
+### 14.6 实施门和接线验收
+
+先公共详情/摘要/action/notice/辅助管理纯投影及混合schema测试→lifespan与共享四槽→schema2 JSON命令/长SSE/read/groups分页→前端schema分支和三态显示→端到端验收后仅新前端显式创建schema2。真实旧会话迁移仍单独等待确认，不把新格式GET作为迁移触发器。
+
+最少验：旧schema1路由/覆盖/断连行为无回归；同creation_id幂等与格式不符；schema2任一显示模式POST快速JSON；SSE先后连接/断连/溢出不取消且最终只送一次；混合格式同时调用总并发≤4；退出/恢复已有尾和旧队列零自动收费；queued子action能查到owner结果；每页完整组且插话顺序不乱/撤回cursor要求刷新；readack单调；公共/私有记忆及source/notice不泄漏；无候选/半JSON进入GET；新设置下次生效；旧存档文件字节未因GET/list/创建新会话变化。以上是工程验收，无新增玩家选择。
+
+测试过渡：保留现有routes测试注入schema1 repository/service和旧TestClient方式；schema1路由不得因缺新lifespan状态被迫建立schema2任务。新增schema2测试必须显式注入隔离仓库/假供应商，并通过TestClient上下文或异步lifespan驱动启动/关闭，worker不得跨测试loop存活。若C4入口未完成startup，返回明确SERVICE_UNAVAILABLE而非偷偷每请求建service。现有浏览器假API旧格式继续作为schema1回归，另设明确schema2 fixture覆盖JSON命令+长订阅，不能全局修改旧fixture以掩盖兼容破坏；两类都不读取或转换玩家文件。
