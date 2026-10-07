@@ -2,6 +2,21 @@
 
 2026-10-06，Astra实施设计；承接22u，不重新讨论已确认玩法。仅设计，不执行真实数据迁移。存储schema新版本取2，与输出character.reply.v3是两个独立版本；memory扩展version仍保持原值。无数据库、事件总线、插件或分段存储扩建。
 
+## 2026-10-07 隔离实现与工程细化（当前生效）
+
+已完成B1纯转换/reader/严格校验及B2纯事务原型：旧repository默认仍schema1，仅隔离测试显式注入schema2 validator；没有生产路由/默认格式切换，没有真实文件转换。共享账本planner供旧双消息和新组使用；不把多输入合成假消息。
+
+- `character.context.c4.v1`承载未来独立输入数组；schema1明确拒绝C4/v3，不把支持新协议等同已有存档可用。
+- 旧attempt加显式`legacy_attempt=true`、旧临时输入保存为`legacy_retry_snapshot`；旧重生成的输入ID原本是新ID，保留其原regenerate owner，并仅对明确legacy记录允许这种输入所属关系。不能按正文相同合并身份。
+- undo无模型请求，其幂等attempt明确`control_attempt=true`，只有undo/committed及基础控制字段，不伪造v3输出attempt。
+- `ledger_plan`每项仅`entry`和可选`previous_entry`；校验候选来源、可见性、注解、原目标、反向身份与容量。候选不进入正式来源；本组尾部可作预验证依赖，批末才结算。
+- 自动认领在最近失败/取消/中断后停止；显式继续/重试才可重启。失败原输入+后续排队可能超过一次请求上限，按原顺序有界前缀认领（≤8条、正文≤4000、OOC≤1000），其余不丢失，下批处理，不永久卡死或放大预算。
+- failed/cancelled/interrupted档案不占512个正式组容量，仍受4096 attempts/2048 actions/文件限额。合法重生成重试与初次重生成一样预扣被替换组。
+- 批操作依赖屏障以本批认领输入截止为准，不按最后AI气泡序号：A→玩家X→B之后不能撤回/替换X所依赖的旧批。失败档案可引用后来已withdrawn的输入，避免成功重试撤回时自相矛盾。
+- UTC候选到期时间与新消息时间严格验证；恢复重新安排剩余短间隔，timer通过group+ordinal幂等。旧已读ACK不回退游标，不将候选当未读。
+
+29项隔离测试覆盖以上状态及旧多次重生成/撤回/场外/来源身份、磁盘失败。下一仍是C4上下文/服务调度/旧协议重试适配、前端数组气泡与原位确认、全量浏览器及迁移门；不能将纯函数测试称为完整后台自动送达或可打包C4。
+
 ## 1. 当前实现与最小改动边界
 
 repository.py已经提供单会话mutation_guard、深拷贝、validate_session、临时文件/fsync/os.replace；继续使用一个会话JSON作为事务聚合，不增加跨文件提交。models当前schema_version=1，turns是双消息回合；service.archive_last将整轮挂在原action并reverse_ledger；memory.formal_messages及context.build_context直接遍历双消息，需要统一适配，不能仅改API数组。

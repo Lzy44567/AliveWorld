@@ -31,8 +31,15 @@ def _reject_constant(_):
 class CharacterSessionRepository:
     """Single-process repository. Callers receive detached authoritative copies."""
 
-    def __init__(self, directory: Path):
+    def __init__(self, directory: Path, *, validator=None, supported_schemas=(1,)):
         self.directory = Path(directory).resolve()
+        # New storage is opt-in for isolated implementation/acceptance. The live
+        # schema1 service cannot write schema2 until the explicit migration gate.
+        self.validator = validator
+        self.supported_schemas = frozenset(supported_schemas)
+
+    def _validate(self, value):
+        (self.validator or validate_session)(value)
 
     def _path(self, session_id: str) -> Path:
         canonical_id(session_id)
@@ -69,10 +76,10 @@ class CharacterSessionRepository:
             if value.get("deleted") is True:
                 raise CharacterSessionError("SESSION_DELETED")
             # Preserve unknown future schemas for read-only inspection, never downgrade.
-            if type(value.get("schema_version")) is int and value["schema_version"] > 1:
+            if type(value.get("schema_version")) is int and value['schema_version'] > max(self.supported_schemas):
                 return copy.deepcopy(value)
             try:
-                validate_session(value)
+                self._validate(value)
             except CharacterSessionError as exc:
                 if exc.code == 'CONTEXT_CONTRACT_UNSUPPORTED':
                     raise
@@ -80,7 +87,7 @@ class CharacterSessionRepository:
             return copy.deepcopy(value)
 
     def _write(self, value: dict) -> None:
-        validate_session(value)
+        self._validate(value)
         raw = json_bytes(value)
         if len(raw) > MAX_FILE_BYTES:
             raise CharacterSessionError("SESSION_LIMIT")
@@ -104,7 +111,7 @@ class CharacterSessionRepository:
 
     def create(self, candidate: dict) -> dict:
         value = copy.deepcopy(candidate)
-        validate_session(value)
+        self._validate(value)
         if value.get("deleted") or value.get("revision") != 0:
             raise CharacterSessionError("INVALID_REQUEST")
         session_id = value["session_id"]
@@ -117,9 +124,9 @@ class CharacterSessionRepository:
             else:
                 if existing.get("deleted") is True:
                     raise CharacterSessionError("SESSION_DELETED")
-                if existing.get("schema_version") != 1:
+                if existing.get("schema_version") not in self.supported_schemas:
                     raise CharacterSessionError("SCHEMA_READ_ONLY")
-                validate_session(existing)
+                self._validate(existing)
                 if existing.get("creation_fingerprint") != value["creation_fingerprint"]:
                     raise CharacterSessionError("IDEMPOTENCY_MISMATCH")
                 return copy.deepcopy(existing)
@@ -128,14 +135,14 @@ class CharacterSessionRepository:
 
     def save(self, candidate: dict, *, expected_revision: int) -> dict:
         value = copy.deepcopy(candidate)
-        validate_session(value)
+        self._validate(value)
         if value.get("deleted") or type(expected_revision) is not int:
             raise CharacterSessionError("INVALID_REQUEST")
         with self._guard(value["session_id"]):
             old = self._load(value["session_id"])
             if old.get("deleted") is True:
                 raise CharacterSessionError("SESSION_DELETED")
-            validate_session(old)
+            self._validate(old)
             if old["revision"] != expected_revision:
                 raise CharacterSessionError("REVISION_CONFLICT")
             if value["revision"] != expected_revision + 1:
@@ -153,7 +160,7 @@ class CharacterSessionRepository:
             old = self._load(session_id)
             if old.get('deleted') is True:
                 raise CharacterSessionError('SESSION_DELETED')
-            validate_session(old)
+            self._validate(old)
             candidate = copy.deepcopy(old)
             result, changed = operation(candidate)
             if changed:
@@ -185,9 +192,11 @@ class CharacterSessionRepository:
             old = self._load(session_id)
             if old.get("deleted") is True:
                 return
-            validate_session(old)
+            self._validate(old)
             if old["revision"] != expected_revision:
                 raise CharacterSessionError("REVISION_CONFLICT")
             if any(a.get('status') == 'pending' for action in old['requests'] for a in action.get('attempts', [])):
                 raise CharacterSessionError('SESSION_BUSY')
-            self._write({"schema_version": 1, "session_id": session_id, "deleted": True})
+            if any(g['status'] == 'delivering' for g in old.get('groups', [])):
+                raise CharacterSessionError('SESSION_BUSY')
+            self._write({"schema_version": old['schema_version'], "session_id": session_id, "deleted": True})

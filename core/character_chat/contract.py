@@ -92,9 +92,38 @@ def _plan_turn(session, action, attempt, raw, allowed_messages, projected_entry_
     user = message(pending['user_message_id'], 'user', pending['content'])
     reply = message(pending['ai_message_id'], 'ai', result['reply'])
     messages = {m['message_id']: m for m in [*allowed_messages, user, reply]}
+    candidate, inverse = plan_ledger(session, result['ledger_ops'], annotations, messages,
+                                     {user['message_id'], reply['message_id']},
+                                     projected_entry_ids, turn_id)
+    turn = {'turn_id': turn_id, 'action_id': action['action_id'], 'request_id': attempt['request_id'],
+            'user_message': user, 'ai_message': reply, 'mode_at_generation': pending['mode'],
+            'ledger_inverse': inverse, 'committed_revision': session['revision'] + 1, 'created_at': timestamp}
+    if pending.get('ooc_note'):
+        turn['ooc_note'] = pending['ooc_note']
+    candidate['turns'].append(turn)
+    if annotations and action['operation'] == 'send':
+        _, report = select_memory(candidate, pending['content'])
+        selected = {e['entry_id'] for e in report if e['reason'] in {'auto_important', 'auto_highlight'}}
+        ids = [e['entry_id'] for e in candidate['ledger'] if e['entry_id'] in inverse['added_entry_ids']
+               and e['entry_id'] in selected and not e.get('supersedes_entry_id') and public(e, candidate)]
+        if ids:
+            turn['memory_notice'] = {'action_id': action['action_id'], 'committed_revision': turn['committed_revision'], 'entry_ids': ids}
+    return candidate, turn
+
+
+def plan_ledger(session, operations, annotations, messages, current_message_ids,
+                projected_entry_ids, origin_id):
+    """Shared source-closed planner for old pairs and v3 message groups.
+
+    Caller supplies exact allowed formal messages plus current inputs/candidates;
+    neither arbitrary historical IDs nor temporary preview text are evidence.
+    """
+    candidate = copy.deepcopy(session)
+    participants = {p['controller']: p['instance_id'] for p in session['participants']}
+    audience = list(participants.values())
     inverse = {'added_entry_ids': [], 'previous_entries': []}
     touched = set()
-    for op_index, op in enumerate(result['ledger_ops']):
+    for op_index, op in enumerate(operations):
         if not isinstance(op, dict):
             raise CharacterSessionError('CONTRACT_INVALID')
         required = {'op', 'kind', 'content', 'source', 'visibility'}
@@ -146,11 +175,11 @@ def _plan_turn(session, action, attempt, raw, allowed_messages, projected_entry_
             text(item['quote'], 240)
             if item['quote'] not in messages[item['message_id']]['content']:
                 raise CharacterSessionError('CONTRACT_INVALID')
-        if source_type == 'dialogue_event' and not set(refs) <= {user['message_id'], reply['message_id']}:
+        if source_type == 'dialogue_event' and not set(refs) <= current_message_ids:
             raise CharacterSessionError('CONTRACT_INVALID')
         entry = {'entry_id': str(uuid4()), 'subject_instance_id': participants['ai'],
                  'kind': kind, 'content': op['content'], 'source': copy.deepcopy(source),
-                 'visibility': copy.deepcopy(visibility), 'status': 'active', 'created_turn_id': turn_id}
+                 'visibility': copy.deepcopy(visibility), 'status': 'active', 'created_turn_id': origin_id}
         if about is not None:
             entry['about_instance_id'] = about
         if op_index in annotations:
@@ -172,17 +201,4 @@ def _plan_turn(session, action, attempt, raw, allowed_messages, projected_entry_
         inverse['added_entry_ids'].append(entry['entry_id'])
     if len(candidate['ledger']) > 2048 or sum(e['status'] == 'active' for e in candidate['ledger']) > 128:
         raise CharacterSessionError('SESSION_LIMIT')
-    turn = {'turn_id': turn_id, 'action_id': action['action_id'], 'request_id': attempt['request_id'],
-            'user_message': user, 'ai_message': reply, 'mode_at_generation': pending['mode'],
-            'ledger_inverse': inverse, 'committed_revision': session['revision'] + 1, 'created_at': timestamp}
-    if pending.get('ooc_note'):
-        turn['ooc_note'] = pending['ooc_note']
-    candidate['turns'].append(turn)
-    if annotations and action['operation'] == 'send':
-        _, report = select_memory(candidate, pending['content'])
-        selected = {e['entry_id'] for e in report if e['reason'] in {'auto_important', 'auto_highlight'}}
-        ids = [e['entry_id'] for e in candidate['ledger'] if e['entry_id'] in inverse['added_entry_ids']
-               and e['entry_id'] in selected and not e.get('supersedes_entry_id') and public(e, candidate)]
-        if ids:
-            turn['memory_notice'] = {'action_id': action['action_id'], 'committed_revision': turn['committed_revision'], 'entry_ids': ids}
-    return candidate, turn
+    return candidate, inverse

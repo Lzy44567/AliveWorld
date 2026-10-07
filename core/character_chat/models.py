@@ -14,7 +14,7 @@ from .memory import settings as memory_settings, MemoryVersionError
 from .annotations import validate_annotation
 from .protocol import attempt_contract, validate_contract, ReplyContractError, V2, V3
 from .notices import validate_notice
-from .context_contract import context_contract, validate_context_contract, ContextContractError, LEGACY, C3
+from .context_contract import context_contract, validate_context_contract, ContextContractError, LEGACY, C3, C4
 from .ooc import validate_stored_ooc
 from .limits import MAX_TURNS, MAX_LEDGER, MAX_ACTIONS, MAX_ATTEMPTS, MAX_ACTIVE, MAX_EXTENSIONS_BYTES
 
@@ -158,6 +158,17 @@ def validate_session(value: object) -> None:
         if set(value) != {"schema_version", "session_id", "deleted"}:
             raise CharacterSessionError("SESSION_CORRUPT")
         return
+    validate_envelope(value)
+    for key, limit in (("turns", MAX_TURNS), ("ledger", MAX_LEDGER), ("requests", MAX_ACTIONS)):
+        if not isinstance(value.get(key), list):
+            raise CharacterSessionError("SESSION_CORRUPT")
+        if len(value[key]) > limit:
+            raise CharacterSessionError("SESSION_LIMIT")
+    validate_records(value)
+
+
+def validate_envelope(value):
+    """Shared frozen profiles/settings; no runtime messages or schema coercion."""
     text(value.get("title"), 80)
     if type(value.get("revision")) is not int or value["revision"] < 0:
         raise CharacterSessionError("SESSION_CORRUPT")
@@ -187,11 +198,6 @@ def validate_session(value: object) -> None:
             except CharacterProfileError:
                 raise CharacterSessionError('SESSION_CORRUPT') from None
         validate_asset_ref(p.get("asset_ref"), required=p["controller"] == "ai")
-    for key, limit in (("turns", MAX_TURNS), ("ledger", MAX_LEDGER), ("requests", MAX_ACTIONS)):
-        if not isinstance(value.get(key), list):
-            raise CharacterSessionError("SESSION_CORRUPT")
-        if len(value[key]) > limit:
-            raise CharacterSessionError("SESSION_LIMIT")
     text(value.get("creation_fingerprint"), 64)
     text(value.get("created_at"), 64)
     text(value.get("updated_at"), 64)
@@ -225,7 +231,6 @@ def validate_session(value: object) -> None:
         validate_depth(binding['snapshot'], 32)
         if len(json_bytes(binding['snapshot'])) > MAX_SNAPSHOT_BYTES:
             raise CharacterSessionError('SESSION_LIMIT')
-    validate_records(value)
 
 
 def validate_records(value):
@@ -287,7 +292,8 @@ def validate_records(value):
             for attempt in attempts:
                 if attempt_contract(attempt) == V3:
                     raise ReplyContractError('v3 requires message-group storage')
-                context_contract(attempt)
+                if context_contract(attempt) == C4:
+                    raise ContextContractError('C4 requires message-group storage')
                 attempt_count += 1
                 rid = canonical_id(attempt['request_id'])
                 if rid in request_ids or attempt['status'] not in {'pending', 'committed', 'failed', 'cancelled', 'interrupted'}:
@@ -313,6 +319,8 @@ def validate_records(value):
                 if validate_contract(retry_input.get('reply_contract_id', 'character.reply.v1')) == V3:
                     raise ReplyContractError('v3 requires message-group storage')
                 retry_context = validate_context_contract(retry_input.get('context_contract_id', LEGACY))
+                if retry_context == C4:
+                    raise ContextContractError('C4 requires message-group storage')
                 validate_stored_ooc(retry_input)
                 text(retry_input['content'], 4000)
                 canonical_id(retry_input['user_message_id'])

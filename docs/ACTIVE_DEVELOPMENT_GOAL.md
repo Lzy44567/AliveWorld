@@ -1,6 +1,6 @@
 # Active development goal
 
-Updated: 2026-10-06
+Updated: 2026-10-07
 
 ## Current — C4 bound streaming / multibubble implementation
 
@@ -9,6 +9,12 @@ Latest user definition supersedes the historical display question below: streami
 A is implemented but not enabled for existing sessions: explicit reply.v3, strict 1–6 messages / 8000-codepoint / 65536-byte output, stable local-source mapping, independent incremental messages[N].text lexer and transport dispatch. First and later bubbles preview before complete JSON arrives; private paths stay hidden; final validation remains mandatory. 12 new tests, targeted35/35 and full Python649/649 (26.060s) pass. Old contract selection, contexts, session storage and frontend remain unchanged; this is not complete C4 or an EXE. Next verifiable slice: schema2 reader/validation and pure synthetic migration, then group lifecycle, queues and UI. Real player data is not read or converted.
 
 Historical headings below do not override this contract.
+
+### B1/B2 isolation progress — 2026-10-07
+
+Schema2 strict validation, formal/candidate projections, pure deterministic legacy conversion and aggregate mutations are implemented in isolated modules. Repository injection defaults to the old schema1 validator, so live conversations/default creation stay unchanged. Stream/instant atomic batch, gaps first/next delivery, batch-end ledger, explicit continuation after failure, bounded queued-input prefix, stable retry, group undo/regeneration, read cursor and startup rescheduling have29 synthetic tests. Shared envelope and ledger validation retain the old path. Astra review's concrete interjection/undo/retry-capacity defects were fixed and regression-tested. No real player files, provider calls, route/UI activation or EXE change.
+
+Next verifiable slice: C4 multi-input context/recall/world/preference/budget assembly and independent service scheduler (real background delivery/queue ownership), legacy-attempt retry adaptation, then frontend mutual switches and in-place previews. Full objective remains active; neither A nor B pure transactions are a completion/package boundary. Final full Python678/678 (29.168s) passes; latest full-run evidence is in TESTING. This slice has no new UI/build/browser/package evidence.
 
 Current discussion supersedes the stop-control proposal below: user does not recommend adding a stop button because players cannot react quickly and truncation adds lifecycle complexity. Requested Astra to refine optional provider streaming, local character-reveal animation, and once-generated bubble groups with deterministic length-based gaps. This turn is design-only. Do not add a new stop control, assume it is required to finish C4, or delete the existing character cancellation implementation without separate authorization. Design must prevent repeated animation/double delays and separate unvalidated preview, official delivery and read status. Historical notes below are not current authorization.
 
