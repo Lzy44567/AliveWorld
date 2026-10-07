@@ -10,6 +10,10 @@ A is implemented but not enabled for existing sessions: explicit reply.v3, stric
 
 Historical headings below do not override this contract.
 
+### B7 shared provider budget and lifecycle foundation — 2026-10-08
+
+Implemented injectable mixed-schema runtime, shared four-slot admission for synchronous legacy and asynchronous C4 workers, single-loop guards and lifespan factory. Cancellation before/after slot transfer returns ownership; legacy recovery explicitly skips schema2; shutdown interrupts pending old requests and releases unexecuted reservations. Astra found and the main agent fixed C4 retry/regenerate waiting for a slot at shutdown: reserved generation becomes interrupted while delivering tails/queued inputs stay untouched. Shutdown persistence errors are exposed after other tasks/slots are cleaned. Multi-process C4 start/write/subscription is refused. This module is not yet wired to production main/routes: do that together in the next HTTP slice so old/new routes cannot use independent budgets. Eleven new tests and full757 pass; no UI/package/player migration/version/remote change. Next: actual-schema API dispatch, quick JSON commands and detached bounded SSE subscription, read/groups, then frontend and V.
+
 ### B6 public records and auxiliary mutations — 2026-10-08
 
 Astra froze22v section14 and the main agent read it fully: actual-schema dispatch, explicit new-schema creation only with the matching UI, no automatic player migration, JSON commands separate from long SSE subscriptions, shared provider slots/lifespan, source/notice/read and mixed-schema acceptance. Implemented isolated schema2 detail/summary/action projections, whole-group pagination, owner resolution for merged inputs, shared pure retry eligibility and auxiliary metadata/memory/source operations. Candidate tails/import metadata/inverses remain private. Title and notice acknowledgements may run while busy without changing context_epoch; semantic mutations require no generation/delivery/unanswered inputs. V3 batch-end notice and archive-safe acknowledgement now work.

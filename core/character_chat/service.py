@@ -131,14 +131,15 @@ def session_view(session, *, detail=True):
 
 
 class CharacterChatService:
-    def __init__(self, repository, transport=None, *, recover=True, preference_loader=None):
+    def __init__(self, repository, transport=None, *, recover=True, preference_loader=None, slots=None):
         self.repository = repository
         self.transport = transport or CharacterTransport()
         self.preference_loader = preference_loader or load_preferences
-        self.slots = BoundedSemaphore(4)
+        self.slots = slots if slots is not None else BoundedSemaphore(4)
         self.jobs = {}
         self.tasks = {}
         self.blocked = set()
+        self.closed = False
         self.lock = RLock()
         if recover:
             self.recover_pending()
@@ -147,6 +148,8 @@ class CharacterChatService:
         """Startup-only recovery. Never run from GET or while a task is live."""
         for sid in self.repository.session_ids():
             def recover(value):
+                if value.get('schema_version') != 1:
+                    return None, False
                 changed = False
                 for action in value['requests']:
                     for attempt in action['attempts']:
@@ -163,6 +166,8 @@ class CharacterChatService:
                 continue
 
     def _check_blocked(self, sid):
+        if self.closed:
+            raise CharacterSessionError('SERVICE_UNAVAILABLE')
         if sid in self.blocked:
             raise CharacterSessionError('PERSISTENCE_FAILED')
 

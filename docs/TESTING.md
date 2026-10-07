@@ -257,6 +257,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\run_checks.ps1
 
 `-Publish` 会创建与 `VERSION` 同名的 tag/Release；开发、alpha、beta 和 rc 版本自动标为 pre-release。脚本不会自动强推、改写 main 或覆盖同名 Release。
 
+## C4 B7 共享并发与生命周期基础（2026-10-08）
+
+`python -m unittest tests.test_character_runtime -q`：11 项通过（1.041 秒）。完整 Python 757 项通过（38.697 秒）。覆盖新旧共享四槽、第五请求排队/旧抢占拒绝、槽交接前后取消无泄漏、启动前/关闭后拒绝、多进程不启动新格式恢复、lifespan同loop、旧恢复不误写schema2、关机中断旧生成与未执行预约并归还额度。Astra发现并修复等槽retry/worker尚未开始regen关闭时仍pending的缺口；新增回归及保存失败仍归还其余额度的测试。
+
+runtime/lifespan工厂尚未接生产main/HTTP；下一片统一接线，避免两套并发额度。该测试不是前端或EXE验收，无付费调用或玩家文件迁移。
+
 ## C4 B6 公共视图与辅助操作验收（2026-10-08）
 
 新增公共视图专项 10 项及批末记忆通知回归 1 项；全量 Python 测试 746 项通过（37.542 秒）。验证已交付前缀、整组分页、正式消息与未读摘要、排队行动的实际请求归属、旧失败请求隔离、撤回控制请求身份、忙碌时通知确认及记忆来源。Astra 复核发现的行动/请求身份混用已修复并补测试。

@@ -302,6 +302,8 @@ store按schema分支：旧run/event/settle保持；schema2分别保存commandPen
 
 ### 14.6 实施门和接线验收
 
+2026-10-08实现进度：B6公共投影/辅助操作已完成；B7混合schema runtime、共享ProviderSlots与lifespan工厂已独立实现并通过11项专项/757项全量Python。Astra发现的等槽retry/未启动regen关机结算已补，已生成尾与队列不动。尚未接生产main/routes，须在下一HTTP片同时接入，避免旧路由另持四槽；不启动真实会话迁移或新前端创建。
+
 先公共详情/摘要/action/notice/辅助管理纯投影及混合schema测试→lifespan与共享四槽→schema2 JSON命令/长SSE/read/groups分页→前端schema分支和三态显示→端到端验收后仅新前端显式创建schema2。真实旧会话迁移仍单独等待确认，不把新格式GET作为迁移触发器。
 
 最少验：旧schema1路由/覆盖/断连行为无回归；同creation_id幂等与格式不符；schema2任一显示模式POST快速JSON；SSE先后连接/断连/溢出不取消且最终只送一次；混合格式同时调用总并发≤4；退出/恢复已有尾和旧队列零自动收费；queued子action能查到owner结果；每页完整组且插话顺序不乱/撤回cursor要求刷新；readack单调；公共/私有记忆及source/notice不泄漏；无候选/半JSON进入GET；新设置下次生效；旧存档文件字节未因GET/list/创建新会话变化。以上是工程验收，无新增玩家选择。

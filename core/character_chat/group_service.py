@@ -102,12 +102,29 @@ class CharacterGroupService:
                 continue
 
     async def close(self):
+        if self.closed:
+            return
         self.closed = True
+        sessions = list(self.workers)
         tasks = list(self.workers.values())
         for task in tasks:
             task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
+        failure = None
+        for sid in sessions:
+            try:
+                def interrupt(value):
+                    current = busy(value)
+                    if current and current['status'] == 'generating':
+                        return fail_generation(value, current['request_id'], 'interrupted', 'PROCESS_INTERRUPTED')
+                    return False
+                self._transaction(sid, interrupt)
+            except CharacterSessionError as exc:
+                self.blocked.add(sid)
+                failure = failure or exc
         self.subscribers.clear()
+        if failure:
+            raise failure
 
     def view(self, sid):
         self._check(sid)
