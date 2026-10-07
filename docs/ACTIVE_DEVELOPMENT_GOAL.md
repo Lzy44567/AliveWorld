@@ -10,6 +10,12 @@ A is implemented but not enabled for existing sessions: explicit reply.v3, stric
 
 Historical headings below do not override this contract.
 
+### B5b legacy execution/service — 2026-10-08
+
+Converted old attempts now have a strict, nonformal execution reservation, explicit retry/terminal/atomic single-bubble commit and protocol-aware background service dispatch. Original user/AI IDs and v1/v2/context/OOC remain frozen; failed/cancelled/interrupted execution adds no formal messages. Legacy regeneration keeps the target until success, then reverses ledger and replaces its exclusive input atomically. Startup interrupts pending execution without a model call. Retry-token replay, pre-provider cancellation, source/highlight notice, batch undo and next normal v3 request have synthetic regressions.
+
+Astra read-only review identified a P1: both C4 and legacy builders were receiving the whole connection config instead of nested budget_options. Fixed both paths and added real-config-shape window/reserve and zero-call overbudget tests. This service remains opt-in; production/API/UI activation and full V are next, not a packaging or real-player migration node. Final verification evidence is recorded in TESTING; no version/provider/player-data/remote changes.
+
 ### B5a legacy-context preparation — 2026-10-08
 
 Astra added22v section13; the main agent read it fully. Implemented shared old-protocol context budget assembly with actual message batches, plus isolated legacy-retry context over true schema2 history. It keeps original user/AI IDs, v1/v2 and LEGACY/M3/C3 identities, OOC permissions and old prompt override selection; no synthetic turns or joined AI text. Schema2 capacity has an explicit version2 logical-group report, while old readers remain unchanged. New10 tests cover six protocol/context combinations, defaults/conflicts, regenerated history, whole-group trimming and reserved/failed capacity.

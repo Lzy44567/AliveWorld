@@ -13,8 +13,12 @@ def capacity_groups(session):
     # successful conversation turns consuming the player's 512-group budget.
     replacing = {a.get('target_group_id') for a in session['requests'] if a['operation'] == 'regenerate'
                  and any(t['status'] == 'pending' for t in a['attempts'])}
-    return [g for g in session['groups'] if g['status'] in {'generating', 'delivering', 'complete', 'partial_failed'}
-            and g['group_id'] not in replacing]
+    actual = [g for g in session['groups'] if g['status'] in {'generating', 'delivering', 'complete', 'partial_failed'}
+              and g['group_id'] not in replacing]
+    # Capacity-only reservations, not stored groups or formal conversations.
+    reserved = [t['legacy_execution'] for a in session['requests'] for t in a['attempts']
+                if t.get('legacy_execution') and t['status'] == 'pending']
+    return actual + reserved
 
 
 def formal_messages(session):

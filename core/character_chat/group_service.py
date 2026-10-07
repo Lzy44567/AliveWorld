@@ -12,6 +12,8 @@ from .group_lifecycle import (accept_input, claim_inputs, busy, current_attempt,
 from .group_records import conversation_projection, unread_messages, pending_inputs, active_groups
 from .contract import public_ledger
 from .errors import ERROR_MESSAGES
+from .legacy_context import build_legacy_retry_context, legacy_snapshot
+from .legacy_lifecycle import execution_for_request, begin_legacy_retry, commit_legacy
 
 
 def public_group(group):
@@ -86,7 +88,7 @@ class CharacterGroupService:
         self.event_sequences[rid] = seq
         body = {'v': 1, 'session_id': sid, 'request_id': rid, 'seq': seq, **data}
         if attempt:
-            body['group_id'] = attempt['group_id']
+            body['group_id'] = (attempt['legacy_execution']['group_id'] if attempt.get('legacy_execution') else attempt['group_id'])
         for callback in tuple(self.subscribers.get(sid, ())):
             try:
                 callback(name, copy.deepcopy(body))
@@ -184,7 +186,9 @@ class CharacterGroupService:
             replay = old and any(t.get('retry_token') == payload['retry_token'] for t in old['attempts'])
             if not replay:
                 check_revision(value, payload['expected_revision'])
-            return retry_group(value, action_id, payload['retry_of'], payload['retry_token'], display_mode)
+            target = old and next((t for t in old['attempts'] if t['request_id'] == payload['retry_of']), None)
+            handler = begin_legacy_retry if target and target.get('legacy_attempt') else retry_group
+            return handler(value, action_id, payload['retry_of'], payload['retry_token'], display_mode)
         result, changed = self._transaction(sid, retry)
         if changed:
             self._wake(sid)
@@ -195,7 +199,7 @@ class CharacterGroupService:
         canonical_id(rid)
         changed = self._transaction(sid, lambda s: fail_generation(s, rid, 'cancelled', 'USER_CANCELLED'))
         if changed:
-            attempt = current_attempt(self.repository.load(sid), rid)[1]
+            attempt = execution_for_request(self.repository.load(sid), rid)[1]
             self._publish(sid, 'cancelled', attempt, code='USER_CANCELLED', state=self._event_state(sid))
             task = self.workers.get(sid)
             if task:
@@ -225,24 +229,50 @@ class CharacterGroupService:
         try:
             snapshot = self.repository.load(sid)
             config = self.transport.snapshot()
+            budget_options = config.get('budget_options')
             settings = session_settings(snapshot)
             preferences = self.preference_loader(settings) if settings['enabled'] else []
-            plan, messages, entries, report = build_group_context(snapshot, attempt['request_id'], config, preferences=preferences)
-            self._publish(sid, 'accepted', attempt, display_mode=attempt['display_mode'],
-                          reserved_ai_ids=attempt['reserved_ai_ids'], base_revision=attempt['base_revision'])
+            legacy = bool(attempt.get('legacy_execution'))
+            if legacy:
+                action, _, _ = execution_for_request(snapshot, attempt['request_id'])
+                pending, _, _ = legacy_snapshot(action, attempt)
+                plan, messages, entries, report = build_legacy_retry_context(snapshot, action, attempt, budget_options, preferences=preferences)
+                mode = attempt['legacy_execution']['display_mode']
+                reserved = [pending['ai_message_id']]
+            else:
+                plan, messages, entries, report = build_group_context(snapshot, attempt['request_id'], budget_options, preferences=preferences)
+                mode, reserved = attempt['display_mode'], attempt['reserved_ai_ids']
+            self._publish(sid, 'accepted', attempt, display_mode=mode,
+                          reserved_ai_ids=reserved, base_revision=attempt['base_revision'])
+            legacy_started = False
             def preview(body):
+                nonlocal legacy_started
+                if mode != 'stream':
+                    return
+                if legacy:
+                    if not body:
+                        return
+                    if not legacy_started:
+                        self._publish(sid, 'preview_start', attempt, ordinal=0)
+                        legacy_started = True
+                    self._publish(sid, 'preview_delta', attempt, ordinal=0, text=body)
+                    return
                 self._publish(sid, body['kind'], attempt, ordinal=body['ordinal'],
                               **({'text': body['text']} if 'text' in body else {}))
             # An accepted-event handler may cancel before the provider starts.
             # Do not rely only on task cancellation at the next await boundary.
             authoritative = self.repository.load(sid)
-            current = current_attempt(authoritative, attempt['request_id'])[1]
-            if current['status'] != 'pending' or current['context_epoch'] != authoritative['context_epoch']:
+            current = execution_for_request(authoritative, attempt['request_id'])[1]
+            epoch = current['legacy_execution']['context_epoch'] if legacy else current['context_epoch']
+            if current['status'] != 'pending' or epoch != authoritative['context_epoch']:
                 return False
             raw = await self.transport.generate(config, plan, report,
-                                                'stream' if attempt['display_mode'] == 'stream' else 'non_stream', preview)
+                                                'stream' if mode == 'stream' else 'non_stream', preview)
+            if legacy_started:
+                self._publish(sid, 'preview_end', attempt, ordinal=0)
             self._publish(sid, 'validating', attempt)
-            group = self._transaction(sid, lambda s: commit_generated(s, attempt['request_id'], raw, messages, entries))
+            commit = commit_legacy if legacy else commit_generated
+            group = self._transaction(sid, lambda s: commit(s, attempt['request_id'], raw, messages, entries))
             self._publish(sid, 'group_saved', attempt, group=public_group(group), state=self._event_state(sid))
             return True
         except asyncio.CancelledError:
@@ -293,7 +323,7 @@ class CharacterGroupService:
                     snapshot = self.repository.load(sid)
                     group = busy(snapshot)
                     if group:
-                        attempt = current_attempt(snapshot, group['request_id'])[1]
+                        attempt = execution_for_request(snapshot, group['request_id'])[1]
                     else:
                         attempt = self._transaction(sid, lambda s: claim_inputs(s, self.display_modes.get(sid, 'stream'), explicit=explicit))
                     explicit = False

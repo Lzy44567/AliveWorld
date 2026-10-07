@@ -166,6 +166,8 @@ active组（含generating/delivering）最多512；所有groups包括归档受�
 
 ## 13. 窄兼容片：转换后的旧attempt显式重试
 
+实施状态（2026-10-08，B5b）：严格legacy_execution及快照身份验证、独立纯生命周期和后台服务分派已隔离实现。pending没有正式输入/空组；成功保留原ID单气泡提交、账本通知、批撤回及正常下一v3均有测试。Astra审阅发现真实config嵌套预算遗漏，已修新旧两路径并补预算回归。尚未启用生产构造器、API和UI，真实数据迁移仍需最终确认；本片不是C4完整交付或打包节点。
+
 2026-10-08补充，仅覆盖转换保留的v1/v2失败/取消/中断attempt。不把旧attempt改成v3、不重新生成user/ai ID、不把旧pending输入提前正式化；成功才添加schema2单气泡组。之后正常新send继续v3/C4。现有group_service只执行C4、retry_group拒绝旧协议，这是真实待补缺口，不宣称已经兼容。
 
 ### 13.1 可复用与不可直接复用

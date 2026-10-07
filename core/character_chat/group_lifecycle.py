@@ -24,7 +24,17 @@ def empty_inverse():
 
 
 def busy(session):
-    return next((g for g in active_groups(session) if g['status'] in {'generating', 'delivering'}), None)
+    group = next((g for g in active_groups(session) if g['status'] in {'generating', 'delivering'}), None)
+    if group:
+        return group
+    from .legacy_lifecycle import pending_legacy
+    pending = pending_legacy(session)
+    if pending:
+        action, attempt = pending
+        return {'group_id': attempt['legacy_execution']['group_id'], 'action_id': action['action_id'],
+                'request_id': attempt['request_id'], 'status': 'generating', 'legacy_execution': True,
+                'display_mode': attempt['legacy_execution']['display_mode'], 'bubbles': [], 'delivered_count': 0}
+    return None
 
 
 def gap_seconds(body):
@@ -55,6 +65,9 @@ def accept_input(session, payload):
             raise CharacterSessionError('IDEMPOTENCY_MISMATCH')
         return old, False
     check_revision(session, payload['expected_revision'])
+    from .legacy_lifecycle import pending_legacy
+    if pending_legacy(session):
+        raise CharacterSessionError('SESSION_BUSY')
     queued = pending_inputs(session)
     if (len(session['requests']) >= MAX_ACTIONS or len(capacity_groups(session)) >= MAX_TURNS
             or len(queued) >= 8 or sum(len(i['message']['content']) for i in queued) + len(content) > 4000
@@ -233,6 +246,9 @@ def commit_generated(session, request_id, raw, allowed_messages, projected_entry
 
 
 def fail_generation(session, request_id, status='failed', error_code='PROVIDER_FAILED'):
+    from .legacy_lifecycle import execution_for_request, fail_legacy
+    if execution_for_request(session, request_id)[1].get('legacy_execution'):
+        return fail_legacy(session, request_id, status, error_code)
     _, attempt, group = current_attempt(session, request_id)
     if attempt['status'] != 'pending':
         return False

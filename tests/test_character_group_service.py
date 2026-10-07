@@ -21,9 +21,9 @@ class FakeGroupTransport:
         self.started = asyncio.Event(); self.fail = False
         self.value = result('甲', '乙')
     def snapshot(self):
-        return {'model': 'synthetic', 'context_window': 32768}
+        return {'model': 'synthetic', 'budget_options': {'context_window': 32768}}
     async def generate(self, config, plan, report, delivery, emit):
-        self.calls.append({'data': json.loads(plan.user_prompt), 'delivery': delivery})
+        self.calls.append({'data': json.loads(plan.user_prompt), 'delivery': delivery, 'report': report})
         self.started.set()
         if delivery == 'stream':
             for index, text in enumerate(('甲', '乙')):
@@ -60,6 +60,20 @@ class GroupServiceTests(unittest.IsolatedAsyncioTestCase):
 
     async def idle(self, sid=None):
         await asyncio.wait_for(self.service.wait_idle(sid or self.sid), 3)
+
+    async def test_real_connection_budget_shape_and_reserve_reach_provider(self):
+        with patch.object(self.transport, 'snapshot', return_value={'budget_options': {'context_window': 24000, 'output_reserve': 1234}}):
+            await self.service.send(self.sid, self.payload('预算'))
+            await self.idle()
+        self.assertEqual(24000, self.transport.calls[0]['report']['contextWindow'])
+        self.assertEqual(1234, self.transport.calls[0]['report']['outputReserve'])
+
+    async def test_tiny_real_connection_budget_fails_before_provider(self):
+        with patch.object(self.transport, 'snapshot', return_value={'budget_options': {'context_window': 100, 'output_reserve': 50}}):
+            await self.service.send(self.sid, self.payload('预算不足'))
+            await self.idle()
+        self.assertEqual([], self.transport.calls)
+        self.assertFalse(any(n == 'group_saved' for n, _ in self.events))
 
     async def test_stream_preview_then_one_formal_batch_no_replay_or_auto_continuation(self):
         self.transport.gate.clear()

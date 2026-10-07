@@ -4,12 +4,12 @@ from .models import (CharacterSessionError, canonical_id, json_bytes, text, vali
                      validate_envelope, MAX_FILE_BYTES)
 from .limits import MAX_TURNS, MAX_ACTIONS, MAX_ATTEMPTS, MAX_LEDGER, MAX_ACTIVE
 from .protocol import V1, V2, V3, validate_contract
-from .context_contract import C4, validate_context_contract
+from .context_contract import LEGACY, C3, C4, validate_context_contract
 from .annotations import validate_annotation
 from .opening import validate_opening
 from .notices import validate_notice
 from .ooc import validate_stored_ooc
-from .group_records import CURRENT_GROUP_STATES, capacity_groups, formal_messages as current_messages
+from .group_records import CURRENT_GROUP_STATES, capacity_groups, pending_inputs, formal_messages as current_messages
 
 
 def corrupt():
@@ -179,18 +179,32 @@ def _validate(value):
     if busy > 1:
         corrupt()
     pending, reservations, materialized_reservations = 0, set(), set()
-    def legacy_snapshot(snapshot):
+    legacy_reservations, legacy_executions, legacy_signatures = {}, [], {}
+    def legacy_snapshot(snapshot, action, attempt):
         fields(snapshot, {'content', 'mode', 'user_message_id', 'ai_message_id'},
                {'ooc_note', 'reply_contract_id', 'context_contract_id'})
         text(snapshot['content'], 4000)
         canonical_id(snapshot['user_message_id']); canonical_id(snapshot['ai_message_id'])
+        if snapshot['user_message_id'] == snapshot['ai_message_id']:
+            corrupt()
         if snapshot['mode'] not in {'messenger', 'roleplay'}:
             corrupt()
         validate_stored_ooc(snapshot)
-        if validate_contract(snapshot.get('reply_contract_id', V1)) not in {V1, V2}:
+        contract = validate_contract(attempt.get('reply_contract_id', V1))
+        context = validate_context_contract(attempt.get('context_contract_id', LEGACY))
+        if contract not in {V1, V2} or snapshot.get('reply_contract_id', contract) != contract:
             corrupt()
-        if validate_context_contract(snapshot.get('context_contract_id', 'character.context.v1')) == C4:
+        if context == C4 or snapshot.get('context_contract_id', context) != context or bool(snapshot.get('ooc_note')) != (context == C3):
             corrupt()
+        signature = (snapshot['content'], snapshot['mode'], snapshot['user_message_id'], snapshot['ai_message_id'],
+                     snapshot.get('ooc_note', ''), contract, context)
+        if legacy_signatures.setdefault(action['action_id'], signature) != signature:
+            corrupt()
+        for key in ('user_message_id', 'ai_message_id'):
+            mid = snapshot[key]
+            owner = legacy_reservations.setdefault(mid, (action['action_id'], key))
+            if owner != (action['action_id'], key):
+                corrupt()
     for action in value['requests']:
         fields(action, {'action_id', 'operation', 'fingerprint', 'created_at', 'mode_at_action', 'result_state', 'attempts'},
                {'input_id', 'target_group_id', 'result_group_id', 'resolved_by_group_id', 'legacy_retry_snapshot'})
@@ -204,7 +218,9 @@ def _validate(value):
         if 'legacy_retry_snapshot' in action:
             if not action['attempts'] or not all(a.get('legacy_attempt') is True for a in action['attempts']):
                 corrupt()
-            legacy_snapshot(action['legacy_retry_snapshot'])
+            legacy_snapshot(action['legacy_retry_snapshot'], action, action['attempts'][-1])
+            if action.get('result_group_id') or action['result_state'] is not None:
+                corrupt()
         if 'input_id' in action and (action['input_id'] not in inputs or inputs[action['input_id']]['action_id'] != action['action_id']):
             corrupt()
         for key in ('target_group_id', 'result_group_id', 'resolved_by_group_id'):
@@ -220,12 +236,22 @@ def _validate(value):
             elif attempt.get('legacy_attempt') is True:
                 fields(attempt, {'request_id', 'base_revision', 'status', 'legacy_attempt'},
                        {'created_at', 'ended_at', 'error_code', 'committed_revision', 'retry_of', 'retry_token',
-                        'reply_contract_id', 'context_contract_id', 'legacy_retry_snapshot'})
+                        'reply_contract_id', 'context_contract_id', 'legacy_retry_snapshot', 'legacy_execution'})
                 if validate_contract(attempt.get('reply_contract_id', V1)) not in {V1, V2}:
                     corrupt()
-                validate_context_contract(attempt.get('context_contract_id', 'character.context.v1'))
+                if validate_context_contract(attempt.get('context_contract_id', LEGACY)) == C4:
+                    corrupt()
                 if 'legacy_retry_snapshot' in attempt:
-                    legacy_snapshot(attempt['legacy_retry_snapshot'])
+                    legacy_snapshot(attempt['legacy_retry_snapshot'], action, attempt)
+                if 'legacy_execution' in attempt:
+                    execution = attempt['legacy_execution']
+                    fields(execution, {'group_id', 'context_epoch', 'history_cutoff_seq', 'display_mode'})
+                    canonical_id(execution['group_id'])
+                    integer(execution['context_epoch'], 0, value['context_epoch'])
+                    integer(execution['history_cutoff_seq'], 0, value['next_seq'] - 1)
+                    if execution['display_mode'] not in {'stream', 'gaps', 'instant'} or not attempt.get('legacy_retry_snapshot'):
+                        corrupt()
+                    legacy_executions.append((action, attempt, execution))
             else:
                 fields(attempt, {'request_id', 'base_revision', 'context_epoch', 'history_cutoff_seq', 'input_ids',
                                  'group_id', 'reserved_ai_ids', 'reply_contract_id', 'context_contract_id',
@@ -260,6 +286,45 @@ def _validate(value):
         corrupt()
     if (reservations & all_identity) != materialized_reservations:
         corrupt()
+    for action, attempt, execution in legacy_executions:
+        group = groups.get(execution['group_id'])
+        if attempt['status'] == 'committed':
+            snapshot = attempt['legacy_retry_snapshot']
+            if (not group or group['request_id'] != attempt['request_id'] or group['action_id'] != action['action_id']
+                    or group['input_ids'] != [snapshot['user_message_id']] or len(group['bubbles']) != 1
+                    or group['bubbles'][0]['message']['message_id'] != snapshot['ai_message_id']
+                    or group['display_mode'] != execution['display_mode'] or group['mode_at_generation'] != snapshot['mode']):
+                corrupt()
+            source_input = inputs.get(snapshot['user_message_id'])
+            if (not source_input or source_input['message']['content'] != snapshot['content']
+                    or source_input['message']['presentation_mode'] != snapshot['mode']
+                    or source_input.get('ooc_note', '') != snapshot.get('ooc_note', '')):
+                corrupt()
+        else:
+            if group is not None:
+                corrupt()
+            identity(execution['group_id'])
+        if attempt['status'] == 'pending':
+            busy += 1
+            if (action['attempts'][-1] is not attempt or execution['context_epoch'] != value['context_epoch']
+                    or execution['history_cutoff_seq'] != value['next_seq'] - 1
+                    or action.get('legacy_retry_snapshot') != attempt['legacy_retry_snapshot']
+                    or action.get('result_group_id') or action['result_state'] is not None or pending_inputs(value)):
+                corrupt()
+    if busy > 1:
+        corrupt()
+    for mid, (aid, key) in legacy_reservations.items():
+        if mid in reservations:
+            corrupt()
+        if mid in all_identity:
+            message_value = messages.get(mid)
+            owned_groups = [g for g in value['groups'] if g['action_id'] == aid]
+            materialized = (any(mid in g['input_ids'] for g in owned_groups) if key == 'user_message_id'
+                            else any(b['message']['message_id'] == mid for g in owned_groups for b in g['bubbles']))
+            if message_value is None or not materialized:
+                corrupt()
+        else:
+            reservations.add(mid)
     for entry in value['inputs']:
         owner = actions.get(entry['action_id'])
         legacy_regeneration = (owner and owner['operation'] == 'regenerate' and owner['attempts']
@@ -271,6 +336,8 @@ def _validate(value):
     for group in value['groups']:
         owner = attempts.get(group['request_id'])
         if owner is None or owner[0]['action_id'] != group['action_id']:
+            corrupt()
+        if owner[1].get('legacy_execution') and owner[1]['legacy_execution']['group_id'] != group['group_id']:
             corrupt()
         if not owner[1].get('legacy_attempt') and owner[1]['group_id'] != group['group_id']:
             corrupt()
