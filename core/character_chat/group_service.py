@@ -30,6 +30,7 @@ class CharacterGroupService:
         self.workers = {}
         self.subscribers = {}
         self.event_sequences = {}
+        self.event_owners = {}
         self.display_modes = {}
         self.wake_pending = {}
         self.resuming = set()
@@ -68,6 +69,9 @@ class CharacterGroupService:
         body = {'v': 1, 'session_id': sid, 'request_id': rid, 'seq': seq, **data}
         if attempt:
             body['group_id'] = (attempt['legacy_execution']['group_id'] if attempt.get('legacy_execution') else attempt['group_id'])
+            if rid not in self.event_owners:
+                self.event_owners[rid] = execution_for_request(self.repository.load(sid), rid)[0]['action_id']
+            body['action_id'] = self.event_owners[rid]
         for callback in tuple(self.subscribers.get(sid, ())):
             try:
                 callback(name, copy.deepcopy(body))

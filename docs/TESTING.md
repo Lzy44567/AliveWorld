@@ -257,6 +257,14 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\run_checks.ps1
 
 `-Publish` 会创建与 `VERSION` 同名的 tag/Release；开发、alpha、beta 和 rc 版本自动标为 pre-release。脚本不会自动强推、改写 main 或覆盖同名 Release。
 
+## C4 B8 HTTP/订阅与应用接线（2026-10-08）
+
+新增 `tests.test_character_group_routes` 15 项（路由9、订阅5、显示参数1）。与旧路由合跑24项通过（6.071秒）；容量/来源协议/新路由专项50项通过（8.309秒）。最终完整 Python 772 项通过（44.194秒）。
+
+覆盖快速JSON（供应商仍等待时返回）、明确新格式创建/格式指纹冲突、旧默认协议、源文件字节不因GET/list改变、整组分页/撤回/删除幂等、辅助管理、单调read、重试幂等及指定旧request、共享main运行时、多进程/未startup保护。订阅覆盖实际ASGI响应/断连后worker继续、ready先发/owner与连接序号、晚订阅不重播私有预览、64帧及256KiB溢出只detach、不泄漏候选/账本计划。
+
+首轮全量发现并修复了旧reader不支持schema2却被新投影误当支持的只读回归；真实ASGI就绪等待由2秒改为事件门10秒以容纳整套测试负载，不取消断连不影响生成的断言。模型接口管理测试显式注入空临时角色runtime，避免新lifespan扫描玩家目录。Astra本片复核被额度中断，没有审阅结论。前端仍待C片，不能用HTTP绿色测试证明界面/EXE完成；无付费模型、玩家迁移或远程发布。
+
 ## C4 B7 共享并发与生命周期基础（2026-10-08）
 
 `python -m unittest tests.test_character_runtime -q`：11 项通过（1.041 秒）。完整 Python 757 项通过（38.697 秒）。覆盖新旧共享四槽、第五请求排队/旧抢占拒绝、槽交接前后取消无泄漏、启动前/关闭后拒绝、多进程不启动新格式恢复、lifespan同loop、旧恢复不误写schema2、关机中断旧生成与未执行预约并归还额度。Astra发现并修复等槽retry/worker尚未开始regen关闭时仍pending的缺口；新增回归及保存失败仍归还其余额度的测试。

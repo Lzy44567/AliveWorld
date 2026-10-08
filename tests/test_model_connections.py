@@ -206,7 +206,9 @@ class ConnectionRouteTests(unittest.TestCase):
                 "api_key: route-secret\nbase_url: https://example.test/v1\nmodel: story\n",
                 encoding="utf-8",
             )
-            app = create_app(frontend_dist=root / "missing", cors_origins=[])
+            from core.character_chat.runtime import CharacterRuntime
+            app = create_app(frontend_dist=root / "missing", cors_origins=[],
+                             character_runtime_factory=lambda: CharacterRuntime(root / "character-test"))
             with (
                 patch.object(model_connection_routes, "repository", repository),
                 patch.object(model_connection_routes, "_refresh_runtime"),
@@ -232,7 +234,9 @@ class ConnectionRouteTests(unittest.TestCase):
                 "api_key: main\nbase_url: https://example.test/v1\nmodel: story\n",
                 encoding="utf-8",
             )
-            app = create_app(frontend_dist=root / "missing", cors_origins=[])
+            from core.character_chat.runtime import CharacterRuntime
+            app = create_app(frontend_dist=root / "missing", cors_origins=[],
+                             character_runtime_factory=lambda: CharacterRuntime(root / "character-test"))
             with (
                 patch.object(model_connection_routes, "repository", repository),
                 patch.object(model_connection_routes, "_refresh_runtime"),

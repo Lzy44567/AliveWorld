@@ -31,6 +31,7 @@ from api.v1.world_package_routes import router as world_package_router
 from utils.runtime_paths import PATHS
 from utils.sys_logger import init_logger
 from utils.version import APP_VERSION
+from core.character_chat.runtime import CharacterRuntime, runtime_lifespan
 
 
 def _configured_cors_origins() -> list[str]:
@@ -42,15 +43,17 @@ def create_app(
     *,
     frontend_dist: str | Path | None = None,
     cors_origins: list[str] | None = None,
+    character_runtime_factory=None,
 ) -> FastAPI:
-    application = FastAPI(title="AliveWorld Engine", version=APP_VERSION)
+    factory = character_runtime_factory or (lambda: CharacterRuntime(PATHS.data_dir / 'character_sessions'))
+    application = FastAPI(title="AliveWorld Engine", version=APP_VERSION, lifespan=runtime_lifespan(factory))
     allowed_origins = _configured_cors_origins() if cors_origins is None else cors_origins
     if allowed_origins:
         application.add_middleware(
             CORSMiddleware,
             allow_origins=allowed_origins,
             allow_credentials=False,
-            allow_methods=["GET", "POST", "PATCH", "DELETE"],
+            allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE"],
             allow_headers=["Content-Type", "Authorization"],
         )
 
