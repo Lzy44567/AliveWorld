@@ -10,6 +10,12 @@ A is implemented but not enabled for existing sessions: explicit reply.v3, stric
 
 Historical headings below do not override this contract.
 
+### C1 client event stream and display preferences — 2026-10-08
+
+Added separate group JSON/read/page API methods and long GET subscription parser (not legacy fetch-POST SSE), with safe shared errors, strict session/connection/event/request identity, UTF8/byte bounds, reserved IDs and multiple requests per connection. Abort detaches even while waiting; no model cancellation/retry command is sent. Existing schema1 methods remain unchanged.
+
+Interaction preference version2 explicitly stores stream/gaps/instant, two mutually exclusive switches or both off, without a typing option. Version1 maps stream→stream and non_stream→instant in memory, never overwrites on read; old get()/delivery API shape remains compatible. Nine new tests, full125 Node pass; build evidence in TESTING. These are client foundations, not visible C4: next integrate schema2 store (queued commands, subscriptions, authoritative reload/read, stable per-ordinal previews) and real UI. No new UI schema2 creation until that branch and browser V work. No package/version/provider/player migration/remote change.
+
 ### B8 actual HTTP / application composition — 2026-10-08
 
 Main now owns the injected mixed-schema runtime lifespan; all old/new routes select the same repository/services and four slots. New schema2 is explicitly constructed (no persisted conversion), while omitted/explicit1 creation keeps old fingerprints/response protocols. New sends/retries/batch commands return quick JSON; long bounded GET SSE is detached from workers, registers before ready, assigns stream_id/event_seq and actual owner IDs, and drops only subscription on disconnect/overflow. Group pagination/read/auxiliary management dispatch by actual supported schema. Unknown formats stay read-only, including repositories intentionally supporting only1 in old tests. Tombstone delete replay remains204.

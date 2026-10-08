@@ -257,6 +257,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\run_checks.ps1
 
 `-Publish` 会创建与 `VERSION` 同名的 tag/Release；开发、alpha、beta 和 rc 版本自动标为 pre-release。脚本不会自动强推、改写 main 或覆盖同名 Release。
 
+## C4 C1 客户端订阅/显示偏好基础（2026-10-08）
+
+新增 `characterGroupClient.test.mjs` 9 项；全部 Node125项通过（722.462毫秒），此前相关专项58项通过。覆盖同一订阅多组/多气泡UTF8拆字、严格ready/连接序号/实际请求身份、坏JSON/EOF/字节上限不重发、等待帧时Abort仅取消reader、错误安全化、未知事件/心跳、JSON组命令、旧偏好无写入映射、两个互斥开关/全关与无逐字选项、损坏/未来设置原文保留。
+
+旧get()/delivery设置API形状保留；新JSON/subscribe方法独立加入，不改变旧fetch-POST行为。当前store/UI尚未消费新方法，不能声称已可见或C4完整。前端构建成功（Vite保留既有>500kB chunk体积提醒），无EXE/玩家迁移/付费调用/远程发布；Python本片未改，沿用B8最终772项证据，不冒称重跑。
+
 ## C4 B8 HTTP/订阅与应用接线（2026-10-08）
 
 新增 `tests.test_character_group_routes` 15 项（路由9、订阅5、显示参数1）。与旧路由合跑24项通过（6.071秒）；容量/来源协议/新路由专项50项通过（8.309秒）。最终完整 Python 772 项通过（44.194秒）。

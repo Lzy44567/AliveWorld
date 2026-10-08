@@ -1,10 +1,8 @@
 const BASE = '/api/v1/character-sessions';
+import { CharacterApiError } from './characterApiError.js';
+import { characterGroupStream } from './characterGroupStream.js';
+export { CharacterApiError } from './characterApiError.js';
 const TERMINAL = new Set(['committed', 'failed', 'cancelled']);
-export class CharacterApiError extends Error {
-  constructor(message, code = 'OUTCOME_UNKNOWN', retryable = false) {
-    super(message); this.code = code; this.retryable = retryable;
-  }
-}
 async function request(path = '', method = 'GET', payload) {
   const response = await fetch(BASE + path, { method, headers: { 'Content-Type': 'application/json' }, ...(payload === undefined ? {} : { body: JSON.stringify(payload) }) });
   const data = response.status === 204 ? null : await response.json().catch(() => ({}));
@@ -65,6 +63,11 @@ export const characterChatApi = {
   memorySources: (id, entry) => request(sid(id) + '/memory/' + encodeURIComponent(entry) + '/sources'),
   remove: (id, revision) => request(sid(id), 'DELETE', { expected_revision: revision }),
   turns: (id, before) => request(sid(id) + '/turns?' + new URLSearchParams({ limit: '50', ...(before ? { before } : {}) })),
+  groups: (id, before) => request(sid(id) + '/groups?' + new URLSearchParams({ limit: '20', ...(before ? { before } : {}) })),
+  read: (id, seq) => request(sid(id) + '/read', 'PUT', { seq }),
+  subscribe: characterGroupStream,
+  groupAction: (id, payload) => request(sid(id) + '/actions', 'POST', payload),
+  groupRetry: (id, action, payload) => request(sid(id) + '/actions/' + encodeURIComponent(action) + '/retry', 'POST', payload),
   actionStatus: (id, action) => request(sid(id) + '/actions/' + encodeURIComponent(action)),
   action: (id, payload, callback) => payload.delivery === 'stream' ? characterStream(sid(id) + '/actions', payload, callback) : request(sid(id) + '/actions', 'POST', payload),
   retry: (id, action, payload, callback) => payload.delivery === 'stream' ? characterStream(sid(id) + '/actions/' + encodeURIComponent(action) + '/retry', payload, callback) : request(sid(id) + '/actions/' + encodeURIComponent(action) + '/retry', 'POST', payload),
