@@ -302,6 +302,10 @@ store按schema分支：旧run/event/settle保持；schema2分别保存commandPen
 
 ### 14.6 实施门和接线验收
 
+修复后窄验收：137 Node与重建C4 Edge3/3（25.1秒）通过，完整V仍待在同一固定build重跑。新UI创建仍default1，下一完整V后再明确启用2并单独验收新建入口；旧格式夹具不能全局升级掩盖兼容。
+
+2026-10-08 C3：真实气泡行、两显示开关、发送队列/原位确认、服务器未读及容量显示已接通；独立schema2 Edge专项首次3/3。完整初跑发现read ACK/快速undo CAS竞争，已补等待顺序和旧GET最低修订保护。最终重建V仍待，不启用新UI创建2或真实迁移，不以初跑/旧成绩代替最终验收。
+
 2026-10-08 C2：独立group controller已接入store，quick command/原action核对/连发/订阅切换/预留ID气泡/权威替换/整组页/服务器已读有10项专项及135 Node回归。真实UI显示尚待接线，新UI明确创建2依然未开启；不是浏览器V或迁移/打包完成。
 
 2026-10-08 C1：分离GET订阅/JSON命令/read/groups客户端与v2三态显示偏好已实现。严格验证连接/事件/请求身份、保留旧接口；Abort仅detach。9项新增/125 Node通过。store、真实逐气泡界面、新前端明确创建schema2及完整V仍未完成。

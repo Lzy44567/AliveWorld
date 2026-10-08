@@ -266,7 +266,7 @@ export function createCharacterChatStore(api = characterChatApi, delay = ms => n
       const ctx = this.context(id);
       if (ctx.busy || ctx.settingsBusy || ctx.needsReload || ctx.session.schema_read_only) return;
       ctx.settingsBusy = true;
-      try { ctx.session = await api.update(id, { expected_revision: ctx.session.revision, ...changes }); await this.refreshList(); }
+      try { if (ctx.session.schema_version === 2) await groups.beforeMutation(id); ctx.session = await api.update(id, { expected_revision: ctx.session.revision, ...changes }); await this.refreshList(); }
       finally { ctx.settingsBusy = false; if (ctx.capacityOpen || capacityWarning(ctx.capacity)) void this.refreshCapacity(id); if (ctx.cognitionOpen) void this.refreshCognition(id); }
     },
     correctMemory(id, entry) {
@@ -283,6 +283,7 @@ export function createCharacterChatStore(api = characterChatApi, delay = ms => n
       ctx.settingsBusy = true;
       if (!quiet) { ctx.memoryReport = null; ctx.sourceRecallReport = null; }
       try {
+        if (ctx.session.schema_version === 2) await groups.beforeMutation(id);
         const result = await api[method](id, { expected_revision: ctx.session.revision, ...changes });
         const settings = automaticMemoryState(result.memory_settings);
         if (result.session_id !== id || !Number.isSafeInteger(result.revision) || result.revision < ctx.session.revision || !settings || settings.notice_ack_revision > result.revision) throw Error('记忆设置响应格式错误');
@@ -318,6 +319,7 @@ export function createCharacterChatStore(api = characterChatApi, delay = ms => n
       ctx.memoryReport = null;
       ctx.sourceRecallReport = null; ctx.cognition = null;
       try {
+        if (ctx.session.schema_version === 2) await groups.beforeMutation(id);
         const result = await api.markMemory(id, { expected_revision: ctx.session.revision, entry_id: entry, important });
         if (this.contexts[id] === ctx) { ctx.session = result; ctx.memoryReport = null; ctx.error = ''; }
       } catch (e) {

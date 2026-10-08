@@ -171,6 +171,9 @@ def _character_response(user: str) -> dict[str, Any] | str:
     """The character fixture never reuses story/workshop result contracts."""
     data = json.loads(user)
     contract_id = data.get('reply_contract_id', 'character.reply.v1')
+    if contract_id == 'character.reply.v3':
+        from tests.fakes.character_group_reply import response
+        return response(data)
     if contract_id not in {'character.reply.v1', 'character.reply.v2'}:
         raise ValueError('Unknown test reply contract')
     context_id = data.get('context_contract_id', 'character.context.v1')

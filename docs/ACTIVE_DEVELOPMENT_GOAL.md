@@ -10,6 +10,12 @@ A is implemented but not enabled for existing sessions: explicit reply.v3, stric
 
 Historical headings below do not override this contract.
 
+### C3 actual bubble UI / V in progress — 2026-10-08
+
+Final rebuilt narrow check after both race fixes: all137 Node (846.9907ms), 165-module build (1.68s), C4 Edge3/3 (25.1s) pass. First full42 run had40 pass/1 read-CAS failure/1 skipped, so it is NOT full success; restart complete V on this fixed build. New UI schema2 creation still gated until V, no player migration or package.
+
+Schema2 now renders formal and temporary rows once, keyed by reserved message ID, with direct text updates and no replay animation. Two display switches are mutually exclusive or off, future-attempt only; queued send remains available and existing cancel is generation-only. List unread uses server cursor; capacity labels logical groups. Separate C4 fake provider and three actual Edge scenarios use explicit synthetic schema2, while old fixtures stay schema1. First targeted3/3 passed; preliminary full run exposed a read-ACK/CAS race during rapid undo. Fixed command/memory mutation ordering and added deterministic tests, plus stale precommit GET protection. Final rebuilt browser V still pending; do not claim the first targeted result proves final build. Full Python774/774 (44.541s) passed. New UI creation still default1 until V/activation, no real migration/package/version/remote change.
+
 ### C2 schema2 client state — 2026-10-08
 
 Separate group controller now owns visible-session subscriptions, quick JSON commands, same-action outcome checks, per-request/ordinal reserved-key previews, authoritative replacement, whole-group pages and server read acknowledgements. Switching/hiding detaches only; v3 busy can queue new input; legacy busy rejection preserves paired drafts. Retry never consumes new drafts, previews never become history/read, and pagination is revalidated rather than retaining withdrawn rows. Old schema1 paths remain unchanged. Ten new state tests and full135 Node pass (813.1792ms); no new Python/browser/package evidence. Next actual bubble/UI integration and complete V; new UI schema2 creation remains gated, no real migration/version/remote change.

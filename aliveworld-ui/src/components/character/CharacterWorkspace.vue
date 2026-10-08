@@ -8,6 +8,8 @@ import CharacterConversationList from './CharacterConversationList.vue';
 import CharacterProfileDetails from './CharacterProfileDetails.vue';
 import CharacterPresentationPicker from './CharacterPresentationPicker.vue';
 import CharacterMessagePair from './CharacterMessagePair.vue';
+import CharacterMessageBubble from './CharacterMessageBubble.vue';
+import { displayRows } from '../../utils/characterGroupState.js';
 import CharacterOpeningEditor from './CharacterOpeningEditor.vue';
 import CharacterOpeningMessage from './CharacterOpeningMessage.vue';
 import CharacterWorldContextReport from './CharacterWorldContextReport.vue';
@@ -31,6 +33,10 @@ const pickerValue = computed({ get: () => picker.value === 'ai' ? aiCard.value :
 const ctx = computed(() => store.current);
 const session = computed(() => ctx.value?.session);
 const turns = computed(() => session.value?.turns || []);
+const grouped = computed(() => session.value?.schema_version === 2);
+const messages = computed(() => grouped.value && ctx.value ? displayRows(ctx.value) : []);
+const hasHistory = computed(() => grouped.value ? messages.value.length > 0 : turns.value.length > 0);
+const batchDisabled = computed(() => ctx.value?.busy || ctx.value?.queuedCount || ctx.value?.commandPending || ctx.value?.settingsBusy || readonly.value);
 const readonly = computed(() => Boolean(session.value?.schema_read_only || ctx.value?.needsReload));
 const capacityAlert = computed(() => capacityWarning(ctx.value?.capacity));
 function showCapacity() { details.value = true; ctx.value.capacityOpen = true; void store.refreshCapacity(session.value.session_id); }
@@ -66,9 +72,9 @@ async function remove() {
   if (!window.confirm('仅删除此对话与局内记录，不删除角色卡；保留无内容删除ID，防止旧请求恢复。确定删除？')) return;
   try { await store.remove(store.activeId); } catch (e) { ctx.value.error = e.message; }
 }
-function undo() { if (window.confirm('撤回最后一轮对话及其局内记录？')) run('undo'); }
-function regenerate() { if (window.confirm('沿用末轮台词及场外提示重新生成？失败时保留原回复；不会发送当前草稿。')) run('regenerate'); }
-watch(() => [store.activeId, turns.value.length, ctx.value?.preview, ctx.value?.busy], async () => {
+function undo() { if (window.confirm(grouped.value ? '撤回最后一批的全部消息及其局内记录？' : '撤回最后一轮对话及其局内记录？')) run('undo'); }
+function regenerate() { if (window.confirm(grouped.value ? '沿用最后一批的全部台词和场外提示重新生成？失败时保留原回复；不会发送当前草稿。' : '沿用末轮台词及场外提示重新生成？失败时保留原回复；不会发送当前草稿。')) run('regenerate'); }
+watch(() => [store.activeId, turns.value.length, ctx.value?.preview, ctx.value?.busy, messages.value.map(row => row.key + ':' + row.message.content).join('|')], async () => {
   if (ctx.value?.historyLoading) return;
   await nextTick(); if (messagePane.value) messagePane.value.scrollTop = messagePane.value.scrollHeight;
   if (!creating.value) store.markPresented(store.activeId);
@@ -129,11 +135,13 @@ onUnmounted(() => { mounted = false; document.removeEventListener('visibilitycha
         <CharacterMemoryNotice :notice="ctx.memoryNotice" @close="store.closeMemoryNotice(session.session_id)" />
         <div v-if="capacityAlert" data-testid="character-capacity-warning" role="status" class="text-xs text-amber-200 px-4 py-2">{{ capacityAlert }} <button class="underline" @click="showCapacity">查看容量</button></div>
         <div ref="messagePane" data-testid="character-history" class="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-4 md:p-6 space-y-5">
-          <button v-if="turns.length && !ctx.historyComplete" class="text-xs text-slate-400 block mx-auto" :disabled="ctx.historyLoading" @click="store.loadEarlier(store.activeId)">{{ ctx.historyLoading?'载入中…':'载入更早的对话' }}</button>
+          <button v-if="hasHistory && !ctx.historyComplete" class="text-xs text-slate-400 block mx-auto" :disabled="ctx.historyLoading" @click="store.loadEarlier(store.activeId)">{{ ctx.historyLoading?'载入中…':'载入更早的对话' }}</button>
           <CharacterOpeningMessage v-if="session.opening" :opening="session.opening" :name="participant('ai')?.display_name" />
-          <div v-if="!turns.length && !session.opening" class="text-slate-500 text-center py-10">和 {{ participant('ai')?.display_name || '角色' }} 说点什么吧。</div>
-          <CharacterMessagePair v-for="turn in turns" :key="turn.turn_id" :turn="turn" :user-name="participant('user')?.display_name" :ai-name="participant('ai')?.display_name" />
-          <div v-if="ctx.busy" data-testid="character-preview" class="max-w-[90%] md:max-w-[72%] rounded-xl border border-amber-700/40 bg-slate-900 p-3">
+          <div v-if="!hasHistory && !session.opening" class="text-slate-500 text-center py-10">和 {{ participant('ai')?.display_name || '角色' }} 说点什么吧。</div>
+          <template v-if="grouped"><CharacterMessageBubble v-for="row in messages" :key="row.key" :row="row" :user-id="participant('user')?.instance_id" :user-name="participant('user')?.display_name" :ai-name="participant('ai')?.display_name" /></template>
+          <template v-else><CharacterMessagePair v-for="turn in turns" :key="turn.turn_id" :turn="turn" :user-name="participant('user')?.display_name" :ai-name="participant('ai')?.display_name" /></template>
+          <div v-if="grouped && ctx.busy" data-testid="character-group-status" class="text-xs text-slate-500">{{ session.busy_group?.status==='delivering' ? '对方正在继续发送…' : '对方正在输入中…' }}<span v-if="ctx.queuedCount"> · {{ ctx.queuedCount }} 条消息等待回应</span></div>
+          <div v-if="!grouped && ctx.busy" data-testid="character-preview" class="max-w-[90%] md:max-w-[72%] rounded-xl border border-amber-700/40 bg-slate-900 p-3">
             <div class="text-xs text-amber-300 mb-2">{{ ctx.inflight?.status==='unknown'?'状态待确认':ctx.inflight?.status==='validating'?'正在验证与保存':ctx.preview?'生成中 · 未保存':'对方正在输入中' }}</div>
             <p class="whitespace-pre-wrap break-words select-text">{{ ctx.preview }}</p>
           </div>
@@ -142,13 +150,15 @@ onUnmounted(() => { mounted = false; document.removeEventListener('visibilitycha
           <p v-if="ctx.contextNotice" data-testid="character-context-notice" class="text-xs text-amber-300">{{ ctx.contextNotice }}</p>
           <div v-if="ctx.error" data-testid="character-error" class="text-sm text-rose-300 flex flex-wrap items-center gap-2"><span>{{ ctx.error }}</span><button v-if="ctx.failure?.retryable && !ctx.busy" data-testid="character-retry" class="underline" @click="run(ctx.failure.operation,true)">重试原台词及场外提示</button><button v-if="ctx.busy && ctx.inflight?.status==='unknown'" class="underline" @click="store.recover(store.activeId,ctx.inflight)">核对状态</button></div>
           <button v-if="ctx.needsReload" class="text-xs underline text-amber-300" @click="store.open(store.activeId)">重新载入记录</button>
-          <div v-if="turns.length" class="flex justify-end gap-3 text-xs text-slate-500"><button data-testid="character-regenerate" :disabled="ctx.busy || ctx.settingsBusy || readonly" @click="regenerate">重新生成末轮</button><button data-testid="character-undo" :disabled="ctx.busy || ctx.settingsBusy || readonly" @click="undo">撤回末轮</button></div>
+          <p v-if="grouped && ctx.subscriptionError" class="text-xs text-amber-300">{{ ctx.subscriptionError }} <button class="underline" @click="store.open(store.activeId)">重新连接并核对</button></p>
+          <button v-if="grouped && ctx.commandPending && ctx.groupCommand" class="text-xs underline text-amber-300" @click="store.recover(store.activeId)">核对发送结果（不会重发）</button>
+          <div v-if="hasHistory" class="flex justify-end gap-3 text-xs text-slate-500"><button data-testid="character-regenerate" :disabled="batchDisabled" @click="regenerate">{{ grouped ? '重新生成最后一批' : '重新生成末轮' }}</button><button data-testid="character-undo" :disabled="batchDisabled" @click="undo">{{ grouped ? '撤回最后一批' : '撤回末轮' }}</button></div>
           <form class="space-y-2" @submit.prevent="run('send')">
             <CharacterOocComposer v-model="ctx.oocDraft" v-model:open="ctx.oocOpen" />
             <p v-if="ctx.oocDraft.trim() && !ctx.draft.trim()" class="text-xs text-slate-400">请同时输入角色台词；暂不支持仅发送场外提示。</p>
             <p v-if="oocError(ctx.oocDraft)" class="text-xs text-rose-300">{{ oocError(ctx.oocDraft) }}</p>
             <textarea v-model="ctx.draft" data-testid="character-composer" rows="3" maxlength="4000" class="field !mt-0 resize-none" :placeholder="ctx.sendKey==='ctrl_enter'?'输入消息；Enter 换行，Ctrl+Enter 发送':'输入消息；Enter 发送，Shift+Enter 换行'" @compositionstart="composing=true" @compositionend="composing=false" @keydown="keydown"></textarea>
-            <div class="flex justify-end items-center gap-3"><span class="text-[11px] text-slate-500">{{ ctx.sendKey==='ctrl_enter'?'Ctrl+Enter 发送':'Enter 发送 · Shift+Enter 换行' }}</span><button v-if="ctx.busy" data-testid="character-stop" type="button" class="rounded-lg bg-amber-900 px-5 py-2 disabled:opacity-40" :disabled="!ctx.inflight?.request_id" @click="store.stop(store.activeId)">停止</button><button v-else data-testid="character-send" class="rounded-lg bg-indigo-700 px-5 py-2 disabled:opacity-40" :disabled="!ctx.draft.trim() || Boolean(oocError(ctx.oocDraft)) || ctx.needsReload || ctx.settingsBusy">发送</button></div>
+            <div class="flex justify-end items-center gap-3"><span class="text-[11px] text-slate-500">{{ ctx.sendKey==='ctrl_enter'?'Ctrl+Enter 发送':'Enter 发送 · Shift+Enter 换行' }}</span><button v-if="ctx.busy && (!grouped || session.busy_group?.status==='generating')" data-testid="character-stop" type="button" class="rounded-lg bg-amber-900 px-5 py-2 disabled:opacity-40" :disabled="grouped ? !session.busy_group?.request_id : !ctx.inflight?.request_id" @click="store.stop(store.activeId)">停止</button><button v-if="grouped || !ctx.busy" data-testid="character-send" class="rounded-lg bg-indigo-700 px-5 py-2 disabled:opacity-40" :disabled="!ctx.draft.trim() || Boolean(oocError(ctx.oocDraft)) || ctx.needsReload || ctx.settingsBusy || ctx.commandPending">{{ ctx.commandPending ? '保存中…' : '发送' }}</button></div>
           </form>
         </div>
       </template>
@@ -168,8 +178,10 @@ onUnmounted(() => { mounted = false; document.removeEventListener('visibilitycha
       <CharacterCapacityPanel :report="ctx.capacity" :loading="ctx.capacityLoading" :error="ctx.capacityError" :open="ctx.capacityOpen" @toggle="capacityToggle" @refresh="store.refreshCapacity(session.session_id)" />
       <CharacterPreferenceSettings :settings="session.preference_settings" :disabled="ctx.busy || ctx.settingsBusy || readonly" @update="updatePreferences" />
       <div class="mt-3"><CharacterPresentationPicker :model-value="session.presentation_mode" test-id="character-mode" :disabled="ctx.busy || ctx.settingsBusy || readonly" @update:model-value="updateMode" /></div>
-      <label class="mt-5 flex items-center justify-between gap-3 text-sm">流式输出<input data-testid="character-delivery" type="checkbox" role="switch" :checked="ctx.delivery==='stream'" :disabled="ctx.busy" @change="store.setInteraction(store.activeId,{delivery:$event.target.checked?'stream':'non_stream'})"></label>
-      <p class="mt-1 text-xs text-slate-500">{{ ctx.delivery==='stream'?'收到内容时逐步显示；验证保存后才成为正式消息。':'等待完整回复后显示。' }}</p>
+      <label class="mt-5 flex items-center justify-between gap-3 text-sm">流式输出<input data-testid="character-delivery" type="checkbox" role="switch" :checked="ctx.delivery==='stream'" :disabled="ctx.busy && !grouped" @change="store.setInteraction(store.activeId,grouped ? {displayMode:$event.target.checked?'stream':'instant'} : {delivery:$event.target.checked?'stream':'non_stream'})"></label>
+      <p class="mt-1 text-xs text-slate-500">{{ ctx.delivery==='stream'?'文字直接在气泡中逐步出现；保存后不再重复动画。':'等待完整生成，再显示气泡。' }}</p>
+      <label v-if="grouped" class="mt-4 flex items-center justify-between gap-3 text-sm">气泡之间留出间隔<input data-testid="character-bubble-gaps" type="checkbox" role="switch" :checked="ctx.displayMode==='gaps'" @change="store.setInteraction(store.activeId,{displayMode:$event.target.checked?'gaps':'instant'})"></label>
+      <p v-if="grouped" class="mt-1 text-xs text-slate-500">与流式互斥；两项都关闭时立即显示完整回复。修改从下一次生成生效。</p>
       <label class="mt-4 flex items-center justify-between gap-3 text-sm">Enter 发送<input data-testid="character-send-key" type="checkbox" role="switch" :checked="ctx.sendKey==='enter'" :disabled="ctx.busy" @change="store.setInteraction(store.activeId,{sendKey:$event.target.checked?'enter':'ctrl_enter'})"></label>
       <p class="mt-1 text-xs text-slate-500">{{ ctx.sendKey==='enter'?'Shift+Enter 换行；Ctrl+Enter 也可发送。':'Enter 换行，Ctrl+Enter 发送，适合长文本。' }}</p>
       <p v-if="store.interaction.warning" class="mt-3 text-xs text-amber-300">{{ store.interaction.warning }}</p>

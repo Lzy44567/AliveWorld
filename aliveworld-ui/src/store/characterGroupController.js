@@ -28,7 +28,7 @@ export function createCharacterGroupController(state, api, noticeCache) {
         task.again = false;
         let session = groupDetail(await api.get(id),id);
         if (state.contexts[id] !== ctx) return;
-        if (session.revision < (ctx.session?.revision || 0)) { task.again = true; continue; }
+        if (session.revision < Math.max(ctx.session?.revision || 0,ctx.groupRequiredRevision || 0)) { task.again = true; continue; }
         // Revalidate already loaded pages, not blindly retain withdrawn/replaced rows.
         const previousFirst = ctx.session?.messages?.[0]?.message.seq;
         for (let page = 0; previousFirst && session.next_cursor && session.messages[0]?.message.seq > previousFirst && page < 26; page++) {
@@ -40,7 +40,8 @@ export function createCharacterGroupController(state, api, noticeCache) {
         ctx.failure = session.last_failed_action || null;
         for (const [rid,preview] of Object.entries(ctx.previewByRequestOrdinal)) {
           const group = session.groups.find(g => g.request_id === rid);
-          if (group && group.status !== 'generating' || preview.terminal) delete ctx.previewByRequestOrdinal[rid];
+          if (group && group.status !== 'generating' ||
+              preview.terminal && preview.terminal !== 'group_saved' && session.revision >= preview.terminalRevision) delete ctx.previewByRequestOrdinal[rid];
         }
       } while (task.again);
     })().catch(e => { if (state.contexts[id] === ctx) { ctx.error = '会话状态待核对：' + e.message; ctx.needsReload = true; } })
@@ -57,6 +58,7 @@ export function createCharacterGroupController(state, api, noticeCache) {
   async function event(id, link, name, data) {
     if (links.get(id) !== link || data.session_id !== id) return;
     const ctx = state.contexts[id]; if (!ctx) return;
+    if (Number.isSafeInteger(data.state?.revision)) ctx.groupRequiredRevision = Math.max(ctx.groupRequiredRevision || 0,data.state.revision);
     if (name === 'ready') { ctx.subscriptionReady = true; ctx.subscriptionError = ''; ctx.previewByRequestOrdinal = {}; await refresh(id); return; }
     if (name === 'input_saved') { acceptCommand(ctx,data.action_id); await refresh(id); void state.refreshList(); return; }
     if (name === 'accepted') {
@@ -87,7 +89,7 @@ export function createCharacterGroupController(state, api, noticeCache) {
       return;
     }
     if (['group_saved','failed','cancelled','interrupted','state_changed'].includes(name)) {
-      if (preview && name !== 'state_changed') preview.terminal = true;
+      if (preview && name !== 'state_changed') { preview.terminal = name; preview.terminalRevision = data.state?.revision ?? ctx.session.revision; }
       await refresh(id); void state.refreshList();
       if (name === 'group_saved' && data.group?.status === 'complete') { await notice(id,data.group.memory_notice); void state.refreshCapacity(id); if (ctx.cognitionOpen) void state.refreshCognition(id); }
       if (['failed','cancelled','interrupted'].includes(name)) ctx.error = name === 'cancelled' ? '生成已取消；已发送消息保留。' : '生成未完成；已发送消息保留，请核对后重试。';
@@ -112,6 +114,7 @@ export function createCharacterGroupController(state, api, noticeCache) {
     command.checking = true;
     try {
       const result = await api.actionStatus(id,command.action_id);
+      if (result.session_id !== id || result.action_id !== command.action_id) throw Error('动作身份待核对');
       acceptCommand(ctx,command.action_id); ctx.commandPending = false;
       if (command.operation === 'undo' && ended(result.status)) restoreInputPair(ctx,command.withdrawnInput,command.withdrawnOoc);
       await refresh(id); ctx.groupCommand = null; attach(id);
@@ -131,6 +134,10 @@ export function createCharacterGroupController(state, api, noticeCache) {
     const command = { action_id: retry ? failed.action_id : crypto.randomUUID(), operation, clearsDraft: !retry && operation === 'send', content: ctx.draft, oocDraft: ctx.oocDraft,
       withdrawnInput: target?.input_ids?.length === 1 ? input?.message.content || '' : '', withdrawnOoc: target?.input_ids?.length === 1 ? input?.ooc_note || '' : '' };
     ctx.groupCommand = command; ctx.commandPending = true; ctx.error = '';
+    // Read ACK is a real revision mutation. Finish it before freezing a CAS
+    // command; no new acknowledgement starts while this command is pending.
+    if (reads.has(id)) await reads.get(id).done;
+    if (ctx.needsReload) { ctx.commandPending = false; ctx.groupCommand = null; return; }
     const mode = state.interaction.display(id), delivery = mode === 'stream' ? 'stream' : 'non_stream';
     const payload = retry ? { expected_revision: ctx.session.revision, retry_of: failed.request_id, retry_token: crypto.randomUUID(), display_mode: mode, delivery }
       : { client_action_id: command.action_id, expected_revision: ctx.session.revision, operation, display_mode: mode, delivery,
@@ -139,6 +146,7 @@ export function createCharacterGroupController(state, api, noticeCache) {
     try {
       const result = retry ? await api.groupRetry(id,failed.action_id,payload) : await api.groupAction(id,payload);
       if (result.session_id !== id || result.action_id !== command.action_id) throw Error('发送身份待核对');
+      if (Number.isSafeInteger(result.revision)) ctx.groupRequiredRevision = Math.max(ctx.groupRequiredRevision || 0,result.revision);
       acceptCommand(ctx,command.action_id); ctx.commandPending = false;
       if (operation === 'undo' && ended(result.status)) restoreInputPair(ctx,command.withdrawnInput,command.withdrawnOoc);
       ctx.groupCommand = null; await refresh(id); void state.refreshList(); attach(id);
@@ -149,16 +157,18 @@ export function createCharacterGroupController(state, api, noticeCache) {
   }
   async function markPresented(id) {
     const ctx = state.contexts[id];
-    if (!ctx?.session || !state.visible || state.activeId !== id || ctx.needsReload || reads.has(id)) return;
+    if (!ctx?.session || !state.visible || state.activeId !== id || ctx.needsReload || ctx.commandPending || ctx.settingsBusy) return;
+    if (reads.has(id)) { reads.get(id).again = true; return; }
     const seq = presentedAiSeq(ctx.session); if (seq <= ctx.session.read_ai_seq) return;
-    reads.set(id,true);
+    let release;
+    const reading = { again: false, done: new Promise(resolve => { release = resolve; }) }; reads.set(id,reading);
     try {
       const result = await api.read(id,seq);
       if (result.session_id !== id || !Number.isSafeInteger(result.read_ai_seq) || result.read_ai_seq < seq || !Number.isSafeInteger(result.revision)) throw Error('已读状态待核对');
       // Never advance detail revision without loading the corresponding message state.
       await refresh(id); void state.refreshList();
     } catch (e) { ctx.subscriptionError = '已读状态待核对：' + e.message; }
-    finally { reads.delete(id); }
+    finally { reads.delete(id); release(); if (reading.again) void markPresented(id); }
   }
   async function loadEarlier(id) {
     const ctx = state.context(id); if (ctx.historyLoading || ctx.historyComplete) return;
@@ -169,5 +179,6 @@ export function createCharacterGroupController(state, api, noticeCache) {
   }
   async function stop(id) { const ctx = state.context(id), group = ctx.session?.busy_group; if (group?.status !== 'generating') return;
     try { await api.cancel(id,group.request_id); await refresh(id); } catch (e) { ctx.error = '取消结果待核对：' + e.message; } }
-  return { open, attach, detach, visibility, refresh, recover, run, markPresented, loadEarlier, stop };
+  async function beforeMutation(id) { if (reads.has(id)) await reads.get(id).done; }
+  return { open, attach, detach, visibility, refresh, recover, run, markPresented, loadEarlier, stop, beforeMutation };
 }

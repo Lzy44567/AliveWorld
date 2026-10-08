@@ -55,7 +55,7 @@ test('lost command response checks same action without resend and keeps unresolv
   let checks=0,calls=0;const f=fixture({groupAction:async()=>{calls++;throw Error('offline');},actionStatus:async()=>{checks++;throw Error('offline');}});
   await f.store.open(id(1));f.store.current.draft='retain';await f.store.run(id(1));
   assert.equal(calls,1);assert.equal(checks,1);assert.equal(f.store.current.commandPending,true);assert.equal(f.store.current.draft,'retain');
-  const action=f.store.current.groupCommand.action_id;f.api.actionStatus=async(_,aid)=>{assert.equal(aid,action);return{status:'queued'};};
+  const action=f.store.current.groupCommand.action_id;f.api.actionStatus=async(sid,aid)=>{assert.equal(aid,action);return{session_id:sid,action_id:aid,status:'queued'};};
   await f.store.recover(id(1));assert.equal(f.store.current.commandPending,false);assert.equal(f.store.current.draft,'');assert.equal(calls,1);
 });
 test('failure discards temporary output without restoring already saved input or acknowledging preview',async()=>{
@@ -91,4 +91,20 @@ test('authoritative refresh revalidates loaded historical pages without retainin
   f.api.groups=async()=>{pages++;return{schema_version:2,session_id:id(1),revision:f.session.revision,groups:[],messages:[message(10,1,'old',false)],next_cursor:null};};
   f.store.setVisible(true);await f.store.open(id(1));await f.store.loadEarlier(id(1));assert.equal(pages,1);
   f.session.revision=1;f.emit('state_changed');await tick();assert.equal(pages,2);assert.deepEqual(f.store.current.session.messages.map(row=>row.message.seq),[1,22]);f.store.setVisible(false);
+});
+test('quick commands wait for in-flight read revision and prevent competing new ACKs',async()=>{
+  const wait=deferred();const f=fixture();f.session.messages=[message(7,2)];f.session.groups=[{group_id:id(4),input_ids:[id(10)],status:'complete'}];
+  f.api.read=async()=>{await wait.promise;f.session.read_ai_seq=2;f.session.revision=1;return{session_id:id(1),read_ai_seq:2,revision:1};};
+  f.store.setVisible(true);await f.store.open(id(1));const reading=f.store.markPresented(id(1));
+  const command=f.store.run(id(1),'undo');await tick();assert.equal(f.calls.length,0);assert.equal(f.store.current.commandPending,true);
+  wait.resolve();await reading;await command;assert.equal(f.calls[0].expected_revision,1);f.store.setVisible(false);
+});
+test('a GET captured before commit cannot clear a confirmed preview before formal replacement',async()=>{
+  const f=fixture();f.store.setVisible(true);await f.store.open(id(1));
+  f.emit('accepted',accepted);f.emit('preview_start',{...accepted,seq:2,ordinal:0});f.emit('preview_delta',{...accepted,seq:3,ordinal:0,text:'same bubble'});
+  const wait=deferred(),old=copy(f.session);let first=true;f.api.get=async()=>{if(first){first=false;await wait.promise;return old;}return copy(f.session);};
+  f.emit('state_changed',{state:{revision:0}});await tick();
+  f.session.revision=1;f.session.messages=[message(7,2,'same bubble')];f.session.groups=[{...accepted,status:'complete',input_ids:[],bubbles:[]}];
+  f.emit('group_saved',{...accepted,seq:4,state:{revision:1},group:{status:'complete'}});await tick();assert.equal(displayRows(f.store.current)[0].temporary,true);
+  wait.resolve();await tick();assert.equal(displayRows(f.store.current).length,1);assert.equal(displayRows(f.store.current)[0].temporary,false);assert.equal(displayRows(f.store.current)[0].key,id(7));f.store.setVisible(false);
 });

@@ -9,7 +9,7 @@ const emit = defineEmits(['toggle', 'refresh']);
       <button data-testid="character-capacity-refresh" class="text-cyan-300 disabled:opacity-40" :disabled="loading" @click="emit('refresh')">{{ loading?'读取中…':'刷新状态' }}</button>
       <p v-if="error" role="status">{{ error }}</p>
       <template v-else-if="report">
-        <p data-testid="character-capacity-turns">正式回合：{{ report.public_counts.formal_turns.used }} / {{ report.public_counts.formal_turns.limit }}</p>
+        <p data-testid="character-capacity-turns">{{ report.version===2 ? '逻辑消息组' : '正式回合' }}：{{ (report.public_counts.formal_groups || report.public_counts.formal_turns).used }} / {{ (report.public_counts.formal_groups || report.public_counts.formal_turns).limit }}</p>
         <details><summary class="cursor-pointer">技术操作记录</summary><p class="mt-2">请求：{{ report.public_counts.actions.used }} / {{ report.public_counts.actions.limit }}<br>尝试：{{ report.public_counts.attempts.used }} / {{ report.public_counts.attempts.limit }}</p></details>
         <p v-if="report.recording_pressure!=='normal'" class="text-amber-300">内部保存空间{{ report.recording_pressure==='near'?'接近上限':'已达到某项上限' }}；不代表所有聊天操作都被禁止。</p>
         <p v-if="report.operation_capacity.send==='blocked'" class="text-amber-300">当前记录容量已阻止新增发送。</p>
