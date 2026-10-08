@@ -8,24 +8,26 @@ import { createMemoryNoticeCache } from '../utils/characterMemoryNotices.js';
 import { characterCapacity, capacityWarning } from '../utils/characterCapacity.js';
 import { characterCognition, sourceRecallReport } from '../utils/characterCognition.js';
 import { oocText, oocError, restoreInputPair } from '../utils/characterOoc.js';
+import { createCharacterGroupController } from './characterGroupController.js';
 
 const uuid = () => globalThis.crypto.randomUUID();
 const terminal = status => ['committed', 'cancelled', 'failed', 'interrupted'].includes(status);
 export function createCharacterChatStore(api = characterChatApi, delay = ms => new Promise(resolve => setTimeout(resolve, ms)), storage) {
   let listGeneration = 0, spoilerGeneration = 0;
   const noticeCache = createMemoryNoticeCache(storage);
+  let groups;
   const state = reactive({
     sessions: [], contexts: {}, activeId: '', error: '', loading: false, nextCursor: null,
     listComplete: false, listWarning: '', visible: false, creationPending: null, creationBusy: false, preferences: createConversationPreferences(storage), interaction: createCharacterInteractionPreferences(storage),
     get current() { return this.contexts[this.activeId] || null; },
     context(id) {
-      if (!this.contexts[id]) this.contexts[id] = { session: null, draft: '', oocDraft: '', oocOpen: false, busy: false, settingsBusy: false, preview: '', inflight: null, failure: null, error: '', ...this.interaction.get(id), historyLoading: false, historyComplete: false, needsReload: false, spoiler: null };
+      if (!this.contexts[id]) this.contexts[id] = { session: null, draft: '', oocDraft: '', oocOpen: false, busy: false, settingsBusy: false, preview: '', inflight: null, failure: null, error: '', ...this.interaction.get(id), displayMode: this.interaction.display(id), commandPending: false, groupCommand: null, previewByRequestOrdinal: {}, subscriptionReady: false, subscriptionError: '', queuedCount: 0, historyLoading: false, historyComplete: false, needsReload: false, spoiler: null };
       return this.contexts[id];
     },
     setInteraction(id, changes) {
       const ctx = this.context(id);
-      if (ctx.busy || !this.interaction.set(id, changes)) return;
-      Object.assign(ctx, this.interaction.get(id));
+      if ((ctx.busy && ctx.session?.schema_version !== 2) || !this.interaction.set(id, changes)) return;
+      Object.assign(ctx, this.interaction.get(id), { displayMode: this.interaction.display(id) });
     },
     async refreshCapacity(id) {
       const ctx = this.contexts[id];
@@ -87,13 +89,15 @@ export function createCharacterChatStore(api = characterChatApi, delay = ms => n
       finally { if (generation === listGeneration) this.loading = false; }
     },
     clearSpoiler() { ++spoilerGeneration; for (const ctx of Object.values(this.contexts)) ctx.spoiler = null; },
-    setVisible(value) { this.visible = value; if (!value) { this.clearSpoiler(); for (const ctx of Object.values(this.contexts)) ctx.memoryNotice = null; } },
+    setVisible(value) { this.visible = value; groups.visibility(); if (!value) { this.clearSpoiler(); for (const ctx of Object.values(this.contexts)) ctx.memoryNotice = null; } },
     markPresented(id) {
       const ctx = this.contexts[id];
+      if (ctx?.session?.schema_version === 2) return groups.markPresented(id);
       if (this.visible && this.activeId === id && ctx?.session && !ctx.needsReload && !ctx.session.schema_read_only) this.preferences.read(detailReadMarker(ctx.session));
     },
     async open(id) {
       this.clearSpoiler();
+      if (this.activeId && this.activeId !== id) groups.detach(this.activeId);
       this.activeId = id; const ctx = this.context(id);
       ctx.memoryReport = null;
       ctx.sourceRecallReport = null; ctx.cognition = null; ctx.cognitionSeq = (ctx.cognitionSeq || 0) + 1;
@@ -101,6 +105,7 @@ export function createCharacterChatStore(api = characterChatApi, delay = ms => n
       for (const item of Object.values(this.contexts)) item.memoryNotice = null;
       try {
         ctx.session = await api.get(id); ctx.error = ''; ctx.needsReload = false;
+        if (ctx.session.schema_version === 2 && !ctx.session.schema_read_only) { await groups.open(id); void this.refreshCapacity(id); return; }
         void this.refreshCapacity(id);
         const failed = ctx.session.last_failed_action;
         if (!ctx.busy && failed && failed.base_revision === ctx.session.revision && typeof failed.retry_input === 'string') {
@@ -130,6 +135,7 @@ export function createCharacterChatStore(api = characterChatApi, delay = ms => n
       } finally { this.creationBusy = false; }
     },
     async loadEarlier(id) {
+      if (this.context(id).session?.schema_version === 2) return groups.loadEarlier(id);
       const ctx = this.context(id); if (ctx.historyLoading || ctx.historyComplete) return;
       ctx.historyLoading = true;
       try {
@@ -194,6 +200,7 @@ export function createCharacterChatStore(api = characterChatApi, delay = ms => n
       }
     },
     async recover(id, flight) {
+      if (this.context(id).session?.schema_version === 2) return groups.recover(id);
       const ctx = this.context(id); if (flight.recovering) return; flight.recovering = true; ctx.preview = ''; flight.status = 'unknown';
       try {
         for (let i = 0; i < 96; i++) {
@@ -211,6 +218,7 @@ export function createCharacterChatStore(api = characterChatApi, delay = ms => n
       } finally { flight.recovering = false; }
     },
     async run(id, operation = 'send', retry = false) {
+      if (this.context(id).session?.schema_version === 2) return groups.run(id,operation,retry);
       const ctx = this.context(id); if (ctx.busy || ctx.settingsBusy || !ctx.session || ctx.needsReload || ctx.session.schema_read_only) return;
       this.preferences.ensure(detailReadMarker(ctx.session));
       const content = ctx.draft.trim(); if (operation === 'send' && !retry && !content) return;
@@ -249,6 +257,7 @@ export function createCharacterChatStore(api = characterChatApi, delay = ms => n
       catch (e) { if (token === spoilerGeneration && this.visible && this.activeId === id) throw e; }
     },
     async stop(id) {
+      if (this.context(id).session?.schema_version === 2) return groups.stop(id);
       const ctx = this.context(id), flight = ctx.inflight; if (!flight?.request_id) return;
       try { const result = await api.cancel(id, flight.request_id); if (terminal(result.status) || result.status === 'already_committed') await this.settle(id, flight, result); }
       catch (e) { ctx.error = '停止结果待确认：' + e.message; }
@@ -270,7 +279,7 @@ export function createCharacterChatStore(api = characterChatApi, delay = ms => n
     async memorySources(id, entry) { return memorySourceMessages(await api.memorySources(id, entry), entry); },
     async memoryMutation(id, method, changes, quiet = false) {
       const ctx = this.context(id);
-      if (ctx.busy || ctx.settingsBusy || ctx.needsReload || !ctx.session || ctx.session.schema_read_only) return false;
+      if ((ctx.busy && !(quiet && method === 'acknowledgeMemoryNotice' && ctx.session?.schema_version === 2)) || ctx.settingsBusy || ctx.needsReload || !ctx.session || ctx.session.schema_read_only) return false;
       ctx.settingsBusy = true;
       if (!quiet) { ctx.memoryReport = null; ctx.sourceRecallReport = null; }
       try {
@@ -293,7 +302,7 @@ export function createCharacterChatStore(api = characterChatApi, delay = ms => n
       // authoritative reload. A failed selection or generation is never retried.
       for (let attempt = 0; attempt < 2; attempt++) {
         const ctx = this.contexts[id];
-        if (!ctx?.session || ctx.busy || ctx.settingsBusy || ctx.needsReload || ctx.session.schema_read_only) return false;
+        if (!ctx?.session || (ctx.busy && ctx.session.schema_version !== 2) || ctx.settingsBusy || ctx.needsReload || ctx.session.schema_read_only) return false;
         if ((ctx.session.memory_settings?.notice_ack_revision || 0) >= notice.committed_revision) return true;
         if (await this.memoryMutation(id, 'acknowledgeMemoryNotice', { action_id: notice.action_id }, true)) return true;
       }
@@ -318,8 +327,9 @@ export function createCharacterChatStore(api = characterChatApi, delay = ms => n
         }
       } finally { ctx.settingsBusy = false; if (ctx.capacityOpen || capacityWarning(ctx.capacity)) void this.refreshCapacity(id); if (ctx.cognitionOpen) void this.refreshCognition(id); }
     },
-    async remove(id) { const ctx = this.context(id); if (ctx.busy || ctx.settingsBusy || ctx.needsReload || ctx.session.schema_read_only) return; await api.remove(id, ctx.session.revision); this.preferences.remove(id); this.interaction.remove(id); noticeCache.removeSession(id); delete this.contexts[id]; if (this.activeId === id) this.activeId = ''; await this.refreshList(); },
+    async remove(id) { const ctx = this.context(id); if (ctx.busy || ctx.settingsBusy || ctx.needsReload || ctx.session.schema_read_only) return; await api.remove(id, ctx.session.revision); groups.detach(id); this.preferences.remove(id); this.interaction.remove(id); noticeCache.removeSession(id); delete this.contexts[id]; if (this.activeId === id) this.activeId = ''; await this.refreshList(); },
   });
+  groups = createCharacterGroupController(state,api,noticeCache);
   return state;
 }
 export const characterChatStore = createCharacterChatStore();

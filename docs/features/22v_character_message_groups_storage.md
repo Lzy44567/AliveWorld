@@ -302,6 +302,8 @@ store按schema分支：旧run/event/settle保持；schema2分别保存commandPen
 
 ### 14.6 实施门和接线验收
 
+2026-10-08 C2：独立group controller已接入store，quick command/原action核对/连发/订阅切换/预留ID气泡/权威替换/整组页/服务器已读有10项专项及135 Node回归。真实UI显示尚待接线，新UI明确创建2依然未开启；不是浏览器V或迁移/打包完成。
+
 2026-10-08 C1：分离GET订阅/JSON命令/read/groups客户端与v2三态显示偏好已实现。严格验证连接/事件/请求身份、保留旧接口；Abort仅detach。9项新增/125 Node通过。store、真实逐气泡界面、新前端明确创建schema2及完整V仍未完成。
 
 2026-10-08 B8：main实际绑定共享runtime；新旧API明确schema分派，新建schema2直接构造无文件迁移，JSON命令、独立有界订阅、read/groups/辅助管理已接通。真实ASGI断连不取消worker有回归；保留旧格式测试夹具与只读future保护。Astra本次复核被额度中断，不能列为通过。前端C和完整V仍未完成，实际旧会话转换仍等待确认。

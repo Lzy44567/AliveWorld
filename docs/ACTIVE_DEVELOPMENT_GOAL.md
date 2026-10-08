@@ -10,6 +10,10 @@ A is implemented but not enabled for existing sessions: explicit reply.v3, stric
 
 Historical headings below do not override this contract.
 
+### C2 schema2 client state — 2026-10-08
+
+Separate group controller now owns visible-session subscriptions, quick JSON commands, same-action outcome checks, per-request/ordinal reserved-key previews, authoritative replacement, whole-group pages and server read acknowledgements. Switching/hiding detaches only; v3 busy can queue new input; legacy busy rejection preserves paired drafts. Retry never consumes new drafts, previews never become history/read, and pagination is revalidated rather than retaining withdrawn rows. Old schema1 paths remain unchanged. Ten new state tests and full135 Node pass (813.1792ms); no new Python/browser/package evidence. Next actual bubble/UI integration and complete V; new UI schema2 creation remains gated, no real migration/version/remote change.
+
 ### C1 client event stream and display preferences — 2026-10-08
 
 Added separate group JSON/read/page API methods and long GET subscription parser (not legacy fetch-POST SSE), with safe shared errors, strict session/connection/event/request identity, UTF8/byte bounds, reserved IDs and multiple requests per connection. Abort detaches even while waiting; no model cancellation/retry command is sent. Existing schema1 methods remain unchanged.
