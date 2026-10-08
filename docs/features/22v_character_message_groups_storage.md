@@ -302,6 +302,8 @@ store按schema分支：旧run/event/settle保持；schema2分别保存commandPen
 
 ### 14.6 实施门和接线验收
 
+2026-10-09 V完成：新UI明确创建2并接通创建订阅，旧夹具显式1、新UI2独立测试。启用后最终43 Edge（4 C4+17旧角色+22全流程，384891.446ms）全部通过，无跳过/失败/不稳定；137 Node、774 Python及165模块构建通过。现有文件保持原格式，真实备份/替换仍依第11节确认门，当前停在该边界而非自动进入下一玩法。
+
 修复后窄验收：137 Node与重建C4 Edge3/3（25.1秒）通过，完整V仍待在同一固定build重跑。新UI创建仍default1，下一完整V后再明确启用2并单独验收新建入口；旧格式夹具不能全局升级掩盖兼容。
 
 2026-10-08 C3：真实气泡行、两显示开关、发送队列/原位确认、服务器未读及容量显示已接通；独立schema2 Edge专项首次3/3。完整初跑发现read ACK/快速undo CAS竞争，已补等待顺序和旧GET最低修订保护。最终重建V仍待，不启用新UI创建2或真实迁移，不以初跑/旧成绩代替最终验收。
@@ -319,3 +321,23 @@ store按schema分支：旧run/event/settle保持；schema2分别保存commandPen
 最少验：旧schema1路由/覆盖/断连行为无回归；同creation_id幂等与格式不符；schema2任一显示模式POST快速JSON；SSE先后连接/断连/溢出不取消且最终只送一次；混合格式同时调用总并发≤4；退出/恢复已有尾和旧队列零自动收费；queued子action能查到owner结果；每页完整组且插话顺序不乱/撤回cursor要求刷新；readack单调；公共/私有记忆及source/notice不泄漏；无候选/半JSON进入GET；新设置下次生效；旧存档文件字节未因GET/list/创建新会话变化。以上是工程验收，无新增玩家选择。
 
 测试过渡：保留现有routes测试注入schema1 repository/service和旧TestClient方式；schema1路由不得因缺新lifespan状态被迫建立schema2任务。新增schema2测试必须显式注入隔离仓库/假供应商，并通过TestClient上下文或异步lifespan驱动启动/关闭，worker不得跨测试loop存活。若C4入口未完成startup，返回明确SERVICE_UNAVAILABLE而非偷偷每请求建service。现有浏览器假API旧格式继续作为schema1回归，另设明确schema2 fixture覆盖JSON命令+长订阅，不能全局修改旧fixture以掩盖兼容破坏；两类都不读取或转换玩家文件。
+
+## 15. 2026-10-09 实施核对与停止范围
+
+本表核对完整C4，不将独立动画或工具函数当作最终成果。启用后最终43项浏览器已全部通过；具体层级/边界由TESTING与本表区分，不以假模型宣称真实角色自然度已解决。
+
+| 已冻结要求 | 实现与直接验收来源 |
+| --- | --- |
+| 流式文字立即进入真实气泡；后续气泡也实时预览 | `group_stream.py`、`CharacterMessageBubble.vue`；`test_character_multibubble_protocol`任意切分/私有路径，`character-groups.spec.js`真实临时气泡/DOM身份 |
+| 流式/间隔互斥或全关，无独立逐字开关/重播 | `characterInteraction.js`、会话资料两个switch；`characterGroupClient`偏好映射，Edge互斥及原位确认 |
+| 一请求一有界组；短批后用一次调用回应期间连发 | `group_context.py`、`group_service.py`；service coalesce与Edge甲/乙两输入只进入第二次请求；无输入零自动续发 |
+| 预览/候选/正式/已读分开，严格JSON/来源验证 | `message_groups.py`、组事务/公开视图；坏JSON/账本/保存失败不提交测试、Edge坏JSON仅留正式输入 |
+| 服务存活时后台送达，退出恢复有效尾且零自动收费 | service shutdown/startup/tail/queued-input专项，ASGI断连不取消；Edge后台未读/重开无预览 |
+| 批撤回/重生成保留来源、归档与晚输入依赖 | `group_lifecycle.py`及相应生命周期回归，service批操作与Edge整批命令 |
+| 旧协议/ID/OOC/记忆/覆盖继续兼容，未知格式拒写 | storage/context/legacy_execution/routes/runtime专项；独立schema1浏览器夹具，不全局升级它们 |
+| 真实新建UI选2、立即订阅，旧记录不自动改写 | `CharacterWorkspace.vue`/store创建分支；独立真实新建Edge比较旧详情前后相等 |
+| 并发预算和恢复由单进程生命周期拥有，不由界面计时 | runtime共享四槽/FIFO/取消交接/单loop/multiworker专项；无订阅gaps测试 |
+
+**尚未执行且不能冒称完成**：真实角色会话备份/替换事务及其故障注入验收。第11节规定先由用户确认范围再封装执行；当前只有纯转换和合成兼容测试。故事存档/卡片资产不属于此迁移。旧会话继续旧协议，不因新UI创建而自动升级；升级后须使用支持schema2的版本，旧版拒写，回退需独立备份恢复而不是覆盖新文件。
+
+最终代码/V验证通过后，当前主线停在这个真实记录范围确认点；不自动转C5、扩容、收费实测、版本提升或GitHub发布。打包与真实记录升级分别说明，不把源代码通过当已交付EXE，也不要求每个小阶段再由用户批准。

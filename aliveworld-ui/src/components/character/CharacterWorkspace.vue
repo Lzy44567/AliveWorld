@@ -48,7 +48,7 @@ async function create() {
   if ((!aiCard.value && !store.creationPending) || createBusy.value) return;
   createBusy.value = true; createError.value = '';
   try {
-    await store.create(store.creationPending ? undefined : { client_creation_id: creationId.value, title: title.value || undefined, ai_asset_ref: { kind: 'character', key: aiCard.value }, opening_text: openingText.value,
+    await store.create(store.creationPending ? undefined : { client_creation_id: creationId.value, schema_version: 2, title: title.value || undefined, ai_asset_ref: { kind: 'character', key: aiCard.value }, opening_text: openingText.value,
       ...(userCard.value ? { user_asset_ref: { kind: 'character', key: userCard.value } } : {}),
       ...(worldCard.value ? { world_asset_ref: { kind: 'worldbook', key: worldCard.value } } : {}), presentation_mode: mode.value });
     creating.value = false; listOpen.value = false; creationId.value = globalThis.crypto.randomUUID(); openingText.value = '';

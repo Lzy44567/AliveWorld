@@ -1,12 +1,18 @@
 # Active development goal
 
-Updated: 2026-10-08
+Updated: 2026-10-09
 
 ## Current — C4 bound streaming / multibubble implementation
 
 Latest user definition supersedes the historical display question below: streaming and progressive character display are one feature, with no independent animation switch; streaming and whole-bubble gaps are mutually exclusive, or both off. Astra completed [22u](features/22u_character_display_and_multibubble_execution.md) and [22v](features/22v_character_message_groups_storage.md), both read fully by the main agent. No new gameplay question is needed. Goal mode continues A → B → C → V, stopping at the verified real-session migration/packaging boundary, not after a decorative switch. No new stop button, forced interruption, C5, capacity expansion, paid call or remote publication.
 
-A is implemented but not enabled for existing sessions: explicit reply.v3, strict 1–6 messages / 8000-codepoint / 65536-byte output, stable local-source mapping, independent incremental messages[N].text lexer and transport dispatch. First and later bubbles preview before complete JSON arrives; private paths stay hidden; final validation remains mandatory. 12 new tests, targeted35/35 and full Python649/649 (26.060s) pass. Old contract selection, contexts, session storage and frontend remain unchanged; this is not complete C4 or an EXE. Next verifiable slice: schema2 reader/validation and pure synthetic migration, then group lifecycle, queues and UI. Real player data is not read or converted.
+A/B/C are implemented in source: v3 lexer/strict validation, schema2 group lifecycle, shared runtime/API, detached subscriptions, keyed real bubbles, queues/read and old-format branches. Existing records are not converted. The earlier A/B headings below are historical implementation evidence, not the current next task.
+
+### V / new-conversation activation — 2026-10-09
+
+Recovered the completed fixed-build HTML report after the process handle disappeared:42 expected/42 total, zero unexpected/flaky/skipped; character-groups3, old character17 and full-player22. This is actual report evidence, not a guessed process result. Following that gate, UI creation now explicitly requests schema2 and attaches its subscription after create. Existing records retain their real schema. Old browser tests explicitly create1 (including lost-create response test) instead of silently upgrading all fixtures; C4 has an independent real new-UI test with an untouched old-record comparison.
+
+Activation narrow run6/6 passed (1.1m),137 Node pass (832.8412ms),165-module build pass (1.68s). Final43 browser rerun passed (384891.446ms / 6.4m), saved JSON report has expected43/skipped0/unexpected0/flaky0. Full Python774/774 (44.541s) remains the unchanged-backend final evidence. The current implementation/V stage is verified and stops at the documented real-record migration confirmation gate: the conversion remains pure/synthetic and the real backup/replace operation is not installed or executed without confirmation. No EXE/version/paid-provider/remote/player-file change. Next human task: confirm whether existing role conversations should be upgraded, which data directory/sessions are in scope, and then authorize the backed-up conversion/packaging slice; do not substitute C5 or a new feature.
 
 Historical headings below do not override this contract.
 

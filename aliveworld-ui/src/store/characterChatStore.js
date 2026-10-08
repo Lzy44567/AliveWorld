@@ -128,7 +128,7 @@ export function createCharacterChatStore(api = characterChatApi, delay = ms => n
         const session = await api.create(JSON.parse(JSON.stringify(this.creationPending)));
         this.context(session.session_id).session = session; this.activeId = session.session_id;
         this.creationPending = null; void this.refreshCapacity(session.session_id);
-        await this.refreshList(); return session;
+        await this.refreshList(); if (session.schema_version === 2) await groups.open(session.session_id); return session;
       } catch (e) {
         if (['INVALID_REQUEST', 'INPUT_LIMIT', 'ROLE_FIELDS_INVALID', 'SESSION_DELETED', 'IDEMPOTENCY_MISMATCH', 'SCHEMA_READ_ONLY'].includes(e.code)) this.creationPending = null;
         throw e;

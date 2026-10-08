@@ -33,6 +33,14 @@ async function savedSession(request, title) {
 }
 
 test.describe.configure({ mode: 'serial' });
+// This file is deliberately the old-format compatibility suite. The separate
+// character-groups suite tests the real new-format UI default, without rewrite.
+test.beforeEach(async ({page}) => {
+  await page.route('**/api/v1/character-sessions', async route => {
+    if (route.request().method() !== 'POST') return route.continue();
+    await route.continue({postData:JSON.stringify({...route.request().postDataJSON(),schema_version:1})});
+  });
+});
 
 test('C3场外双输入、身份隔离、原输入重试与重生成及宽窄界面', async ({page,request}) => {
   test.setTimeout(120000);
@@ -286,7 +294,7 @@ test('B1预设开场：主动复制、响应丢失重试、上下文隔离、重
   await page.route('**/api/v1/character-sessions', async route => {
     if (route.request().method() !== 'POST') { await route.continue(); return; }
     payloads.push(route.request().postDataJSON());
-    const response = await route.fetch();
+    const response = await route.fetch({postData:JSON.stringify({...route.request().postDataJSON(),schema_version:1})});
     if (payloads.length === 1) await route.abort('failed');
     else await route.fulfill({ response });
   });

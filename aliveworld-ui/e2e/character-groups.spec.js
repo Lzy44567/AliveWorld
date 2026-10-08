@@ -2,9 +2,9 @@ import { test, expect } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 const base='/api/v1/character-sessions', fake='http://127.0.0.1:18765';
 const card='C4浏览器合成角色';
-async function create(request,title) {
+async function create(request,title,version=2) {
   await request.post(`/api/v1/lobby/assets/characters/${encodeURIComponent(card)}`,{data:{parsed_data:{name:card,description:'成年合成角色，仅测试消息组，不访问玩家数据。'},overwrite:true}});
-  const response=await request.post(base,{data:{client_creation_id:randomUUID(),schema_version:2,title,ai_asset_ref:{kind:'character',key:card},presentation_mode:'messenger'}});
+  const response=await request.post(base,{data:{client_creation_id:randomUUID(),schema_version:version,title,ai_asset_ref:{kind:'character',key:card},presentation_mode:'messenger'}});
   expect(response.ok()).toBeTruthy();return response.json();
 }
 async function enter(page,sid) {
@@ -16,6 +16,17 @@ async function send(page,text) {await page.getByTestId('character-composer').fil
 async function detail(request,sid) {return(await request.get(`${base}/${sid}`)).json();}
 async function records(request) {return(await(await request.get(`${fake}/__test__/requests`)).json()).requests.filter(r=>r.kind==='character.reply'&&JSON.parse(r.user).reply_contract_id==='character.reply.v3');}
 test.describe.configure({mode:'serial'});
+test('C4真实新建入口选择新格式，创建后即接通订阅，旧记录不自动转换',async({page,request})=>{
+  const old=await create(request,'C4入口列表准备',1);await enter(page,old.session_id);
+  await page.getByTestId('character-new').click();await page.getByTestId('character-title').fill('C4真实UI新建');
+  await page.getByTestId('character-ai-card').click();const picker=page.getByTestId('asset-card-picker');
+  await picker.getByTestId('asset-picker-search').fill(card);await picker.getByRole('button',{name:card,exact:true}).click();
+  await page.getByTestId('character-create').click();await expect(page.getByTestId('character-composer')).toBeVisible();
+  const list=await(await request.get(base)).json(),row=list.sessions.find(s=>s.title==='C4真实UI新建');expect(row.schema_version).toBe(2);
+  await send(page,'从真实新建入口流式回复');await expect(page.locator('[data-temporary="true"]')).not.toHaveCount(0);
+  await expect(page.getByTestId('character-ai-message')).toHaveCount(2);await expect.poll(async()=> (await detail(request,row.session_id)).busy_group,{timeout:15000}).toBeNull();
+  expect(await detail(request,old.session_id)).toEqual(old);
+});
 test('C4真实流式气泡原位确认、连发合并下一请求、互斥设置及宽窄布局',async({page,request})=>{
   test.setTimeout(90000);const session=await create(request,'C4流式与连发');await request.delete(`${fake}/__test__/requests`);await enter(page,session.session_id);
   await send(page,'【角色慢流】第一组');
