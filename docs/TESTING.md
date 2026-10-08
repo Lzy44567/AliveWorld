@@ -1,5 +1,13 @@
 # AliveWorld 测试流程
 
+## C4收尾 / 独立备份事务（2026-10-09）
+
+- `python -m unittest tests.test_character_group_upgrade -q`：11/11（0.320秒）。精确原字节、同revision异hash拒绝、pending拒绝、重复升级不写、独立备份不入枚举、旧版本拒写、备份fsync失败、转换失败、临时fsync失败、replace失败、备份重名不覆盖/不删除、替换前外部编辑保护及未知/删除格式有回归。
+- 最终完整Python785/785（43.418秒）；完整Node137/137（841.6176ms）；165模块生产构建通过（1.75秒），产物JS仍`index-DeWWrL-M.js`，既有>500kB警告保留。
+- 只临时测试调用备份函数，没有生产API/UI接线或真实记录升级。无付费调用；此前43 Edge为同一UI/运行代码的C4验收历史，本轮没有重跑，不冒称新的迁移UI或包启动证据。
+- `powershell -NoProfile -ExecutionPolicy Bypass -File tools/build_windows_portable.ps1 -SkipDependencyInstall -ArchiveSuffix c4-preview`完成，exit0；主程序/更新助手编译及ZIP结构、隐私排除、覆盖后UserData保留校验通过。包为`release/AliveWorld-1.6.0-dev.19-windows-x64-c4-preview.zip`，SHA256 `28176a0013fe256549a1b91d216f59eefdd0db0a8c9c66128ca8ce1867a8f192`。旧dev.19ZIP保留，内部VERSION仍dev.19，后缀仅隔离本地验收产物，不是线上版本升级。
+- 本轮未自动启动EXE，不将编译/归档校验当作冻结桌面运行通过。PyInstaller的可选voice_helpers/numpy、Android以及隐藏模块警告保留；没有为无关可选能力安装依赖。独立升级模块无生产引用，不作为包中已开放功能宣称。
+
 ## C4-V /新建入口启用（2026-10-09）
 
 - 10月8日固定产物全量进程句柄在恢复时已不存在。实际解析`build/e2e-report/index.html`内report.json：total42/expected42/unexpected0/flaky0/skipped0；C4组3、旧角色17、全流程22。`.last-run.json`也为passed。没有将缺失句柄猜为成功。

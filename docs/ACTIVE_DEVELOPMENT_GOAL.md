@@ -2,6 +2,12 @@
 
 Updated: 2026-10-09
 
+## Latest continuation — C4交付收尾
+
+用户允许继续；按[22w](features/22w_character_next_phase_and_upgrade_boundary.md)补独立备份事务并只在临时目录验收，不读/转实际玩家会话、不接自动迁移入口。旧会话继续原路径，真实升级不是新会话验收包前提。下一轮设计候选为有限主动联系、容量扩展与角色质量案例，不在本轮自动转向。版本选择已向用户提出，旧包和远程均保留；本片测试/包证据依TESTING实际结果记录。
+
+收尾完成：11项新备份测试、全Python785/Node137通过；165模块构建及本地主程序/更新助手与ZIP校验通过。独立`dev.19-windows-x64-c4-preview`验收ZIP已生成，内部版本不擅改、旧包保留；无本轮冻结桌面运行/真实数据转换/付费质量/GitHub证据。下一步先确认版本命名或收集包验收，再对22w主动联系候选过设计门，不自动编码。
+
 ## Current — C4 bound streaming / multibubble implementation
 
 Latest user definition supersedes the historical display question below: streaming and progressive character display are one feature, with no independent animation switch; streaming and whole-bubble gaps are mutually exclusive, or both off. Astra completed [22u](features/22u_character_display_and_multibubble_execution.md) and [22v](features/22v_character_message_groups_storage.md), both read fully by the main agent. No new gameplay question is needed. Goal mode continues A → B → C → V, stopping at the verified real-session migration/packaging boundary, not after a decorative switch. No new stop button, forced interruption, C5, capacity expansion, paid call or remote publication.
