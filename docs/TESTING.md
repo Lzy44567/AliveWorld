@@ -1,5 +1,10 @@
 # AliveWorld 测试流程
 
+## 角色阶段设计边界核对（2026-10-09）
+
+- 当前代码e765f63：`python -m unittest tests.test_character_memory_m2 tests.test_character_cognition_m3 tests.test_character_capacity tests.test_character_ooc_c3 tests.test_character_proactive_contact tests.test_character_proactive_service tests.test_character_proactive_schedule -q`，103/103（19.709秒）。本轮为阶段专项复核，不将以前819/145/Edge7冒称新运行。
+- `Get-FileHash`复核现有c5b-preview ZIP为`9acc4e5a7e0ad913f27ba4ea67f0bdf056533f8b75dd34d3262d0d8e37a80901`，与构建记录一致。仅修文档，不重复构建/打包、付费调用、真实迁移、EXE启动或线上发布。
+
 ## C5-B批量管理/每日免打扰（2026-10-09）
 
 - 全Python：`python -m unittest discover -s tests -q`，819/819（55.717秒）；新增跨午夜/白天、关闭/非法时段、结束后完整idle、计划跨时段取消、批量部分冲突/未来会话不授权、静态批量API/保存回归。
