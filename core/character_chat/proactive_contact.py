@@ -7,10 +7,11 @@ from uuid import uuid4
 from .models import CharacterSessionError, canonical_id, json_bytes
 from .limits import MAX_ACTIONS, MAX_ATTEMPTS, MAX_TURNS, MAX_EXTENSIONS_BYTES
 from .contract import now
+from .proactive_schedule import DEFAULT_QUIET, normalize_quiet
 
 DEFAULTS = {'enabled': False, 'idle_seconds': 600, 'max_contacts': 2, 'paused': False,
             'authorization_revision': 0, 'interaction_epoch': 0, 'cycle_state': 'idle', 'plan': None}
-SETTING_KEYS = {'enabled', 'idle_seconds', 'max_contacts', 'paused'}
+SETTING_KEYS = {'enabled', 'idle_seconds', 'max_contacts', 'paused', 'quiet_hours'}
 CYCLE_STATES = {'idle', 'armed', 'planning', 'planned', 'exhausted'}
 
 
@@ -21,6 +22,7 @@ def state(session):
 def settings(session):
     value = state(session)
     public = {key: value[key] for key in DEFAULTS if key != 'plan'}
+    public['quiet_hours'] = dict(value.get('quiet_hours', DEFAULT_QUIET))
     plan = value['plan']
     public.update(next_due_at=None, expires_at=plan['expires_at'] if plan else None)
     if plan and value['cycle_state'] == 'planned' and plan['next_index'] < len(plan['contacts']):
@@ -40,6 +42,11 @@ def configure(session, expected_revision, patch):
         if key in patch and (type(patch[key]) is not int or not low <= patch[key] <= high):
             raise CharacterSessionError('INVALID_REQUEST')
     check_revision(session, expected_revision)
+    if 'quiet_hours' in patch:
+        try:
+            patch = {**patch, 'quiet_hours': normalize_quiet(patch['quiet_hours'])}
+        except ValueError:
+            raise CharacterSessionError('INVALID_REQUEST') from None
     value = copy.deepcopy(state(session))
     value.update(patch)
     value.update(authorization_revision=value['authorization_revision'] + 1, cycle_state='idle', plan=None)
@@ -114,7 +121,12 @@ def validate_stored(session):
     value = session['extensions'].get('proactive_contact')
     if value is None:
         return
-    fields(value, set(DEFAULTS))
+    fields(value, set(DEFAULTS), {'quiet_hours'})
+    if 'quiet_hours' in value:
+        try:
+            normalize_quiet(value['quiet_hours'])
+        except ValueError:
+            corrupt()
     if type(value['enabled']) is not bool or type(value['paused']) is not bool:
         corrupt()
     integer(value['idle_seconds'], 1, 7200)

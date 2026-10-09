@@ -136,6 +136,50 @@ class ContactServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual('exhausted', self.contact.view(self.sid)['state'])
         self.assertNotIn('主动问候', json.dumps(self.contact.view(self.sid), ensure_ascii=False))
 
+    async def test_quiet_end_restarts_full_idle_without_paid_polling(self):
+        now = datetime.now().astimezone().replace(hour=22, minute=30, second=0, microsecond=0).astimezone(timezone.utc)
+        self.contact.clock = lambda: now
+        self.contact.quota.clock = self.contact.clock
+        self.configure(enabled=True, idle_seconds=1, quiet_hours={'enabled':True,'start':'22:00','end':'08:00'})
+        await self.chat(); await asyncio.sleep(.02)
+        self.assertEqual([], self.transport.contact_calls)
+        self.assertIsNotNone(self.contact.view(self.sid)['quiet_until'])
+        now = (now + timedelta(days=1)).astimezone().replace(hour=8, minute=0).astimezone(timezone.utc)
+        self.contact.refresh(self.sid); await asyncio.sleep(.02)
+        self.assertEqual([], self.transport.contact_calls)
+        now += timedelta(seconds=2)
+        self.contact.refresh(self.sid)
+        await self.until(lambda: len(self.proactive_groups()) == 1)
+        self.assertEqual(1, len(self.transport.contact_calls))
+
+    async def test_plan_crossing_quiet_start_is_discarded_not_delivered(self):
+        now = datetime.now().astimezone().replace(hour=21, minute=59, second=30, microsecond=0).astimezone(timezone.utc)
+        self.contact.clock = lambda: now
+        self.contact.quota.clock = self.contact.clock
+        self.transport.contacts = [{'delay_seconds':120,'reply':result('不应在免打扰送达')}]
+        self.configure(enabled=True, idle_seconds=1, quiet_hours={'enabled':True,'start':'22:00','end':'08:00'})
+        await self.chat(); await asyncio.sleep(.02)
+        now += timedelta(seconds=2); self.contact.refresh(self.sid)
+        await self.until(lambda: self.contact.view(self.sid)['state']=='planned')
+        now += timedelta(seconds=28); self.contact.refresh(self.sid)
+        await self.until(lambda: self.contact.view(self.sid)['state']=='exhausted')
+        self.assertEqual([], self.proactive_groups())
+        self.assertEqual(1,len(self.transport.contact_calls))
+        self.assertEqual(0,self.contact.quota.snapshot()['contacts_used'])
+
+    async def test_batch_partial_conflict_and_no_future_authorization(self):
+        second = self.create()
+        targets = [{'session_id':sid,'expected_revision':self.repo.load(sid)['revision']} for sid in (self.sid,second)]
+        self.configure(sid=second, paused=True)
+        value = self.contact.configure_batch({'enabled':True,'targets':targets})
+        self.assertEqual([True,False],[r['ok'] for r in value['results']])
+        self.assertEqual('REVISION_CONFLICT',value['results'][1]['code'])
+        self.assertTrue(self.contact.view(self.sid)['settings']['enabled'])
+        self.assertFalse(self.contact.view(self.create())['settings']['enabled'])
+        off = self.contact.configure_batch({'enabled':False,'targets':[{'session_id':self.sid,'expected_revision':self.repo.load(self.sid)['revision']}]})
+        self.assertTrue(off['results'][0]['ok'])
+        self.assertFalse(self.contact.view(self.sid)['settings']['enabled'])
+
     async def test_empty_and_multiple_contacts_are_one_call(self):
         self.configure(enabled=True, idle_seconds=1)
         self.transport.contacts = []

@@ -3,13 +3,19 @@ import { computed, ref, watch } from 'vue';
 const props = defineProps({ session: Object, contact: Object, loading: Boolean, error: String, disabled: Boolean, quotaBusy: Boolean });
 const emit = defineEmits(['refresh', 'update', 'quota']);
 const minutes = ref(10), maximum = ref(2), calls = ref(5), contacts = ref(10);
+const quietEnabled = ref(false), quietStart = ref('22:00'), quietEnd = ref('08:00');
 const settings = computed(() => props.contact?.settings);
 const quota = computed(() => props.contact?.quota);
 const supported = computed(() => props.session?.schema_version === 2 && !props.session.schema_read_only);
 const stateText = computed(() => ({ idle: '等待下一条正式玩家消息开始周期', armed: '等待完整闲置时间', planning: '正在规划本周期联系', planned: '已规划，等待送达', exhausted: '本周期已结束，等待下一条玩家消息' }[props.contact?.state] || '状态待核对'));
 const localTime = value => value ? new Date(value).toLocaleString() : '';
-watch(settings, value => { if (value) { minutes.value = value.idle_seconds / 60; maximum.value = value.max_contacts; } }, { immediate: true });
-watch(quota, value => { if (value) { calls.value = value.call_limit; contacts.value = value.contact_limit; } }, { immediate: true });
+watch(() => settings.value?.idle_seconds, value => { if (value !== undefined) minutes.value=value/60; }, { immediate:true });
+watch(() => settings.value?.max_contacts, value => { if (value !== undefined) maximum.value=value; }, { immediate:true });
+watch(() => settings.value?.quiet_hours?.enabled, value => { quietEnabled.value=value || false; }, { immediate:true });
+watch(() => settings.value?.quiet_hours?.start, value => { quietStart.value=value || '22:00'; }, { immediate:true });
+watch(() => settings.value?.quiet_hours?.end, value => { quietEnd.value=value || '08:00'; }, { immediate:true });
+watch(() => quota.value?.call_limit, value => { if (value !== undefined) calls.value=value; }, { immediate:true });
+watch(() => quota.value?.contact_limit, value => { if (value !== undefined) contacts.value=value; }, { immediate:true });
 function enable(event) {
   if (event.target.checked && !window.confirm('开启主动联系会额外调用所选模型并产生费用。每日次数上限不等于精确金额或 token 预算；仅本地服务运行时可联系。下一条正式玩家消息才开始新周期。确定仅为当前会话开启？')) { event.target.checked = false; return; }
   emit('update', { enabled: event.target.checked });
@@ -29,9 +35,16 @@ function enable(event) {
           <label class="block text-xs">每周期最多联系组<input v-model="maximum" data-testid="character-proactive-max" type="number" min="1" max="5" step="1" required class="field" :disabled="disabled"></label>
           <button data-testid="character-proactive-save" class="text-xs underline text-indigo-200" :disabled="disabled">保存当前会话设置</button>
         </form>
+        <form class="space-y-2" @submit.prevent="emit('update', { quiet_hours: { enabled: quietEnabled, start: quietStart, end: quietEnd } })">
+          <label class="flex gap-2 items-center text-xs"><input v-model="quietEnabled" data-testid="character-quiet-enabled" type="checkbox" :disabled="disabled">每日免打扰</label>
+          <div v-if="quietEnabled" class="flex gap-2 text-xs"><label class="min-w-0 flex-1">开始<input v-model="quietStart" data-testid="character-quiet-start" type="time" required class="field" :disabled="disabled"></label><label class="min-w-0 flex-1">结束<input v-model="quietEnd" data-testid="character-quiet-end" type="time" required class="field" :disabled="disabled"></label></div>
+          <p class="text-xs text-slate-500">按运行电脑的本地时间，可跨午夜；不补发旧计划，尚未规划的周期结束后重新计时。</p>
+          <button data-testid="character-quiet-save" class="text-xs underline text-indigo-200" :disabled="disabled || (quietEnabled && quietStart===quietEnd)">保存免打扰</button>
+        </form>
         <button v-if="settings.enabled" data-testid="character-proactive-pause" class="text-xs underline text-amber-200" :disabled="disabled" @click="emit('update', { paused: !settings.paused })">{{ settings.paused ? '恢复（等待新消息）' : '暂停主动联系' }}</button>
         <p data-testid="character-proactive-state" class="text-xs text-slate-400">{{ settings.paused ? '已暂停，未送达计划已取消' : !settings.enabled ? '已关闭，不会规划主动联系' : stateText }}</p>
         <p v-if="contact.next_due_at" class="text-xs text-slate-500">下次计划时间：{{ localTime(contact.next_due_at) }}</p>
+        <p v-if="contact.quiet_until" data-testid="character-quiet-status" class="text-xs text-amber-200">免打扰至 {{ localTime(contact.quiet_until) }}</p>
       </template>
       <p v-if="contact?.warning" class="text-xs text-amber-200">主动联系暂不可执行：{{ contact.warning }}</p>
       <details v-if="quota" class="text-xs">

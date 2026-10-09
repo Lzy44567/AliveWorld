@@ -1,5 +1,15 @@
 # AliveWorld 测试流程
 
+## C5-B批量管理/每日免打扰（2026-10-09）
+
+- 全Python：`python -m unittest discover -s tests -q`，819/819（55.717秒）；新增跨午夜/白天、关闭/非法时段、结束后完整idle、计划跨时段取消、批量部分冲突/未来会话不授权、静态批量API/保存回归。
+- 全Node：`node --test tests/*.test.mjs`，145/145（899.819ms）；批量只提交明确所选会话、逐项结果、不自动重试回归。
+- 最终构建169模块通过（1.60秒），JS `index-BWmqKmVG.js`，已有>500kB警告保留。
+- 最终Edge：`npx playwright test e2e/character-proactive.spec.js e2e/character-groups.spec.js --reporter=line`，7/7（42.8秒），含真实勾选/批开批关/旧格式禁选、新会话默认关、每日免打扰保存及C4/C5-A回归。wide/narrow截图已视觉检查。
+- 首次浏览器结果4通过/1失败/2未运行，发现设置对象刷新覆盖刚输入的分钟；已改字段级同步并重新构建后7项全部通过，未把初次结果宣称成功。开发测试时UTC时间夹具/插入位置问题已修，不增加核心兜底。
+- 无付费调用、真实玩家迁移或线上发布；浏览器工程链路不是角色质量/冻结桌面启动证明。
+- 本地打包脚本`-SkipDependencyInstall -SkipFrontendBuild -ArchiveSuffix c5b-preview`完成（exit0），主程序/更新助手编译及结构、隐私、覆盖升级保留数据校验通过。ZIP：`release/AliveWorld-1.6.0-dev.19-windows-x64-c5b-preview.zip`，SHA256 `9acc4e5a7e0ad913f27ba4ea67f0bdf056533f8b75dd34d3262d0d8e37a80901`。旧包保留、内部VERSION仍dev.19；未实际启动冻结EXE，既有可选voice_helpers/numpy/Android警告保留。
+
 ## C5-A当前会话闭环（2026-10-09）
 
 - 最终全Python：`python -m unittest discover -s tests -q`，813/813，55.148秒。涵盖授权、0/1/N一次规划、真实无input组/账本/撤回、编辑租约、新输入取消、重启、最后额度争抢、API设置及私密运输；早期整合84项曾因并行修改中的测试状态失败，最终全量已通过。

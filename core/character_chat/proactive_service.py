@@ -12,6 +12,7 @@ from .group_views import public_group
 from .limits import MAX_TURNS, MAX_ACTIONS, MAX_ATTEMPTS
 from .models import CharacterSessionError, canonical_id
 from .preferences import session_settings
+from .proactive_schedule import DEFAULT_QUIET, quiet_until, next_quiet_start
 
 COST_WARNING = '主动联系会额外调用模型，可能产生费用；每日限制仅统计次数，不代表金额或token上限。仅本地服务运行期间有效。'
 
@@ -38,7 +39,8 @@ class ProactiveContactService:
         session = self.repository.load(sid)
         supported = session.get('schema_version') == 2
         value = domain.settings(session) if supported else dict(domain.DEFAULTS, next_due_at=None, expires_at=None)
-        setting_keys = ('enabled', 'paused', 'idle_seconds', 'max_contacts')
+        setting_keys = ('enabled', 'paused', 'idle_seconds', 'max_contacts', 'quiet_hours')
+        value.setdefault('quiet_hours', dict(DEFAULT_QUIET))
         due = value['next_due_at']
         if value['cycle_state'] == 'armed' and sid in self.idle_since:
             due = (self.idle_since[sid][1] + timedelta(seconds=value['idle_seconds'])).isoformat()
@@ -46,6 +48,7 @@ class ProactiveContactService:
                 'settings': {k: value[k] for k in setting_keys}, 'state': value['cycle_state'],
                 'authorization_revision': value['authorization_revision'], 'interaction_epoch': value['interaction_epoch'],
                 'next_due_at': due, 'expires_at': value['expires_at'], 'cost_warning': COST_WARNING,
+                'quiet_until': (until.isoformat() if (until := quiet_until(value, self.clock())) else None),
                 'warning': self.warnings.get(sid) or self.quota.error or (None if supported else 'SCHEMA_READ_ONLY'),
                 'quota': self.quota.snapshot()}
 
@@ -61,6 +64,28 @@ class ProactiveContactService:
         self.warnings.pop(sid, None)
         self.refresh(sid)
         return self.view(sid)
+
+    def configure_batch(self, payload):
+        targets = payload['targets']
+        if (type(payload['enabled']) is not bool or not isinstance(targets, list) or not 1 <= len(targets) <= 100):
+            raise CharacterSessionError('INVALID_REQUEST')
+        seen = set()
+        for item in targets:
+            if not isinstance(item, dict) or set(item) != {'session_id', 'expected_revision'}:
+                raise CharacterSessionError('INVALID_REQUEST')
+            canonical_id(item['session_id'])
+            if type(item['expected_revision']) is not int or item['expected_revision'] < 0 or item['session_id'] in seen:
+                raise CharacterSessionError('INVALID_REQUEST')
+            seen.add(item['session_id'])
+        results = []
+        for item in targets:
+            try:
+                patch = {'enabled': payload['enabled'], **({'paused': False} if payload['enabled'] else {})}
+                view = self.configure(item['session_id'], {'expected_revision': item['expected_revision'], **patch})
+                results.append({'session_id': item['session_id'], 'ok': True, 'revision': view['revision']})
+            except CharacterSessionError as exc:
+                results.append({'session_id': item['session_id'], 'ok': False, 'code': exc.code})
+        return {'results': results}
 
     def activity(self, sid, client_id):
         self._check(sid)
@@ -174,7 +199,9 @@ class ProactiveContactService:
         for key in list(leases):
             if leases[key] <= now:
                 leases.pop(key)
-        return max(leases.values()) if leases else None
+        until = quiet_until(domain.state(session), now)
+        deadlines = list(leases.values()) + ([until] if until else [])
+        return max(deadlines) if deadlines else None
 
     async def _wait(self, sid, due=None):
         signal = self.signals[sid]
@@ -223,6 +250,9 @@ class ProactiveContactService:
             try:
                 raw = await self.groups.transport.generate_contact(config, prompt, report)
                 contacts = parse_contact_plan(raw, count, int((expires - now).total_seconds()))
+                quiet_start = next_quiet_start(value, now)
+                if quiet_until(value, self.clock()) or (quiet_start and self.clock() >= quiet_start):
+                    self._finish(sid, 'CONTACT_QUIET_HOURS', plan_id); return
                 if self.clock() >= expires:
                     self._finish(sid, 'CONTACT_EXPIRED', plan_id); return
                 saved = self.groups._transaction(sid, lambda s: domain.save_plan(s, plan_id, contacts, self.clock()))
@@ -246,6 +276,8 @@ class ProactiveContactService:
                     return
                 plan = value['plan']
                 now = self.clock()
+                if plan and quiet_until(value, now):
+                    self._finish(sid, 'CONTACT_QUIET_HOURS'); return
                 if plan and now >= datetime.fromisoformat(plan['expires_at']):
                     self._finish(sid, 'CONTACT_EXPIRED'); return
                 blocked = self._block_until(sid, session)
@@ -268,7 +300,8 @@ class ProactiveContactService:
                     due = max(idle_due, datetime.fromisoformat(plan['planned_at']) + timedelta(seconds=contact['delay_seconds']))
                     due = min(due, datetime.fromisoformat(plan['expires_at']))
                 if now < due:
-                    if await self._wait(sid, due):
+                    quiet_start = next_quiet_start(value, now)
+                    if await self._wait(sid, min(due, quiet_start) if quiet_start else due):
                         self._finish(sid, 'CONTACT_TIMER_LATE'); return
                     continue
                 if plan:

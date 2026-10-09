@@ -40,3 +40,13 @@ test('proactive rows use only real AI messages and mark origin without fabricate
   const rows=displayRows({session:{groups:[{group_id:'g',origin:'proactive',input_ids:[]}],messages:[{group_id:'g',message:{message_id:'ai',content:'hello'}}]},previewByRequestOrdinal:{}});
   assert.equal(rows.length,1);assert.equal(rows[0].origin,'proactive');assert.equal(rows[0].temporary,false);assert.equal(rows[0].key,'ai');
 });
+
+test('batch targets only explicitly chosen existing sessions, shows partial results and never retries',async()=>{
+  const f=fixture();f.state.current=f.ctx;f.state.sessions=[{session_id:'a',revision:3},{session_id:'b',revision:8}];
+  f.state.refreshList=async()=>{};f.api.updateContactBatch=async body=>{f.calls.push(body);return{results:[{session_id:'a',ok:true},{session_id:'b',ok:false,code:'REVISION_CONFLICT'}]};};
+  await f.controller.batch(['a','b'],true);
+  assert.deepEqual(f.calls,[{enabled:true,targets:[{session_id:'a',expected_revision:3},{session_id:'b',expected_revision:8}]}]);
+  assert.equal(f.state.contactBatchResults[1].code,'REVISION_CONFLICT');assert.equal(f.state.contactBatchBusy,false);
+  f.api.updateContactBatch=async()=>{f.calls.push('lost');throw Error('lost response');};
+  await f.controller.batch(['a'],false);assert.equal(f.calls.filter(v=>v==='lost').length,1);assert.match(f.state.contactBatchError,/lost response/);
+});

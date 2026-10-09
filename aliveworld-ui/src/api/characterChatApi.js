@@ -54,6 +54,7 @@ export const characterChatApi = {
   capacity: id => request(sid(id) + '/capacity'),
   proactive: id => request(sid(id) + '/proactive'),
   updateProactive: (id, payload) => request(sid(id) + '/proactive', 'PUT', payload),
+  updateContactBatch: payload => request('/contact-batch', 'PUT', payload),
   contactActivity: (id, clientId) => request(sid(id) + '/activity', 'POST', { client_id: clientId }),
   contactQuota: () => request('/contact-quota'),
   updateContactQuota: payload => request('/contact-quota', 'PUT', payload),

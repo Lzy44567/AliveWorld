@@ -41,3 +41,26 @@ test('C5旧会话说明不提供隐式升级或开启',async({page,request})=>{
   await expect(page.getByTestId('character-proactive-unsupported')).toContainText('不会自动转换');await expect(page.getByTestId('character-proactive-enabled')).toHaveCount(0);
   expect(await detail(request,old.session_id)).toEqual(old);
 });
+
+test('C5列表批量开启关闭、旧会话禁选与免打扰保存',async({page,request})=>{
+  const first=await create(request,'C5批量甲'),second=await create(request,'C5批量乙'),old=await create(request,'C5批量旧格式',1);
+  await enter(page,first.session_id);await page.getByTestId('character-session-search').fill('C5批量');
+  await page.getByTestId('character-contact-manage').click();
+  await expect(page.getByTestId(`character-contact-select-${old.session_id}`)).toBeDisabled();
+  await page.getByTestId('character-contact-select-all').click();
+  await expect(page.getByTestId('character-contact-batch-enable')).toContainText('2');
+  page.once('dialog',d=>d.accept());await page.getByTestId('character-contact-batch-enable').click();
+  await expect(page.getByTestId('character-contact-batch-results')).toContainText('已保存');
+  for(const item of [first,second])expect((await(await request.get(`${base}/${item.session_id}/proactive`)).json()).settings.enabled).toBe(true);
+  const future=await create(request,'C5新建仍默认关闭');expect((await(await request.get(`${base}/${future.session_id}/proactive`)).json()).settings.enabled).toBe(false);
+  await panel(page);await page.getByTestId('character-quiet-enabled').check();
+  await page.getByTestId('character-quiet-start').fill('22:00');await page.getByTestId('character-quiet-end').fill('08:00');await page.getByTestId('character-quiet-save').click();
+  await expect.poll(async()=> (await(await request.get(`${base}/${first.session_id}/proactive`)).json()).settings.quiet_hours).toEqual({enabled:true,start:'22:00',end:'08:00'});
+  await page.screenshot({path:'../build/e2e-results/character-c5-batch-wide.png'});
+  await page.getByRole('button',{name:'关闭资料'}).click();
+  await page.getByTestId('character-contact-select-all').click();await page.getByTestId('character-contact-batch-disable').click();
+  await expect.poll(async()=> (await(await request.get(`${base}/${second.session_id}/proactive`)).json()).settings.enabled).toBe(false);
+  await expect(page.getByTestId('character-contact-batch-results')).toContainText('已保存');
+  await page.setViewportSize({width:390,height:844});await page.getByRole('button',{name:'会话列表',exact:true}).click();
+  await expect(page.getByTestId('character-contact-batch')).toBeVisible();await page.screenshot({path:'../build/e2e-results/character-c5-batch-narrow.png'});
+});

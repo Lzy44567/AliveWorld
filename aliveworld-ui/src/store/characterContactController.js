@@ -44,5 +44,22 @@ export function createCharacterContactController(state, api, groups, now = () =>
     catch (e) { ctx.contactError = '每日限额设置未确认：' + e.message; }
     finally { ctx.contactQuotaBusy = false; }
   }
-  return { refresh, update, activity, quota };
+  async function batch(ids, enabled) {
+    if (state.contactBatchBusy || !ids.length) return;
+    state.contactBatchBusy = true; state.contactBatchError = ''; state.contactBatchResults = [];
+    try {
+      if (supported(state.current)) await groups.beforeMutation(state.activeId);
+      await state.refreshList();
+      const targets = ids.map(id => {
+        const item = state.sessions.find(s => s.session_id === id);
+        return { session_id: id, expected_revision: item?.revision ?? 0 };
+      });
+      const result = await api.updateContactBatch({ targets, enabled });
+      state.contactBatchResults = result.results;
+      await state.refreshList();
+      if (supported(state.current)) await groups.refresh(state.activeId);
+    } catch (e) { state.contactBatchError = '批量结果需核对，请刷新列表后查看：' + e.message; }
+    finally { state.contactBatchBusy = false; }
+  }
+  return { refresh, update, activity, quota, batch };
 }

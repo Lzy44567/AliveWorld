@@ -77,6 +77,19 @@ class GroupRouteTests(unittest.TestCase):
         self.assertEqual(409, denied.status_code)
         self.assertEqual(old, self.client.get(url).json())
 
+    def test_contact_batch_static_route_and_quiet_hours(self):
+        before = self.client.get(self.url).json()['revision']
+        result = self.client.put(self.prefix+'/contact-batch',json={'enabled':True,'targets':[{'session_id':self.sid,'expected_revision':before}]})
+        self.assertEqual(200,result.status_code,result.text)
+        self.assertTrue(result.json()['results'][0]['ok'])
+        revision = self.client.get(self.url).json()['revision']
+        quiet = {'enabled':True,'start':'22:00','end':'08:00'}
+        response = self.client.put(self.url+'/proactive',json={'expected_revision':revision,'settings':{'quiet_hours':quiet}})
+        self.assertEqual(200,response.status_code,response.text)
+        self.assertEqual(quiet,response.json()['settings']['quiet_hours'])
+        stale = self.client.put(self.prefix+'/contact-batch',json={'enabled':False,'targets':[{'session_id':self.sid,'expected_revision':before}]})
+        self.assertEqual('REVISION_CONFLICT',stale.json()['results'][0]['code'])
+
     def test_each_display_returns_fast_json_while_provider_waits_and_replays_once(self):
         for mode in ('stream', 'gaps', 'instant'):
             self.client.portal.call(self.transport.gate.clear)

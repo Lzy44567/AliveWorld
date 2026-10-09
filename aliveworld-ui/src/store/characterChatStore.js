@@ -19,6 +19,7 @@ export function createCharacterChatStore(api = characterChatApi, delay = ms => n
   let groups, contacts;
   const state = reactive({
     sessions: [], contexts: {}, activeId: '', error: '', loading: false, nextCursor: null,
+    contactBatchBusy: false, contactBatchError: '', contactBatchResults: [],
     listComplete: false, listWarning: '', visible: false, creationPending: null, creationBusy: false, preferences: createConversationPreferences(storage), interaction: createCharacterInteractionPreferences(storage),
     get current() { return this.contexts[this.activeId] || null; },
     context(id) {
@@ -34,6 +35,7 @@ export function createCharacterChatStore(api = characterChatApi, delay = ms => n
     updateContact(id, settings) { return contacts.update(id, settings); },
     contactActivity(id) { contacts.activity(id); },
     updateContactQuota(id, settings) { return contacts.quota(id, settings); },
+    batchContact(ids, enabled) { return contacts.batch(ids, enabled); },
     async refreshCapacity(id) {
       const ctx = this.contexts[id];
       if (!ctx?.session || ctx.session.schema_read_only) return;

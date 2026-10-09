@@ -96,6 +96,15 @@ async def contact_quota(request: Request):
         return error_response(exc)
 
 
+@router.put('/contact-batch')
+async def update_contact_batch(request: Request):
+    try:
+        payload = await body(request, {'targets', 'enabled'}, {'targets', 'enabled'})
+        return proactive_service(request).configure_batch(payload)
+    except Exception as exc:
+        return error_response(exc)
+
+
 @router.put('/contact-quota')
 async def update_contact_quota(request: Request):
     try:
