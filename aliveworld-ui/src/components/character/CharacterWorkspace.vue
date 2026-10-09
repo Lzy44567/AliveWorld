@@ -18,6 +18,7 @@ import CharacterMemoryPanel from './CharacterMemoryPanel.vue';
 import CharacterMemoryNotice from './CharacterMemoryNotice.vue';
 import CharacterCapacityPanel from './CharacterCapacityPanel.vue';
 import CharacterOocComposer from './CharacterOocComposer.vue';
+import CharacterProactivePanel from './CharacterProactivePanel.vue';
 import { oocError } from '../../utils/characterOoc.js';
 import { capacityWarning } from '../../utils/characterCapacity.js';
 import { shouldSendCharacterKey } from '../../utils/characterInteraction.js';
@@ -148,16 +149,16 @@ onUnmounted(() => { mounted = false; document.removeEventListener('visibilitycha
         </div>
         <div class="shrink-0 border-t border-slate-800 p-3 space-y-2">
           <p v-if="ctx.contextNotice" data-testid="character-context-notice" class="text-xs text-amber-300">{{ ctx.contextNotice }}</p>
-          <div v-if="ctx.error" data-testid="character-error" class="text-sm text-rose-300 flex flex-wrap items-center gap-2"><span>{{ ctx.error }}</span><button v-if="ctx.failure?.retryable && !ctx.busy" data-testid="character-retry" class="underline" @click="run(ctx.failure.operation,true)">重试原台词及场外提示</button><button v-if="ctx.busy && ctx.inflight?.status==='unknown'" class="underline" @click="store.recover(store.activeId,ctx.inflight)">核对状态</button></div>
+          <div v-if="ctx.error" data-testid="character-error" class="text-sm text-rose-300 flex flex-wrap items-center gap-2"><span>{{ ctx.error }}</span><button v-if="ctx.failure?.retryable && ctx.failure.operation!=='proactive' && !ctx.busy" data-testid="character-retry" class="underline" @click="run(ctx.failure.operation,true)">重试原台词及场外提示</button><button v-if="ctx.busy && ctx.inflight?.status==='unknown'" class="underline" @click="store.recover(store.activeId,ctx.inflight)">核对状态</button></div>
           <button v-if="ctx.needsReload" class="text-xs underline text-amber-300" @click="store.open(store.activeId)">重新载入记录</button>
           <p v-if="grouped && ctx.subscriptionError" class="text-xs text-amber-300">{{ ctx.subscriptionError }} <button class="underline" @click="store.open(store.activeId)">重新连接并核对</button></p>
           <button v-if="grouped && ctx.commandPending && ctx.groupCommand" class="text-xs underline text-amber-300" @click="store.recover(store.activeId)">核对发送结果（不会重发）</button>
-          <div v-if="hasHistory" class="flex justify-end gap-3 text-xs text-slate-500"><button data-testid="character-regenerate" :disabled="batchDisabled" @click="regenerate">{{ grouped ? '重新生成最后一批' : '重新生成末轮' }}</button><button data-testid="character-undo" :disabled="batchDisabled" @click="undo">{{ grouped ? '撤回最后一批' : '撤回末轮' }}</button></div>
+          <div v-if="hasHistory" class="flex justify-end gap-3 text-xs text-slate-500"><button v-if="!grouped || session.groups.at(-1)?.origin!=='proactive'" data-testid="character-regenerate" :disabled="batchDisabled" @click="regenerate">{{ grouped ? '重新生成最后一批' : '重新生成末轮' }}</button><button data-testid="character-undo" :disabled="batchDisabled" @click="undo">{{ grouped ? '撤回最后一批' : '撤回末轮' }}</button></div>
           <form class="space-y-2" @submit.prevent="run('send')">
-            <CharacterOocComposer v-model="ctx.oocDraft" v-model:open="ctx.oocOpen" />
+            <CharacterOocComposer v-model="ctx.oocDraft" v-model:open="ctx.oocOpen" @activity="store.contactActivity(store.activeId)" />
             <p v-if="ctx.oocDraft.trim() && !ctx.draft.trim()" class="text-xs text-slate-400">请同时输入角色台词；暂不支持仅发送场外提示。</p>
             <p v-if="oocError(ctx.oocDraft)" class="text-xs text-rose-300">{{ oocError(ctx.oocDraft) }}</p>
-            <textarea v-model="ctx.draft" data-testid="character-composer" rows="3" maxlength="4000" class="field !mt-0 resize-none" :placeholder="ctx.sendKey==='ctrl_enter'?'输入消息；Enter 换行，Ctrl+Enter 发送':'输入消息；Enter 发送，Shift+Enter 换行'" @compositionstart="composing=true" @compositionend="composing=false" @keydown="keydown"></textarea>
+            <textarea v-model="ctx.draft" data-testid="character-composer" rows="3" maxlength="4000" class="field !mt-0 resize-none" :placeholder="ctx.sendKey==='ctrl_enter'?'输入消息；Enter 换行，Ctrl+Enter 发送':'输入消息；Enter 发送，Shift+Enter 换行'" @input="store.contactActivity(store.activeId)" @compositionstart="composing=true" @compositionend="composing=false" @keydown="keydown"></textarea>
             <div class="flex justify-end items-center gap-3"><span class="text-[11px] text-slate-500">{{ ctx.sendKey==='ctrl_enter'?'Ctrl+Enter 发送':'Enter 发送 · Shift+Enter 换行' }}</span><button v-if="ctx.busy && (!grouped || session.busy_group?.status==='generating')" data-testid="character-stop" type="button" class="rounded-lg bg-amber-900 px-5 py-2 disabled:opacity-40" :disabled="grouped ? !session.busy_group?.request_id : !ctx.inflight?.request_id" @click="store.stop(store.activeId)">停止</button><button v-if="grouped || !ctx.busy" data-testid="character-send" class="rounded-lg bg-indigo-700 px-5 py-2 disabled:opacity-40" :disabled="!ctx.draft.trim() || Boolean(oocError(ctx.oocDraft)) || ctx.needsReload || ctx.settingsBusy || ctx.commandPending">{{ ctx.commandPending ? '保存中…' : '发送' }}</button></div>
           </form>
         </div>
@@ -176,6 +177,7 @@ onUnmounted(() => { mounted = false; document.removeEventListener('visibilitycha
       <div v-if="ctx.spoiler" data-testid="character-private-ledger" class="space-y-2 mt-2"><div v-for="entry in ctx.spoiler" :key="entry.entry_id" class="text-sm rounded bg-amber-950/40 p-2 whitespace-pre-wrap select-text">{{ entry.content || entry.text || entry.summary }}</div></div>
       <h4 class="mt-6 text-sm font-bold text-indigo-200">会话设置</h4>
       <CharacterCapacityPanel :report="ctx.capacity" :loading="ctx.capacityLoading" :error="ctx.capacityError" :open="ctx.capacityOpen" @toggle="capacityToggle" @refresh="store.refreshCapacity(session.session_id)" />
+      <CharacterProactivePanel :key="session.session_id" :session="session" :contact="ctx.contact" :loading="ctx.contactLoading" :error="ctx.contactError" :disabled="ctx.settingsBusy || ctx.commandPending || readonly" :quota-busy="ctx.contactQuotaBusy" @refresh="store.refreshContact(session.session_id)" @update="store.updateContact(session.session_id,$event)" @quota="store.updateContactQuota(session.session_id,$event)" />
       <CharacterPreferenceSettings :settings="session.preference_settings" :disabled="ctx.busy || ctx.settingsBusy || readonly" @update="updatePreferences" />
       <div class="mt-3"><CharacterPresentationPicker :model-value="session.presentation_mode" test-id="character-mode" :disabled="ctx.busy || ctx.settingsBusy || readonly" @update:model-value="updateMode" /></div>
       <label class="mt-5 flex items-center justify-between gap-3 text-sm">流式输出<input data-testid="character-delivery" type="checkbox" role="switch" :checked="ctx.delivery==='stream'" :disabled="ctx.busy && !grouped" @change="store.setInteraction(store.activeId,grouped ? {displayMode:$event.target.checked?'stream':'instant'} : {delivery:$event.target.checked?'stream':'non_stream'})"></label>

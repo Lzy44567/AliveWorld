@@ -41,6 +41,8 @@ def metadata(session, revision, title=None, presentation_mode=None, preference_s
     session['revision'] += 1
     if context_change:
         session['context_epoch'] += 1
+        from .proactive_contact import invalidate
+        invalidate(session)
     return True
 
 
@@ -50,6 +52,8 @@ def mark_memory(session, revision, entry_id, important):
     if changed:
         session['revision'] += 1
         session['context_epoch'] += 1
+        from .proactive_contact import invalidate
+        invalidate(session)
     return changed
 
 
@@ -65,6 +69,8 @@ def update_memory(session, revision, operation, *args):
         session['revision'] += 1
         if operation != 'acknowledge':
             session['context_epoch'] += 1
+            from .proactive_contact import invalidate
+            invalidate(session)
     return changed
 
 

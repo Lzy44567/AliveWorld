@@ -33,7 +33,17 @@ class CharacterTransport:
             validate_contract(plan.contract_id)
         except ValueError:
             raise CharacterSessionError('REPLY_CONTRACT_UNSUPPORTED') from None
-        trace = begin_llm_trace('character.reply', config['model'], '[private content omitted]',
+        return await self._generate(config, plan, report, delivery, emit, 'character.reply')
+
+    async def generate_contact(self, config, plan, report):
+        """One explicitly authorized non-stream contact planning request."""
+        if (plan.contract_id != 'character.contact_plan.v1' or
+                plan.context_contract_id != 'character.contact_context.v1'):
+            raise CharacterSessionError('REPLY_CONTRACT_UNSUPPORTED')
+        return await self._generate(config, plan, report, 'non_stream', lambda *_: None, 'character.contact')
+
+    async def _generate(self, config, plan, report, delivery, emit, trace_kind):
+        trace = begin_llm_trace(trace_kind, config['model'], '[private content omitted]',
                                 '[private content omitted]', 'json', plan.prompt_manifest)
         started, usage, error = time.monotonic(), None, None
         try:
@@ -114,6 +124,6 @@ class CharacterTransport:
             error = 'PROVIDER_FAILED'
             raise CharacterSessionError(error) from None
         finally:
-            finish_llm_trace('character.reply', trace, response='[private content omitted]', error=error,
+            finish_llm_trace(trace_kind, trace, response='[private content omitted]', error=error,
                              metadata={'budget': report, 'usage': usage, 'normalizedUsage': normalize_usage(usage),
                                        'elapsedMs': round((time.monotonic() - started) * 1000), 'attempt': 1})

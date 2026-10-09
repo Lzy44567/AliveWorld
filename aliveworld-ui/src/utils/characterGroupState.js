@@ -35,7 +35,8 @@ export function displayRows(ctx) {
   const formal = ctx.session?.messages || [], ids = new Set(formal.map(row => row.message.message_id));
   const previews = Object.values(ctx.previewByRequestOrdinal || {}).flatMap(request => request.bubbles)
     .filter(bubble => bubble && !ids.has(bubble.message_id));
-  return [...formal.map(row => ({ ...row, key: row.message.message_id, temporary: false })),
+  const origins = new Map((ctx.session?.groups || []).map(group => [group.group_id,group.origin]));
+  return [...formal.map(row => ({ ...row, origin: origins.get(row.group_id), key: row.message.message_id, temporary: false })),
     ...previews.map(bubble => ({ key: bubble.message_id, temporary: true, group_id: bubble.group_id,
       message: { message_id: bubble.message_id, content: bubble.text, speaker_instance_id: bubble.speaker_instance_id }, ended: bubble.ended }))];
 }

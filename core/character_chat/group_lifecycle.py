@@ -4,11 +4,11 @@ import hashlib
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
-from .models import CharacterSessionError, canonical_id, text, json_bytes, MAX_FILE_BYTES
+from .models import CharacterSessionError, canonical_id, json_bytes, MAX_FILE_BYTES
 from .limits import MAX_TURNS, MAX_ACTIONS, MAX_ATTEMPTS
 from .protocol import V3
 from .context_contract import C4
-from .ooc import normalize_ooc, OocInputError
+from .group_requests import send_values, batch_values
 from .contract import now, parse_result, plan_ledger, reverse_ledger
 from .annotations import parse_annotations
 from .message_groups import resolve_local_sources
@@ -51,14 +51,7 @@ def check_revision(session, revision):
 
 
 def accept_input(session, payload):
-    if not isinstance(payload, dict) or not {'client_action_id', 'expected_revision', 'content'} <= set(payload) or not set(payload) <= {'client_action_id', 'expected_revision', 'content', 'ooc_note'}:
-        raise CharacterSessionError('INVALID_REQUEST')
-    aid = canonical_id(payload['client_action_id'])
-    content = text(payload['content'], 4000).strip()
-    try:
-        note = normalize_ooc(payload.get('ooc_note'))
-    except OocInputError as exc:
-        raise CharacterSessionError(exc.code) from None
+    aid, content, note = send_values(payload)
     fingerprint = hashlib.sha256(json_bytes({'content': content, 'ooc_note': note})).hexdigest()
     old = next((a for a in session['requests'] if a['action_id'] == aid), None)
     if old:
@@ -86,6 +79,8 @@ def accept_input(session, payload):
               'mode_at_action': session['presentation_mode'], 'result_state': None, 'input_id': mid, 'attempts': []}
     session['inputs'].append(entry); session['requests'].append(action)
     session['next_seq'] += 1; session['revision'] += 1
+    from .proactive_contact import on_user_input
+    on_user_input(session)
     return action, True
 
 
@@ -213,6 +208,9 @@ def settle_ledger(session, group):
         action.update(result_state='active', resolved_by_group_id=group['group_id'])
     owner = next(a for a in session['requests'] if a['action_id'] == group['action_id'])
     owner['result_group_id'] = group['group_id']
+    if owner['operation'] == 'proactive':
+        owner['result_state'] = 'active'
+        return
     query = '\n'.join(i['message']['content'] for i in session['inputs'] if i['input_id'] in group['input_ids'])
     attach_notice(session, group, owner, query)
 
@@ -246,6 +244,12 @@ def commit_generated(session, request_id, raw, allowed_messages, projected_entry
     deliver(session, group, timestamp)
     attempt['committed_revision'] = session['revision']
     return copy.deepcopy(group)
+
+
+def commit_proactive_contact(session, plan_id, index, timestamp=None):
+    """Internal atomic entry point; the scheduler owns the surrounding save."""
+    from .proactive_contact import commit_proactive_contact as commit
+    return commit(session, plan_id, index, timestamp)
 
 
 def fail_generation(session, request_id, status='failed', error_code='PROVIDER_FAILED'):
@@ -303,7 +307,11 @@ def latest_batch(session, group_id):
     # Input arriving between A/B bubbles can depend on A even though its seq is
     # less than the final B. The barrier is the claimed input cutoff, not the
     # latest delivered AI sequence.
-    input_cutoff = max(i['message']['seq'] for i in session['inputs'] if i['input_id'] in own)
+    if group.get('origin') == 'proactive':
+        _, attempt, _ = current_attempt(session, group['request_id'])
+        input_cutoff = attempt['history_cutoff_seq']
+    else:
+        input_cutoff = max(i['message']['seq'] for i in session['inputs'] if i['input_id'] in own)
     if any(i['status'] == 'active' and i['input_id'] not in own and i['message']['seq'] > input_cutoff for i in session['inputs']):
         raise CharacterSessionError('REVISION_CONFLICT')
     return group
@@ -331,11 +339,7 @@ def replace_group(session, action, new_id):
 
 
 def batch_action(session, payload, display_mode='stream'):
-    if not isinstance(payload, dict) or set(payload) != {'client_action_id', 'expected_revision', 'operation', 'target_group_id'}:
-        raise CharacterSessionError('INVALID_REQUEST')
-    aid, gid = canonical_id(payload['client_action_id']), canonical_id(payload['target_group_id'])
-    if payload['operation'] not in {'undo', 'regenerate'} or display_mode not in {'stream', 'gaps', 'instant'}:
-        raise CharacterSessionError('INVALID_REQUEST')
+    aid, gid = batch_values(payload, display_mode)
     fingerprint = hashlib.sha256(json_bytes({'operation': payload['operation'], 'target_group_id': gid})).hexdigest()
     old = next((a for a in session['requests'] if a['action_id'] == aid), None)
     if old:
@@ -344,6 +348,8 @@ def batch_action(session, payload, display_mode='stream'):
         return old, False
     check_revision(session, payload['expected_revision'])
     target = latest_batch(session, gid)
+    if target.get('origin') == 'proactive' and payload['operation'] == 'regenerate':
+        raise CharacterSessionError('REPLY_CONTRACT_UNSUPPORTED')
     if len(session['requests']) >= MAX_ACTIONS or sum(len(a['attempts']) for a in session['requests']) >= MAX_ATTEMPTS:
         raise CharacterSessionError('SESSION_LIMIT')
     action = {'action_id': aid, 'operation': payload['operation'], 'fingerprint': fingerprint, 'created_at': now(),
@@ -351,6 +357,8 @@ def batch_action(session, payload, display_mode='stream'):
     session['requests'].append(action)
     session['context_epoch'] += 1
     session['revision'] += 1
+    from .proactive_contact import invalidate
+    invalidate(session)
     if action['operation'] == 'regenerate':
         return create_group(session, action, list(target['input_ids']), display_mode), True
     reverse_ledger(session, target['ledger_inverse'])
@@ -389,6 +397,8 @@ def retry_group(session, action_id, request_id, retry_token, display_mode='strea
 
 def require_group_retry(session, action, request_id):
     """Shared pure eligibility for execution and public retry affordances."""
+    if action['operation'] == 'proactive':
+        raise CharacterSessionError('STALE_RETRY')
     previous = action['attempts'][-1] if action['attempts'] else None
     if (previous is None or previous['request_id'] != request_id or previous['status'] not in {'failed', 'cancelled', 'interrupted'}
             or previous.get('reply_contract_id') != V3):

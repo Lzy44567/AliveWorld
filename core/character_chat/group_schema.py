@@ -54,6 +54,8 @@ def _validate(value):
                    'created_at', 'title', 'presentation_mode', 'revision', 'updated_at', 'extensions',
                    'context_epoch', 'next_seq', 'read_ai_seq', 'inputs', 'groups', 'requests', 'ledger'}, {'opening'})
     validate_envelope(value)
+    from .proactive_contact import validate_stored
+    validate_stored(value)
     validate_depth(value, 40)
     if len(json_bytes(value)) > MAX_FILE_BYTES:
         raise CharacterSessionError('SESSION_LIMIT')
@@ -113,7 +115,8 @@ def _validate(value):
     for group in value['groups']:
         fields(group, {'group_id', 'action_id', 'request_id', 'input_ids', 'mode_at_generation', 'display_mode',
                        'status', 'created_at', 'bubbles', 'delivered_count', 'next_due_at', 'ledger_plan', 'ledger_inverse'},
-               {'generated_at', 'settled_at', 'committed_revision', 'replaced_by_group_id', 'error_code', 'memory_notice'})
+               {'generated_at', 'settled_at', 'committed_revision', 'replaced_by_group_id', 'error_code', 'memory_notice',
+                'origin', 'contact_ref'})
         identity(group['group_id'])
         canonical_id(group['action_id']); canonical_id(group['request_id'])
         if group['status'] not in CURRENT_GROUP_STATES | {'replaced', 'withdrawn'}:
@@ -121,7 +124,19 @@ def _validate(value):
         if group['mode_at_generation'] not in {'messenger', 'roleplay'} or group['display_mode'] not in {'stream', 'gaps', 'instant'}:
             corrupt()
         members = group['input_ids']
-        if not isinstance(members, list) or not 1 <= len(members) <= 8 or len(set(members)) != len(members) or any(mid not in inputs for mid in members):
+        proactive = group.get('origin') == 'proactive'
+        if group.get('origin', 'reply') not in {'reply', 'proactive'}:
+            corrupt()
+        if proactive:
+            fields(group.get('contact_ref'), {'plan_id', 'index'})
+            canonical_id(group['contact_ref']['plan_id'])
+            integer(group['contact_ref']['index'], 0, 4)
+            if (members or group['display_mode'] != 'instant' or group.get('memory_notice')
+                    or group['status'] not in {'complete', 'withdrawn'}):
+                corrupt()
+        elif 'contact_ref' in group:
+            corrupt()
+        if not isinstance(members, list) or not (0 if proactive else 1) <= len(members) <= 8 or len(set(members)) != len(members) or any(mid not in inputs for mid in members):
             corrupt()
         if group['status'] in {'generating', 'delivering', 'complete', 'partial_failed'} and any(inputs[mid]['status'] != 'active' for mid in members):
             corrupt()
@@ -210,7 +225,9 @@ def _validate(value):
                {'input_id', 'target_group_id', 'result_group_id', 'resolved_by_group_id', 'legacy_retry_snapshot'})
         identity(action['action_id'])
         actions[action['action_id']] = action
-        if action['operation'] not in {'send', 'regenerate', 'undo'} or action['result_state'] not in {None, 'active', 'withdrawn', 'replaced'}:
+        if action['operation'] not in {'send', 'regenerate', 'undo', 'proactive'} or action['result_state'] not in {None, 'active', 'withdrawn', 'replaced'}:
+            corrupt()
+        if action['operation'] == 'proactive' and ('input_id' in action or len(action['attempts']) != 1):
             corrupt()
         text(action['fingerprint'], 64)
         if not isinstance(action['attempts'], list):
@@ -336,6 +353,8 @@ def _validate(value):
     for group in value['groups']:
         owner = attempts.get(group['request_id'])
         if owner is None or owner[0]['action_id'] != group['action_id']:
+            corrupt()
+        if (group.get('origin') == 'proactive') != (owner[0]['operation'] == 'proactive'):
             corrupt()
         if owner[1].get('legacy_execution') and owner[1]['legacy_execution']['group_id'] != group['group_id']:
             corrupt()

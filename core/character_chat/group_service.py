@@ -14,6 +14,8 @@ from .legacy_context import build_legacy_retry_context, legacy_snapshot
 from .legacy_lifecycle import execution_for_request, begin_legacy_retry, commit_legacy
 from .group_views import public_group, public_session
 from . import group_settings
+from .group_requests import retry_values
+from .proactive_contact import invalidate
 
 
 class CharacterGroupService:
@@ -38,6 +40,11 @@ class CharacterGroupService:
         self.blocked = set()
         self.closed = False
         self.started = False
+        self.proactive = None
+
+    def _refresh_contact(self, sid):
+        if self.proactive is not None:
+            self.proactive.refresh(sid)
 
     def _transaction(self, sid, mutation):
         def change(value):
@@ -150,6 +157,7 @@ class CharacterGroupService:
         if changed:
             self._publish(sid, 'input_saved', action_id=action['action_id'], state=self._event_state(sid))
             self._wake(sid, explicit=True)
+            self._refresh_contact(sid)
         return action
 
     def set_display(self, sid, mode):
@@ -166,16 +174,20 @@ class CharacterGroupService:
     def metadata(self, sid, revision, title=None, presentation_mode=None, preference_settings=None):
         self._check(sid)
         self._transaction(sid, lambda s: group_settings.metadata(s, revision, title, presentation_mode, preference_settings))
+        self._refresh_contact(sid)
         return self.view(sid)
 
     def memory_mark(self, sid, revision, entry_id, important):
         self._check(sid)
         self._transaction(sid, lambda s: group_settings.mark_memory(s, revision, entry_id, important))
+        self._refresh_contact(sid)
         return self.view(sid)
 
     def memory_update(self, sid, revision, operation, *args):
         self._check(sid)
         self._transaction(sid, lambda s: group_settings.update_memory(s, revision, operation, *args))
+        if operation != 'acknowledge':
+            self._refresh_contact(sid)
         value = self.view(sid)
         return {k: value[k] for k in ('session_id', 'revision', 'memory_settings')}
 
@@ -192,6 +204,7 @@ class CharacterGroupService:
         result, changed = self._transaction(sid, lambda s: batch_action(s, payload, display_mode))
         if changed:
             self._publish(sid, 'state_changed', state=self._event_state(sid))
+            self._refresh_contact(sid)
             if payload['operation'] == 'regenerate':
                 self._wake(sid)
         return result
@@ -200,9 +213,7 @@ class CharacterGroupService:
         self._check(sid)
         self.set_display(sid, display_mode)
         canonical_id(action_id)
-        if not isinstance(payload, dict) or set(payload) != {'expected_revision', 'retry_of', 'retry_token'}:
-            raise CharacterSessionError('INVALID_REQUEST')
-        canonical_id(payload['retry_of']); canonical_id(payload['retry_token'])
+        retry_values(payload)
         def retry(value):
             # Retry-token replay must remain idempotent after a newer revision.
             old = next((a for a in value['requests'] if a['action_id'] == action_id), None)
@@ -211,10 +222,14 @@ class CharacterGroupService:
                 check_revision(value, payload['expected_revision'])
             target = old and next((t for t in old['attempts'] if t['request_id'] == payload['retry_of']), None)
             handler = begin_legacy_retry if target and target.get('legacy_attempt') else retry_group
-            return handler(value, action_id, payload['retry_of'], payload['retry_token'], display_mode)
+            result = handler(value, action_id, payload['retry_of'], payload['retry_token'], display_mode)
+            if result[1]:
+                invalidate(value)
+            return result
         result, changed = self._transaction(sid, retry)
         if changed:
             self._wake(sid)
+            self._refresh_contact(sid)
         return result
 
     def cancel(self, sid, rid):
@@ -373,3 +388,4 @@ class CharacterGroupService:
                     explicit = self.wake_pending.pop(sid)
                     if not self.closed and sid not in self.blocked:
                         self._wake(sid, explicit=explicit)
+                self._refresh_contact(sid)

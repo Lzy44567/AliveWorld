@@ -7,6 +7,9 @@ import os
 import shutil
 import sys
 import threading
+import asyncio
+import time
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import uvicorn
@@ -98,10 +101,25 @@ threading.Thread(target=run_fake_model, name="aliveworld-e2e-fake-llm", daemon=T
 threading.Thread(target=run_fake_comfyui, name="aliveworld-e2e-fake-comfyui", daemon=True).start()
 
 from main import create_app  # noqa: E402
+from core.character_chat.runtime import CharacterRuntime  # noqa: E402
+from core.character_chat.proactive_service import ProactiveContactService  # noqa: E402
+
+
+def test_character_runtime():
+    runtime = CharacterRuntime(RUNTIME / 'character_sessions')
+    started, epoch = time.monotonic(), datetime.now(timezone.utc)
+    clock = lambda: epoch + timedelta(seconds=(time.monotonic() - started) * 20)
+    async def fast_sleep(seconds):
+        await asyncio.sleep(seconds / 20)
+    runtime.proactive = ProactiveContactService(runtime.groups, RUNTIME / 'proactive_quota.json',
+                                              clock=clock, sleep=fast_sleep)
+    runtime.groups.proactive = runtime.proactive
+    return runtime
 
 
 if __name__ == "__main__":
     uvicorn.run(
-        create_app(frontend_dist=ROOT / "aliveworld-ui" / "dist", cors_origins=[]),
+        create_app(frontend_dist=ROOT / "aliveworld-ui" / "dist", cors_origins=[],
+                   character_runtime_factory=test_character_runtime),
         host="127.0.0.1", port=18766, log_level="warning",
     )

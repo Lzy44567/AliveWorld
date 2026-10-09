@@ -44,6 +44,7 @@ export function createCharacterGroupController(state, api, noticeCache) {
               preview.terminal && preview.terminal !== 'group_saved' && session.revision >= preview.terminalRevision) delete ctx.previewByRequestOrdinal[rid];
         }
       } while (task.again);
+      void state.refreshContact?.(id);
     })().catch(e => { if (state.contexts[id] === ctx) { ctx.error = '会话状态待核对：' + e.message; ctx.needsReload = true; } })
       .finally(() => { if (refreshes.get(id) === task) refreshes.delete(id); });
     refreshes.set(id,task); return task.promise;
@@ -130,6 +131,7 @@ export function createCharacterGroupController(state, api, noticeCache) {
     if (!retry && operation === 'send' && (!ctx.draft.trim() || oocError(ctx.oocDraft))) { ctx.error = oocError(ctx.oocDraft); return; }
     const failed = ctx.failure; if (retry && !failed?.retryable) return;
     const target = ctx.session.groups.at(-1);
+    if (operation === 'regenerate' && target?.origin === 'proactive' || retry && failed?.operation === 'proactive') return;
     const input = ctx.session.messages.find(row => row.message.message_id === target?.input_ids?.[0]);
     const command = { action_id: retry ? failed.action_id : crypto.randomUUID(), operation, clearsDraft: !retry && operation === 'send', content: ctx.draft, oocDraft: ctx.oocDraft,
       withdrawnInput: target?.input_ids?.length === 1 ? input?.message.content || '' : '', withdrawnOoc: target?.input_ids?.length === 1 ? input?.ooc_note || '' : '' };

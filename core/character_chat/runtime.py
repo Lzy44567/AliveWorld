@@ -9,6 +9,7 @@ from .repository import CharacterSessionRepository
 from .service import CharacterChatService
 from .group_service import CharacterGroupService
 from .provider_slots import ProviderSlots
+from .proactive_service import ProactiveContactService
 
 
 def validate_supported_session(value):
@@ -27,6 +28,8 @@ class CharacterRuntime:
                                           preference_loader=preference_loader, slots=self.slots)
         self.groups = CharacterGroupService(self.repository, transport,
                                            preference_loader=preference_loader, slots=self.slots)
+        self.proactive = ProactiveContactService(self.groups, self.repository.directory.parent / 'proactive_quota.json')
+        self.groups.proactive = self.proactive
         self.workers = workers if workers is not None else os.environ.get('WEB_CONCURRENCY', '1')
         self.started = False
         self.closed = False
@@ -56,7 +59,12 @@ class CharacterRuntime:
             single_process = False
         if single_process:
             await self.groups.start()
+            await self.proactive.start()
         self.started = True
+
+    def require_proactive(self):
+        self.require_groups()
+        return self.proactive
 
     async def close(self):
         if self.closed:
@@ -65,9 +73,13 @@ class CharacterRuntime:
         self.legacy.closed = True
         failure = None
         try:
-            await self.groups.close()
+            await self.proactive.close()
         except Exception as exc:
             failure = exc
+        try:
+            await self.groups.close()
+        except Exception as exc:
+            failure = failure or exc
         for rid, job in list(self.legacy.jobs.items()):
             try:
                 self.legacy._terminal(job['session']['session_id'], job['action_id'], rid,

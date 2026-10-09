@@ -55,6 +55,24 @@ class CharacterTransportTests(unittest.IsolatedAsyncioTestCase):
         for private in ('PRIVATE_PROFILE_SYNTHETIC', 'PRIVATE_INPUT_SYNTHETIC', 'PRIVATE_REPLY_SYNTHETIC', 'SYNTHETIC_SECRET'):
             self.assertNotIn(private, captured)
 
+    async def test_contact_plan_uses_one_nonstream_call_and_own_private_trace(self):
+        plan = replace(self.plan, contract_id='character.contact_plan.v1',
+                       context_contract_id='character.contact_context.v1')
+        with patch('core.character_chat.transport.AsyncOpenAI', side_effect=self.factory), \
+                patch('core.character_chat.transport.begin_llm_trace', return_value='contact-trace') as begin, \
+                patch('core.character_chat.transport.finish_llm_trace') as finish:
+            await CharacterTransport().generate_contact(self.config, plan, self.report)
+        self.assertEqual(1, len(self.calls))
+        self.assertNotIn('stream', self.calls[0])
+        self.assertEqual('character.contact', begin.call_args.args[0])
+        self.assertEqual('character.contact', finish.call_args.args[0])
+        self.assertNotIn('PRIVATE_PROFILE_SYNTHETIC', str(begin.call_args))
+
+    async def test_contact_plan_cannot_call_provider_with_reply_contract(self):
+        with self.assertRaises(CharacterSessionError):
+            await CharacterTransport().generate_contact(self.config, self.plan, self.report)
+        self.assertEqual([], self.calls)
+
     async def test_http_failure_zero_sdk_retries_safe_error(self):
         def handler(request):
             self.calls.append(json.loads(request.content))

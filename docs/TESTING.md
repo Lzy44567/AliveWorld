@@ -1,5 +1,18 @@
 # AliveWorld 测试流程
 
+## C5-A当前会话闭环（2026-10-09）
+
+- 最终全Python：`python -m unittest discover -s tests -q`，813/813，55.148秒。涵盖授权、0/1/N一次规划、真实无input组/账本/撤回、编辑租约、新输入取消、重启、最后额度争抢、API设置及私密运输；早期整合84项曾因并行修改中的测试状态失败，最终全量已通过。
+- 全Node：`node --test tests/*.test.mjs`，144/144，871.7103ms；生产构建168模块，1.66秒，既有大chunk警告保留。
+- Edge：`npx playwright test e2e/character-proactive.spec.js e2e/character-groups.spec.js --reporter=line`，6/6，41.9秒。真实UI授权→正式输入→无input主动组→撤回/暂停、编辑节流、旧会话不迁移，以及现有多气泡回归。wide/narrow截图已由主代理检查。
+- 隔离假模型与20倍调度时钟仅在E2E启动器；无真实API费用/玩家文件操作。此浏览器验收不等于EXE桌面启动或角色文学质量通过。
+- 本地包：现有脚本加`-SkipDependencyInstall -SkipFrontendBuild -ArchiveSuffix c5-preview`完成，主程序/更新助手编译及结构、隐私、覆盖升级保留数据校验通过（exit0）。`release/AliveWorld-1.6.0-dev.19-windows-x64-c5-preview.zip`，SHA256 `27389a0392b1804ece0d7db4f4bc26a4963cacb923240e566540deca1b7871cf`。保留旧包，内部dev.19不冒升线上版本；本轮未启动EXE或发布GitHub，可选voice_helpers/numpy/Android警告保留。
+
+## 请求检查分离（2026-10-09）
+
+- `python -m unittest tests.test_character_group_lifecycle tests.test_character_group_service tests.test_character_group_routes -q`：63/63（12.874秒）。send/batch/retry原检查移动到专用请求模块，字段/错误/幂等/业务规则不变。
+- 本次没有界面/协议/格式变化，未重复全量浏览器、构建和打包；旧785/137/43证据不伪装成新运行。主动联系仍设计中，不作为此次测试完成声明。
+
 ## C4收尾 / 独立备份事务（2026-10-09）
 
 - `python -m unittest tests.test_character_group_upgrade -q`：11/11（0.320秒）。精确原字节、同revision异hash拒绝、pending拒绝、重复升级不写、独立备份不入枚举、旧版本拒写、备份fsync失败、转换失败、临时fsync失败、replace失败、备份重名不覆盖/不删除、替换前外部编辑保护及未知/删除格式有回归。

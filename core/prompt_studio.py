@@ -25,6 +25,7 @@ from core.character_chat.prompts import CORE as CHARACTER_CORE, CONTRACT as CHAR
 from core.character_chat.prompts import CORE_V2 as CHARACTER_CORE_V2, CONTRACT_V2 as CHARACTER_CONTRACT_V2
 from core.character_chat.prompts import M3_GUIDANCE, C3_GUIDANCE, AGENCY_GUIDANCE, CONVERSATION_GUIDANCE
 from core.character_chat.prompts import CORE_V3, CONTRACT_V3, C4_GUIDANCE, C4_OOC_GUIDANCE
+from core.character_chat.proactive_prompts import CONTACT_CORE, CONTACT_CONTRACT
 from utils.runtime_paths import PATHS
 
 
@@ -66,6 +67,14 @@ def _settlement_section(name: str) -> Callable[[], str]:
 
 
 SLICES: tuple[PromptSlice, ...] = (
+    PromptSlice("character.contact_plan.v1.core", "character.contact_plan.v1", "角色主动联系规划", "system", 100,
+                "开启后的单次闲置规划；不推断离开原因、不代写玩家。", True, (),
+                lambda: CONTACT_CORE,
+                "engine", "static", True),
+    PromptSlice("character.contact_plan.v1.contract", "character.contact_plan.v1", "主动联系计划输出", "system", 200,
+                "有限预写消息和相对延时，非正式经历；程序负责授权和发送。", False, (),
+                lambda: CONTACT_CONTRACT,
+                "engine", "static", True),
     PromptSlice("character.reply.c4.v3.core", "character.reply.c4.v3", "角色多气泡职责", "system", 100,
                 "独立多输入、有限回应及有界来源；不沿用旧切片覆盖。", True, (),
                 lambda: CORE_V3 + C4_GUIDANCE + AGENCY_GUIDANCE + CONVERSATION_GUIDANCE, "engine", "static", True),

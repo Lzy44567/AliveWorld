@@ -42,6 +42,8 @@ def _message_text(message: dict[str, Any]) -> str:
 
 
 def _classify(system: str) -> str:
+    if "有限主动联系规划" in system:
+        return "character.contact"
     if "character.reply" in system:
         return "character.reply"
     if "近期未来推演器" in system:
@@ -65,6 +67,12 @@ def _classify(system: str) -> str:
 
 def _response_for(kind: str, system: str, user: str) -> dict[str, Any] | str:
     full = f"{system}\n{user}"
+    if kind == "character.contact":
+        maximum = json.loads(user)["max_contacts"]
+        return {"contacts": [{"delay_seconds": index, "reply": {
+            "messages": [{"local_id": "b0", "text": f"主动联系测试{index + 1}"}],
+            "ledger_ops": [], "memory_annotations": []}}
+            for index in range(min(maximum, 2))]}
     if kind == "character.reply":
         return _character_response(user)
     if kind == "reaction":

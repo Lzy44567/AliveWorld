@@ -51,6 +51,32 @@ class GroupRouteTests(unittest.TestCase):
         self.assertEqual([], stored['inputs']); self.assertEqual([], stored['groups'])
         self.assertNotIn('hidden', self.client.get(self.url).text)
 
+    def test_contact_settings_quota_and_edit_activity_without_paid_call(self):
+        value = self.client.get(self.url + '/proactive').json()
+        self.assertFalse(value['settings']['enabled'])
+        response = self.client.put(self.url + '/proactive', json={
+            'expected_revision': value['revision'], 'settings': {'enabled': True, 'idle_seconds': 60}})
+        self.assertEqual(200, response.status_code, response.text)
+        self.assertTrue(response.json()['settings']['enabled'])
+        activity = self.client.post(self.url + '/activity', json={'client_id': str(uuid4())})
+        self.assertEqual(200, activity.status_code, activity.text)
+        self.assertEqual('idle', activity.json()['state'])
+        quota = self.client.put(self.prefix + '/contact-quota', json={'call_limit': 2, 'contact_limit': 3})
+        self.assertEqual(200, quota.status_code, quota.text)
+        self.assertEqual(2, self.client.get(self.prefix + '/contact-quota').json()['call_limit'])
+        self.assertEqual([], self.transport.calls)
+        self.assertNotIn('plan', self.client.get(self.url).json().get('proactive', {}))
+
+    def test_contact_does_not_upgrade_or_authorize_legacy_session(self):
+        response = self.client.post(self.prefix, json={**self.creation,
+            'client_creation_id': str(uuid4()), 'schema_version': 1})
+        old = response.json(); url = self.prefix + '/' + old['session_id']
+        self.assertFalse(self.client.get(url + '/proactive').json()['supported'])
+        denied = self.client.put(url + '/proactive', json={
+            'expected_revision': old['revision'], 'settings': {'enabled': True}})
+        self.assertEqual(409, denied.status_code)
+        self.assertEqual(old, self.client.get(url).json())
+
     def test_each_display_returns_fast_json_while_provider_waits_and_replays_once(self):
         for mode in ('stream', 'gaps', 'instant'):
             self.client.portal.call(self.transport.gate.clear)

@@ -14,6 +14,7 @@ def public_group(group):
     keys = ('group_id', 'action_id', 'request_id', 'input_ids', 'status', 'display_mode',
             'mode_at_generation', 'delivered_count', 'created_at', 'committed_revision', 'error_code')
     result = {k: copy.deepcopy(group[k]) for k in keys if k in group}
+    result['origin'] = group.get('origin', 'reply')
     result['bubbles'] = copy.deepcopy(group['bubbles'][:group['delivered_count']])
     if group['status'] == 'complete' and group.get('memory_notice'):
         result['memory_notice'] = copy.deepcopy(group['memory_notice'])
@@ -88,6 +89,9 @@ def action_view(session, action, request_id=None):
                 result['retry_ooc_note'] = snapshot['ooc_note']
     if group:
         result.update(group_id=group['group_id'], group_status=group['status'])
+        result['origin'] = group.get('origin', 'reply')
+        if group.get('origin') == 'proactive':
+            result['input_ids'] = []
     if action.get('resolved_by_group_id'):
         result['resolved_by_group_id'] = action['resolved_by_group_id']
     if action.get('input_id'):
@@ -99,9 +103,11 @@ def action_view(session, action, request_id=None):
 
 
 def public_session(session, *, detail=True):
+    from .proactive_contact import settings as proactive_settings
     group = busy(session)
     result = {k: session[k] for k in ('session_id', 'title', 'revision', 'presentation_mode', 'created_at', 'updated_at')}
     result.update(schema_version=2, preference_settings=session_settings(session), memory_settings=public_state(session),
+                  proactive_contact=proactive_settings(session),
                   participants=[{k: copy.deepcopy(p[k]) for k in ('instance_id', 'controller', 'display_name')}
                                 | {'profile_snapshot': profile_projection(p, detail=True)} for p in session['participants']],
                   world_binding=None if not session['world_binding'] else {'name': session['world_binding']['snapshot'].get('name', '')},
@@ -120,6 +126,7 @@ def public_session(session, *, detail=True):
 
 
 def session_summary(session):
+    from .proactive_contact import settings as proactive_settings
     messages = sorted(formal_messages(session).values(), key=lambda m: m['seq'])
     ai = next(p for p in session['participants'] if p['controller'] == 'ai')
     last = messages[-1] if messages else session.get('opening')
@@ -128,7 +135,7 @@ def session_summary(session):
                    for b in g['bubbles'][:g['delivered_count']])), None)
     group = busy(session)
     result = {k: session[k] for k in ('session_id', 'title', 'revision', 'presentation_mode', 'created_at')}
-    result.update(schema_version=2, ai_name=ai['display_name'],
+    result.update(schema_version=2, ai_name=ai['display_name'], proactive_contact=proactive_settings(session),
                   last_activity_at=last['created_at'] if last else session['created_at'],
                   last_message_preview=' '.join(last['content'].split())[:160] if last else '',
                   last_message_kind=('ai_reply' if last['speaker_instance_id'] == ai['instance_id'] else 'user_input') if messages else 'author_opening' if last else None,

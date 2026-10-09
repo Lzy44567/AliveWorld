@@ -81,6 +81,59 @@ def action_view(value, action, request_id=None):
     return (group_views.action_view if value.get('schema_version') == 2 else legacy_action_view)(value, action, request_id)
 
 
+def proactive_service(request):
+    runtime = getattr(request.app.state, 'character_runtime', None)
+    if runtime is None:
+        raise CharacterSessionError('SERVICE_UNAVAILABLE')
+    return runtime.require_proactive()
+
+
+@router.get('/contact-quota')
+async def contact_quota(request: Request):
+    try:
+        return JSONResponse(proactive_service(request).quota_settings(), headers={'Cache-Control': 'no-store'})
+    except Exception as exc:
+        return error_response(exc)
+
+
+@router.put('/contact-quota')
+async def update_contact_quota(request: Request):
+    try:
+        payload = await body(request, {'call_limit', 'contact_limit'}, set())
+        return proactive_service(request).quota_settings(payload)
+    except Exception as exc:
+        return error_response(exc)
+
+
+@router.get('/{sid}/proactive')
+async def contact_settings(sid: str, request: Request):
+    try:
+        load_supported(request, sid)
+        return JSONResponse(proactive_service(request).view(sid), headers={'Cache-Control': 'no-store'})
+    except Exception as exc:
+        return error_response(exc)
+
+
+@router.put('/{sid}/proactive')
+async def update_contact_settings(sid: str, request: Request):
+    try:
+        payload = await body(request, {'expected_revision', 'settings'}, {'expected_revision', 'settings'})
+        if not isinstance(payload['settings'], dict):
+            raise CharacterSessionError('INVALID_REQUEST')
+        return proactive_service(request).configure(sid, {**payload['settings'], 'expected_revision': payload['expected_revision']})
+    except Exception as exc:
+        return error_response(exc)
+
+
+@router.post('/{sid}/activity')
+async def contact_activity(sid: str, request: Request):
+    try:
+        payload = await body(request, {'client_id'}, {'client_id'})
+        return proactive_service(request).activity(sid, payload['client_id'])
+    except Exception as exc:
+        return error_response(exc)
+
+
 @router.get('/{sid}/capacity')
 async def capacity(sid: str, request: Request):
     try:

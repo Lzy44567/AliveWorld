@@ -13,7 +13,7 @@ const name = computed(() => own.value ? props.userName || '我' : props.aiName |
     <div class="flex items-start gap-2 md:gap-3" :class="own ? 'flex-row-reverse' : ''">
       <span aria-hidden="true" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm" :class="own ? 'bg-indigo-800' : 'bg-slate-700'">{{ Array.from(name)[0] }}</span>
       <div class="min-w-0 max-w-[calc(100%_-_3rem)] md:max-w-[72%]">
-        <p class="mb-1 text-[11px] text-slate-500" :class="own ? 'text-right' : ''">{{ name }}<span v-if="row.temporary" class="ml-2 text-amber-300">生成中 · 未保存</span></p>
+        <p class="mb-1 text-[11px] text-slate-500" :class="own ? 'text-right' : ''">{{ name }}<span v-if="row.origin==='proactive'" data-testid="character-proactive-label" class="ml-2 text-indigo-300">主动联系</span><span v-if="row.temporary" class="ml-2 text-amber-300">生成中 · 未保存</span></p>
         <!-- Text updates in this same keyed bubble. Confirmation does not replay an animation. -->
         <p :data-testid="own ? 'character-user-message' : 'character-ai-message'" class="rounded-xl px-4 py-3 whitespace-pre-wrap break-words select-text leading-relaxed" :class="own ? 'rounded-tr-sm bg-indigo-700/70' : 'rounded-tl-sm bg-slate-800'">{{ row.message.content }}<span v-if="row.temporary && !row.ended" aria-hidden="true" class="inline-block ml-1 h-3 w-px bg-slate-400"></span></p>
       </div>

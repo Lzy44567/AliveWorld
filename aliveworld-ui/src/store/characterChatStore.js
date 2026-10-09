@@ -9,13 +9,14 @@ import { characterCapacity, capacityWarning } from '../utils/characterCapacity.j
 import { characterCognition, sourceRecallReport } from '../utils/characterCognition.js';
 import { oocText, oocError, restoreInputPair } from '../utils/characterOoc.js';
 import { createCharacterGroupController } from './characterGroupController.js';
+import { createCharacterContactController } from './characterContactController.js';
 
 const uuid = () => globalThis.crypto.randomUUID();
 const terminal = status => ['committed', 'cancelled', 'failed', 'interrupted'].includes(status);
 export function createCharacterChatStore(api = characterChatApi, delay = ms => new Promise(resolve => setTimeout(resolve, ms)), storage) {
   let listGeneration = 0, spoilerGeneration = 0;
   const noticeCache = createMemoryNoticeCache(storage);
-  let groups;
+  let groups, contacts;
   const state = reactive({
     sessions: [], contexts: {}, activeId: '', error: '', loading: false, nextCursor: null,
     listComplete: false, listWarning: '', visible: false, creationPending: null, creationBusy: false, preferences: createConversationPreferences(storage), interaction: createCharacterInteractionPreferences(storage),
@@ -29,6 +30,10 @@ export function createCharacterChatStore(api = characterChatApi, delay = ms => n
       if ((ctx.busy && ctx.session?.schema_version !== 2) || !this.interaction.set(id, changes)) return;
       Object.assign(ctx, this.interaction.get(id), { displayMode: this.interaction.display(id) });
     },
+    refreshContact(id) { return contacts.refresh(id); },
+    updateContact(id, settings) { return contacts.update(id, settings); },
+    contactActivity(id) { contacts.activity(id); },
+    updateContactQuota(id, settings) { return contacts.quota(id, settings); },
     async refreshCapacity(id) {
       const ctx = this.contexts[id];
       if (!ctx?.session || ctx.session.schema_read_only) return;
@@ -332,6 +337,7 @@ export function createCharacterChatStore(api = characterChatApi, delay = ms => n
     async remove(id) { const ctx = this.context(id); if (ctx.busy || ctx.settingsBusy || ctx.needsReload || ctx.session.schema_read_only) return; await api.remove(id, ctx.session.revision); groups.detach(id); this.preferences.remove(id); this.interaction.remove(id); noticeCache.removeSession(id); delete this.contexts[id]; if (this.activeId === id) this.activeId = ''; await this.refreshList(); },
   });
   groups = createCharacterGroupController(state,api,noticeCache);
+  contacts = createCharacterContactController(state,api,groups);
   return state;
 }
 export const characterChatStore = createCharacterChatStore();

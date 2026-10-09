@@ -21,6 +21,13 @@ function fixture(overrides={}) {
   return{store,session,sessions,callbacks,signals,calls,api,emit:(name,data={})=>callbacks.get(id(1))?.(name,{session_id:id(1),...data})};
 }
 const accepted = { action_id:id(5),request_id:id(6),group_id:id(4),seq:1,display_mode:'stream',reserved_ai_ids:[id(7),id(8)] };
+test('proactive latest group permits undo but never regeneration or paid retry',async()=>{
+  const f=fixture({groupAction:async(sid,p)=>{f.calls.push(copy(p));return{session_id:sid,action_id:p.client_action_id,status:'committed'};}});
+  f.session.groups=[{group_id:id(4),origin:'proactive',status:'complete',input_ids:[]}];f.session.messages=[message(7,1,'contact')];
+  await f.store.open(id(1));const ctx=f.store.current;ctx.draft='new draft';ctx.failure={operation:'proactive',retryable:true,action_id:id(5)};
+  await f.store.run(id(1),'regenerate');await f.store.run(id(1),'proactive',true);assert.equal(f.calls.length,0);
+  await f.store.run(id(1),'undo');assert.equal(f.calls.length,1);assert.equal(f.calls[0].target_group_id,id(4));assert.equal(ctx.draft,'new draft');
+});
 test('schema2 switches detach subscription only; foreground reopen loads formal background messages',async()=>{
   const f=fixture();f.store.setVisible(true);await f.store.open(id(1));assert.equal(f.signals.get(id(1)).aborted,false);
   await f.store.open(id(9));assert.equal(f.signals.get(id(1)).aborted,true);
