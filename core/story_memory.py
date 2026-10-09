@@ -15,6 +15,7 @@ from typing import Any, Iterable
 
 from core.ai_engine import robust_json_parse
 from core.story_events import StoryEventLedger
+from core.compaction_plan import plan_compaction
 from utils.sys_logger import get_logger
 
 
@@ -324,43 +325,11 @@ class StoryMemoryManager:
         return memory or recent
 
     def _plan(self, turns: Any, *, force: bool = False) -> dict[str, Any] | None:
-        raw = self._raw_turns(turns)
-        total = sum(item["token_estimate"] for item in raw)
-        if not force and total < self.budget.history_high_water:
-            return None
-        min_hot = min(self.budget.min_hot_turns, max(1, len(raw) // 2))
-        max_archive_count = len(raw) - min_hot
-        if max_archive_count <= 0:
-            return None
-        desired_archive = max(1, total - self.budget.history_low_water)
-        if force:
-            desired_archive = max(desired_archive, MIN_FORCE_ARCHIVE_TOKENS)
-        archive: list[dict[str, Any]] = []
-        archived_tokens = 0
-        for item in raw[:max_archive_count]:
-            archive.append(item)
-            archived_tokens += item["token_estimate"]
-            if archived_tokens >= desired_archive:
-                break
-        if not archive:
-            return None
-        if force and archived_tokens < MIN_FORCE_ARCHIVE_TOKENS:
-            return None
-        remaining = raw[len(archive):]
-        bridge: list[dict[str, Any]] = []
-        bridge_tokens = 0
-        for item in remaining:
-            if bridge and bridge_tokens >= self.budget.bridge_tokens:
-                break
-            bridge.append(item)
-            bridge_tokens += item["token_estimate"]
-        return {
-            "archive": copy.deepcopy(archive),
-            "bridge": copy.deepcopy(bridge),
-            "total_tokens": total,
-            "archived_tokens": archived_tokens,
-            "remaining_tokens": total - archived_tokens,
-        }
+        return plan_compaction(
+            self._raw_turns(turns), high_water=self.budget.history_high_water,
+            low_water=self.budget.history_low_water, min_hot_units=self.budget.min_hot_turns,
+            bridge_tokens=self.budget.bridge_tokens, force=force,
+            minimum_force_tokens=MIN_FORCE_ARCHIVE_TOKENS)
 
     def status(self, turns: Any) -> dict[str, Any]:
         with self._lock:

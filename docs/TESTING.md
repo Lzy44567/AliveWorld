@@ -1,5 +1,11 @@
 # AliveWorld 测试流程
 
+## 22y-A纯压缩规划复用（2026-10-10）
+
+- `python -m unittest tests.test_compaction_plan tests.test_story_memory tests.test_request_budget tests.test_story_events tests.test_story_continuity tests.test_story_prompt_builder -q`：44/44（0.242秒），含6项新测试。空/单单元、等于水位、force下限、完整前缀/近期、bridge边界、输入深拷贝及故事适配回归。
+- 通过git show读取HEAD提取前`_plan`并AST单独执行，固定种子22生成1000组长度/成本/预算，普通＋force共2000次与新函数输出对照全部一致；无落盘旧代码或玩家文件操作。
+- 首次16项中1失败是新测试预期错误：首单元900已满足归档量，只归档该单元；修正预期后通过，未扩写核心兜底。纯后端小提取，无UI/模型/协议/持久格式变化，未重复全量浏览器、构建、打包或线上发布。
+
 ## GitHub发布（2026-10-09）
 
 - 用户明确授权发布并完成新电脑gh登录；公开`Lzy44567/AliveWorld`已发布预发行`v1.6.0-dev.19`，包含分类更新说明、标准名称ZIP及SHA256附件。先草稿上传核对，再转公开；最终isDraft=false/isPrerelease=true，两附件state=uploaded。
