@@ -1,5 +1,12 @@
 # AliveWorld 测试流程
 
+## GitHub发布（2026-10-09）
+
+- 用户明确授权发布并完成新电脑gh登录；公开`Lzy44567/AliveWorld`已发布预发行`v1.6.0-dev.19`，包含分类更新说明、标准名称ZIP及SHA256附件。先草稿上传核对，再转公开；最终isDraft=false/isPrerelease=true，两附件state=uploaded。
+- ZIP 37933194字节，GitHub服务端digest与本地c5b-preview一致：`9acc4e5a7e0ad913f27ba4ea67f0bdf056533f8b75dd34d3262d0d8e37a80901`。标准命名满足当前自动更新附件匹配；未声称已经实测玩家自动更新。
+- 未推送开发源码。发行标签指向公开仓库既有main `87fa595c9dcfa029d1da2682017034e5485d1d8d`，不是当前私下构建源码；附件代码来源为e765f63，后续946e2d5仅改文档。不得将Release自动生成的Source code视为本次EXE源码。
+- 发布页：https://github.com/Lzy44567/AliveWorld/releases/tag/v1.6.0-dev.19 。旧版本附件保留，未更改仓库可见性或迁移仓库。
+
 ## 角色阶段设计边界核对（2026-10-09）
 
 - 当前代码e765f63：`python -m unittest tests.test_character_memory_m2 tests.test_character_cognition_m3 tests.test_character_capacity tests.test_character_ooc_c3 tests.test_character_proactive_contact tests.test_character_proactive_service tests.test_character_proactive_schedule -q`，103/103（19.709秒）。本轮为阶段专项复核，不将以前819/145/Edge7冒称新运行。
