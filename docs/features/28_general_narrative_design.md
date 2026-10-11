@@ -69,6 +69,8 @@ worldPremise目前由core/context_manager.py以“宇宙主导向(最高法则)�
 
 ### UI缺陷记录（P2，设计期不修代码）
 
+后续截图进一步确认新建故事确有实际默认开场文本；api/v1/game_routes.py无opening分支构造宇宙法则/白纸提示后写入故事。前面placeholder说明只适用于输入框，不适用于该开场。开局流程与UI设计见29。
+
 用户截图中两个文本框在暗色页显示白底。LocalEditPanel.vue的.story-textarea样式写在父组件scoped样式内，经textareaClass传给ExpandableTextarea.vue内部textarea；选择器作用域不能匹配这个内部元素，符合截图中的背景/字号/高度一并丢失。源码诊断，尚未浏览器验证修复。后续应在共用组件提供一致默认主题或明确样式入口，避免每个父组件依赖穿透样式；放大编辑应保持相同主题。
 
 ### 候选职责
