@@ -1,6 +1,7 @@
 <!-- src/components/layout/RadarBars.vue -->
 <script setup>
 import { gameStore } from '../../store/gameStore';
+import { effectDurationLabel } from '../../utils/effectDuration';
 
 const colorMap = {
   red: { bg: 'bg-rose-600', text: 'text-rose-400' },
@@ -48,9 +49,9 @@ const getTheme = (colorRaw) => {
 
       <!-- Buff 展示区 -->
       <div v-if="Object.keys(gameStore.buffs).length > 0" class="mt-3 pt-3 border-t border-slate-700/50 flex flex-wrap gap-1">
-        <div v-for="(buff, name) in gameStore.buffs" :key="name" class="px-2 py-1 bg-indigo-900/40 border border-indigo-700/50 rounded text-[10px] text-indigo-300 flex items-center gap-1" :title="buff.description">
+        <div v-for="(buff, name) in gameStore.buffs" :key="name" :data-effect-name="name" class="px-2 py-1 bg-indigo-900/40 border border-indigo-700/50 rounded text-[10px] text-indigo-300 flex items-center gap-1" :title="buff.description">
           <span>{{ name }}</span>
-          <span v-if="buff.duration > 0" class="bg-indigo-950 px-1 rounded">{{ buff.duration }}t</span>
+          <span v-if="buff.duration > 0" class="bg-indigo-950 px-1 rounded">{{ effectDurationLabel(buff) }}</span>
         </div>
       </div>
       

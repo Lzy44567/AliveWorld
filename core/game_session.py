@@ -4,7 +4,8 @@ import json
 from datetime import datetime
 from core.undercurrent import UndercurrentEngine
 from core.resolution_engine import DualTrackResolver
-from core.state_manager import StateManager
+from core.state_manager import StateManager, StateUpdatePlan
+from core.effect_progress import EffectProgressError, needs_effect_progress, prepare_effect_preview, validate_effect_followup
 from core.context_manager import ContextManager
 from core.ai_engine import robust_json_parse
 from core.model_response import failure_message, format_story_text
@@ -224,6 +225,7 @@ class GameSession:
         try:
             state_plan = self.state_mgr.plan_updates(
                 settlement, story_text=story_text, player_action=interpreted_action,
+                effect_plan=self._effect_state_plan(result.get("effect_preview")),
             )
         except Exception as exc:
             log.warning("状态更新无法在副本上完成: %s", exc)
@@ -238,6 +240,8 @@ class GameSession:
         self.history["chat_messages"].append({"role": "system", "content": f"命运变数: {result['chosen_reaction']['description']}"})
         self._update_action_suggestions(settlement)
         self.history["chat_messages"].append({"role": "ai", "content": story_text, "suggestions": self.action_suggestions})
+        if result.get("effect_preview") is not None:
+            self.history["chat_messages"][-1]["effect_progress"] = result["effect_preview"]["report"]
         resolution_by_id = {item.get("id"): item for item in resolutions if isinstance(item, dict)}
         for influence in resolved_items:
             resolution = resolution_by_id.get(influence.id, {})
@@ -270,6 +274,13 @@ class GameSession:
             enabled=self.story_settings.get("autoCompressMemory", False),
         )
         return result
+
+    def _effect_state_plan(self, preview):
+        if preview is None:
+            if not needs_effect_progress(self.state):
+                return self.state_mgr.plan_effects(0)[0]
+            return None
+        return StateUpdatePlan(preview["state"], self.state_mgr.export_metadata())
 
     def reroll_turn(self, *, on_text_delta=None):
         if not self.snapshots: return {"error": True}
@@ -305,6 +316,11 @@ class GameSession:
             required_facts=normalize_action_adjudication(action_adjudication)["accepted_facts"],
         )
         chosen = choose_candidate(reactions, exclude_description=old_desc)
+        try:
+            effect_preview = prepare_effect_preview(self.state_mgr.get_dynamic_state(), chosen.get("effect_progress"))
+        except EffectProgressError as exc:
+            return fail_reroll({"error": True, "message": f"{exc}，本回合未保存。"})
+        settlement_state = effect_preview["state"] if effect_preview is not None else self.state_mgr.get_dynamic_state()
         
         self.history["chat_messages"].append({"role": "reactions", "content": reactions})
         self.history["chat_messages"].append({"role": "action_adjudication", "content": action_adjudication})
@@ -325,7 +341,7 @@ class GameSession:
             mode="reroll",
             baseline_prompt=pts.get("settlement_prompt", ""),
             context_text=self.get_context_text(),
-            dynamic_state=self.state_mgr.get_dynamic_state(),
+            dynamic_state=settlement_state,
             player_action=interpreted_action,
             visible_world=visible_world,
             character_info=self.ctx_mgr.char_info,
@@ -337,6 +353,7 @@ class GameSession:
             action_adjudication=action_adjudication,
             chosen_description=chosen["description"],
             triggered_influences=triggered_influences,
+            effect_report=effect_preview["report"] if effect_preview is not None else None,
         ))
         raw_settle, err2 = self.ai_engine.chat_json(
             request.system_prompt, request.user_prompt,
@@ -354,9 +371,12 @@ class GameSession:
         try:
             settlement = validate_settlement(
                 settlement,
-                current_state=self.state_mgr.get_dynamic_state(),
+                current_state=settlement_state,
                 triggered_ids=triggered_ids,
             )
+            validate_effect_followup(settlement, effect_preview)
+        except EffectProgressError as exc:
+            return fail_reroll({"error": True, "message": f"{exc}，本回合未保存。"})
         except SettlementContractError as exc:
             log.warning("重掷结算契约校验失败: %s", exc)
             return fail_reroll({
@@ -367,6 +387,7 @@ class GameSession:
         try:
             state_plan = self.state_mgr.plan_updates(
                 settlement, story_text=story_text, player_action=interpreted_action,
+                effect_plan=self._effect_state_plan(effect_preview),
             )
         except Exception as exc:
             log.warning("重掷状态无法在副本上完成: %s", exc)
@@ -376,6 +397,8 @@ class GameSession:
 
         self._update_action_suggestions(settlement)
         self.history["chat_messages"].append({"role": "ai", "content": story_text, "suggestions": self.action_suggestions})
+        if effect_preview is not None:
+            self.history["chat_messages"][-1]["effect_progress"] = effect_preview["report"]
         resolution_by_id = {item.get("id"): item for item in resolutions if isinstance(item, dict)}
         for influence in resolved_items:
             self.history["chat_messages"].append({"role": "influence", "content": {

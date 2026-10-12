@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import random
+import copy
 from typing import Any, Iterable
 
 
@@ -74,6 +75,7 @@ def normalize_candidates(raw_candidates: Any, *, required_facts: Any = None) -> 
             "weight": _clean_weight(raw.get("weight", DEFAULT_WEIGHT), eligible=eligible),
             "basis": _clean_basis(raw.get("basis", [])),
             "fact_checks": fact_checks,
+            **({"effect_progress": copy.deepcopy(raw["effect_progress"])} if "effect_progress" in raw else {}),
         })
 
     if normalized and any(item["eligible"] and item["weight"] > 0 for item in normalized):

@@ -30,6 +30,9 @@ from core.prompt_studio import (
 from core.settlement_prompt_sections import settlement_prompt_baselines
 from core.story_experience import ENGINE_ONLY_EXPERIENCE, normalize_story_experience
 from core.story_length import story_length_instruction
+from core.effect_progress import (
+    FUTURE_EFFECT_INSTRUCTION, SETTLEMENT_EFFECT_INSTRUCTION, needs_effect_progress,
+)
 
 
 SettlementMode = Literal["normal", "reroll"]
@@ -68,6 +71,7 @@ class SettlementRequestSnapshot:
     action_adjudication: Mapping[str, Any]
     chosen_description: str
     triggered_influences: Sequence[Mapping[str, Any]]
+    effect_report: Mapping[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -114,6 +118,10 @@ def build_future_request(
             snapshot.rule_command_prompt,
             layer="feature",
             cache_class="turn",
+        ), RuntimePromptPart(
+            "story.future.effect_progress",
+            FUTURE_EFFECT_INSTRUCTION if needs_effect_progress(snapshot.dynamic_state) else "",
+            layer="contract", cache_class="configuration",
         )],
         baselines=baselines,
         store=store,
@@ -172,6 +180,17 @@ def _influence_instruction(items: Sequence[Mapping[str, Any]]) -> str:
 def _runtime_parts(snapshot: SettlementRequestSnapshot) -> list[RuntimePromptPart]:
     suggestion = action_suggestion_instruction(snapshot.story_settings.get("aiSuggestions", True))
     parts = [
+        RuntimePromptPart(
+            "story.state.effect_definition",
+            "【持续效果定义】new_buffs的duration是后续剩余结算次数，新增效果不追溯结算本次已过去时间。"
+            "有明确故事时间周期时附tick_seconds正整数秒数，不随意推定战斗轮秒数；tick_elapsed由程序维护。",
+            layer="contract", cache_class="static",
+        ),
+        RuntimePromptPart(
+            "story.settlement.effect_progress",
+            SETTLEMENT_EFFECT_INSTRUCTION if snapshot.effect_report is not None else "",
+            layer="contract", cache_class="configuration",
+        ),
         RuntimePromptPart(
             "story.settlement.length",
             story_length_instruction(snapshot.story_settings.get("targetStoryLength")),
@@ -277,6 +296,12 @@ def build_settlement_request(
             "\n",
         ),
     ))
+    if snapshot.effect_report is not None:
+        user_parts.append(RequestMessagePart(
+            "runtime.effect_progress",
+            "【runtime.effect_progress 程序结算报告】：" + json.dumps(snapshot.effect_report, ensure_ascii=False),
+            "\n",
+        ))
     normal = snapshot.mode == "normal"
     return plan_model_request(
         system,

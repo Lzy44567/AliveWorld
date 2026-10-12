@@ -1,5 +1,14 @@
 # AliveWorld 测试流程
 
+## 持续效果故事接线（2026-10-13）
+
+- Python：`.venv/Scripts/python.exe -m unittest discover -s tests -q`，850项通过，70.806秒；新增`tests/test_effect_progress.py`15项，专项47项通过。
+- 前端：`node --test tests/*.test.mjs`，146项通过；`npm run build`170模块成功，仍有原有大chunk体积提示。
+- 浏览器新增：`npx playwright test e2e/timed-effects.spec.js`，Edge两项通过（16.9秒）。真实应用HTTP＋流式正文＋隔离假模型，覆盖初建效果不追溯扣血、15秒余时、重生成不双扣、失败不保存、跳月到期、重载存档与撤回恢复、生命归零在20秒中断长休。
+- 既有玩家流程：`npx playwright test e2e/full-player-loop.spec.js`，22项通过（1.6分钟），包含资产载入、并发、工坊、生图、日志、更新及反馈；与新增场景合计24项，不是全体浏览器文件全跑。
+- 已人工查看自动截图`build/timed-effects-desktop.png`及`build/timed-effects-critical.png`：侧栏75/100且效果消失、0/100且剩30秒与程序报告一致；未见本次状态标签溢出。截图是本地测试产物，不提交玩家内容。
+- 没有调用真实付费模型、读取玩家游玩档、构建EXE或发布GitHub。假模型回显实际状态/报告而非自行计算结果；不据此声称模型语义/文学质量验收通过。
+
 ## 持续效果纯计算切片（2026-10-13）
 
 - `.venv/Scripts/python.exe -m unittest tests.test_timed_effects tests.test_settlement_contract tests.test_npc_presence tests.test_causal_resolution tests.test_story_prompt_builder -q`：46项通过（0.278秒）。其中10项新测试见test_timed_effects。

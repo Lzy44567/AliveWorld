@@ -194,6 +194,12 @@ def validate_settlement(
         for field, field_value in buff.items():
             if field.endswith("_per_turn"):
                 _number(field_value, f"new_buffs.{name}.{field}")
+        if 'tick_seconds' in buff:
+            if type(buff['tick_seconds']) is not int or not 0 < buff['tick_seconds'] <= 31536000:
+                raise SettlementContractError(f'new_buffs.{name}.tick_seconds', '必须为1至31536000之间的整数秒周期')
+            buff['tick_elapsed'] = 0
+        else:
+            buff.pop('tick_elapsed', None)
         new_buffs[name] = buff
     result["new_buffs"] = new_buffs
     result["remove_buffs"] = _unique_names(payload.get("remove_buffs"), "remove_buffs")

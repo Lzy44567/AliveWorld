@@ -66,6 +66,10 @@ def _classify(system: str) -> str:
 
 
 def _response_for(kind: str, system: str, user: str) -> dict[str, Any] | str:
+    from tests.fakes.effect_reply import response as effect_response
+    effect_reply = effect_response(kind, user)
+    if effect_reply is not None:
+        return effect_reply
     full = f"{system}\n{user}"
     if kind == "character.contact":
         maximum = json.loads(user)["max_contacts"]

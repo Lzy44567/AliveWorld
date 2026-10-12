@@ -13,6 +13,9 @@ from core.story_prompt_builder import (
 )
 from core.settlement_contract import SettlementContractError, validate_settlement
 from core.world_rule_commands import resolution_instruction
+from core.effect_progress import (
+    EffectProgressError, needs_effect_progress, prepare_effect_preview, validate_effect_followup,
+)
 
 log = get_logger()
 
@@ -88,6 +91,15 @@ class DualTrackResolver(BaseResolutionStrategy):
                 candidate["id"], candidate["eligible"], candidate["weight"], candidate["basis"], candidate["description"],
             )
         chosen = choose_candidate(reactions)
+        try:
+            effect_preview = prepare_effect_preview(
+                dyn_state, chosen.get("effect_progress"), required=needs_effect_progress(dyn_state),
+            )
+        except EffectProgressError as exc:
+            return {"error": True, "stage": "effect_progress", "message": f"{exc}，本回合未保存。"}
+        settlement_state = effect_preview["state"] if effect_preview is not None else dyn_state
+        if effect_preview is not None:
+            log.info("持续效果预结算: %s", effect_preview["report"])
         log.info(
             "物理掷骰选中: id=%s relative_weight=%s normalized_probability=%.4f description=%s",
             chosen["id"], chosen["weight"], candidate_probability(chosen, reactions), chosen["description"],
@@ -99,7 +111,7 @@ class DualTrackResolver(BaseResolutionStrategy):
             mode="normal",
             baseline_prompt=pts.get("settlement_prompt", ""),
             context_text=ctx,
-            dynamic_state=dyn_state,
+            dynamic_state=settlement_state,
             player_action=player_action,
             visible_world=visible_world,
             character_info=session.char_info,
@@ -111,6 +123,7 @@ class DualTrackResolver(BaseResolutionStrategy):
             action_adjudication=action_adjudication,
             chosen_description=chosen["description"],
             triggered_influences=triggered_influences,
+            effect_report=effect_preview["report"] if effect_preview is not None else None,
         ))
         raw_settle, err2 = session.ai_engine.chat_json(
             request.system_prompt, request.user_prompt,
@@ -131,9 +144,12 @@ class DualTrackResolver(BaseResolutionStrategy):
         try:
             settlement = validate_settlement(
                 settlement,
-                current_state=session.get_dynamic_state_for_ai(),
+                current_state=settlement_state,
                 triggered_ids=triggered_ids,
             )
+            validate_effect_followup(settlement, effect_preview)
+        except EffectProgressError as exc:
+            return {"error": True, "stage": "effect_progress", "message": f"{exc}，本回合未保存。"}
         except SettlementContractError as exc:
             log.warning("剧情结算契约校验失败: %s", exc)
             return {
@@ -147,4 +163,5 @@ class DualTrackResolver(BaseResolutionStrategy):
             "action_adjudication": action_adjudication,
             "settlement": settlement, "triggered_entries": triggered,
             "triggered_influences": triggered_influences,
+            "effect_preview": effect_preview,
         }
