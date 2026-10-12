@@ -1,5 +1,11 @@
 # AliveWorld 测试流程
 
+## 持续效果纯计算切片（2026-10-13）
+
+- `.venv/Scripts/python.exe -m unittest tests.test_timed_effects tests.test_settlement_contract tests.test_npc_presence tests.test_causal_resolution tests.test_story_prompt_builder -q`：46项通过（0.278秒）。其中10项新测试见test_timed_effects。
+- 新覆盖：五轮到期、两轮后余三轮、大跨度有限效果不重复伤害、显式零阈值阻止后续治疗、零轮/非法参数、副本无污染、接续不双扣、新buff不追溯、旧创建tick语义、状态快照恢复。
+- 未做真实HTTP、浏览器、模型付费测试、打包或发布；当前模型调用未接新预结算能力，不把计算测试当完整跳时体验通过。
+
 ## 22y-A纯压缩规划复用（2026-10-10）
 
 - `python -m unittest tests.test_compaction_plan tests.test_story_memory tests.test_request_budget tests.test_story_events tests.test_story_continuity tests.test_story_prompt_builder -q`：44/44（0.242秒），含6项新测试。空/单单元、等于水位、force下限、完整前缀/近期、bridge边界、输入深拷贝及故事适配回归。

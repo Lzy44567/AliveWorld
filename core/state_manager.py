@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from core.npc_presence import NpcPresenceTracker
+from core.timed_effects import advance_effects, tick_effects
 
 
 @dataclass(frozen=True)
@@ -21,7 +22,7 @@ class StateManager:
         }
         self.npc_presence = NpcPresenceTracker()
 
-    def _apply_updates_in_place(self, result, *, story_text="", player_action=""):
+    def _apply_updates_in_place(self, result, *, story_text="", player_action="", tick=True):
         # 1. 增添新 Buffs
         for bn, bd in result.get('new_buffs', {}).items():
             if isinstance(bd, dict): 
@@ -35,27 +36,13 @@ class StateManager:
             self.state['buffs'].pop(bn, None)
             
         # 3. 重置上一回合的变动显示
-        for b in self.state['bars'].values(): 
-            b['change'] = 0
+        if tick:
+            for b in self.state['bars'].values():
+                b['change'] = 0
             
         # 4. 🚀 修复Buff结算：智能匹配动态进度条的持续影响 (例如 生命值_per_turn: -5)
-        to_remove = []
-        for bn, bd in self.state['buffs'].items():
-            for key, val in bd.items():
-                if key.endswith('_per_turn'):
-                    target_bar = key.replace('_per_turn', '')
-                    if target_bar in self.state['bars']:
-                        self.state['bars'][target_bar]['current'] += val
-                        self.state['bars'][target_bar]['change'] += val
-                        
-            # 结算 Buff 持续回合
-            if bd.get('duration', -1) != -1:
-                bd['duration'] -= 1
-                if bd['duration'] <= 0: 
-                    to_remove.append(bn)
-                    
-        for b in to_remove: 
-            del self.state['buffs'][b]
+        if tick:
+            tick_effects(self.state)
 
         # 5. 结算当回合 AI 给出的进度条变化
         for bn, bd in result.get('dynamic_bars', {}).items():
@@ -97,16 +84,25 @@ class StateManager:
                 self.state[group].pop(k, None)
             self.npc_presence.absent_turns.pop(k, None)
 
-    def plan_updates(self, result, *, story_text="", player_action=""):
+    def plan_updates(self, result, *, story_text="", player_action="", effect_plan=None):
         """Calculate one turn on an isolated copy without mutating live state."""
         staged = StateManager()
-        staged.state = copy.deepcopy(self.state)
-        staged.load_metadata(copy.deepcopy(self.export_metadata()))
-        staged._apply_updates_in_place(result, story_text=story_text, player_action=player_action)
+        staged.state = copy.deepcopy(self.state if effect_plan is None else effect_plan.state)
+        staged.load_metadata(copy.deepcopy(self.export_metadata() if effect_plan is None else effect_plan.metadata))
+        staged._apply_updates_in_place(
+            result, story_text=story_text, player_action=player_action,
+            tick=effect_plan is None,
+        )
         return StateUpdatePlan(
             state=copy.deepcopy(staged.state),
             metadata=copy.deepcopy(staged.export_metadata()),
         )
+
+    def plan_effects(self, rounds, *, stop_at_zero=()):
+        """Preview existing effects; new effects start after this time span."""
+        state = copy.deepcopy(self.state)
+        progress = advance_effects(state, rounds, stop_at_zero=stop_at_zero)
+        return StateUpdatePlan(state, copy.deepcopy(self.export_metadata())), progress
 
     def commit(self, plan: StateUpdatePlan):
         if not isinstance(plan, StateUpdatePlan):
