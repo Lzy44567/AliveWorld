@@ -47,6 +47,13 @@ class AIEngineTests(unittest.TestCase):
         self.assertIn("content_filter", error)
         self.assertEqual(1, create.call_count)
 
+    def test_output_limit_is_not_retried_with_the_same_budget(self):
+        engine, create = self.make_engine([completion('', 'length')])
+        raw, error = engine.chat_json('输出 JSON', '执行测试')
+        self.assertEqual('', raw)
+        self.assertIn('length:', error)
+        self.assertEqual(1, create.call_count)
+
 
 if __name__ == "__main__":
     unittest.main()

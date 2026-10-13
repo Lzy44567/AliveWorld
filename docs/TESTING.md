@@ -1,5 +1,15 @@
 # AliveWorld 测试流程
 
+## 持续效果真实模型抽样与修正（2026-10-13）
+
+- 真实请求共6次，沿GameSession→生产提示词/解析/状态提交链路，隔离合成数据；开发区配置只读，不含玩家故事。模型名沿当前配置deepseek-v4-flash。
+- 第一批2次：默认设置，均4096个completion token全部为reasoning，finish_reason=length且无content；不通过。使用22374 total tokens为两批合计计量，不等于费用金额。
+- 第二批4次：仅验收时按官方参数关闭思考；十五秒计划为seconds/15、程序生命95，正文额外-5使最终90，发现重复delta；临界长休被绝对current拒绝。两例均不通过。脚本当时漏刷新world_premise，已修，不将缺少概述造成的场景偏差归因于正式模型质量。
+- 没有发送修复后新付费请求，no_time案例未执行。真实模型质量门尚未通过；`--disable-thinking`测试覆盖也不等同当前默认配置通过。
+- 回归：新增5项（4项效果＋1项长度失败）。专项73项通过（1.433秒），完整Python855项通过（54.128秒），Edge持续效果2项通过（13.9秒）。本轮无前端代码变动，未重复构建/截图或全部浏览器套件。
+- 验收工具：`python tools/testing/evaluate_timed_effects.py`默认只列案例，不收费。显式`--live --cases short critical --max-requests 4 --disable-thinking`才发请求；每次执行的上限独立，重复执行仍产生费用。报告保存在独立build/effect-eval-*；本轮报告时间后缀195015-333350与195217-785823，仅本地，不提交。
+- 修复边界：缺少独立事件依据的追加delta会拒绝且保持存档；完全相同current回显无副作用。新增原因字段不能证明AI给出的理由真实，不把格式校验等同语义正确。
+
 ## 持续效果故事接线（2026-10-13）
 
 - Python：`.venv/Scripts/python.exe -m unittest discover -s tests -q`，850项通过，70.806秒；新增`tests/test_effect_progress.py`15项，专项47项通过。

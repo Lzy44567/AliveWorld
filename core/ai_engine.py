@@ -93,7 +93,7 @@ class AIEngine:
                     finish_llm_trace(trace_label, trace_id, response=content, metadata=metadata)
                     return content, None
                 error = _empty_response_error(metadata)
-                if metadata["finish_reason"] == "content_filter" or attempt == 2:
+                if metadata["finish_reason"] in ("content_filter", "length") or attempt == 2:
                     finish_llm_trace(trace_label, trace_id, error=error, metadata=metadata)
                     return "", error
                 log.warning(

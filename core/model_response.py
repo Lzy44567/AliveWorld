@@ -14,7 +14,7 @@ def failure_message(error=None, *, empty=False, invalid=False):
     if "content_filter" in text:
         return "模型服务商过滤了本次输出，请调整内容后重试。本回合未保存。"
     if "length:" in text:
-        return "模型输出或上下文达到长度限制，请缩短输入或调整模型上限后重试。本回合未保存。"
+        return "模型达到输出长度限制（思考内容也可能占用额度）。请在接口高级设置核对输出预留；缩短正文要求不一定能解决。本次未自动重试，本回合未保存。"
     if "insufficient_system_resource" in text:
         return "模型服务商当前推理资源不足，请稍后重试。本回合未保存。"
     if "empty_response" in text:

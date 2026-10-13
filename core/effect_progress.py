@@ -25,7 +25,7 @@ amount不是消息条数。纯交谈未推进结算可为0；逃跑也计实际�
 
 
 SETTLEMENT_EFFECT_INSTRUCTION = '''【程序已结算持续效果】
-runtime.effect_progress报告及当前状态已包含本次持续效果结算。不要重复扣除/恢复，受影响进度条禁止写绝对current；其他行动产生的额外变化才写change。
+runtime.effect_progress报告及当前状态已包含本次持续效果结算。默认从dynamic_bars省略已结算的进度条：不要把报告changes再抄成change，也不要重新扣除/恢复。若同一进度条确有另一项独立行动变化，才写change，并在顶层direct_change_reasons中以该进度条名写明独立事件依据；持续效果本身不是独立事件。current只能原值回显，不能覆盖程序结果。
 若报告interrupted=true，只叙述到实际中断点，不宣称完成原定长休或用药恢复，不推进时间越过该点。expired是已结束效果，不能无新原因重新添加。
 新效果从本段时间之后开始：仍用new_buffs，duration为剩余结算次数；只有有世界依据时增加tick_seconds（正整数秒周期），程序维护tick_elapsed，模型不要填写。需要中途获得/解除效果时停在那个变化点，不把整月和多个事件一次结算。'''
 
@@ -137,8 +137,14 @@ def validate_effect_followup(settlement, preview):
     report = preview['report']
     bars = settlement.get('dynamic_bars', {})
     for name in report['changes']:
-        if 'current' in bars.get(name, {}):
+        update = bars.get(name, {})
+        if 'current' in update and update['current'] != preview['state']['bars'][name]['current']:
             raise EffectProgressError(f'“{name}”已由程序结算，正文不得用绝对值覆盖')
+        if update.get('change', 0) != 0:
+            reasons = settlement.get('direct_change_reasons', {})
+            reason = reasons.get(name) if isinstance(reasons, dict) else None
+            if not isinstance(reason, str) or not reason.strip() or len(reason) > 1000:
+                raise EffectProgressError(f'“{name}”已由程序结算，额外变化必须说明独立事件依据，不能重复扣除持续效果')
     stopped = report['stopped_bar']
     if stopped and bars.get(stopped, {}).get('change', 0) != 0:
         raise EffectProgressError('当前行动已在临界点中断，不能在同一回合继续改变该关键数值')

@@ -86,7 +86,20 @@ class EffectProgressTests(unittest.TestCase):
         preview = prepare_effect_preview(self.state(), progress())
         with self.assertRaises(EffectProgressError):
             validate_effect_followup({'dynamic_bars': {'生命': {'current': 100}}}, preview)
-        validate_effect_followup({'dynamic_bars': {'生命': {'change': -2}}}, preview)
+        validate_effect_followup({'dynamic_bars': {'生命': {'change': -2}},
+                                  'direct_change_reasons': {'生命': '被落石划伤，独立于中毒'}}, preview)
+
+    def test_real_model_duplicate_delta_requires_independent_event(self):
+        preview = prepare_effect_preview(self.state(), progress(15, 'seconds'))
+        with self.assertRaises(EffectProgressError):
+            validate_effect_followup({'dynamic_bars': {'生命': {'change': -5}}}, preview)
+
+    def test_exact_echo_is_idempotent_not_a_second_calculation(self):
+        preview = prepare_effect_preview(self.state(8), progress(2592000, 'seconds'))
+        validate_effect_followup({'dynamic_bars': {'生命': {'current': 0}}}, preview)
+        with self.assertRaises(EffectProgressError):
+            validate_effect_followup({'dynamic_bars': {'生命': {'change': 5}},
+                                      'direct_change_reasons': {'生命': '休息回血'}}, preview)
 
     def test_zero_duration_does_not_apply_again(self):
         state = self.state()
@@ -164,6 +177,28 @@ class EffectStoryTests(unittest.TestCase):
             session = self.session(path, ai)
             self.assertTrue(session.process_turn('等待')['error'])
             self.assertEqual(session.state['bars']['生命']['current'], 100)
+
+    def test_reproduced_duplicate_damage_rolls_back_then_corrected_retry_commits(self):
+        ai = SequenceAI([reaction(15, 'seconds'),
+                         {'story_text': '毒发一次。', 'dynamic_bars': {'生命': {'change': -5}}},
+                         reaction(15, 'seconds'), {'story_text': '毒发一次。'}])
+        with tempfile.TemporaryDirectory() as path:
+            session = self.session(path, ai)
+            self.assertTrue(session.process_turn('等待十五秒')['error'])
+            self.assertEqual(session.state['bars']['生命']['current'], 100)
+            self.assertFalse(session.process_turn('等待十五秒').get('error'))
+            self.assertEqual(session.state['bars']['生命']['current'], 95)
+
+    def test_critical_echo_keeps_zero_and_remaining_poison(self):
+        ai = SequenceAI([reaction(2592000, 'seconds'),
+                         {'story_text': '二十秒后昏迷，没能完成长休。',
+                          'dynamic_bars': {'生命': {'current': 0}}}])
+        with tempfile.TemporaryDirectory() as path:
+            session = self.session(path, ai)
+            session.state['bars']['生命']['current'] = 8
+            self.assertFalse(session.process_turn('休息一月').get('error'))
+            self.assertEqual(session.state['bars']['生命']['current'], 0)
+            self.assertEqual(session.state['buffs']['毒']['duration'], 3)
 
     def test_failed_reroll_restores_previous_result(self):
         ai = SequenceAI([reaction(2), {'story_text': '继续。'}, '{bad json'])
