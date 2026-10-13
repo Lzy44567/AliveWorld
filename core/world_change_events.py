@@ -10,7 +10,7 @@ EVENT_ENUMS = {
     "time_hint": {"persistent", "until_condition", "fixed_duration", "uncertain"},
 }
 
-SIGNAL_INSTRUCTION = """【世界变化信号】只报告本回合正文确认成立、会持续约束未来场景的世界事实变化，不依赖命令词或题材。区分事实与尝试、愿望、对白、传闻、梦境、假设；单次剧情结果、伤势和物品位置不属于世界规则。返回 world_change_events 数组，无变化返回 []，不得为了捕获虚构设定。
+SIGNAL_INSTRUCTION = """【世界变化信号】报告本回合首次确认的可复用世界知识（用add，不要求世界刚刚改变），或确认成立的世界规则变化，不依赖命令词或题材。仅随口提名、无机制的招式不捕获；已明确且影响后续行动的技能机制可以记录，谁掌握技能仍归人物。区分事实与尝试、愿望、对白、传闻、梦境、假设；单次剧情结果、伤势和物品位置不属于世界规则。返回 world_change_events 数组，无变化返回 []，不得为了捕获虚构设定。
 每项字段：summary（简述变化）、fact_status（confirmed|attempted|reported|uncertain）、change_kind（add|update|suspend|restore|expire）、scope_hint（global|region|organization|group|location|individual_exception）、time_hint（persistent|until_condition|fixed_duration|uncertain）、evidence（从本回合 story_text 逐字摘录的依据）。最多8项。只有 confirmed 且证据确实出现在正文的信号会触发详细捕获；你不直接编辑世界书。"""
 
 

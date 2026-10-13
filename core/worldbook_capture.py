@@ -17,6 +17,7 @@ from core.auto_worldbook import select_capture_worldbook
 from core.worldbook import normalize_entry, normalize_tags, normalize_worldbook, save_worldbook_atomic, worldbook_revision, WorldbookRevisionConflict
 from core.capture_source import source_is_current
 from core.worldbook_revisions import record_capture_changes, reconcile_capture_history
+from core.worldbook_capture_policy import automatic_revision
 from core.world_rule_commands import capture_instruction, world_rule_command_mode
 from core.world_change_events import confirmed_world_changes
 from utils.sys_logger import get_logger
@@ -36,7 +37,7 @@ CAPTURE_PROMPT = """你是世界书设定捕获器。阅读一个已经完成的
 世界书不是剧情摘抄簿。一次出现、能在未来派上用场或具有特殊功能，不等于值得写入世界观。
 不要捕获：一次性动作、当前伤势、临时地点状态、角色计划、幕后行动、普通剧情摘要、单件特殊道具、角色或暗流实体资料、实体制造的陷阱与线索。这些分别属于正文、状态、角色卡、实体库或因果账本。
 可以捕获：预计长期约束许多场景的法律、制度、社会习俗、自然规律、通用技术/魔法规则。稳定地点、独特物品或人物传闻只能作为待确认候选，不能自动升格为世界事实。
-允许识别三种操作：add 新增世界常识、update 修改已有世界常识、retire 废止已有世界常识。update/retire 必须引用当前世界书中准确的 target_entry_id；系统会强制等待玩家确认，不能直接改写既有事实。不要创造绝对规则。与现有条目重复且没有变化时不要输出。
+允许识别三种操作：add 新增世界知识（也包括首次发现的已有通用机制）、update 修改已有知识、retire 废止已有知识。update/retire 必须引用当前世界书中准确的 target_entry_id，并用event_index引用已校验信号数组的零起始下标。程序依人工审阅设置与证据决定自动生效或待确认；不要自称已修改。不要创造绝对规则。与现有条目重复且没有变化时不要输出。恢复只能采用提供过的原文，不凭空重建原始规则。
 scope 必须从以下枚举选择：world_rule、social_system、natural_law、technology_magic_rule、stable_location、unique_item、character_entity、event_detail。
 confidence 必须为 high、medium 或 low。只有正文明确建立、并且可跨多个场景持续约束世界时才可写 high；由单回合细节推测出的内容不得写 high。
 
@@ -115,10 +116,9 @@ class WorldbookCaptureService:
             world_change_events = confirmed_world_changes({"world_change_events": world_change_events, "story_text": story_text})
             if not world_change_events:
                 return {"added": [], "pending": [], "skipped": ["无有效世界变化证据"]}
-            # Until revision/time semantics are implemented, these signals must
-            # not silently become permanent auto-accepted additions.
+            # Conditional effects still need review; persistent revisions have history.
             review_all = review_all or any(
-                event["change_kind"] != "add" or event["time_hint"] != "persistent"
+                event["time_hint"] != "persistent"
                 or event["scope_hint"] == "individual_exception"
                 for event in world_change_events
             )
@@ -165,7 +165,8 @@ class WorldbookCaptureService:
                 (entry.get("pending_operation"), entry.get("replaces_entry_id"))
                 for entry in book.get("entries", []) if entry.get("pending_operation")
             }
-            added, pending, skipped = [], [], []
+            added, pending, skipped, updated = [], [], [], []
+            changed_targets = set()
             for raw_candidate in payload.get("candidates", []) if isinstance(payload.get("candidates"), list) else []:
                 if not isinstance(raw_candidate, dict):
                     continue
@@ -186,8 +187,19 @@ class WorldbookCaptureService:
                 if operation in {"update", "retire"}:
                     target_id = str(raw_candidate.get("target_entry_id", "")).strip()
                     target = existing_by_id.get(target_id)
-                    if not target or (operation, target_id) in pending_operations:
+                    if not target or target.get('pending_operation') or '待确认' in target.get('tags', []) or target_id in changed_targets or (operation, target_id) in pending_operations:
                         skipped.append(str(raw_candidate.get("name") or target_id or "无效变更"))
+                        continue
+                    changed_targets.add(target_id)
+                    if automatic_revision(raw_candidate, world_change_events, review_all=review_all, has_source=source_turn is not None):
+                        replacement = normalize_entry({
+                            **target, **(raw_candidate if operation == 'update' else {}),
+                            'id': target_id, 'is_active': operation != 'retire',
+                            'tags': normalize_tags([*target.get('tags', []), *tags, 'AI推断']),
+                        })
+                        book['entries'][book['entries'].index(target)] = replacement
+                        existing_by_id[target_id] = replacement
+                        updated.append(replacement)
                         continue
                     proposal_tags = normalize_tags([*target.get("tags", []), *tags, "AI推断", "待确认"])
                     proposal = normalize_entry({
@@ -213,6 +225,8 @@ class WorldbookCaptureService:
                     continue
                 high_risk = raw_candidate.get("risk") != "low" or "绝对规则" in tags
                 safe_to_auto_add = scope in AUTO_CAPTURE_SCOPES and confidence == "high" and not high_risk
+                if world_change_events is not None:
+                    safe_to_auto_add = safe_to_auto_add and any(e['change_kind'] == 'add' for e in world_change_events)
                 if "AI推断" not in tags:
                     tags.append("AI推断")
                 if review_all or not safe_to_auto_add:
@@ -229,7 +243,7 @@ class WorldbookCaptureService:
                 existing_contents.add(candidate["content"])
                 (pending if "待确认" in candidate["tags"] else added).append(candidate)
 
-            if added or pending:
+            if added or pending or updated:
                 # Share the story mutation gate only for the short commit, not
                 # the model request. Undo/save and source checking cannot race.
                 from core.session_manager import mutation_guard, save_identity
@@ -245,4 +259,4 @@ class WorldbookCaptureService:
                     log.warning("世界书异步捕获未写入: %s", exc)
                     return {"added": [], "pending": [], "skipped": [str(exc)]}
             log.info("世界书异步捕获完成: target=%s auto_added=%s pending=%s skipped=%s", path.name, [item["name"] for item in added], [item["name"] for item in pending], skipped)
-            return {"added": added, "pending": pending, "skipped": skipped}
+            return {"added": added, "pending": pending, "skipped": skipped, "updated": updated}
