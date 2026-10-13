@@ -33,6 +33,7 @@ from core.story_length import story_length_instruction
 from core.effect_progress import (
     FUTURE_EFFECT_INSTRUCTION, SETTLEMENT_EFFECT_INSTRUCTION, needs_effect_progress,
 )
+from core.npc_identity import NPC_IDENTITY_INSTRUCTION
 
 
 SettlementMode = Literal["normal", "reroll"]
@@ -72,6 +73,7 @@ class SettlementRequestSnapshot:
     chosen_description: str
     triggered_influences: Sequence[Mapping[str, Any]]
     effect_report: Mapping[str, Any] | None = None
+    npc_identities: Sequence[Mapping[str, Any]] = ()
 
 
 @dataclass(frozen=True)
@@ -180,6 +182,8 @@ def _influence_instruction(items: Sequence[Mapping[str, Any]]) -> str:
 def _runtime_parts(snapshot: SettlementRequestSnapshot) -> list[RuntimePromptPart]:
     suggestion = action_suggestion_instruction(snapshot.story_settings.get("aiSuggestions", True))
     parts = [
+        RuntimePromptPart('story.state.npc_identity', NPC_IDENTITY_INSTRUCTION,
+                          layer='contract', cache_class='static'),
         RuntimePromptPart(
             "story.state.effect_definition",
             "【持续效果定义】new_buffs的duration是后续剩余结算次数，新增效果不追溯结算本次已过去时间。"
@@ -301,6 +305,10 @@ def build_settlement_request(
             "runtime.effect_progress",
             "【runtime.effect_progress 程序结算报告】：" + json.dumps(snapshot.effect_report, ensure_ascii=False),
             "\n",
+        ))
+    if snapshot.npc_identities:
+        user_parts.append(RequestMessagePart(
+            'runtime.npc_identities', '【本局已知人物身份】：' + json.dumps(snapshot.npc_identities, ensure_ascii=False), '\n',
         ))
     normal = snapshot.mode == "normal"
     return plan_model_request(

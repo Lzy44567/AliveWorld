@@ -27,7 +27,7 @@ amount不是消息条数。纯交谈未推进结算可为0；逃跑也计实际�
 SETTLEMENT_EFFECT_INSTRUCTION = '''【程序已结算持续效果】
 runtime.effect_progress报告及当前状态已包含本次持续效果结算。默认从dynamic_bars省略已结算的进度条：不要把报告changes再抄成change，也不要重新扣除/恢复。若同一进度条确有另一项独立行动变化，才写change，并在顶层direct_change_reasons中以该进度条名写明独立事件依据；持续效果本身不是独立事件。current只能原值回显，不能覆盖程序结果。
 若报告interrupted=true，只叙述到实际中断点，不宣称完成原定长休或用药恢复，不推进时间越过该点。stopped_bar只说明该数值触及中断点，不代表死亡或游戏结束；具体后果服从已载入的世界规则。候选描述及报告reason是模型建议，若与明确世界规则冲突，采用世界规则，不沿用建议中的死亡结论。expired是已结束效果，不能无新原因重新添加。
-新效果从本段时间之后开始：仍用new_buffs，duration为剩余结算次数；只有有世界依据时增加tick_seconds（正整数秒周期），程序维护tick_elapsed，模型不要填写。需要中途获得/解除效果时停在那个变化点，不把整月和多个事件一次结算。'''
+时间与正文只采用applied（实际推进量），不是amount（原计划）。中断时不得删除或重写当前仍存在的持续效果；剩余时长已由程序更新，不因昏迷自动清除。新效果从本段时间之后开始：仍用new_buffs，duration为剩余结算次数；只有有世界依据时增加tick_seconds（正整数秒周期），程序维护tick_elapsed，模型不要填写。需要中途获得/解除效果时停在那个变化点，不把整月和多个事件一次结算。'''
 
 
 def normalize_progress(raw, state):
@@ -146,5 +146,9 @@ def validate_effect_followup(settlement, preview):
             if not isinstance(reason, str) or not reason.strip() or len(reason) > 1000:
                 raise EffectProgressError(f'“{name}”已由程序结算，额外变化必须说明独立事件依据，不能重复扣除持续效果')
     stopped = report['stopped_bar']
+    if report['interrupted']:
+        changed_effects = set(settlement.get('status_deletions', [])) | set(settlement.get('remove_buffs', [])) | set(settlement.get('new_buffs', {}))
+        if changed_effects.intersection(preview['state']['buffs']):
+            raise EffectProgressError('行动已中断，不能清除或重写尚未结束的持续效果')
     if stopped and bars.get(stopped, {}).get('change', 0) != 0:
         raise EffectProgressError('当前行动已在临界点中断，不能在同一回合继续改变该关键数值')

@@ -1,5 +1,16 @@
 # AliveWorld 测试流程
 
+## 故事运行一致性板块收尾（2026-10-14）
+
+- 最终Python：`.venv/Scripts/python.exe -m unittest discover -s tests -q`，865项通过，64.591秒。初跑9个错误均因旧CausalResolution测试替身未带state_mgr，补真实StateManager后通过；未向生产流程添加替身兼容绕过。
+- 前端：`node --test tests/*.test.mjs`，146项通过；`npm run build`成功（170模块），仅既有大chunk提示。
+- Edge：`e2e/npc-identity.spec.js`＋`e2e/timed-effects.spec.js`三项，及`e2e/full-player-loop.spec.js`22项通过。不是全仓库所有浏览器文件全跑。身份链路包括真HTTP、流式UI、改名仅一卡、离场不被提及复活、重返ID保持、失败不落盘、重生成、重载和撤回。
+- 单元补充覆盖同名冲突/未知ID/多操作冲突的整体原子性，显式在场跨回合不被“害怕死亡”词串误隐藏，不同故事ID隔离、摘要不发送无关历史人物、存取回溯元数据一致。
+- 已视觉查看`build/npc-identity-desktop.png`：一张阿林卡及正确状态，无看守重复卡。测试数据为隔离合成内容，未读取玩家游玩存档。
+- 本轮真实模型共4次请求，低于6次上限，均测试时关闭思考。首批`build/effect-eval-20261013-233552-857519/report.json`发现中断20秒后却写50秒并删剩余毒；补实际applied提示及禁止中断后清除/重写存续效果的约束。
+- 修复后`build/effect-eval-20261013-234754-840216/report.json`：两次请求，生命0、实际20秒、毒剩3次、余时0、中断标志均通过；人工阅读正文/状态时间：昏迷非死亡、没有完成长休，此用例时间与世界后果通过。正文仍代写玩家自语/运功，不能称文学、玩家行动权或全部模型质量通过；默认思考配置问题仍保留，不擅改用户配置。
+- 目标核对：持续效果有限实测✓；人物身份/改名/离场重返✓；正常/重生成请求接线✓；事务/存取/撤回✓；侧栏与真HTTP浏览器✓；设计与分类日志✓。范围不含完整实体记忆、账本重构、世界知识升级、EXE、版本升级或远端发布。
+
 ## 修复后真实复核：状态通过不代表语义通过（2026-10-13）
 
 - 命令：`python tools/testing/evaluate_timed_effects.py --live --disable-thinking --max-requests 6`。官方DeepSeek，沿用配置模型名，六次请求合计15215 total tokens，未修改接口设置，未使用玩家内容。

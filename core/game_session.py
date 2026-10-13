@@ -5,6 +5,7 @@ from datetime import datetime
 from core.undercurrent import UndercurrentEngine
 from core.resolution_engine import DualTrackResolver
 from core.state_manager import StateManager, StateUpdatePlan
+from core.npc_identity import NpcIdentityError
 from core.effect_progress import EffectProgressError, needs_effect_progress, prepare_effect_preview, validate_effect_followup
 from core.context_manager import ContextManager
 from core.ai_engine import robust_json_parse
@@ -227,6 +228,9 @@ class GameSession:
                 settlement, story_text=story_text, player_action=interpreted_action,
                 effect_plan=self._effect_state_plan(result.get("effect_preview")),
             )
+        except NpcIdentityError as exc:
+            self.rollback()
+            return {"error": True, "message": f"人物状态未保存：{exc}。"}
         except Exception as exc:
             log.warning("状态更新无法在副本上完成: %s", exc)
             self.rollback()
@@ -354,6 +358,7 @@ class GameSession:
             chosen_description=chosen["description"],
             triggered_influences=triggered_influences,
             effect_report=effect_preview["report"] if effect_preview is not None else None,
+            npc_identities=self.state_mgr.npc_identity_context(interpreted_action),
         ))
         raw_settle, err2 = self.ai_engine.chat_json(
             request.system_prompt, request.user_prompt,
@@ -389,6 +394,8 @@ class GameSession:
                 settlement, story_text=story_text, player_action=interpreted_action,
                 effect_plan=self._effect_state_plan(effect_preview),
             )
+        except NpcIdentityError as exc:
+            return fail_reroll({"error": True, "message": f"人物状态未保存：{exc}。"})
         except Exception as exc:
             log.warning("重掷状态无法在副本上完成: %s", exc)
             return fail_reroll({"error": True, "message": "结算状态无法安全应用，本回合未保存。"})

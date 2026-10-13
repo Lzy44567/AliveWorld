@@ -1,0 +1,56 @@
+import { test, expect } from '@playwright/test';
+
+test('场景人物：改名、离场、提及、重返、失败、重生成、存取与撤回', async ({ page, request }) => {
+  await page.goto('/');
+  await page.waitForTimeout(500);
+  const later = page.getByRole('button', { name: '稍后再说' });
+  if (await later.isVisible()) await later.click();
+  await page.getByTestId('tab-saves').click();
+  await page.getByRole('button', { name: '+ 新局' }).click();
+  await page.getByTestId('new-game-name').fill('人物身份端到端');
+  await page.getByTestId('new-game-premise').fill('合成人物身份验收，不读取游玩数据。');
+  const created = page.waitForResponse(r => r.url().endsWith('/game/start') && r.request().method() === 'POST');
+  await page.getByTestId('new-game-submit').click();
+  let id = (await (await created).json()).session_id;
+  const cards = page.locator('[data-npc-name]');
+  async function send(tag, action = '请看守或阿林回应') {
+    await page.getByTestId('story-action-input').fill(`【AW_NPC:${tag}】${action}`);
+    await page.getByTestId('story-action-submit').click();
+    await expect(page.getByTestId('story-action-submit')).toBeEnabled();
+  }
+  await send('init');
+  await expect(page.locator('[data-npc-name="看守"]')).toBeVisible();
+  await send('rename');
+  await expect(cards).toHaveCount(1);
+  await expect(page.locator('[data-npc-name="阿林"]')).toBeVisible();
+  await expect(page.locator('[data-npc-name="看守"]')).toHaveCount(0);
+  await send('leave');
+  await expect(cards).toHaveCount(0);
+  await send('mention', '想起看守，阿林并未回到这里');
+  await expect(cards).toHaveCount(0);
+  await send('return');
+  await expect(cards).toHaveCount(1);
+  await expect(cards).toContainText('害怕死亡，但仍在现场');
+  const reroll = await request.post(`/api/v1/game/${id}/reroll`, { data: { entities_enabled: false } });
+  expect(reroll.ok()).toBeTruthy();
+  expect(Object.keys((await reroll.json()).state.npcs)).toEqual(['阿林']);
+  const failed = await request.post(`/api/v1/game/${id}/action`, { data: { action: '【AW_NPC:conflict】阿林的错误身份' } });
+  expect(failed.status()).toBe(502);
+  await page.reload();
+  await page.getByTestId('tab-saves').click();
+  const load = page.waitForResponse(r => r.url().endsWith('/game/load') && r.request().method() === 'POST');
+  await page.locator('[data-save-name="人物身份端到端"]').getByTestId('save-load').click();
+  const loaded = await (await load).json();
+  id = loaded.session_id;
+  expect(Object.keys(loaded.state.npcs)).toEqual(['阿林']);
+  await expect(cards).toHaveCount(1);
+  await page.screenshot({ path: '../build/npc-identity-desktop.png', fullPage: true });
+  const undone = await request.post(`/api/v1/game/${id}/undo`);
+  expect(undone.ok()).toBeTruthy();
+  expect((await undone.json()).state.npcs).toEqual({});
+  const records = (await (await request.get('http://127.0.0.1:18765/__test__/requests')).json()).requests;
+  const selected = records.filter(r => r.kind === 'settlement' && /【行动】：【AW_NPC:(rename|return)】/.test(r.user));
+  expect(selected.length).toBeGreaterThanOrEqual(3);
+  const ids = selected.map(r => JSON.parse(r.user.match(/【本局已知人物身份】：([^\n]*)/)[1])[0].id);
+  expect(new Set(ids).size).toBe(1);
+});

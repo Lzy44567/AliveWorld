@@ -124,6 +124,7 @@ class DualTrackResolver(BaseResolutionStrategy):
             chosen_description=chosen["description"],
             triggered_influences=triggered_influences,
             effect_report=effect_preview["report"] if effect_preview is not None else None,
+            npc_identities=session.state_mgr.npc_identity_context(player_action),
         ))
         raw_settle, err2 = session.ai_engine.chat_json(
             request.system_prompt, request.user_prompt,

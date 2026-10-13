@@ -108,6 +108,13 @@ class EffectProgressTests(unittest.TestCase):
         self.assertEqual(result['state']['bars']['生命']['current'], 100)
         self.assertEqual(result['state']['buffs'], {})
 
+    def test_interruption_cannot_clear_or_reset_remaining_effect(self):
+        preview = prepare_effect_preview(self.state(8), progress(50, 'seconds'))
+        for payload in ({'status_deletions': ['毒']}, {'remove_buffs': ['毒']},
+                        {'new_buffs': {'毒': {'duration': 0}}}):
+            with self.assertRaises(EffectProgressError):
+                validate_effect_followup(payload, preview)
+
     def test_periodic_budget_reports_actual_not_requested_time(self):
         state = self.state()
         state['buffs']['毒'].update(duration=-1, tick_seconds=1)

@@ -66,6 +66,10 @@ def _classify(system: str) -> str:
 
 
 def _response_for(kind: str, system: str, user: str) -> dict[str, Any] | str:
+    from tests.fakes.npc_reply import response as npc_response
+    npc_reply = npc_response(kind, user)
+    if npc_reply is not None:
+        return npc_reply
     from tests.fakes.effect_reply import response as effect_response
     effect_reply = effect_response(kind, user)
     if effect_reply is not None:

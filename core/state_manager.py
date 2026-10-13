@@ -69,6 +69,8 @@ class StateManager:
         self.state['npcs'] = self.npc_presence.reconcile(
             self.state.get('npcs', {}), result.get('npc_states', {}),
             story_text=story_text, player_action=player_action,
+            identity_updates=result.get('npc_identity_updates', []),
+            deletions=result.get('status_deletions', []),
         )
             
         # 7. 结算一般文本属性与时间
@@ -80,6 +82,8 @@ class StateManager:
         dels = result.get('status_deletions', [])
         if not isinstance(dels, list): dels = []
         for k in dels:
+            if k in self.state['npcs']:
+                self.npc_presence.identities.hide(k)
             for group in ['properties', 'bars', 'buffs', 'npcs']: 
                 self.state[group].pop(k, None)
             self.npc_presence.absent_turns.pop(k, None)
@@ -122,6 +126,9 @@ class StateManager:
 
     def export_metadata(self):
         return {"npc_presence": self.npc_presence.export_state()}
+
+    def npc_identity_context(self, action):
+        return self.npc_presence.identities.context(self.state.get('npcs', {}), action)
 
     def load_metadata(self, value):
         value = value if isinstance(value, dict) else {}

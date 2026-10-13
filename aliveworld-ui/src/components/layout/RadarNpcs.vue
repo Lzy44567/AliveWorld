@@ -55,7 +55,7 @@ const parseNpcStatus = (statusStr) => {
 <template>
   <div v-if="Object.keys(gameStore.npcs).length > 0">
     <div class="space-y-2">
-      <div v-for="(statusStr, name) in gameStore.npcs" :key="name" :class="parseNpcStatus(statusStr).colorTheme" class="p-2.5 rounded border shadow-sm relative overflow-hidden transition-colors duration-300">
+      <div v-for="(statusStr, name) in gameStore.npcs" :key="name" :data-npc-name="name" :class="parseNpcStatus(statusStr).colorTheme" class="p-2.5 rounded border shadow-sm relative overflow-hidden transition-colors duration-300">
         <div class="flex justify-between items-center mb-1.5">
           <span class="font-bold text-sm">{{ name }}</span>
           <span v-if="parseNpcStatus(statusStr).hp !== null" class="text-[10px] font-mono opacity-80">

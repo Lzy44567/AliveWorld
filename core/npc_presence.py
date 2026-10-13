@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from typing import Any
+from copy import deepcopy
+from core.npc_identity import NpcIdentityBook
 
 
 DEPARTURE_MARKERS = (
@@ -17,6 +19,7 @@ class NpcPresenceTracker:
     def __init__(self, *, stale_turns: int = 3):
         self.stale_turns = max(2, int(stale_turns))
         self.absent_turns: dict[str, int] = {}
+        self.identities = NpcIdentityBook()
 
     @staticmethod
     def _status_text(value: Any) -> str:
@@ -40,6 +43,8 @@ class NpcPresenceTracker:
         *,
         story_text: str = "",
         player_action: str = "",
+        identity_updates=(),
+        deletions=(),
     ) -> dict[str, str]:
         current = dict(current or {})
         normalized = {
@@ -48,9 +53,11 @@ class NpcPresenceTracker:
             if str(name).strip()
         }
         turn_text = f"{player_action}\n{story_text}"
+        current, normalized, forced = self.identities.prepare(current, normalized, identity_updates, self.absent_turns, deletions)
 
         for name, status in normalized.items():
-            if self._departed(status):
+            if self._departed(status) and not self.identities.explicitly_present(name):
+                self.identities.hide(name)
                 current.pop(name, None)
                 self.absent_turns.pop(name, None)
                 continue
@@ -60,11 +67,12 @@ class NpcPresenceTracker:
 
         for name in list(current):
             status = current[name]
-            if self._departed(status):
+            if self._departed(status) and not self.identities.explicitly_present(name):
+                self.identities.hide(name)
                 current.pop(name, None)
                 self.absent_turns.pop(name, None)
                 continue
-            if self._mentioned(name, turn_text):
+            if self._mentioned(name, turn_text) or forced.get(name) is True:
                 if name in normalized:
                     current[name] = normalized[name]
                 self.absent_turns[name] = 0
@@ -75,13 +83,16 @@ class NpcPresenceTracker:
                 self.absent_turns.pop(name, None)
             else:
                 self.absent_turns[name] = missing
+        self.identities.finish(current)
         return current
 
     def export_state(self) -> dict[str, Any]:
-        return {"absent_turns": dict(self.absent_turns), "stale_turns": self.stale_turns}
+        return {"absent_turns": dict(self.absent_turns), "stale_turns": self.stale_turns,
+                "identities": deepcopy(self.identities.records)}
 
     def load_state(self, value: Any) -> None:
         value = value if isinstance(value, dict) else {}
+        self.identities = NpcIdentityBook(value.get('identities', {}))
         raw = value.get("absent_turns", {})
         self.absent_turns = {
             str(name): max(0, int(turns))

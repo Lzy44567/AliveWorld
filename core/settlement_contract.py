@@ -13,6 +13,7 @@ from typing import Any, Mapping
 
 from utils.sys_logger import get_logger
 from core.world_change_events import validate_world_change_events
+from core.npc_identity import NpcIdentityError, validate_identity_updates
 
 
 log = get_logger()
@@ -216,6 +217,10 @@ def validate_settlement(
         name = _name(raw_name, "npc_states.key")
         npc_states[name] = _bounded_value(raw_value, f"npc_states.{name}")
     result["npc_states"] = npc_states
+    try:
+        result['npc_identity_updates'] = validate_identity_updates(payload.get('npc_identity_updates'))
+    except NpcIdentityError as exc:
+        raise SettlementContractError('npc_identity_updates', str(exc)) from exc
     result["status_deletions"] = _validate_deletions(
         payload.get("status_deletions"),
         state,
@@ -228,6 +233,10 @@ def validate_settlement(
     )
 
     expected = {str(item) for item in (triggered_ids or set()) if str(item)}
+    identity_names = {item[key] for item in result['npc_identity_updates']
+                      for key in ('name', 'previous_name') if key in item}
+    if identity_names.intersection(result['status_deletions']):
+        raise SettlementContractError('npc_identity_updates', '身份更新不要同时删除人物，请使用present=false')
     resolved: list[dict[str, str]] = []
     seen: set[str] = set()
     for index, raw in enumerate(_sequence(payload.get("resolved_influences"), "resolved_influences")):
