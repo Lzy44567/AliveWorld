@@ -1,5 +1,14 @@
 # AliveWorld 测试流程
 
+## 修复后真实复核：状态通过不代表语义通过（2026-10-13）
+
+- 命令：`python tools/testing/evaluate_timed_effects.py --live --disable-thinking --max-requests 6`。官方DeepSeek，沿用配置模型名，六次请求合计15215 total tokens，未修改接口设置，未使用玩家内容。
+- 本地合成报告：`build/effect-eval-20261013-230415-040425/report.json`。三例短等待/临界长休/不推进时间的生命、实际秒数、剩余次数、余时、中断标志均通过；用增强后的check_state对该旧报告重算亦全部通过，未再次发请求。
+- 人工正文审阅：短等待只结算一次毒伤，无时间例保持状态；临界例的future reason写死亡，正文也写停止呼吸，与已载入概述“生命0昏迷”相违。整体语义验收不通过，不把自动passed:true当全部通过。
+- 已修：通用提示明确后果依世界规则而非归零必死；报告改state_passed、narrative_review=pending。新增2项评估检查测试及1项正常/重生成提示组合测试。
+- 专项：`python -m unittest tests.test_effect_evaluation tests.test_story_prompt_builder tests.test_effect_progress tests.test_timed_effects tests.test_ai_engine tests.test_model_response -q`，54项通过（0.435秒）。初跑测试误将旧模板世界信息限定在user消息，改为验证system＋user完整请求，不改生产布局。
+- 本轮未重复全套Python/浏览器构建（上一轮855项/2 Edge仍为历史证据），未包/发行。新提示真实复测、默认思考模式输出配置问题仍待；不自动增加输出预算或无限重试。
+
 ## 持续效果真实模型抽样与修正（2026-10-13）
 
 - 真实请求共6次，沿GameSession→生产提示词/解析/状态提交链路，隔离合成数据；开发区配置只读，不含玩家故事。模型名沿当前配置deepseek-v4-flash。

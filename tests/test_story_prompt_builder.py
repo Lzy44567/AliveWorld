@@ -83,6 +83,20 @@ class StoryPromptBuilderTests(unittest.TestCase):
         self.assertEqual(result.temperature, 0.8)
         self.assertEqual(result.max_tokens, 4200)
 
+    def test_effect_zero_outcome_is_world_defined_not_assumed_death(self):
+        state = {'bars': {'生命': {'current': 8, 'max': 100}},
+                 'buffs': {'毒': {'duration': 5, '生命_per_turn': -5}}}
+        with tempfile.TemporaryDirectory() as temporary:
+            store = PromptOverrideStore(Path(temporary) / 'overrides.json')
+            future = build_future_request(self.future_snapshot(dynamic_state=state), store=store)
+        self.assertIn('数值归零不自动等于死亡', future.system_prompt)
+        for mode in ('normal', 'reroll'):
+            result = self.build(self.snapshot(mode, effect_report={'interrupted': True, 'stopped_bar': '生命'},
+                                              visible_world='生命归零只会昏迷', chosen_description='建议：死亡'))
+            self.assertIn('不代表死亡或游戏结束', result.system_prompt)
+            self.assertIn('采用世界规则', result.system_prompt)
+            self.assertIn('生命归零只会昏迷', result.system_prompt + result.user_prompt)
+
     def test_reroll_request_keeps_legacy_limit_and_shared_layout(self):
         result = self.build(self.snapshot("reroll"))
         normal = self.build(self.snapshot("normal"))

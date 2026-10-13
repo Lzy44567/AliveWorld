@@ -21,6 +21,22 @@ CASES = (
 )
 
 
+def check_state(name, state, report):
+    health, elapsed, remaining, remainder, interrupted = {
+        'short': (95, 15, 4, 5, False),
+        'critical': (0, 20, 3, 0, True),
+        'no_time': (100, 0, 5, 0, False),
+    }[name]
+    poison = state.get('buffs', {}).get('毒', {})
+    return {
+        'health': state.get('bars', {}).get('生命', {}).get('current') == health,
+        'elapsed': report.get('mode') == 'seconds' and report.get('applied') == elapsed,
+        'remaining': poison.get('duration') == remaining,
+        'remainder': poison.get('tick_elapsed') == remainder,
+        'interrupted': report.get('interrupted') == interrupted,
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--live', action='store_true', help='Authorize up to six paid requests')
@@ -100,24 +116,25 @@ def main():
         preview = result.get('effect_preview') or {}
         report = preview.get('report') or {}
         error = bool(result.get('error'))
-        passed = (not error and session.state['bars']['生命']['current'] == expected_health
-                  and report.get('interrupted') == interrupted)
-        row = {'case': name, 'passed': passed, 'error': error,
+        checks = check_state(name, session.state, report)
+        passed = not error and all(checks.values())
+        row = {'case': name, 'state_passed': passed, 'narrative_review': 'pending', 'error': error,
+               'checks': checks,
                'stage': result.get('stage'), 'message': result.get('message'),
                'report': report, 'state': session.state,
                'story': (result.get('settlement') or {}).get('story_text', '')}
         results.append(row)
-        print(json.dumps({'case': name, 'passed': passed, 'error': error,
+        print(json.dumps({'case': name, 'state_passed': passed, 'narrative_review': 'pending', 'error': error,
                           'stage': result.get('stage')}, ensure_ascii=False), flush=True)
         # Connection failure is not a reason to spend the remaining requests.
         if error and not report and result.get('stage') == 'reaction':
             break
     output = {'model': config['model'], 'disable_thinking': args.disable_thinking,
               'max_requests': args.max_requests, 'requests': requests, 'results': results,
-              'note': 'Synthetic data; automatic state checks only. Read prose separately.'}
+              'note': 'Exit code 0 means state checks only, NOT narrative acceptance. Review rule consequences, time and agency separately.'}
     (runtime / 'report.json').write_text(json.dumps(output, ensure_ascii=False, indent=2), encoding='utf-8')
     print(f'Report: {runtime / "report.json"}', flush=True)
-    return 0 if len(results) == len(set(args.cases)) and all(r['passed'] for r in results) else 1
+    return 0 if len(results) == len(set(args.cases)) and all(r['state_passed'] for r in results) else 1
 
 
 if __name__ == '__main__':
