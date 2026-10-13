@@ -18,6 +18,7 @@ from core.worldbook import normalize_entry, normalize_tags, normalize_worldbook,
 from core.capture_source import source_is_current
 from core.worldbook_revisions import record_capture_changes, reconcile_capture_history
 from core.worldbook_capture_policy import automatic_revision
+from core.worldbook_review import entry_revision
 from core.world_rule_commands import capture_instruction, world_rule_command_mode
 from core.world_change_events import confirmed_world_changes
 from utils.sys_logger import get_logger
@@ -214,6 +215,7 @@ class WorldbookCaptureService:
                         "pending_operation": operation,
                         "replaces_entry_id": target_id,
                         "proposal_reason": str(raw_candidate.get("reason", "")).strip(),
+                        "proposal_target_revision": entry_revision(target),
                     })
                     proposal["id"] = f"proposal_{uuid.uuid4().hex[:12]}"
                     book.setdefault("entries", []).append(proposal)

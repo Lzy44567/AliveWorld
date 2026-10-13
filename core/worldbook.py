@@ -83,6 +83,8 @@ def normalize_entry(raw: Any) -> dict[str, Any]:
         normalized["pending_operation"] = str(raw["pending_operation"])
         normalized["replaces_entry_id"] = str(raw.get("replaces_entry_id", ""))
         normalized["proposal_reason"] = str(raw.get("proposal_reason", "")).strip()
+        if raw.get('proposal_target_revision'):
+            normalized['proposal_target_revision'] = str(raw['proposal_target_revision'])
     return normalized
 
 

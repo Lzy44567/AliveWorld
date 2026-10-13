@@ -1,5 +1,9 @@
 # AliveWorld 测试流程
 
+## 世界书人工审阅后端（2026-10-14）
+
+`python -m unittest tests.test_worldbook_review tests.test_capture_revisions tests.test_worldbook_capture tests.test_capture_lifecycle tests.test_worldbook_revisions -q`：43项通过（0.384秒）。6项review测试覆盖update/retire接受及撤回、拒绝不复活、手改冲突、过期源、整批失败、后续人工修改保留；FastAPI TestClient真实路由验证读修订→接受→旧修订409→撤回后列表恢复。界面接线和浏览器仍待，不以HTTP单测替代最终UI。
+
 ## 世界书自动修订阶段2（2026-10-14）
 
 `python -m unittest tests.test_capture_revisions tests.test_world_change_events tests.test_worldbook_capture tests.test_worldbook_revisions tests.test_capture_lifecycle -q`：45项通过。验证有源证据自动update/retire、ID保留、原文回退，人工模式及错误/缺失证据索引不自动改旧条目；保留旧恢复信号不能被误写成自动新增的回归。无真实付费请求、浏览器或整板块完成声明。

@@ -9,6 +9,10 @@ def record_capture_changes(before, after, source_turn):
     """Attach entry deltas to the same book that is atomically committed."""
     if source_turn is None:
         return after
+    return record_revision_changes(before, after, turn_identity(source_turn), source_turn.get('turn_id'))
+
+
+def record_revision_changes(before, after, source, source_turn):
     result = deepcopy(after)
     old = {entry['id']: entry for entry in before.get('entries', [])}
     new = {entry['id']: entry for entry in result.get('entries', [])}
@@ -19,7 +23,7 @@ def record_capture_changes(before, after, source_turn):
             continue
         changes.append({
             'id': 'change_' + uuid4().hex,
-            'source': turn_identity(source_turn), 'source_turn': source_turn.get('turn_id'),
+            'source': source, 'source_turn': source_turn,
             'entry_id': entry_id, 'before': deepcopy(previous), 'after': deepcopy(current),
             'status': 'applied',
         })

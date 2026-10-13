@@ -4,7 +4,7 @@ import glob
 import yaml
 import shutil
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, StrictBool
 from typing import Dict, Any
 
 from core.session_manager import active_sessions
@@ -18,6 +18,9 @@ from core.image_generation.service import ImageTaskError
 from core.asset_lifecycle import AssetLifecycleError, clone_yaml_asset, find_yaml_asset, normalize_asset_name, rename_yaml_asset
 from core.worldbook_workshop_registry import retarget_workshops
 from core.worldbook_revisions import reconcile_capture_history
+from core.worldbook_review import review_proposals, WorldbookReviewError
+from core.worldbook import worldbook_revision, WorldbookRevisionConflict
+from core.session_manager import mutation_guard, save_identity, MutationBusyError
 from core.asset_workshop_registry import retarget_asset_workshops
 from core.world_packages.provenance import refresh_local_instance_id, system_tags_from_asset
 
@@ -42,6 +45,40 @@ class LocalAssetUpdatePayload(BaseModel):
 class LocalAssetLifecyclePayload(BaseModel):
     new_name: str
 
+class CaptureReviewDecision(BaseModel):
+    id: str = Field(min_length=1, max_length=200)
+    accept: StrictBool
+
+class CaptureReviewRequest(BaseModel):
+    expected_revision: str
+    decisions: list[CaptureReviewDecision] = Field(min_length=1, max_length=100)
+
+@router.post('/{session_id}/worldbooks/{asset_name}/review')
+def review_worldbook_capture(session_id: str, asset_name: str, payload: CaptureReviewRequest):
+    game = active_sessions.get(session_id)
+    if not game or not game.save_dir_path:
+        raise HTTPException(status_code=404, detail='会话失效')
+    try:
+        with mutation_guard('story', save_identity(game.save_dir_path)):
+            path = find_yaml_asset(os.path.join(game.save_dir_path, 'worldbooks'), asset_name)
+            if path is None:
+                raise HTTPException(status_code=404, detail='局内世界书不存在')
+            with worldbook_write_guard(path):
+                raw = path.read_bytes()
+                if worldbook_revision(raw) != payload.expected_revision:
+                    raise WorldbookReviewError('世界书已更新，请刷新后重试')
+                book = normalize_worldbook(yaml.safe_load(raw.decode('utf-8')))
+                reviewed = review_proposals(book, [d.model_dump() for d in payload.decisions], game.history.get('story_turns', []))
+                save_worldbook_atomic(path, reviewed, expected_revision=payload.expected_revision)
+                reviewed['edit_revision'] = worldbook_revision(path.read_bytes())
+                return {'status': 'success', 'book': reviewed}
+    except (WorldbookReviewError, WorldbookRevisionConflict, MutationBusyError) as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except AssetLifecycleError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except OSError:
+        raise HTTPException(status_code=500, detail='世界书保存失败，原内容保持不变') from None
+
 @router.get("/{session_id}/local_assets")
 def get_local_assets(session_id: str):
     game = active_sessions.get(session_id)
@@ -59,6 +96,9 @@ def get_local_assets(session_id: str):
                     if data:
                         if sub_dir == 'worldbooks' and data.get('capture_history'):
                             data, _ = reconcile_capture_history(data, game.history.get('story_turns', []))
+                        if sub_dir == 'worldbooks':
+                            from pathlib import Path
+                            data['edit_revision'] = worldbook_revision(Path(f).read_bytes())
                         if sub_dir == 'characters':
                             data['edit_revision'] = character_revision(data)
                         data['is_active'] = data.get('is_active', True)
