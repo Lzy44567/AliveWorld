@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import threading
 import uuid
+from copy import deepcopy
 from contextlib import nullcontext
 from pathlib import Path
 from typing import Any
@@ -15,6 +16,7 @@ from core.ai_engine import robust_json_parse
 from core.auto_worldbook import select_capture_worldbook
 from core.worldbook import normalize_entry, normalize_tags, normalize_worldbook, save_worldbook_atomic, worldbook_revision, WorldbookRevisionConflict
 from core.capture_source import source_is_current
+from core.worldbook_revisions import record_capture_changes, reconcile_capture_history
 from core.world_rule_commands import capture_instruction, world_rule_command_mode
 from core.world_change_events import confirmed_world_changes
 from utils.sys_logger import get_logger
@@ -127,6 +129,10 @@ class WorldbookCaptureService:
                 if expected_revision is not None and revision != expected_revision:
                     return {"added": [], "pending": [], "skipped": ["目标修订已变化"]}
                 book = normalize_worldbook(yaml.safe_load(original.decode("utf-8")) or {})
+                if source_turn is not None and book.get('capture_history'):
+                    saved = json.loads((Path(save_dir) / 'session_state.json').read_text(encoding='utf-8'))
+                    book, _ = reconcile_capture_history(book, saved.get('history', {}).get('story_turns', []))
+                before = deepcopy(book)
             except (OSError, yaml.YAMLError) as exc:
                 log.warning("世界书异步捕获无法读取目标: %s", exc)
                 return {"added": [], "pending": [], "skipped": ["读取失败"]}
@@ -137,7 +143,7 @@ class WorldbookCaptureService:
                 f"【本回合附加捕获规则】\n{command_instruction}\n" if command_instruction else ""
             )
             prompt = (
-                f"【当前世界书】\n{json.dumps(book, ensure_ascii=False)}\n"
+                f"【当前世界书】\n{json.dumps({k: v for k, v in book.items() if k != 'capture_history'}, ensure_ascii=False)}\n"
                 f"【已校验世界变化信号】\n{json.dumps(world_change_events, ensure_ascii=False)}\n"
                 f"{command_section}"
                 f"【玩家行动】\n{player_action}\n【本回合正文】\n{story_text}"
@@ -233,6 +239,7 @@ class WorldbookCaptureService:
                         if source_turn is not None and not source_is_current(save_dir, source_turn):
                             log.info("世界书异步捕获弃用：源回合已撤回或替换")
                             return {"added": [], "pending": [], "skipped": ["源回合已失效"]}
+                        book = record_capture_changes(before, book, source_turn)
                         save_worldbook_atomic(path, book, expected_revision=revision)
                 except (WorldbookRevisionConflict, OSError) as exc:
                     log.warning("世界书异步捕获未写入: %s", exc)

@@ -17,6 +17,7 @@ from core.image_generation.portrait import task_is_local_portrait
 from core.image_generation.service import ImageTaskError
 from core.asset_lifecycle import AssetLifecycleError, clone_yaml_asset, find_yaml_asset, normalize_asset_name, rename_yaml_asset
 from core.worldbook_workshop_registry import retarget_workshops
+from core.worldbook_revisions import reconcile_capture_history
 from core.asset_workshop_registry import retarget_asset_workshops
 from core.world_packages.provenance import refresh_local_instance_id, system_tags_from_asset
 
@@ -56,6 +57,8 @@ def get_local_assets(session_id: str):
                 with open(f, 'r', encoding='utf-8') as file:
                     data = yaml.safe_load(file)
                     if data:
+                        if sub_dir == 'worldbooks' and data.get('capture_history'):
+                            data, _ = reconcile_capture_history(data, game.history.get('story_turns', []))
                         if sub_dir == 'characters':
                             data['edit_revision'] = character_revision(data)
                         data['is_active'] = data.get('is_active', True)

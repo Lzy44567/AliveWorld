@@ -179,7 +179,8 @@ class GameSession:
         self.entity_repository.synchronize(self.undercurrent.entities)
 
     def _refresh_local_context(self):
-        self.ctx_mgr.refresh_from_local(self.save_dir_path, self.world_premise)
+        self.ctx_mgr.refresh_from_local(self.save_dir_path, self.world_premise,
+                                       active_turns=self.history.get('story_turns', []))
         self.undercurrent.entities = self.entity_repository.load()
 
     def _update_action_suggestions(self, settlement):

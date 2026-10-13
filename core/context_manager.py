@@ -2,6 +2,7 @@
 import os, glob, yaml
 from core.worldbook import WorldbookRetriever, build_retrieval_query, normalize_worldbook
 from core.worldbook_embeddings import embedding_manager
+from core.worldbook_revisions import reconcile_capture_history
 from utils.sys_logger import get_logger
 
 log = get_logger()
@@ -14,7 +15,7 @@ class ContextManager:
         self.world_entries = []
         self.worldbook_retriever = worldbook_retriever or WorldbookRetriever(semantic=embedding_manager)
 
-    def refresh_from_local(self, save_dir_path, description):
+    def refresh_from_local(self, save_dir_path, description, *, active_turns=None):
         if not save_dir_path or not os.path.exists(save_dir_path): return
 
         styles = []
@@ -29,6 +30,8 @@ class ContextManager:
         for f in glob.glob(os.path.join(save_dir_path, 'worldbooks', '*.yml')):
             with open(f, 'r', encoding='utf-8') as file:
                 data = normalize_worldbook(yaml.safe_load(file))
+                if active_turns is not None and data.get('capture_history'):
+                    data, _ = reconcile_capture_history(data, active_turns)
                 if data and data.get('is_active', True):
                     if data.get('overview'): worlds_base.append(f"【{data.get('name', '世界')} · 概述】：{data.get('overview')}")
                     if data.get('axioms'): worlds_base.append("【世界公理】：\n" + "\n".join(f"- {item}" for item in data.get('axioms', [])))

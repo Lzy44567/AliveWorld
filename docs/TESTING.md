@@ -1,5 +1,9 @@
 # AliveWorld 测试流程
 
+## 世界书修订阶段1（2026-10-14，板块未完成）
+
+`python -m unittest tests.test_worldbook_revisions tests.test_capture_lifecycle tests.test_worldbook_capture tests.test_context_activation tests.test_npc_identity -q`：42项通过（0.301秒）。覆盖新增撤出、修订/失效逆序恢复、同号不同回合、人工编辑/删除保护、自动-人工-自动修改链、幂等、既有捕获并发边界，以及正式捕获→持久撤回→正文与局内资产列表→重载有效内容一致。仍需自动修订/审阅全链、真实HTTP与浏览器；本片未跑全量、未打包或付费模型。
+
 ## 故事运行一致性板块收尾（2026-10-14）
 
 - 最终Python：`.venv/Scripts/python.exe -m unittest discover -s tests -q`，865项通过，64.591秒。初跑9个错误均因旧CausalResolution测试替身未带state_mgr，补真实StateManager后通过；未向生产流程添加替身兼容绕过。

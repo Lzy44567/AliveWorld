@@ -25,6 +25,36 @@ RESPONSE = json.dumps({"candidates": [{"name": "新规则", "content": "法令�
 
 
 class CaptureLifecycleTests(unittest.TestCase):
+    def test_committed_capture_disappears_from_context_and_ui_after_undo(self):
+        from api.v1.local_asset_routes import get_local_assets
+        with tempfile.TemporaryDirectory() as root:
+            game = self.setup_story(root)
+            path = Path(root) / 'worldbooks' / 'book.yml'
+            save_worldbook_atomic(path, {'name': '世界', 'entries': []})
+            _persisted_story_mutation(game, lambda: game.process_turn('继续'))
+            source = copy.deepcopy(game.history['story_turns'][-1])
+            ai = Mock()
+            ai.chat_json.return_value = (RESPONSE, None)
+            WorldbookCaptureService(ai).capture(path, '继续', source['story'], review_all=False,
+                                               source_turn=source, save_dir=root)
+            game._refresh_local_context()
+            self.assertEqual(len(game.ctx_mgr.world_entries), 1)
+            register_session('revision-undo', game)
+            try:
+                _persisted_story_mutation(game, game.rollback)
+                game._refresh_local_context()
+                self.assertEqual(game.ctx_mgr.world_entries, [])
+                books = get_local_assets('revision-undo')['worldbooks']
+                self.assertEqual(books[0]['entries'], [])
+                # Physical history remains available; effective content follows the save.
+                self.assertEqual(len(yaml.safe_load(path.read_text(encoding='utf-8'))['capture_history']), 1)
+                restored = GameSession(None, 'test', root)
+                restored.load_save_data(json.loads((Path(root) / 'session_state.json').read_text(encoding='utf-8')), save_dir_path=root)
+                restored._refresh_local_context()
+                self.assertEqual(restored.ctx_mgr.world_entries, [])
+            finally:
+                unregister_session('revision-undo')
+
     def test_local_import_preserves_all_asset_types(self):
         with tempfile.TemporaryDirectory() as root:
             game = self.setup_story(root)
@@ -102,6 +132,11 @@ class CaptureLifecycleTests(unittest.TestCase):
                 source_turn=source, save_dir=root)
             self.assertEqual(len(result["added"]), 1)
             self.assertEqual(yaml.safe_load(path.read_text(encoding="utf-8"))["entries"][0]["name"], "新规则")
+            from core.worldbook_revisions import reconcile_capture_history
+            book = yaml.safe_load(path.read_text(encoding='utf-8'))
+            self.assertEqual(len(book['capture_history']), 1)
+            self.assertEqual(reconcile_capture_history(book, [source])[0]['entries'], book['entries'])
+            self.assertEqual(reconcile_capture_history(book, [])[0]['entries'], [])
 
     def test_unsaved_source_never_starts_worker(self):
         with tempfile.TemporaryDirectory() as root:
