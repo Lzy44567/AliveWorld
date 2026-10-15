@@ -126,6 +126,7 @@ const openEditAsset = async (name) => {
   try {
     let p = {};
     if (uiStore.assetScope === 'local') {
+      await assetStore.fetchLocalAssets(gameStore.sessionId);
       const item = currentList.value.find(i => i.name === name);
       if (item) p = JSON.parse(JSON.stringify(item));
       p.tags = (p.tags || []).filter(t => t !== '本局独有');

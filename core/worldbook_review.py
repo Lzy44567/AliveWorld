@@ -4,6 +4,7 @@ import hashlib
 import json
 
 from core.worldbook import normalize_entry
+from core.capture_source import turn_identity
 from core.worldbook_revisions import reconcile_capture_history, record_revision_changes
 
 
@@ -18,6 +19,7 @@ def entry_revision(entry):
 def review_proposals(book, decisions, active_turns):
     """Apply a batch atomically on a copy; rejected proposals retain audit history."""
     result, _ = reconcile_capture_history(book, active_turns)
+    active_sources = {turn_identity(turn) for turn in active_turns}
     seen = set()
     for decision in decisions:
         ident, accept = decision['id'], decision['accept']
@@ -28,7 +30,9 @@ def review_proposals(book, decisions, active_turns):
         if proposal is None or '待确认' not in proposal.get('tags', []):
             raise WorldbookReviewError('提案已处理或源回合已撤回，请刷新后重试')
         source = next((r for r in reversed(result.get('capture_history', []))
-                       if r['entry_id'] == ident and r['status'] == 'applied'), None)
+                       if r['entry_id'] == ident), None)
+        if accept and source and source['source'] not in active_sources:
+            raise WorldbookReviewError('候选的源回合已撤回；保留的人工编辑不能作为原捕获结果接受')
         previous = deepcopy(result)
         operation = proposal.get('pending_operation', 'add')
         target_id = proposal.get('replaces_entry_id')

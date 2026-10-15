@@ -66,6 +66,10 @@ def _classify(system: str) -> str:
 
 
 def _response_for(kind: str, system: str, user: str) -> dict[str, Any] | str:
+    from tests.fakes.worldbook_reply import response as worldbook_response
+    worldbook_reply = worldbook_response(kind, user)
+    if worldbook_reply is not None:
+        return worldbook_reply
     from tests.fakes.npc_reply import response as npc_response
     npc_reply = npc_response(kind, user)
     if npc_reply is not None:

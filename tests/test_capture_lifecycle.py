@@ -25,6 +25,25 @@ RESPONSE = json.dumps({"candidates": [{"name": "新规则", "content": "法令�
 
 
 class CaptureLifecycleTests(unittest.TestCase):
+    def test_reroll_prompt_excludes_previous_captured_future(self):
+        with tempfile.TemporaryDirectory() as root:
+            game = self.setup_story(root)
+            game.story_settings['entitiesEnabled'] = False
+            path = Path(root) / 'worldbooks' / 'book.yml'
+            save_worldbook_atomic(path, {'name': '世界', 'entries': []})
+            _persisted_story_mutation(game, lambda: game.process_turn('继续'))
+            source = copy.deepcopy(game.history['story_turns'][-1])
+            ai = Mock()
+            ai.chat_json.return_value = (json.dumps({'candidates': [{'name': '规则', 'content': '仅旧未来成立的规则XYZ',
+                'tags': ['常驻'], 'risk': 'low', 'scope': 'social_system', 'confidence': 'high'}]}), None)
+            WorldbookCaptureService(ai).capture(path, '', source['story'], review_all=False, source_turn=source, save_dir=root)
+            game._refresh_local_context()
+            self.assertIn('仅旧未来成立的规则XYZ', game.build_visible_world_info('')[0])
+            game.ai_engine = RecordingAI('{"story_text":"新未来保持原状。","world_change_events":[]}')
+            result = _persisted_story_mutation(game, game.reroll_turn)
+            self.assertFalse(result.get('error'), result)
+            self.assertNotIn('仅旧未来成立的规则XYZ', '\n'.join(game.ai_engine.requests[0][:2]))
+
     def test_committed_capture_disappears_from_context_and_ui_after_undo(self):
         from api.v1.local_asset_routes import get_local_assets
         with tempfile.TemporaryDirectory() as root:

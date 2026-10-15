@@ -56,6 +56,16 @@ class WorldbookReviewTests(unittest.TestCase):
             review_proposals(book, [{'id': 'proposal', 'accept': True}, {'id': 'missing', 'accept': True}], [source])
         self.assertEqual(book, before)
 
+    def test_edited_proposal_kept_after_undo_cannot_be_accepted(self):
+        book, _, _ = self.setup_book()
+        book['entries'][1]['content'] = '玩家修改候选'
+        projected, _ = reconcile_capture_history(book, [])
+        self.assertEqual(projected['entries'][1]['content'], '玩家修改候选')
+        with self.assertRaises(WorldbookReviewError):
+            review_proposals(projected, [{'id': 'proposal', 'accept': True}], [])
+        rejected = review_proposals(projected, [{'id': 'proposal', 'accept': False}], [])
+        self.assertEqual(len(rejected['entries']), 1)
+
     def test_later_manual_changes_survive_source_undo(self):
         book, source, _ = self.setup_book()
         reviewed = review_proposals(book, [{'id': 'proposal', 'accept': True}], [source])
@@ -84,5 +94,12 @@ class WorldbookReviewTests(unittest.TestCase):
                     restored = client.get('/review-test/local_assets').json()['worldbooks'][0]
                     self.assertEqual(restored['entries'], [target])
                     self.assertEqual(restored['edit_revision'], worldbook_revision(path.read_bytes()))
+                    edited = {**restored, 'overview': '人工修改'}
+                    response = client.post('/review-test/assets/worldbooks/book', json={
+                        'parsed_data': edited, 'expected_revision': restored['edit_revision']})
+                    self.assertEqual(response.status_code, 200, response.text)
+                    stale = client.post('/review-test/assets/worldbooks/book', json={
+                        'parsed_data': {'overview': '不应覆盖'}, 'expected_revision': restored['edit_revision']})
+                    self.assertEqual(stale.status_code, 409)
             finally:
                 unregister_session('review-test')

@@ -1,6 +1,6 @@
 <!-- src/components/modals/AssetEditorModal.vue -->
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { uiStore } from '../../store/uiStore';
 import { assetStore } from '../../store/assetStore';
 import { assetApi } from '../../api/assetApi';
@@ -41,7 +41,29 @@ const { confirmDeleteId, requestDelete, cancelDelete } = useDeleteConfirmation()
 const removeWorldEntry = (idx) => { form.value.entries.splice(idx, 1); cancelDelete(); };
 const entryTags = (entry) => typeof entry.tags === 'string' ? entry.tags.split(/[,，]/).map(tag => tag.trim()).filter(Boolean) : (entry.tags || []);
 const isPendingEntry = (entry) => entryTags(entry).includes('待确认');
+const reviewBusy = ref(false);
+const selectedProposals = ref([]);
+let reviewBaseline = '';
+watch(form, value => { reviewBaseline = JSON.stringify(value.entries || []); selectedProposals.value = []; }, { immediate: true });
+const localReview = computed(() => type.value === 'worldbooks' && uiStore.assetScope === 'local' && !uiStore.editorData.isNew);
+const pendingEntries = computed(() => (form.value.entries || []).filter(isPendingEntry));
+const reviewEntries = async (ids, accept) => {
+  if (reviewBusy.value || !ids.length) return;
+  if (JSON.stringify(form.value.entries || []) !== reviewBaseline) return uiStore.showToast('请先保存条目编辑，再处理候选', 'error');
+  reviewBusy.value = true;
+  try {
+    const book = await gameApi.reviewWorldbook(gameStore.sessionId, uiStore.editorData.name, form.value.edit_revision, ids.map(id => ({ id, accept })));
+    form.value.entries = book.entries;
+    form.value.edit_revision = book.edit_revision;
+    reviewBaseline = JSON.stringify(book.entries);
+    selectedProposals.value = [];
+    await assetStore.fetchLocalAssets(gameStore.sessionId, false);
+    uiStore.showToast(`已${accept ? '接受' : '拒绝'} ${ids.length} 项并保存；历史仍保留`);
+  } catch (error) { uiStore.showToast(error.message, 'error'); }
+  finally { reviewBusy.value = false; }
+};
 const acceptPendingEntry = (entry, index) => {
+  if (localReview.value) return reviewEntries([entry.id], true);
   const operation = entry.pending_operation;
   const targetId = entry.replaces_entry_id;
   if (operation && targetId) {
@@ -64,7 +86,7 @@ const acceptPendingEntry = (entry, index) => {
   entry.tags = entryTags(entry).filter(tag => tag !== '待确认').join(', ');
   entry.is_active = true;
 };
-const rejectPendingEntry = (idx) => { form.value.entries.splice(idx, 1); };
+const rejectPendingEntry = (idx) => { if (localReview.value) return reviewEntries([form.value.entries[idx].id], false); form.value.entries.splice(idx, 1); };
 const entrySearch = ref('');
 const filteredWorldEntries = computed(() => {
   const keyword = entrySearch.value.trim().toLowerCase();
@@ -192,12 +214,21 @@ const saveContent = async () => {
           <div class="border-t border-slate-700 pt-4">
             <div class="flex justify-between items-center mb-3"><h3 class="text-sm font-bold text-slate-300">📚 世界书条目</h3><button @click="addWorldEntry" class="px-3 py-1 bg-indigo-900/50 text-indigo-400 border border-indigo-700/50 rounded text-xs font-bold">+ 新增条目</button></div>
             <input v-model="entrySearch" class="mb-3 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-200" placeholder="搜索条目名称、触发词、标签或内容……" />
+            <div v-if="localReview && pendingEntries.length" class="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-amber-800/50 bg-amber-950/20 p-3 text-xs text-amber-200 [&>button]:rounded [&>button]:border [&>button]:border-amber-800/60 [&>button]:px-2 [&>button]:py-1 [&>button:disabled]:opacity-40" data-testid="worldbook-review-toolbar">
+              <span>待审 {{ pendingEntries.length }} 项 · 操作后立即保存</span>
+              <button :disabled="reviewBusy || !selectedProposals.length" @click="reviewEntries(selectedProposals, true)">接受选中</button>
+              <button :disabled="reviewBusy || !selectedProposals.length" @click="reviewEntries(selectedProposals, false)">拒绝选中</button>
+              <button :disabled="reviewBusy" @click="reviewEntries(pendingEntries.map(e => e.id), true)">全部接受</button>
+              <button :disabled="reviewBusy" @click="reviewEntries(pendingEntries.map(e => e.id), false)">全部拒绝</button>
+            </div>
             <div class="space-y-4">
               <div v-for="({entry, index: idx}) in filteredWorldEntries" :key="entry.id || idx" class="bg-slate-800/50 p-3 rounded-lg border border-slate-700 relative group" :class="entry.is_active===false?'opacity-60':''">
                 <div class="flex items-center gap-3">
+                  <input v-if="localReview && isPendingEntry(entry)" v-model="selectedProposals" type="checkbox" :value="entry.id" :aria-label="`选择候选 ${entry.name}`" />
                   <button type="button" @click="editWorldEntry(entry, idx)" class="rounded bg-slate-900 px-2 py-1 text-[10px] text-slate-300">编辑</button>
                   <div class="min-w-0 flex-1"><div class="truncate text-xs font-bold text-slate-200">{{ entry.name || '未命名条目' }}</div><div class="mt-1 flex flex-wrap gap-1 text-[9px] text-slate-500"><span v-if="entry.keys">触发：{{ entry.keys }}</span><span v-for="tag in entryTags(entry)" :key="tag" class="rounded bg-slate-900 px-1 text-indigo-300">{{ tag }}</span></div></div>
-                  <button type="button" role="switch" :aria-checked="entry.is_active!==false" @click="entry.is_active=entry.is_active===false" class="rounded-full border px-2 py-1 text-[10px]" :class="entry.is_active===false?'border-slate-600 text-slate-500':'border-emerald-700 text-emerald-300'">{{ entry.is_active===false?'已关闭':'已启用' }}</button>
+                  <span v-if="isPendingEntry(entry)" class="text-[10px] text-amber-300">待审，尚未生效</span>
+                  <button v-else type="button" role="switch" :aria-checked="entry.is_active!==false" @click="entry.is_active=entry.is_active===false" class="rounded-full border px-2 py-1 text-[10px]" :class="entry.is_active===false?'border-slate-600 text-slate-500':'border-emerald-700 text-emerald-300'">{{ entry.is_active===false?'已关闭':'已启用' }}</button>
                   <InlineDeleteConfirm :active="confirmDeleteId === entryKey(entry, idx)" :confirm-id="entryKey(entry, idx)" @request="requestDelete(entryKey(entry, idx))" @cancel="cancelDelete" @confirm="removeWorldEntry(idx)" />
                 </div>
                 <div v-if="isPendingEntry(entry)" class="mt-3 flex items-center justify-between rounded-lg border border-amber-700/60 bg-amber-950/30 p-2">

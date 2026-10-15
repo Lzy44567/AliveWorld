@@ -11,6 +11,7 @@ import UpdateNotice from './components/common/UpdateNotice.vue';
 import WorkshopWorkspace from './components/workshop/WorkshopWorkspace.vue';
 import CharacterWorkspace from './components/character/CharacterWorkspace.vue';
 import { uiStore } from './store/uiStore';
+import { gameStore } from './store/gameStore';
 import { configStore, waitForSystemConfig } from './store/configStore';
 import { onboardingStore } from './store/onboardingStore';
 import { updateApi } from './api/updateApi';
@@ -44,7 +45,10 @@ onMounted(async () => {
   } catch (_) { /* 迁移提示不能阻止游戏主界面加载 */ }
   if (configLoaded && !uiStore.apiSetupRequired && !migrationPrompted) onboardingStore.offerStory();
   // Assets may also arrive through migration or external file management.
-  assetRefreshTimer = window.setInterval(() => assetStore.fetchAssets(), 5000);
+  assetRefreshTimer = window.setInterval(() => {
+    assetStore.fetchAssets();
+    if (gameStore.sessionId && !gameStore.isProcessing) assetStore.fetchLocalAssets(gameStore.sessionId);
+  }, 5000);
   // Update discovery must never delay API setup, migration, story loading, or offline play.
   updateCheckTimer = window.setTimeout(async () => {
     try {

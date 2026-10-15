@@ -3,6 +3,15 @@ import { postEventStream } from './streaming.js';
 const API_URL = "/api/v1/game";
 
 export const gameApi = {
+  async reviewWorldbook(sessionId, name, revision, decisions) {
+    const res = await fetch(`${API_URL}/${sessionId}/worldbooks/${encodeURIComponent(name)}/review`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ expected_revision: revision, decisions }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || '审阅保存失败');
+    return data.book;
+  },
   processActionStream(sessionId, payload, onDelta) { return postEventStream(`${API_URL}/${sessionId}/action/stream`, payload, onDelta); },
   retryTurnStream(sessionId, payload, onDelta) { return postEventStream(`${API_URL}/${sessionId}/retry/stream`, payload, onDelta); },
   rerollTurnStream(sessionId, payload, onDelta) { return postEventStream(`${API_URL}/${sessionId}/reroll/stream`, payload, onDelta); },

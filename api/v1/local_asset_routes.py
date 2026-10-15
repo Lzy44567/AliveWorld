@@ -91,14 +91,14 @@ def get_local_assets(session_id: str):
         
         for f in glob.glob(os.path.join(target_path, '*.yml')):
             try:
-                with open(f, 'r', encoding='utf-8') as file:
-                    data = yaml.safe_load(file)
+                with open(f, 'rb') as file:
+                    raw = file.read()
+                    data = yaml.safe_load(raw.decode('utf-8'))
                     if data:
                         if sub_dir == 'worldbooks' and data.get('capture_history'):
                             data, _ = reconcile_capture_history(data, game.history.get('story_turns', []))
                         if sub_dir == 'worldbooks':
-                            from pathlib import Path
-                            data['edit_revision'] = worldbook_revision(Path(f).read_bytes())
+                            data['edit_revision'] = worldbook_revision(raw)
                         if sub_dir == 'characters':
                             data['edit_revision'] = character_revision(data)
                         data['is_active'] = data.get('is_active', True)
@@ -151,6 +151,26 @@ def update_local_asset(session_id: str, asset_type: str, asset_name: str, payloa
     local_dir = os.path.join(game.save_dir_path, asset_type)
     os.makedirs(local_dir, exist_ok=True)
     local_file = os.path.join(local_dir, f"{asset_name}.yml")
+    if asset_type == 'worldbooks':
+        try:
+            with mutation_guard('story', save_identity(game.save_dir_path)), worldbook_write_guard(local_file):
+                from pathlib import Path
+                path = Path(local_file)
+                existing = {}
+                if path.exists():
+                    if not payload.overwrite:
+                        raise WorldbookReviewError('本局已存在同名世界书')
+                    raw = path.read_bytes()
+                    if payload.expected_revision is not None and worldbook_revision(raw) != payload.expected_revision:
+                        raise WorldbookReviewError('世界书已更新，请刷新后再保存，避免覆盖新设定')
+                    existing, _ = reconcile_capture_history(normalize_worldbook(yaml.safe_load(raw.decode('utf-8'))), game.history.get('story_turns', []))
+                incoming = {k: v for k, v in payload.parsed_data.items() if k not in {'capture_history', 'capture_reviews', 'edit_revision'}}
+                save_worldbook_atomic(path, {**existing, **incoming}, expected_revision=payload.expected_revision)
+                return {'status': 'success', 'revision': worldbook_revision(path.read_bytes())}
+        except (WorldbookReviewError, WorldbookRevisionConflict, MutationBusyError) as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        except OSError:
+            raise HTTPException(status_code=500, detail='世界书保存失败，原内容保持不变') from None
     if asset_type == 'characters':
         try:
             output = write_character(local_file, dict(payload.parsed_data), expected_revision=payload.expected_revision, overwrite=payload.overwrite)

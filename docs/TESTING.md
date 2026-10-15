@@ -1,5 +1,11 @@
 # AliveWorld 测试流程
 
+## 世界书界面接线（2026-10-15，最终审计继续）
+
+- Python前一轮全量880项通过（62.424秒）；追加撤回候选与重生成测试后，review/lifecycle专项23项通过（0.698秒）。不把旧全量计数当作最新全量。
+- 新增`e2e/worldbook-revisions.spec.js`：真HTTP假模型，自动新增/更新/废止/撤回以及勾选接受/全部拒绝通过，13.6秒；已查看`build/worldbook-review.png`。随后将误导的候选“已启用”改为“待审，尚未生效”，待最终构建复核。
+- 审计发现局内工坊读取尚未使用回合投影，保留为当前必修项；完成后再统一终验。本轮不使用付费模型或玩家存档。
+
 ## 世界书人工审阅后端（2026-10-14）
 
 `python -m unittest tests.test_worldbook_review tests.test_capture_revisions tests.test_worldbook_capture tests.test_capture_lifecycle tests.test_worldbook_revisions -q`：43项通过（0.384秒）。6项review测试覆盖update/retire接受及撤回、拒绝不复活、手改冲突、过期源、整批失败、后续人工修改保留；FastAPI TestClient真实路由验证读修订→接受→旧修订409→撤回后列表恢复。界面接线和浏览器仍待，不以HTTP单测替代最终UI。
