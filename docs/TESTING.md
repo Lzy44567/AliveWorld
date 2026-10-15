@@ -1,5 +1,15 @@
 # AliveWorld 测试流程
 
+## 世界书闭环最终验收（2026-10-15）
+
+- 全量Python883项通过，77.458秒，`build/worldbook-final-python.txt`。随后旧工坊归属识别和模型审计历史过滤两处补充，用19项工坊专项重新验证通过（0.138秒）；新增一项测试，不虚报884项全量重跑。
+- 前端146项通过（823ms），`npm run build`成功170模块；仍有既有500KB chunk警告，非构建失败。
+- `npx playwright test e2e/worldbook-revisions.spec.js e2e/full-player-loop.spec.js e2e/npc-identity.spec.js e2e/timed-effects.spec.js`：26项通过（2.2分钟）。真实HTTP连接合成假模型，覆盖新增/修改/废止/撤回/审阅和主要玩家流程，不称全仓库所有E2E。
+- 已查看最终`build/worldbook-review.png`：勾选批量工具栏、即时保存反馈、候选未生效标记；弹窗内可滚动。
+- 新`test_worldbook_workshop_capture`验证局内有效投影、撤回后旧草稿409且磁盘不变、旧格式工坊同样拒绝、重新打开发布成功、归属持久化。Agent测试确认审计历史不注入模型。
+- 完成审计表见35。全局模板不作为捕获目标、人工内容保留、模型返回迟到不复活、源ID而非回合数字判定，分别由capture/lifecycle/revisions/review专项覆盖。
+- 本轮没有真实付费模型请求、没有玩家存档访问、没有EXE或远端发布。真实AI语义质量不由固定假回复代替证明。
+
 ## 世界书界面接线（2026-10-15，最终审计继续）
 
 - Python前一轮全量880项通过（62.424秒）；追加撤回候选与重生成测试后，review/lifecycle专项23项通过（0.698秒）。不把旧全量计数当作最新全量。

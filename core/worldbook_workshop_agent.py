@@ -63,9 +63,11 @@ class WorldbookWorkshopAgent:
         if mode not in MODES:
             raise WorkshopError("未知的世界书工坊模式")
         recent = workshop.messages[-10:]
+        visible_draft = {key: value for key, value in workshop.draft.items()
+                         if key not in {'capture_history', 'capture_reviews'}}
         prompt = (
             f"【当前模式】{MODES[mode]}\n"
-            f"【当前世界书草稿】\n{json.dumps(workshop.draft, ensure_ascii=False)}\n"
+            f"【当前世界书草稿】\n{json.dumps(visible_draft, ensure_ascii=False)}\n"
             f"【近期工坊对话】\n{json.dumps(recent, ensure_ascii=False)}\n"
             f"【本轮协作权限】\n{'允许修改草稿：低风险操作可写入，高风险操作仍需玩家确认' if commit_changes else '只讨论与提案：operations 仅作为拟议修改展示，不得声称已经写入'}\n"
             f"【玩家本轮要求】\n{user_message}"

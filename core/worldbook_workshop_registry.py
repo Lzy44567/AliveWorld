@@ -63,6 +63,8 @@ def retarget_workshops(old_path: str | Path, new_path: str | Path, *, recursive:
         if replacement is None:
             continue
         workshop.target_path = replacement
+        if recursive and workshop.local_save_path and Path(workshop.local_save_path).resolve() == old_root:
+            workshop.local_save_path = str(new_root)
         workshop.save_session(WORKSHOP_DIR)
         active_workshops[workshop.id] = workshop
         changed += 1

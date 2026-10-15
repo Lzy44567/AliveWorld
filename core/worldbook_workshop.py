@@ -54,6 +54,7 @@ class WorldbookWorkshop:
     def __init__(self, workshop_id: str, target_path: Path, source: dict[str, Any]):
         self.id = workshop_id
         self.target_path = Path(target_path)
+        self.local_save_path: str | None = None
         self.draft = normalize_worldbook(copy.deepcopy(source))
         self.source_revision = worldbook_revision(source)
         self.snapshots: list[dict[str, Any]] = []
@@ -233,6 +234,7 @@ class WorldbookWorkshop:
         return {
             "id": self.id,
             "target_path": str(self.target_path),
+            "local_save_path": self.local_save_path,
             "draft": self.draft,
             "snapshots": self.snapshots,
             "pending": self.pending,
@@ -259,6 +261,7 @@ class WorldbookWorkshop:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "WorldbookWorkshop":
         workshop = cls(str(data["id"]), Path(data["target_path"]), data.get("draft", {}))
+        workshop.local_save_path = data.get("local_save_path")
         workshop.snapshots = data.get("snapshots", [])
         workshop.pending = data.get("pending", [])
         workshop.proposed = data.get("proposed", [])

@@ -9,13 +9,15 @@ from typing import Any, Dict, List, Optional
 from core.worldbook_workshop import WorkshopError, WorldbookWorkshop
 from core.worldbook_workshop_agent import WorldbookWorkshopAgent
 from core.worldbook_embeddings import embedding_manager
-from core.worldbook import normalize_worldbook
+from core.worldbook import normalize_worldbook, worldbook_write_guard
+from core.worldbook_revisions import reconcile_capture_history
+from core.session_manager import active_sessions, mutation_guard, save_identity, MutationBusyError
 from core.worldbook_workshop_registry import (
     WORKSHOP_DIR, active_workshops, list_worldbook_workshop_history,
     load_worldbook_workshop,
 )
 from utils.asset_catalog import resolve_asset_path
-from utils.file_io import DATA_DIR, WORLD_DIR
+from utils.file_io import DATA_DIR, WORLD_DIR, SAVE_DIR
 from api.v1.route_guards import guarded_workshop
 from api.v1.streaming import workshop_chat_transaction, workshop_stream_response
 
@@ -122,13 +124,19 @@ def start_workshop(payload: StartWorkshopRequest):
     if not source_path:
         raise HTTPException(status_code=404, detail="世界书不存在")
     source = yaml.safe_load(source_path.read_text(encoding="utf-8")) or {}
+    if payload.session_id:
+        source, _ = reconcile_capture_history(normalize_worldbook(source), game.history.get('story_turns', []))
     current_book = normalize_worldbook(source)
     resumed, stale_count = _find_resumable(source_path, current_book)
     history = list_worldbook_workshop_history(source_path)
     if resumed:
+        if payload.session_id:
+            resumed.local_save_path = str(game.save_dir_path)
         active_workshops[resumed.id] = resumed
         return {**_payload(resumed), "resumed": True, "stale_drafts_preserved": stale_count, "history": history}
     workshop = WorldbookWorkshop(str(uuid.uuid4()), source_path, source)
+    if payload.session_id:
+        workshop.local_save_path = str(game.save_dir_path)
     active_workshops[workshop.id] = workshop
     workshop.save_session(WORKSHOP_DIR)
     return {**_payload(workshop), "resumed": False, "stale_drafts_preserved": stale_count, "history": history}
@@ -222,6 +230,9 @@ def undo_workshop(workshop_id: str):
 @guarded_workshop
 def publish_workshop(workshop_id: str, payload: PublishRequest):
     workshop = _get(workshop_id)
+    # Old persisted local drafts predate explicit ownership metadata.
+    if not workshop.local_save_path and Path(SAVE_DIR).resolve() in workshop.target_path.resolve().parents:
+        workshop.local_save_path = str(workshop.target_path.resolve().parent.parent)
     if workshop.published:
         raise HTTPException(status_code=409, detail="这轮工坊已经发布，请开启新一轮后再修改")
     target = workshop.target_path
@@ -233,7 +244,22 @@ def publish_workshop(workshop_id: str, payload: PublishRequest):
         target = Path(WORLD_DIR) / f"{safe_name}.yml"
     elif target.name.endswith(".template.yml") or workshop.draft.get("is_template") is True:
         raise HTTPException(status_code=400, detail="模板世界书必须另存为个人世界书")
-    workshop.publish(target)
+    if workshop.local_save_path:
+        game = next((g for g in active_sessions.values()
+                     if g.save_dir_path and Path(g.save_dir_path).resolve() == Path(workshop.local_save_path).resolve()), None)
+        if game is None:
+            raise HTTPException(status_code=409, detail="请先载入该工坊所属的故事，再发布局内修改")
+        try:
+            with mutation_guard('story', save_identity(game.save_dir_path)), worldbook_write_guard(workshop.target_path):
+                source = normalize_worldbook(yaml.safe_load(workshop.target_path.read_text(encoding='utf-8')))
+                current, _ = reconcile_capture_history(source, game.history.get('story_turns', []))
+                if not workshop.is_based_on(current):
+                    raise HTTPException(status_code=409, detail="世界书或来源回合已变化，请重新打开工坊；当前草稿仍保留")
+                workshop.publish(target)
+        except MutationBusyError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+    else:
+        workshop.publish(target)
     workshop.target_path = target
     workshop.save_session(WORKSHOP_DIR)
     return {**_payload(workshop), "published_path": str(target)}

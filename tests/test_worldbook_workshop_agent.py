@@ -17,6 +17,16 @@ class FakeAI:
 
 
 class WorldbookWorkshopAgentTests(unittest.TestCase):
+    def test_capture_audit_is_not_sent_as_current_world_knowledge(self):
+        workshop = WorldbookWorkshop('audit', Path('unused.yml'), {'name': '世界'})
+        workshop.draft['capture_history'] = [{'before': '旧未来审计秘密'}]
+        workshop.draft['capture_reviews'] = [{'source': 'source-id'}]
+        ai = FakeAI('{"message":"讨论","operations":[]}')
+        WorldbookWorkshopAgent(ai).respond(workshop, '继续', 'expand')
+        self.assertNotIn('旧未来审计秘密', ai.requests[0][1])
+        self.assertNotIn('capture_reviews', ai.requests[0][1])
+        self.assertEqual(workshop.draft['capture_history'][0]['before'], '旧未来审计秘密')
+
     def test_agent_applies_low_risk_changes_and_returns_suggestions(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             workshop = WorldbookWorkshop("test", Path(temp_dir) / "book.yml", {"name": "世界", "entries": []})
