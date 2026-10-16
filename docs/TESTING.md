@@ -1,5 +1,9 @@
 # AliveWorld 测试流程
 
+## 实体账本浏览器流程（2026-10-17）
+
+`npx playwright test e2e/entity-ledger.spec.js`最终1项通过（8.7秒，场景4.5秒）。真实HTTP访问隔离假模型，覆盖计划不生成影响、行动创建影响、改名、死亡保留实体/车队、账本记录与依据可展开、撤回、重生成不重复及重新载入身份/账本一致。已查看`build/entity-ledger-desktop.png`。首跑因脚本误写“本局专属”按钮图标超时，修为真实按钮后通过。前端构建171模块成功；仅既有chunk提示。全量回归另行收集，不以此一例替代。
+
 ## 暗流分类与依据（2026-10-17）
 
 `python -m unittest tests.test_entity_events tests.test_entity_domain tests.test_causal_ledger tests.test_request_budget -q`：38项通过（0.042秒）。新增计划不执行/不造影响、行动来源/时间/知情存取、事实不重复执行、旧协议默认与输入边界、作者认知能力资源性格摘要验证。只证明程序与提示输入行为，不以假回复证明真实模型不泄漏秘密。下一完整HTTP/浏览器及撤回/重生成验证。

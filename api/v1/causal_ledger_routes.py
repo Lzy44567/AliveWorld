@@ -30,9 +30,13 @@ def _persist(game):
 @router.get("/{session_id}/causal-ledger")
 def get_causal_ledger(session_id: str):
     game = _game(session_id)
+    names = {entity.id: entity.name for entity in game.undercurrent.entities}
     return {
         "turn_count": game.undercurrent.causal_ledger.turn_count,
         "influences": game.undercurrent.causal_ledger.export(),
+        "events": [{**event, 'current_entity_name': names.get(event.get('details', {}).get('entity_id'), event.get('entity', ''))}
+                   for event in game.undercurrent.ledger.export()[-200:]],
+        "event_count": len(game.undercurrent.ledger.entries),
     }
 
 

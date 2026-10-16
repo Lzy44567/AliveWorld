@@ -7,10 +7,13 @@ import { assetStore } from '../../store/assetStore';
 import { consumePolicyLabel, influenceStatusLabel, influenceTypeLabel, sourceDeathLabel } from '../../utils/causalLedgerLabels';
 import { useDeleteConfirmation } from '../../composables/useDeleteConfirmation';
 import ExpandableTextarea from '../common/ExpandableTextarea.vue';
+import EntityEventHistory from './EntityEventHistory.vue';
 
 const props = defineProps({ initialSource: { type: String, default: '' } });
 
 const influences = ref([]);
+const events = ref([]);
+const eventCount = ref(0);
 const turnCount = ref(0);
 const editingId = ref(null);
 const emptyForm = () => ({ summary: '', type: 'one_shot', condition: '', effect: '', sources: '', strength: 0.5, death: 'keep', consume: 'on_success', maxTriggers: '', worldTime: '', tags: '', forceNextTurn: false });
@@ -28,7 +31,7 @@ const visibleInfluences = computed(() => influences.value.filter(item => {
 }));
 
 const refresh = async () => {
-  try { const data = await gameApi.getCausalLedger(gameStore.sessionId); influences.value = data.influences || []; turnCount.value = data.turn_count || 0; }
+  try { const data = await gameApi.getCausalLedger(gameStore.sessionId); influences.value = data.influences || []; turnCount.value = data.turn_count || 0; events.value = data.events || []; eventCount.value = data.event_count || 0; }
   catch { uiStore.showToast('读取暗流因果账本失败', 'error'); }
 };
 const startNew = () => { editingId.value = 'new'; form.value = emptyForm(); };
@@ -40,7 +43,7 @@ const edit = item => {
 };
 const makePayload = () => ({
   summary: form.value.summary.trim(), type: form.value.type, condition: form.value.condition.trim(), effect: form.value.effect.trim(),
-  source_links: form.value.sources.split(',').map(x => x.trim()).filter(Boolean).map(entity => ({ entity, life_link_strength: Number(form.value.strength), on_source_death: form.value.death })),
+  source_links: form.value.sources.split(',').map(x => x.trim()).filter(Boolean).map(entity => ({ ...influences.value.find(item => item.id === editingId.value)?.source_links?.find(link => link.entity === entity), entity, life_link_strength: Number(form.value.strength), on_source_death: form.value.death })),
   consume_policy: { mode: form.value.consume, max_triggers: form.value.maxTriggers === '' ? null : Number(form.value.maxTriggers) },
   created_world_time: form.value.worldTime.trim(), tags: form.value.tags.split(',').map(x => x.trim()).filter(Boolean), force_next_turn: form.value.forceNextTurn
 });
@@ -82,6 +85,7 @@ onMounted(refresh);
       <button @click="cancel" class="rounded bg-slate-700 py-2 text-xs">取消</button><button @click="save" class="rounded bg-fuchsia-700 py-2 text-xs font-bold">保存</button>
     </div></div></Teleport>
     <div class="space-y-3">
+      <EntityEventHistory :events="events" :total="eventCount" :source="sourceFilter" />
       <article v-for="item in visibleInfluences" :key="item.id" class="rounded-xl border border-slate-700 bg-aw_panel p-3" :class="item.status !== 'active' ? 'opacity-55' : ''">
         <div class="flex justify-between gap-2"><div><h4 class="text-sm font-bold text-slate-200">{{ item.summary }}</h4><code class="text-[9px] text-slate-500">{{ item.id }}</code></div><span class="text-[9px] text-fuchsia-300">{{ influenceTypeLabel(item.type) }} · {{ influenceStatusLabel(item.status) }}</span></div>
         <p class="mt-2 text-[11px] text-slate-400">条件：{{ item.condition || '未设置' }}</p><p class="mt-1 text-[11px] text-slate-400">后果：{{ item.effect || '未设置' }}</p>
