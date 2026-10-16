@@ -1,5 +1,9 @@
 # AliveWorld 测试流程
 
+## 实体账本身份关联（2026-10-17）
+
+`python -m unittest tests.test_causal_ledger tests.test_entity_domain tests.test_asset_lifecycle tests.test_capture_lifecycle -q`：44项通过（0.269秒）。新增身份来源导出重载、改名显示更新、同名新实体不接管/误触死亡、旧卡重命名和克隆独立身份验证。尚未新增浏览器验收，生命周期完整行为继续实施。
+
 ## 实体身份基础（2026-10-17）
 
 `python -m unittest tests.test_entity_domain tests.test_request_budget -q`：20项通过（0.040秒）。新增测试覆盖旧数据重复载入身份一致、改名保存身份不变、同名新领域实例身份不同、旧位置参数不被新字段改变。不代表资产克隆/账本身份接线/完整实体模式验收；下一完成这些接线再做HTTP/UI回归。

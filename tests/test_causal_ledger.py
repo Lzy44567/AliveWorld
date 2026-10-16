@@ -1,6 +1,7 @@
 import unittest
 
 from core.causal_ledger import CausalLedger
+from core.entities import Entity
 
 
 def influence(summary, action="keep", mode="never", influence_type="persistent"):
@@ -15,6 +16,22 @@ def influence(summary, action="keep", mode="never", influence_type="persistent")
 
 
 class CausalLedgerTests(unittest.TestCase):
+    def test_identity_links_follow_rename_not_new_entity_with_same_name(self):
+        entity = Entity('疫病术士')
+        ledger = CausalLedger([influence('保留布置')])
+        ledger.bind_entities([entity])
+        entity.name = '隐居术士'
+        impostor = Entity('疫病术士')
+        ledger.bind_entities([entity, impostor])
+        restored = CausalLedger(ledger.export())
+        self.assertEqual(restored.influences[0].source_links[0]['entity'], '隐居术士')
+        self.assertEqual(len(restored.refs_for_entity(entity.name, entity.id)), 1)
+        self.assertEqual(restored.refs_for_entity(impostor.name, impostor.id), [])
+        restored.handle_source_death(impostor.name, impostor.id)
+        self.assertNotIn('source_dead', restored.influences[0].source_links[0])
+        restored.handle_source_death(entity.name, entity.id)
+        self.assertTrue(restored.influences[0].source_links[0]['source_dead'])
+
     def test_cancelled_influence_can_be_restored(self):
         ledger = CausalLedger([{"id": "restore_me", "summary": "可恢复", "status": "cancelled"}])
         self.assertEqual(ledger.restore("restore_me").status, "active")

@@ -13,6 +13,7 @@ import yaml
 from core.worldbook import normalize_worldbook, save_worldbook_atomic
 from core.world_packages.identity import assign_new_asset_id
 from core.world_packages.provenance import refresh_local_instance_id
+from core.entities import Entity
 
 
 class AssetLifecycleError(ValueError):
@@ -101,6 +102,9 @@ def clone_yaml_asset(
         raise AssetLifecycleError("目标文件名已被占用")
     data = copy.deepcopy(_load(source))
     data["name"] = new_name
+    if root.name == 'entities':
+        data['id'] = Entity(new_name).id
+        data['influence_refs'] = []
     # A clone is a new logical asset. Keeping the source identity would make
     # package updates and safe uninstall treat two editable cards as one file.
     assign_new_asset_id(data)
@@ -118,6 +122,8 @@ def rename_yaml_asset(directory: str | Path, source_name: str, new_name: str, *,
     if not source:
         raise AssetLifecycleError("源资产不存在")
     data = _load(source)
+    if root.name == 'entities':
+        data['id'] = Entity.from_dict(data).id
     if _is_template(source, data):
         raise AssetLifecycleError("模板资产不能重命名，请先克隆为个人资产")
     new_name = normalize_asset_name(new_name)

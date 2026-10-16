@@ -34,6 +34,8 @@ def _source_link(value):
     }
     if raw.get("source_dead"):
         normalized["source_dead"] = True
+    if raw.get('entity_id'):
+        normalized['entity_id'] = str(raw['entity_id'])
     return normalized
 
 
@@ -129,6 +131,17 @@ class CausalLedger:
 
     def export(self):
         return [item.to_dict() for item in self.influences]
+
+    def bind_entities(self, entities):
+        """Upgrade legacy name links once; identified links never rebind by name."""
+        by_id = {entity.id: entity for entity in entities}
+        by_name = {entity.name: entity for entity in entities}
+        for item in self.influences:
+            for link in item.source_links:
+                entity = by_id.get(link['entity_id']) if link.get('entity_id') else by_name.get(link.get('entity'))
+                if entity:
+                    link['entity_id'] = entity.id
+                    link['entity'] = entity.name
 
     def active(self):
         return [item for item in self.influences if item.is_active()]
@@ -249,10 +262,10 @@ class CausalLedger:
             resolved.append(item)
         return resolved
 
-    def handle_source_death(self, entity_name):
+    def handle_source_death(self, entity_name, entity_id=None):
         released, removed = [], []
         for item in self.active():
-            matching = [link for link in item.source_links if link.get("entity") == entity_name]
+            matching = [link for link in item.source_links if self._source_matches(link, entity_name, entity_id)]
             if not matching:
                 continue
             if any(link.get("on_source_death") == "release" for link in matching):
@@ -262,7 +275,7 @@ class CausalLedger:
             for link in matching:
                 if link.get("on_source_death") != "remove":
                     retained_matching.append({**link, "source_dead": True})
-            other_links = [link for link in item.source_links if link.get("entity") != entity_name]
+            other_links = [link for link in item.source_links if not self._source_matches(link, entity_name, entity_id)]
             item.source_links = other_links + retained_matching
             if matching and all(link.get("on_source_death") == "remove" for link in matching) and not item.source_links:
                 item.status = "cancelled"
@@ -270,11 +283,17 @@ class CausalLedger:
                 removed.append(item)
         return {"released": released, "removed": removed}
 
-    def refs_for_entity(self, entity_name):
+    @staticmethod
+    def _source_matches(link, entity_name, entity_id):
+        if entity_id and link.get('entity_id'):
+            return link['entity_id'] == entity_id
+        return link.get('entity') == entity_name
+
+    def refs_for_entity(self, entity_name, entity_id=None):
         refs = []
         for item in self.influences:
             for link in item.source_links:
-                if link.get("entity") == entity_name:
+                if self._source_matches(link, entity_name, entity_id):
                     refs.append({
                         "id": item.id, "summary": item.summary, "status": item.status,
                         "life_link_strength": link.get("life_link_strength", 0.5),

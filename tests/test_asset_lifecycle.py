@@ -5,9 +5,24 @@ from pathlib import Path
 import yaml
 
 from core.asset_lifecycle import AssetLifecycleError, clone_yaml_asset, find_yaml_asset, rename_yaml_asset
+from core.entities import Entity
 
 
 class AssetLifecycleTests(unittest.TestCase):
+    def test_entity_rename_preserves_legacy_id_clone_gets_new_identity(self):
+        with tempfile.TemporaryDirectory() as root:
+            directory = Path(root) / 'entities'
+            directory.mkdir()
+            original = {'name': '商会', 'influence_refs': [{'id': 'plan'}]}
+            self.write(directory, 'old.yml', original)
+            renamed = rename_yaml_asset(directory, '商会', '新商会')
+            saved = yaml.safe_load(renamed.read_text(encoding='utf-8'))
+            self.assertEqual(saved['id'], Entity.from_dict(original).id)
+            cloned = clone_yaml_asset(directory, '新商会', '其他商会')
+            copy = yaml.safe_load(cloned.read_text(encoding='utf-8'))
+            self.assertNotEqual(saved['id'], copy['id'])
+            self.assertEqual(copy['influence_refs'], [])
+
     def write(self, root, filename, data):
         path = Path(root) / filename
         path.write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False), encoding="utf-8")

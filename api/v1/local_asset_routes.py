@@ -22,6 +22,7 @@ from core.worldbook_review import review_proposals, WorldbookReviewError
 from core.worldbook import worldbook_revision, WorldbookRevisionConflict
 from core.session_manager import mutation_guard, save_identity, MutationBusyError
 from core.asset_workshop_registry import retarget_asset_workshops
+from core.entities import Entity
 from core.world_packages.provenance import refresh_local_instance_id, system_tags_from_asset
 
 router = APIRouter()
@@ -195,7 +196,9 @@ def update_local_asset(session_id: str, asset_type: str, asset_name: str, payloa
         if asset_type == "worldbooks":
             parsed_data = normalize_worldbook(parsed_data)
         if asset_type == "entities":
-            parsed_data["influence_refs"] = game.undercurrent.causal_ledger.refs_for_entity(asset_name)
+            identity = Entity.from_dict(existing_data).id if existing_data else Entity(asset_name).id
+            parsed_data['id'] = identity
+            parsed_data["influence_refs"] = game.undercurrent.causal_ledger.refs_for_entity(asset_name, identity)
         if asset_type == "worldbooks":
             save_worldbook_atomic(local_file, parsed_data)
         else:
@@ -219,7 +222,8 @@ def delete_local_asset(session_id: str, asset_type: str, asset_name: str):
                     character = yaml.safe_load(file) or {}
                 portrait_task_id = str((character.get("portrait") or {}).get("task_id", ""))
             if asset_type == "entities":
-                result = game.undercurrent.causal_ledger.handle_source_death(asset_name)
+                removed = next((entity for entity in game.undercurrent.entities if entity.name == asset_name), None)
+                result = game.undercurrent.causal_ledger.handle_source_death(asset_name, removed.id if removed else None)
                 game.undercurrent.entities = [entity for entity in game.undercurrent.entities if entity.name != asset_name]
                 game.undercurrent.sync_influence_refs()
                 save_game_data(game.save_dir_path, game.export_save_data())

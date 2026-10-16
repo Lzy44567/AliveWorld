@@ -25,13 +25,15 @@ class UndercurrentEngine:
         self.ledger = ShadowLedger(data.get('shadow_ledger', []))
         self.causal_ledger = CausalLedger(data.get('causal_ledger', []), turn_count=data.get('causal_turn_count', 0))
         if 'entities' in data: self.entities = [Entity.from_dict(e) for e in data['entities']]
+        self.sync_influence_refs()
 
     def export_state(self):
         return {"tick_count": self.tick_count, "shadow_ledger": self.ledger.export(), "causal_ledger": self.causal_ledger.export(), "causal_turn_count": self.causal_ledger.turn_count, "entities": [e.to_dict() for e in self.entities]}
 
     def sync_influence_refs(self):
+        self.causal_ledger.bind_entities(self.entities)
         for entity in self.entities:
-            entity.influence_refs = self.causal_ledger.refs_for_entity(entity.name)
+            entity.influence_refs = self.causal_ledger.refs_for_entity(entity.name, entity.id)
 
     def has_active_entities(self):
         return any(active_entities(self.entities))
@@ -154,7 +156,8 @@ class UndercurrentEngine:
                 if de_name not in active_by_name:
                     log.warning(f"忽略非活跃或不存在实体的删除: {de_name}")
                     continue
-                death_result = self.causal_ledger.handle_source_death(de_name)
+                self.causal_ledger.bind_entities(self.entities)
+                death_result = self.causal_ledger.handle_source_death(de_name, active_by_name[de_name].id)
                 for influence in death_result["released"]:
                     log.info(f"实体死亡释放影响: [{influence.id}] {influence.summary}")
                 for influence in death_result["removed"]:
