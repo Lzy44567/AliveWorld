@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List
+from uuid import uuid4, uuid5, NAMESPACE_URL
 
 
 def _as_list(value: Any) -> List[Any]:
@@ -32,6 +33,7 @@ class Entity:
     """
 
     name: str
+    id: str = field(default_factory=lambda: 'entity_' + uuid4().hex, kw_only=True)
     motive: str = "未知动机"
     status: str = ""
     recent_actions: List[Any] = field(default_factory=list)
@@ -46,7 +48,7 @@ class Entity:
     extra: Dict[str, Any] = field(default_factory=dict, repr=False)
 
     _KNOWN_FIELDS = {
-        "name", "motive", "goal", "status", "recent_actions", "plans", "mechanisms",
+        "id", "name", "motive", "goal", "status", "recent_actions", "plans", "mechanisms",
         "triggers", "relationships", "importance", "is_active", "tags", "influence_refs",
     }
 
@@ -60,6 +62,7 @@ class Entity:
 
         return cls(
             name=_as_text(raw.get("name"), "未知实体"),
+            id=str(raw.get('id') or ('entity_' + uuid5(NAMESPACE_URL, 'aliveworld:legacy-entity:' + _as_text(raw.get('name'), '未知实体')).hex)),
             motive=_as_text(raw.get("motive", raw.get("goal")), "未知动机"),
             status=_as_text(raw.get("status")),
             recent_actions=_as_list(raw.get("recent_actions")),
@@ -127,6 +130,7 @@ class Entity:
     def to_dict(self) -> Dict[str, Any]:
         data = dict(self.extra)
         data.update({
+            "id": self.id,
             "name": self.name,
             "motive": self.motive,
             "status": self.status,

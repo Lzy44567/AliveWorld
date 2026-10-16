@@ -25,6 +25,15 @@ class FakeAIEngine:
 
 
 class EntityDomainTests(unittest.TestCase):
+    def test_legacy_identity_is_repeatable_and_survives_rename(self):
+        first = Entity.from_dict({'name': '商会', 'goal': '贸易'})
+        second = Entity.from_dict({'name': '商会', 'goal': '贸易'})
+        self.assertEqual(first.id, second.id)
+        first.name = '新商会'
+        self.assertEqual(Entity.from_dict(first.to_dict()).id, second.id)
+        self.assertNotEqual(Entity('新角色').id, Entity('新角色').id)
+        self.assertEqual(Entity('旧位置参数', '动机').motive, '动机')
+
     def test_empty_overseer_collections_do_not_clear_existing_entity_fields(self):
         entity = Entity(
             name="测试实体",
