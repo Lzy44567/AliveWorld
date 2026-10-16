@@ -250,6 +250,7 @@ const saveContent = async () => {
         </template>
         
         <template v-else-if="type === 'entities'">
+          <p v-if="form.lifecycle === 'dead'" class="rounded-lg border border-slate-600 bg-slate-800 p-3 text-sm text-slate-300" data-testid="entity-dead-notice">已消亡：保留资料与历史，不再主动推演；既有布置按各自的来源依赖继续处理。</p>
           <div class="grid grid-cols-2 gap-4">
             <div><label class="text-xs text-slate-400 font-bold mb-1.5 block">动机 (Motive)<FieldHelp text="实体长期想实现什么，是 Overseer 判断行动方向的主要依据。" /></label><ExpandableTextarea data-testid="entity-motive" v-model="form.motive" label="实体动机" textarea-class="h-24 bg-[#0d0d12] border border-slate-700 text-slate-300 p-3 rounded-lg text-sm" /></div>
             <div><label class="text-xs text-slate-400 font-bold mb-1.5 block">当前状态 (Status)<FieldHelp text="实体此刻所处的客观状态，例如位置、资源、伤势、权力与处境。" /></label><ExpandableTextarea v-model="form.status" label="实体当前状态" textarea-class="h-24 bg-[#0d0d12] border border-slate-700 text-slate-300 p-3 rounded-lg text-sm" /></div>

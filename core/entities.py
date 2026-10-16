@@ -34,6 +34,7 @@ class Entity:
 
     name: str
     id: str = field(default_factory=lambda: 'entity_' + uuid4().hex, kw_only=True)
+    lifecycle: str = field(default='alive', kw_only=True)
     motive: str = "未知动机"
     status: str = ""
     recent_actions: List[Any] = field(default_factory=list)
@@ -48,7 +49,7 @@ class Entity:
     extra: Dict[str, Any] = field(default_factory=dict, repr=False)
 
     _KNOWN_FIELDS = {
-        "id", "name", "motive", "goal", "status", "recent_actions", "plans", "mechanisms",
+        "id", "lifecycle", "name", "motive", "goal", "status", "recent_actions", "plans", "mechanisms",
         "triggers", "relationships", "importance", "is_active", "tags", "influence_refs",
     }
 
@@ -63,6 +64,7 @@ class Entity:
         return cls(
             name=_as_text(raw.get("name"), "未知实体"),
             id=str(raw.get('id') or ('entity_' + uuid5(NAMESPACE_URL, 'aliveworld:legacy-entity:' + _as_text(raw.get('name'), '未知实体')).hex)),
+            lifecycle='dead' if raw.get('lifecycle') == 'dead' else 'alive',
             motive=_as_text(raw.get("motive", raw.get("goal")), "未知动机"),
             status=_as_text(raw.get("status")),
             recent_actions=_as_list(raw.get("recent_actions")),
@@ -71,7 +73,7 @@ class Entity:
             triggers=_as_list(raw.get("triggers")),
             relationships=dict(raw.get("relationships") or {}) if isinstance(raw.get("relationships"), dict) else {},
             importance=max(0.0, min(1.0, importance)),
-            is_active=bool(raw.get("is_active", True)),
+            is_active=bool(raw.get("is_active", True)) and raw.get('lifecycle') != 'dead',
             tags=_as_list(raw.get("tags")),
             influence_refs=_as_list(raw.get("influence_refs")),
             extra={key: value for key, value in raw.items() if key not in cls._KNOWN_FIELDS},
@@ -105,6 +107,11 @@ class Entity:
             self.recent_actions.append(action)
             self.recent_actions = self.recent_actions[-limit:]
 
+    def mark_dead(self) -> None:
+        """Keep identity and history; death is not an asset deletion."""
+        self.lifecycle = 'dead'
+        self.is_active = False
+
     def apply_action(self, action: Dict[str, Any]) -> None:
         """合并一次实体行动产生的增量，不覆盖既有长期计划。"""
         action_text = _as_text(action.get("action"))
@@ -131,6 +138,7 @@ class Entity:
         data = dict(self.extra)
         data.update({
             "id": self.id,
+            "lifecycle": self.lifecycle,
             "name": self.name,
             "motive": self.motive,
             "status": self.status,
@@ -177,4 +185,4 @@ class Entity:
 
 
 def active_entities(entities: Iterable[Entity]) -> List[Entity]:
-    return [entity for entity in entities if entity.is_active]
+    return [entity for entity in entities if entity.is_active and entity.lifecycle != 'dead']

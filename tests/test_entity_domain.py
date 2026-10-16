@@ -25,6 +25,46 @@ class FakeAIEngine:
 
 
 class EntityDomainTests(unittest.TestCase):
+    def test_death_retains_identity_history_and_applies_dependency_policy(self):
+        engine = UndercurrentEngine(FakeAIEngine('{"delete_entities":["术士"]}'))
+        entity = Entity('术士', recent_actions=['派出信使'], plans=['考察'])
+        engine.entities = [entity]
+        for policy in ('remove', 'release', 'keep'):
+            engine.causal_ledger.add({'id': policy, 'summary': policy, 'source_links': [
+                {'entity': '术士', 'on_source_death': policy}]})
+        before = engine.export_state()
+        with patch('core.undercurrent.load_system_prompts', return_value={'overseer_prompt': '推演'}):
+            engine.tick('术士死亡', world_time='次日')
+            engine.tick('继续')
+        self.assertEqual(engine.ai_engine.call_count, 1)
+        self.assertEqual(engine.entities[0].id, entity.id)
+        self.assertEqual(entity.lifecycle, 'dead')
+        self.assertEqual(entity.recent_actions, ['派出信使'])
+        self.assertEqual(entity.plans, ['考察'])
+        self.assertEqual(engine.causal_ledger.by_id('remove').status, 'cancelled')
+        self.assertEqual(engine.causal_ledger.by_id('remove').source_links[0]['entity_id'], entity.id)
+        self.assertTrue(engine.causal_ledger.by_id('remove').source_links[0]['dependency_ended'])
+        self.assertTrue(engine.causal_ledger.by_id('release').force_next_turn)
+        self.assertTrue(engine.causal_ledger.by_id('keep').is_active())
+        restored = UndercurrentEngine(FakeAIEngine('{}'))
+        restored.load_state(engine.export_state())
+        self.assertFalse(restored.has_active_entities())
+        self.assertEqual(restored.entities[0].lifecycle, 'dead')
+        restored.load_state(before)
+        self.assertTrue(restored.has_active_entities())
+        self.assertEqual(restored.entities[0].id, entity.id)
+
+    def test_disabled_is_not_dead_and_does_not_cancel_existing_influence(self):
+        engine = UndercurrentEngine(FakeAIEngine('{}'))
+        entity = Entity('商会', is_active=False)
+        engine.entities = [entity]
+        engine.causal_ledger.add({'id': 'shipment', 'summary': '车队已出发', 'source_links': [
+            {'entity': '商会', 'on_source_death': 'remove'}]})
+        engine.tick('继续')
+        self.assertEqual(engine.ai_engine.call_count, 0)
+        self.assertEqual(entity.lifecycle, 'alive')
+        self.assertTrue(engine.causal_ledger.by_id('shipment').is_active())
+
     def test_legacy_identity_is_repeatable_and_survives_rename(self):
         first = Entity.from_dict({'name': '商会', 'goal': '贸易'})
         second = Entity.from_dict({'name': '商会', 'goal': '贸易'})

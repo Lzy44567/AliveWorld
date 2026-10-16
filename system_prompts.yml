@@ -109,7 +109,7 @@ overseer_prompt: |
         "is_active": true
       }
     ],
-    "delete_entities": ["只在该实体确实退出长期因果时填写名称"],
+    "delete_entities": ["仅已确认死亡或组织消亡的实体名称；离场、暂不行动或失联不填。系统保留档案，不抹去历史及独立存续的布置"],
     "new_influences": [
       {
         "source_links": [{"entity": "来源实体名", "life_link_strength": 0.8, "on_source_death": "remove|release|keep"}],

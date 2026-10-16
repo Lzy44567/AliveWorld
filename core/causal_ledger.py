@@ -34,6 +34,8 @@ def _source_link(value):
     }
     if raw.get("source_dead"):
         normalized["source_dead"] = True
+    if raw.get('dependency_ended'):
+        normalized['dependency_ended'] = True
     if raw.get('entity_id'):
         normalized['entity_id'] = str(raw['entity_id'])
     return normalized
@@ -265,19 +267,18 @@ class CausalLedger:
     def handle_source_death(self, entity_name, entity_id=None):
         released, removed = [], []
         for item in self.active():
-            matching = [link for link in item.source_links if self._source_matches(link, entity_name, entity_id)]
+            matching = [link for link in item.source_links
+                        if self._source_matches(link, entity_name, entity_id) and not link.get('source_dead')]
             if not matching:
                 continue
             if any(link.get("on_source_death") == "release" for link in matching):
                 item.force_next_turn = True
                 released.append(item)
-            retained_matching = []
             for link in matching:
-                if link.get("on_source_death") != "remove":
-                    retained_matching.append({**link, "source_dead": True})
-            other_links = [link for link in item.source_links if not self._source_matches(link, entity_name, entity_id)]
-            item.source_links = other_links + retained_matching
-            if matching and all(link.get("on_source_death") == "remove" for link in matching) and not item.source_links:
+                link['source_dead'] = True
+                if link.get('on_source_death') == 'remove':
+                    link['dependency_ended'] = True
+            if all(link.get('dependency_ended') for link in item.source_links):
                 item.status = "cancelled"
                 item.force_next_turn = False
                 removed.append(item)

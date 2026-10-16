@@ -26,6 +26,7 @@ export function createEntityEditorForm(asset = {}) {
     desc: asset.description || '',
     motive: asset.motive || asset.description || '',
     status: asset.status || '',
+    lifecycle: asset.lifecycle || 'alive',
     recentActionsText: toTextLines(asset.recent_actions),
     plansText: toTextLines(asset.plans),
     mechanismsText: toTextLines(asset.mechanisms),

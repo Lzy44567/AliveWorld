@@ -162,12 +162,11 @@ class UndercurrentEngine:
                     log.info(f"实体死亡释放影响: [{influence.id}] {influence.summary}")
                 for influence in death_result["removed"]:
                     log.info(f"实体死亡移除影响: [{influence.id}] {influence.summary}")
-                original_len = len(self.entities)
-                self.entities = [e for e in self.entities if e.name != de_name]
-                if len(self.entities) < original_len:
-                    log.info(f"实体湮灭: {de_name}")
-                    events_this_turn.append(f"💀 某股势力消亡了：[{de_name}]")
-                    self.ledger.record(self.tick_count, "entity_deleted", de_name, "实体湮灭")
+                active_by_name[de_name].mark_dead()
+                log.info(f"实体消亡，保留档案: {de_name}")
+                events_this_turn.append(f"💀 某股势力消亡了：[{de_name}]")
+                self.ledger.record(self.tick_count, "entity_died", de_name, "实体消亡，既有布置按来源依赖继续处理",
+                                   details={'entity_id': active_by_name[de_name].id, 'world_time': world_time})
 
             self.sync_influence_refs()
                         

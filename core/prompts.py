@@ -53,7 +53,7 @@ DEFAULT_PROMPTS = {
   "undercurrent_events": [ {"entity": "实体名称", "action": "暗中做了什么"} ],
   "new_entities": [ {"name": "新实体名称", "goal": "核心动机"} ],
   "update_entities": [ {"name": "需更新的实体", "goal": "新动机"} ],
-  "delete_entities": [ "彻底退出的实体名称" ]
+  "delete_entities": [ "仅已确认死亡或组织消亡的实体名称；离场、暂不行动或失联不填。系统保留档案及独立存续的布置" ]
 }"""
 }
 

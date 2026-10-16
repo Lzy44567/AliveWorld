@@ -1,5 +1,11 @@
 # AliveWorld 测试流程
 
+## 实体生命周期（2026-10-17）
+
+`python -m unittest tests.test_entity_domain tests.test_causal_ledger tests.test_request_budget tests.test_asset_lifecycle -q`：39项通过（0.064秒）。新增死亡保留身份/行动/计划、停止额外推演、三种来源死亡策略、取消仍保留来源、状态导出重载与恢复旧快照、停用不取消影响。
+
+`node --test tests/entityVisibility.test.mjs`通过；`npm run build`成功170模块，既有chunk提示。只验证表单映射和编译，未宣称已视觉验收死亡说明；整块浏览器阶段继续。
+
 ## 实体账本身份关联（2026-10-17）
 
 `python -m unittest tests.test_causal_ledger tests.test_entity_domain tests.test_asset_lifecycle tests.test_capture_lifecycle -q`：44项通过（0.269秒）。新增身份来源导出重载、改名显示更新、同名新实体不接管/误触死亡、旧卡重命名和克隆独立身份验证。尚未新增浏览器验收，生命周期完整行为继续实施。

@@ -198,6 +198,9 @@ def update_local_asset(session_id: str, asset_type: str, asset_name: str, payloa
         if asset_type == "entities":
             identity = Entity.from_dict(existing_data).id if existing_data else Entity(asset_name).id
             parsed_data['id'] = identity
+            parsed_data['lifecycle'] = existing_data.get('lifecycle', 'alive')
+            if parsed_data['lifecycle'] == 'dead':
+                parsed_data['is_active'] = False
             parsed_data["influence_refs"] = game.undercurrent.causal_ledger.refs_for_entity(asset_name, identity)
         if asset_type == "worldbooks":
             save_worldbook_atomic(local_file, parsed_data)
