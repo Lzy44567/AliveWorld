@@ -69,9 +69,17 @@ class ShadowLedgerEntry:
 
     def to_context_line(self) -> str:
         prefix = f"[Tick {self.tick}] {self.entity}：{self.summary}" if self.entity else self.summary
+        labels = {'plan': '计划，尚未执行', 'action': '已执行行动，不代表目标成功', 'fact': '已发生事实'}
+        prefix = f"【{labels.get(self.kind, self.kind)}】" + prefix
+        if self.details.get('world_time'):
+            prefix += f"；故事时间：{self.details['world_time']}"
+        if self.details.get('basis'):
+            prefix += f"；依据：{self.details['basis']}"
+        known = self.details.get('known_to', [])
+        prefix += '；明确知情者：' + ('、'.join(known) if known else '未记录，不默认角色已知')
         all_clues = [str(clue) for clue in self.clues] + _detail_clues(self.details)
         clue_text = "；".join(all_clues[:4])
-        return f"{prefix}；线索：{clue_text}" if clue_text else prefix
+        return f"{prefix}；可能的发现线索（非已获知）：{clue_text}" if clue_text else prefix
 
 
 class ShadowLedger:

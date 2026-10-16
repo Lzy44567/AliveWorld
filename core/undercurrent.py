@@ -8,6 +8,7 @@ from core.entities import Entity, active_entities
 from core.shadow_ledger import ShadowLedger
 from core.causal_ledger import CausalLedger
 from core.overseer_prompt_builder import build_overseer_request
+from core.entity_events import classify_event
 
 log = get_logger()
 
@@ -76,15 +77,28 @@ class UndercurrentEngine:
                 act = ev.get("action", "")
                 entity = active_by_name.get(ent_name)
                 if act and entity:
+                    try:
+                        kind, basis, known_to = classify_event(ev)
+                    except ValueError as exc:
+                        log.warning(str(exc))
+                        continue
                     details = {
                         field: ev[field]
                         for field in ("status", "new_plans", "new_mechanisms", "new_triggers", "relationship_updates")
                         if field in ev
                     }
+                    details.update({'entity_id': entity.id, 'world_time': world_time,
+                                    'basis': basis, 'known_to': known_to})
                     events_this_turn.append(f"【{ent_name}】：{act}")
-                    self.ledger.record(self.tick_count, "action", ent_name, act, ev.get("clues", []), details)
-                    entity.apply_action(ev)
-                    acted_entity_names.add(ent_name)
+                    self.ledger.record(self.tick_count, kind, ent_name, act, ev.get("clues", []), details)
+                    if kind == 'plan':
+                        if act not in entity.plans:
+                            entity.plans.append(act)
+                    elif kind == 'action':
+                        entity.apply_action(ev)
+                        acted_entity_names.add(ent_name)
+                    else:
+                        entity.add_recent_action('已发生事实：' + act)
                     log.info(f"暗流发生: 【{ent_name}】 {act}")
                 elif act:
                     log.warning(f"忽略非活跃或不存在实体的行动: {ent_name}")
@@ -176,4 +190,7 @@ class UndercurrentEngine:
         return events_this_turn
 
     def get_ledger_context(self):
-        return self.ledger.context() + "\n\n【暗流因果账本】\n" + self.causal_ledger.context()
+        return ("【GM幕后裁定资料：不等于玩家角色或其他实体已知】\n"
+                "计划尚未执行；已执行行动不保证目标成功；只有实际观察或可靠传递才能成为角色知识。"
+                "上帝视角只改变玩家可见范围，不能传送事件、补造知情来源或重演已结束事件。\n"
+                + self.ledger.context() + "\n\n【暗流因果账本：待条件满足后裁定，非已发生事实】\n" + self.causal_ledger.context())

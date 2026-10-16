@@ -1,5 +1,9 @@
 # AliveWorld 测试流程
 
+## 暗流分类与依据（2026-10-17）
+
+`python -m unittest tests.test_entity_events tests.test_entity_domain tests.test_causal_ledger tests.test_request_budget -q`：38项通过（0.042秒）。新增计划不执行/不造影响、行动来源/时间/知情存取、事实不重复执行、旧协议默认与输入边界、作者认知能力资源性格摘要验证。只证明程序与提示输入行为，不以假回复证明真实模型不泄漏秘密。下一完整HTTP/浏览器及撤回/重生成验证。
+
 ## 实体生命周期（2026-10-17）
 
 `python -m unittest tests.test_entity_domain tests.test_causal_ledger tests.test_request_budget tests.test_asset_lifecycle -q`：39项通过（0.064秒）。新增死亡保留身份/行动/计划、停止额外推演、三种来源死亡策略、取消仍保留来源、状态导出重载与恢复旧快照、停用不取消影响。

@@ -177,10 +177,13 @@ class Entity:
                 trigger_parts.append(_as_text(trigger))
         triggers = "；".join(trigger_parts) or "无"
         relationships = "；".join(f"{name}:{value}" for name, value in list(self.relationships.items())[:3]) or "无"
+        constraints = '；'.join(f'{label}：{_as_text(self.extra.get(key))[:240] or "未记录，不自动补足"}'
+                               for label, key in [('已知信息/信念', 'knowledge'), ('能力', 'abilities'),
+                                                  ('资源', 'resources'), ('性格', 'personality')])
         return (
-            f"- 【{self.name}】类型：{role}；标签：{'、'.join(tag_names) or '无'}；"
+            f"- 【{self.name}】ID：{self.id}；类型：{role}；标签：{'、'.join(tag_names) or '无'}；"
             f"定位：{description or '未说明'}；动机：{self.motive}；状态：{self.status or '未知'}；近期行动：{recent}；"
-            f"计划：{plan}；机制：{mechanisms}；触发器：{triggers}；关系：{relationships}"
+            f"计划（未执行）：{plan}；机制：{mechanisms}；触发器：{triggers}；关系：{relationships}；{constraints}"
         )
 
 
