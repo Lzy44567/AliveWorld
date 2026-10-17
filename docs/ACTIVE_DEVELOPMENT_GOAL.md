@@ -4,6 +4,8 @@ Updated: 2026-10-17
 
 ## Current — dev.20 交付同步
 
+交付状态：版本/ZIP/本地提交完成（e214189）；GitHub HTTPS 查询及普通/HTTP1.1 推送多次连接失败，远端未确认同步。恢复网络后执行 `git push origin HEAD:refs/heads/dev/codex-gpt5.6sol-v1.6.0`。不重编功能、不宣称线上已发布。
+
 本地构建已完成：release/AliveWorld-1.6.0-dev.20-windows-x64.zip，38,408,595 字节；版本、隐私、覆盖升级保留 UserData 检查通过。SHA256：3a28495c1d0c085bc0a2b951736acf5dc53b78f7445e4746ab931813785a5c5a。推送待网络结果，未创建线上 Release。
 
 用户授权同步版本、打包和推送。版本提升为 1.6.0-dev.20，重新编译前端、主程序及更新助手，校验 ZIP 版本/隐私/覆盖保留数据；随后推送当前开发分支。不新增功能、不自动发布 GitHub Release。以下为已完成板块历史。
