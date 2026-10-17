@@ -523,3 +523,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\install_test_assets.
 6. 连续进行两次不同主题的改变，再分别恢复其中一次：只能定位和变更对应条目，不能按名称相似批量删除其他设定。
 
 日志中应能区分新增、修改、废止三类提案。若模型提出修改或废止但没有给出可精确匹配的原条目 ID，系统必须拒绝自动变更正式世界书。
+# 2026-10-17 dev.20 便携包交付验证
+
+- `tools/build_windows_portable.ps1 -SkipDependencyInstall`：前端、主程序、更新助手构建成功；自动包结构/版本/隐私/覆盖升级保留数据检查通过。
+- ZIP：38,408,595 字节；SHA256 `3a28495c1d0c085bc0a2b951736acf5dc53b78f7445e4746ab931813785a5c5a`。日志 `build/dev20-package.txt`。
+- 本次只修改版本和交付文档，沿用本阶段894 Python、146前端、27相关浏览器场景验收；未宣称干净Windows实机或完整真实模型验收。
+
