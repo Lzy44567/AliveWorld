@@ -1,5 +1,15 @@
 # AliveWorld 测试流程
 
+## 暗流实体板块最终回归（2026-10-17）
+
+- `.venv/Scripts/python.exe -m unittest discover -s tests -q`：894项通过，60.434秒；`build/entity-final-python.txt`。
+- `node --test tests/*.test.mjs`：146项通过，701ms；`build/entity-final-node.txt`。
+- `npm run build`成功171模块；保留既有chunk大小提示，不是失败。
+- `npx playwright test e2e/entity-ledger.spec.js e2e/worldbook-revisions.spec.js e2e/full-player-loop.spec.js e2e/npc-identity.spec.js e2e/timed-effects.spec.js`：27项通过，1.8分钟；`build/entity-final-browser.txt`。不是全仓库所有E2E。
+- 已查看`build/entity-ledger-desktop.png`，三类记录清楚、依据/知情可展开、独立车队影响仍在；记录默认折叠，无额外常驻界面。
+- 要求到实现/验证映射见36完成审计表。假模型提供可控语义，检验真实HTTP和UI/存储流程；未验证真实LLM在任意题材中都遵守知情与人物动机。
+- 无付费模型请求、玩家存档访问、版本升级、打包或远端操作。本轮目的板块完成，不宣称全部实体系统完成。
+
 ## 实体账本浏览器流程（2026-10-17）
 
 `npx playwright test e2e/entity-ledger.spec.js`最终1项通过（8.7秒，场景4.5秒）。真实HTTP访问隔离假模型，覆盖计划不生成影响、行动创建影响、改名、死亡保留实体/车队、账本记录与依据可展开、撤回、重生成不重复及重新载入身份/账本一致。已查看`build/entity-ledger-desktop.png`。首跑因脚本误写“本局专属”按钮图标超时，修为真实按钮后通过。前端构建171模块成功；仅既有chunk提示。全量回归另行收集，不以此一例替代。
