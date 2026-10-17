@@ -62,6 +62,8 @@ class WorldbookWorkshop:
         self.proposed: list[dict[str, Any]] = []
         self.messages: list[dict[str, str]] = []
         self.suggested_actions: list[str] = []
+        self.creative_brief = ""
+        self.brief_edited = False
         self.dirty = False
         self.published = False
         self.updated_at = datetime.now(timezone.utc).isoformat()
@@ -75,6 +77,12 @@ class WorldbookWorkshop:
     def assert_editable(self) -> None:
         if self.published:
             raise WorkshopError("这轮工坊已经发布，请开启新一轮后再修改")
+
+    def set_creative_brief(self, text: str) -> None:
+        self.assert_editable()
+        self.creative_brief = text.strip()
+        self.brief_edited = True
+        self.touch()
 
     def _snapshot(self) -> None:
         self.snapshots.append(copy.deepcopy(self.draft))
@@ -261,6 +269,8 @@ class WorldbookWorkshop:
             "proposed": self.proposed,
             "messages": self.messages,
             "suggested_actions": self.suggested_actions,
+            "creative_brief": self.creative_brief,
+            "brief_edited": self.brief_edited,
             "source_revision": self.source_revision,
             "dirty": self.dirty,
             "published": self.published,
@@ -287,6 +297,8 @@ class WorldbookWorkshop:
         workshop.proposed = data.get("proposed", [])
         workshop.messages = data.get("messages", [])
         workshop.suggested_actions = data.get("suggested_actions", [])
+        workshop.creative_brief = str(data.get("creative_brief", ""))
+        workshop.brief_edited = bool(data.get("brief_edited", False))
         # Legacy sessions did not record their source. Treat their saved draft as
         # the old source so a newer edited file will not be silently shadowed.
         workshop.source_revision = str(data.get("source_revision") or worldbook_revision(data.get("draft", {})))

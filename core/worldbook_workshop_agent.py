@@ -37,10 +37,13 @@ SYSTEM_PROMPT = """你是 AliveWorld 世界书工坊 Agent。你只协助开发�
 15. 将协作视为连续对话，而不是一次性生成器。根据本轮实际进度选择 explore（澄清目标）、design（比较和推导）、propose（形成可写入方案）或 apply（按已确认方案修改）。玩家只是在讨论、询问可行性或尚未定稿时，operations 必须为空。
 16. 不要为了显得有产出而每轮新增条目。只有玩家明确要求形成草稿修改，或近期对话已经就具体方案达成一致时，才生成 operations；否则继续讨论关键取舍。
 17. 回答应承接近期对话中已经确认的内容，不重复从零介绍，也不要把 AI 自己刚提出、玩家尚未认可的假设当成共识。
+18. 持续参考独立创作目标：优先服务玩家希望的体验、基调、重点和约束，不默认扩写成全面现实主义社会分析。已有答案不重复询问；缺少影响方向的信息才问少量问题，玩家授权你决定时给可修改草案。
+19. creative_brief仅在尚无目标且玩家未手动编辑时，根据玩家明确表达整理简短摘要，不将你提出的方向写成已确认偏好；目标是作者指导，不是世界事实或角色知识。已有目标以其为基准，若本轮要求改变长期方向，提醒玩家可编辑目标，不暗中覆盖。
 
 严格输出 JSON：
 {
   "collaboration_stage": "explore|design|propose|apply",
+  "creative_brief": "可选：首次整理玩家明确的创作目标，最多2000字；未知部分不补造",
   "understanding": "你对玩家目标和边界的具体理解",
   "design_notes": ["与既有设定的关系、推导依据、冲突或取舍"],
   "message": "本轮结论、需要确认的问题或下一步说明",
@@ -67,6 +70,8 @@ class WorldbookWorkshopAgent:
                          if key not in {'capture_history', 'capture_reviews'}}
         prompt = (
             f"【当前模式】{MODES[mode]}\n"
+            f"【作者创作目标（不是世界事实）】\n{workshop.creative_brief or '尚未填写'}\n"
+            f"【目标是否由玩家编辑】{workshop.brief_edited}\n"
             f"【当前世界书草稿】\n{json.dumps(visible_draft, ensure_ascii=False)}\n"
             f"【近期工坊对话】\n{json.dumps(recent, ensure_ascii=False)}\n"
             f"【本轮协作权限】\n{'允许修改草稿：低风险操作可写入，高风险操作仍需玩家确认' if commit_changes else '只讨论与提案：operations 仅作为拟议修改展示，不得声称已经写入'}\n"
@@ -77,6 +82,11 @@ class WorldbookWorkshopAgent:
         if error or not raw:
             raise WorkshopError(f"世界书工坊 AI 请求失败：{error or '空返回'}")
         payload = robust_json_parse(raw)
+        brief = payload.get("creative_brief")
+        if not workshop.creative_brief and not workshop.brief_edited and brief is not None:
+            if not isinstance(brief, str) or len(brief) > 2000:
+                raise WorkshopError("创作目标必须是2000字以内的文本")
+            workshop.creative_brief = brief.strip()
         stage = str(payload.get("collaboration_stage", "design")).strip().lower()
         if stage not in {"explore", "design", "propose", "apply"}:
             stage = "design"

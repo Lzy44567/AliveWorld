@@ -3,6 +3,7 @@ import { computed, onMounted, watch } from 'vue';
 import { workshopStore } from '../../store/workshopStore';
 import CopyTextButton from '../common/CopyTextButton.vue';
 import WorkshopReviewList from './WorkshopReviewList.vue';
+import WorkshopCreativeBrief from './WorkshopCreativeBrief.vue';
 import ExpandableTextarea from '../common/ExpandableTextarea.vue';
 import { useBottomAnchoredScroll } from '../../composables/useBottomAnchoredScroll';
 
@@ -46,6 +47,7 @@ const historyTime = value => {
         </div>
         <div class="mt-3 flex flex-wrap gap-2"><button v-for="item in workshopStore.modes" :key="item.id" class="rounded px-3 py-1 text-[10px]" :class="workshopStore.mode===item.id?'bg-cyan-800 text-white':'bg-slate-900 text-slate-500'" :title="item.description" @click="workshopStore.mode=item.id">{{ item.label }}</button></div>
         <p class="mt-2 text-[10px] leading-relaxed text-cyan-300/70">{{ workshopStore.activeMode.description }}</p>
+        <WorkshopCreativeBrief v-if="workshopStore.type === 'worldbooks'" />
       </header>
 
       <section ref="container" class="min-h-0 flex-1 space-y-3 overflow-y-auto p-5 custom-scrollbar" :class="positioned?'opacity-100':'opacity-0'" data-testid="workshop-conversation" @scroll.passive="updateFollowState">

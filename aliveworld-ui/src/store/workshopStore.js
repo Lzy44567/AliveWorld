@@ -35,7 +35,7 @@ const MODE_MAP = {
 
 function newContext(mode = 'expand') {
   return {
-    workshopId: '', draft: null, messages: [], history: [], suggestions: [],
+    workshopId: '', draft: null, messages: [], history: [], suggestions: [], creativeBrief: '',
     proposed: [], pending: [], dirty: false, published: false,
     busy: false, activity: '', input: '', commitChanges: false, mode, preview: '', pendingMessage: '',
     task: { status: 'idle', kind: '', error: '', startedAt: '', finishedAt: '' },
@@ -104,6 +104,7 @@ export const workshopStore = reactive({
   syncInto(context, data) {
     context.workshopId = data.workshop_id || context.workshopId;
     context.draft = data.draft ?? context.draft;
+    if (Object.prototype.hasOwnProperty.call(data, 'creative_brief')) context.creativeBrief = data.creative_brief;
     context.messages = data.messages || context.messages;
     if (Object.prototype.hasOwnProperty.call(data, 'history')) context.history = data.history || [];
     context.suggestions = data.suggested_actions || [];
@@ -214,6 +215,16 @@ export const workshopStore = reactive({
     } catch (error) {
       this.markTask(context, 'failed', 'review', error.message); uiStore.showToast(error.message, 'error');
     } finally { context.busy = false; }
+  },
+  async saveCreativeBrief(text) {
+    const context = this.context;
+    if (this.type !== 'worldbooks' || !context.workshopId || context.busy) return false;
+    context.busy = true;
+    try {
+      this.syncInto(context, await worldbookWorkshopApi.saveBrief(context.workshopId, text));
+      uiStore.showToast('创作目标已保存'); return true;
+    } catch (error) { uiStore.showToast(error.message, 'error'); return false; }
+    finally { context.busy = false; }
   },
   async decide(operationId, approve) {
     const context = this.context, type = this.type, workshopId = context.workshopId;

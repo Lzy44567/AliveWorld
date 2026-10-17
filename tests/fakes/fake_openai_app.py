@@ -184,7 +184,7 @@ def _response_for(kind: str, system: str, user: str) -> dict[str, Any] | str:
         return {"positive": "test scene, one character", "negative": "low quality"}
     if kind == "workshop":
         if "AW_REVIEW_BATCH" in user:
-            return {"message": "三项草案等待审阅", "operations": [
+            return {"message": "三项草案等待审阅", "creative_brief": "轻松探索浮岛，不写战争", "operations": [
                 {"op": "add_entry", "entry": {"name": name, "content": f"{name}设定"}}
                 for name in ["浮岛", "小店", "商人"]], "suggested_actions": []}
         return {

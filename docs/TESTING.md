@@ -1,5 +1,15 @@
 # AliveWorld 测试流程
 
+## 工坊37最终验收（2026-10-18）
+
+- `.venv/Scripts/python.exe -m unittest discover -s tests -q`：904项通过，54.079秒；build/workshop37-python-final.txt。
+- `node --test tests/*.test.mjs`：146项通过；build/workshop37-node.txt。
+- `npx playwright test e2e/workshop-review.spec.js e2e/full-player-loop.spec.js e2e/worldbook-revisions.spec.js`：24项通过，1.6分钟；build/workshop37-browser-final.txt。
+- 最后修正目标首尾空白保存后显示未保存的问题，`npm run build`173模块通过，独立workshop-review场景再次通过（4.8秒，总9.1秒）。build/workshop-review-desktop.png已查看，折叠目标区和批选工具条清楚，无新增常驻大面板。
+- 新增HTTP测试覆盖局内/全局同名隔离、高影响确认、保存失败及旧ID重试；新目标测试覆盖旧会话、首次模型整理、手动编辑/清空保护、30消息后独立取材、发布排除目标。浏览器覆盖重新载入及发布后新轮继承。
+- 初次广泛回归加载了尚未修正的测试夹具（registry mock和测试资产重名），修正后完整重跑通过，不计为生产故障或掩盖失败。
+- 不包含真实付费模型创作质量评估、干净Windows或便携包验收；本轮无发布，不改变原dev.20包。
+
 ## 工坊37审阅闭环（2026-10-17）
 
 - `python -m unittest tests.test_workshop_review tests.test_worldbook_workshop tests.test_worldbook_workshop_agent tests.test_workshop_history tests.test_worldbook_workshop_capture tests.test_streaming -q`：44通过。

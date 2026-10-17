@@ -45,6 +45,10 @@ class ReviewOperationsRequest(BaseModel):
     accept: bool
 
 
+class CreativeBriefRequest(BaseModel):
+    creative_brief: str = Field(max_length=2000)
+
+
 class WorkshopChatRequest(BaseModel):
     message: str
     mode: str = "expand"
@@ -88,7 +92,7 @@ def _get(workshop_id: str) -> WorldbookWorkshop:
 
 
 def _payload(workshop: WorldbookWorkshop):
-    return {"workshop_id": workshop.id, "draft": workshop.draft, "pending": workshop.pending, "proposed": workshop.proposed, "messages": workshop.messages, "suggested_actions": workshop.suggested_actions, "dirty": workshop.dirty, "published": workshop.published, "updated_at": workshop.updated_at}
+    return {"workshop_id": workshop.id, "draft": workshop.draft, "pending": workshop.pending, "proposed": workshop.proposed, "messages": workshop.messages, "suggested_actions": workshop.suggested_actions, "creative_brief": workshop.creative_brief, "dirty": workshop.dirty, "published": workshop.published, "updated_at": workshop.updated_at}
 
 
 def _find_resumable(target_path: Path, current_book: dict[str, Any]) -> tuple[WorldbookWorkshop | None, int]:
@@ -141,6 +145,11 @@ def start_workshop(payload: StartWorkshopRequest):
         active_workshops[resumed.id] = resumed
         return {**_payload(resumed), "resumed": True, "stale_drafts_preserved": stale_count, "history": history}
     workshop = WorldbookWorkshop(str(uuid.uuid4()), source_path, source)
+    if history:
+        previous = load_worldbook_workshop(history[0]["workshop_id"])
+        if previous:
+            workshop.creative_brief = previous.creative_brief
+            workshop.brief_edited = previous.brief_edited
     if payload.session_id:
         workshop.local_save_path = str(game.save_dir_path)
     active_workshops[workshop.id] = workshop
@@ -151,6 +160,18 @@ def start_workshop(payload: StartWorkshopRequest):
 @router.get("/workshops/{workshop_id}")
 def get_workshop(workshop_id: str):
     return _payload(_get(workshop_id))
+
+
+@router.put("/workshops/{workshop_id}/creative-brief")
+@guarded_workshop
+def save_creative_brief(workshop_id: str, payload: CreativeBriefRequest):
+    workshop = _get(workshop_id)
+    try:
+        workshop_chat_transaction(workshop, WORKSHOP_DIR, lambda candidate:
+            candidate.set_creative_brief(payload.creative_brief))
+        return _payload(workshop)
+    except WorkshopError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 @router.post("/workshops/{workshop_id}/operations")

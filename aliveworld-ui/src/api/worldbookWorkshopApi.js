@@ -9,6 +9,9 @@ const request = async (url, options = {}) => {
 };
 
 export const worldbookWorkshopApi = {
+  saveBrief(id, creativeBrief) {
+    return request(`${BASE_URL}/${id}/creative-brief`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ creative_brief: creativeBrief }) });
+  },
   review(id, source, operationIds, accept) {
     return request(`${BASE_URL}/${id}/review`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source, operation_ids: operationIds, accept }) });
   },
