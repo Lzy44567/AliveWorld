@@ -2,6 +2,8 @@
 
 ## 1.6.0-dev.20 - 2026-10-17 - 交付同步
 
+- 最终发布：用户追加授权后已发布 https://github.com/Lzy44567/AliveWorld/releases/tag/v1.6.0-dev.20 ，预发布状态、ZIP及校验文件均已核对；服务端SHA256与本地一致。以下未发布状态为此前记录。
+
 - 远端状态：本地交付提交 e214189；GitHub 443 连接多次失败后重试成功，开发分支已从87fa595推进至6da8f69。未创建线上Release。
 
 - 版本：统一 VERSION、前端 package 与 lockfile 为 dev.20；用户版分类摘要写入根 CHANGELOG.md。
