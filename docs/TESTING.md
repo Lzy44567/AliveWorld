@@ -1,5 +1,11 @@
 # AliveWorld 测试流程
 
+## dev.21包验证（2026-10-18）
+
+- `tools/build_windows_portable.ps1 -SkipDependencyInstall`：前端、主程序、更新助手重新编译成功；自动ZIP结构/版本/隐私/覆盖保留UserData检查通过。日志build/dev21-package.txt。
+- ZIP 38,411,094字节，SHA256 `0f30dc8432a8754aadd2bcf41ac69e5fa6164199c49a38b3b4b2ded8a851326c`；release_notes两项测试通过。
+- 功能验收沿用下方37完成证据。本次仅版本和交付文档变化，未宣称纯净Windows实机测试。
+
 ## 工坊37最终验收（2026-10-18）
 
 - `.venv/Scripts/python.exe -m unittest discover -s tests -q`：904项通过，54.079秒；build/workshop37-python-final.txt。

@@ -1,6 +1,12 @@
 # Active development goal
 
-Updated: 2026-10-17
+Updated: 2026-10-18
+
+## Current — dev.21版本与便携包交付
+
+本地构建完成：release/AliveWorld-1.6.0-dev.21-windows-x64.zip（38,411,094字节），版本、隐私、覆盖保留UserData检查通过；SHA256为0f30dc8432a8754aadd2bcf41ac69e5fa6164199c49a38b3b4b2ded8a851326c。远端同步待推送核对。
+
+用户已授权37小版本升版本、打包、推送；统一为1.6.0-dev.21，重新构建前端/主程序/更新助手并验证包，推送当前开发分支。不自动创建GitHub Release，不开启新的功能板块。37完成证据如下。
 
 ## Current — 工坊创作与审阅
 
