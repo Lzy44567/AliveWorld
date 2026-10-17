@@ -39,6 +39,12 @@ class PublishRequest(BaseModel):
     worldbook_name: Optional[str] = None
 
 
+class ReviewOperationsRequest(BaseModel):
+    source: str
+    operation_ids: List[str] = Field(min_length=1)
+    accept: bool
+
+
 class WorkshopChatRequest(BaseModel):
     message: str
     mode: str = "expand"
@@ -197,6 +203,18 @@ def approve_operation(workshop_id: str, operation_id: str):
     try:
         workshop.approve(operation_id)
         workshop.save_session(WORKSHOP_DIR)
+        return _payload(workshop)
+    except WorkshopError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.post("/workshops/{workshop_id}/review")
+@guarded_workshop
+def review_operations(workshop_id: str, payload: ReviewOperationsRequest):
+    workshop = _get(workshop_id)
+    try:
+        workshop_chat_transaction(workshop, WORKSHOP_DIR, lambda candidate:
+            candidate.review_operations(payload.source, payload.operation_ids, accept=payload.accept))
         return _payload(workshop)
     except WorkshopError as exc:
         raise HTTPException(status_code=400, detail=str(exc))

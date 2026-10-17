@@ -160,6 +160,26 @@ class WorldbookWorkshop:
             self.proposed = []
             self.touch()
 
+    def review_operations(self, source: str, operation_ids: list[str], *, accept: bool) -> None:
+        """Review a selection atomically, keeping all unselected proposals."""
+        self.assert_editable()
+        if source not in {"proposed", "pending"}:
+            raise WorkshopError("未知方案列表")
+        selected = set(operation_ids)
+        operations = getattr(self, source)
+        if not selected or not selected.issubset({item["operation_id"] for item in operations}):
+            raise WorkshopError("方案已变化，请重新载入后选择")
+        candidate = copy.deepcopy(self)
+        if accept:
+            candidate._snapshot()
+            for operation in operations:
+                if operation["operation_id"] in selected:
+                    candidate._apply(candidate._validate(operation))
+        setattr(candidate, source, [item for item in getattr(candidate, source)
+                                    if item["operation_id"] not in selected])
+        candidate.touch()
+        self.__dict__.update(candidate.__dict__)
+
     def _apply(self, operation: dict[str, Any]) -> None:
         op = operation["op"]
         if op == "update_overview":

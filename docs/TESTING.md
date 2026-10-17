@@ -1,5 +1,12 @@
 # AliveWorld 测试流程
 
+## 工坊37审阅闭环（2026-10-17）
+
+- `python -m unittest tests.test_workshop_review tests.test_worldbook_workshop tests.test_worldbook_workshop_agent tests.test_workshop_history tests.test_worldbook_workshop_capture tests.test_streaming -q`：44通过。
+- `npm run build`：172模块成功；既有chunk大小警告。
+- `npx playwright test e2e/workshop-review.spec.js`：1通过，4.5秒；完整独立建世界书→假模型真HTTP提出三项→部分接受拒绝→重新载入→发布→核对正式资产。截图build/workshop-review-desktop.png已查看。
+- 初跑暴露组件事件this绑定错误，已修正并通过；两次测试夹具问题（未自行建资产、重载未关闭启动弹窗）已修。无真实玩家数据或付费请求。
+
 ## 暗流实体板块最终回归（2026-10-17）
 
 - `.venv/Scripts/python.exe -m unittest discover -s tests -q`：894项通过，60.434秒；`build/entity-final-python.txt`。

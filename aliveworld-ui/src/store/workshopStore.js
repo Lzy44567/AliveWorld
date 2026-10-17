@@ -204,6 +204,17 @@ export const workshopStore = reactive({
     } finally { context.busy = false; }
   },
   async submitProposal() { if (this.proposed.length) await this.applyOperations(this.proposed, false); },
+  async reviewSelection(source, operationIds, accept) {
+    const context = this.context;
+    if (this.type !== 'worldbooks' || !context.workshopId || context.busy) return;
+    context.busy = true; this.markTask(context, 'running', 'review');
+    try {
+      this.syncInto(context, await worldbookWorkshopApi.review(context.workshopId, source, operationIds, accept));
+      this.markTask(context, 'completed');
+    } catch (error) {
+      this.markTask(context, 'failed', 'review', error.message); uiStore.showToast(error.message, 'error');
+    } finally { context.busy = false; }
+  },
   async decide(operationId, approve) {
     const context = this.context, type = this.type, workshopId = context.workshopId;
     if (!workshopId || context.busy) return;

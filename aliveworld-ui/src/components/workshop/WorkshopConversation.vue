@@ -2,6 +2,7 @@
 import { computed, onMounted, watch } from 'vue';
 import { workshopStore } from '../../store/workshopStore';
 import CopyTextButton from '../common/CopyTextButton.vue';
+import WorkshopReviewList from './WorkshopReviewList.vue';
 import ExpandableTextarea from '../common/ExpandableTextarea.vue';
 import { useBottomAnchoredScroll } from '../../composables/useBottomAnchoredScroll';
 
@@ -62,7 +63,10 @@ const historyTime = value => {
         <div v-if="workshopStore.context.preview" data-testid="workshop-stream-preview" class="max-w-[84%] rounded-xl bg-slate-800 p-3"><div class="mb-2 text-[10px] text-amber-400">生成中 / 未保存</div><div class="whitespace-pre-wrap text-sm leading-relaxed text-slate-200">{{ workshopStore.context.preview }}</div></div>
         <div v-else-if="workshopStore.activity==='chat'" class="w-fit rounded-xl bg-slate-800 p-3 text-sm text-slate-400">{{ waitingText }}</div>
         <p v-if="workshopStore.context.task.status==='failed'" class="text-xs text-rose-300">{{ workshopStore.context.task.error }}</p>
-        <section v-if="workshopStore.proposed.length" class="rounded-xl border border-cyan-700/60 bg-cyan-950/25 p-3">
+        <template v-if="workshopStore.type === 'worldbooks'">
+          <WorkshopReviewList v-for="source in ['proposed', 'pending']" :key="source" :source="source" :operations="workshopStore[source]" :workshop-id="workshopStore.workshopId" :busy="workshopStore.busy" @review="(list, ids, accept) => workshopStore.reviewSelection(list, ids, accept)" />
+        </template>
+        <section v-if="workshopStore.type !== 'worldbooks' && workshopStore.proposed.length" class="rounded-xl border border-cyan-700/60 bg-cyan-950/25 p-3">
           <div class="flex items-center justify-between"><div><h3 class="text-xs font-bold text-cyan-300">AI 拟议修改 · 尚未写入</h3><p class="mt-1 text-[10px] text-slate-500">先审阅，再写入工坊草稿。</p></div><button class="rounded bg-cyan-700 px-3 py-1.5 text-xs font-bold text-white" @click="workshopStore.submitProposal">提交方案</button></div>
           <div v-for="operation in workshopStore.proposed" :key="operation.operation_id" class="mt-2 rounded-lg bg-black/25 p-2 text-xs text-slate-300">
             <strong class="text-cyan-200">{{ operationLabel(operation) }}</strong> · {{ operationTarget(operation) }}
@@ -73,7 +77,7 @@ const historyTime = value => {
             <p v-if="operation.reason" class="mt-1 text-slate-500">{{ operation.reason }}</p>
           </div>
         </section>
-        <section v-if="workshopStore.pending.length" class="rounded-xl border border-amber-700/60 bg-amber-950/25 p-3">
+        <section v-if="workshopStore.type !== 'worldbooks' && workshopStore.pending.length" class="rounded-xl border border-amber-700/60 bg-amber-950/25 p-3">
           <h3 class="text-xs font-bold text-amber-300">需要玩家确认的高影响修改</h3>
           <div v-for="operation in workshopStore.pending" :key="operation.operation_id" class="mt-2 rounded-lg bg-black/25 p-3 text-xs text-slate-300">
             <strong>{{ operationLabel(operation) }}</strong> · {{ operationTarget(operation) }}

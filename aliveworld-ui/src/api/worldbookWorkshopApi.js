@@ -9,6 +9,9 @@ const request = async (url, options = {}) => {
 };
 
 export const worldbookWorkshopApi = {
+  review(id, source, operationIds, accept) {
+    return request(`${BASE_URL}/${id}/review`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source, operation_ids: operationIds, accept }) });
+  },
   chatStream(id, message, mode, commitChanges, onDelta) { return postEventStream(`${BASE_URL}/${id}/chat/stream`, { message, mode, commit_changes: commitChanges }, onDelta); },
   embeddingStatus() { return request(`${BASE_URL}/embeddings/status`); },
   downloadEmbeddings() { return request(`${BASE_URL}/embeddings/download`, { method: 'POST' }); },
