@@ -111,6 +111,8 @@ class AssetWorkshop:
         self.snapshots: list[dict[str, Any]] = []
         self.messages: list[dict[str, str]] = []
         self.suggested_actions: list[str] = []
+        self.creative_brief = ""
+        self.brief_edited = False
         self.dirty = False
         self.published = False
         self.updated_at = _now()
@@ -165,6 +167,10 @@ class AssetWorkshop:
 
     def clear_proposal(self) -> None:
         self.proposed = []
+
+    def set_creative_brief(self, text):
+        from core.workshop_brief import set_brief
+        set_brief(self, text)
 
     def review_operations(self, source, operation_ids, accept):
         from core.workshop_review import select_operations
@@ -267,6 +273,7 @@ class AssetWorkshop:
 
     def to_dict(self) -> dict[str, Any]:
         return {
+            "creative_brief": self.creative_brief, "brief_edited": self.brief_edited,
             "id": self.id, "asset_type": self.asset_type, "target_path": str(self.target_path),
             "base": self.base, "draft": self.draft, "source_revision": self.source_revision,
             "operations": self.operations, "proposed": self.proposed, "snapshots": self.snapshots,
@@ -300,6 +307,8 @@ class AssetWorkshop:
                 if current and asset_revision(normalize_asset('characters', current)) == workshop.source_revision:
                     workshop.source_revision = character_revision(current)
         workshop.dirty = bool(data.get("dirty", False))
+        workshop.creative_brief = str(data.get("creative_brief", ""))
+        workshop.brief_edited = bool(data.get("brief_edited", False))
         workshop.published = bool(data.get("published", False))
         workshop.publication_intent = deepcopy(data.get('publication_intent'))
         workshop.updated_at = str(data.get("updated_at") or workshop.updated_at)

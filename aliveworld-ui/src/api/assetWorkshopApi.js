@@ -15,6 +15,7 @@ const json = body => ({
 });
 
 export const assetWorkshopApi = {
+  saveBrief(id, text) { return request(`${BASE_URL}/${id}/creative-brief`, { ...json({ creative_brief: text }), method: 'PUT' }); },
   review(id, source, operationIds, accept) { return request(`${BASE_URL}/${id}/review`, json({ source, operation_ids: operationIds, accept })); },
   chatStream(id, message, mode, commitChanges, onDelta) { return postEventStream(`${BASE_URL}/${id}/chat/stream`, { message, mode, commit_changes: commitChanges }, onDelta); },
   start(assetType, assetName, sessionId = '') {

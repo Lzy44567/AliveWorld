@@ -101,6 +101,8 @@ class PreferenceWorkshop:
         self.snapshots: list[dict[str, Any]] = []
         self.messages: list[dict[str, str]] = []
         self.suggested_actions: list[str] = []
+        self.creative_brief = ""
+        self.brief_edited = False
         self.dirty = False
         self.published = False
         self.updated_at = _now()
@@ -158,6 +160,10 @@ class PreferenceWorkshop:
 
     def clear_proposal(self) -> None:
         self.proposed = []
+
+    def set_creative_brief(self, text):
+        from core.workshop_brief import set_brief
+        set_brief(self, text)
 
     def review_operations(self, source, operation_ids, accept):
         from core.workshop_review import select_operations
@@ -263,6 +269,7 @@ class PreferenceWorkshop:
 
     def to_dict(self) -> dict[str, Any]:
         return {
+            "creative_brief": self.creative_brief, "brief_edited": self.brief_edited,
             "id": self.id, "base_preferences": self.base_preferences, "draft": self.draft,
             "source_revision": self.source_revision, "include_sensitive": self.include_sensitive,
             "operations": self.operations, "proposed": self.proposed, "pending": self.pending,
@@ -287,6 +294,8 @@ class PreferenceWorkshop:
             setattr(workshop, key, deepcopy(data.get(key, getattr(workshop, key))))
         workshop.source_revision = str(data.get("source_revision") or workshop.source_revision)
         workshop.dirty = bool(data.get("dirty", False))
+        workshop.creative_brief = str(data.get("creative_brief", ""))
+        workshop.brief_edited = bool(data.get("brief_edited", False))
         workshop.published = bool(data.get("published", False))
         workshop.updated_at = str(data.get("updated_at") or workshop.updated_at)
         return workshop

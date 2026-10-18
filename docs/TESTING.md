@@ -1,5 +1,13 @@
 # AliveWorld 测试流程
 
+## 38-B持续创作目标（2026-10-18）
+
+- `.venv/Scripts/python.exe -m unittest discover -s tests -q`：910通过，68.938秒；build/workshop38b-python.txt。
+- `node --test tests/*.test.mjs`：146通过；`npm run build`173模块成功，既有chunk警告。
+- `npx playwright test e2e/other-workshop-review.spec.js e2e/workshop-review.spec.js`：5通过，32.9秒；四类新目标保存/重载，发布后三类资产继承、偏好不继承，以及原世界书流程。
+- 新test_other_workshop_brief验证三个资产类型首次整理、30条历史后独立取材、手动编辑/清空保护、旧格式；偏好不采纳模型目标、不泄露未授权敏感证据；四类HTTP长度限制/持久化/存盘失败原子性/已发布只读。
+- 未访问付费模型或玩家数据。39停止/重试/UI需求只写设计，未计为本轮功能。
+
 ## 38-A其他工坊审阅（2026-10-18）
 
 - `.venv/Scripts/python.exe -m unittest discover -s tests -q`：907通过，51.365秒；build/workshop38-python.txt。

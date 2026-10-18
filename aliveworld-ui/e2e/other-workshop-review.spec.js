@@ -16,6 +16,12 @@ for (const [type, label] of [['characters', '角色卡'], ['styles', '文风卡'
     await page.getByRole('button', { name: new RegExp(label) }).last().click();
     if (type === 'preferences') await page.getByRole('button', { name: /我的用户偏好卡/ }).click();
     else await page.locator(`[data-workshop-asset-name="${name}"]`).click();
+    const brief = page.getByTestId('workshop-creative-brief');
+    await brief.locator('summary').click();
+    await brief.locator('textarea').fill(`  ${label}持续目标  `);
+    await brief.getByRole('button', { name: '保存目标' }).click();
+    await expect(brief.getByRole('button', { name: '保存目标' })).toBeDisabled();
+    await brief.locator('summary').click();
     await page.locator('textarea[placeholder*="Ctrl+Enter"]').fill(`AW_OTHER_REVIEW_${type}`);
     await page.getByRole('button', { name: '发送', exact: true }).click();
     const review = page.getByTestId('workshop-review-proposed');
@@ -34,9 +40,15 @@ for (const [type, label] of [['characters', '角色卡'], ['styles', '文风卡'
     else await page.locator(`[data-workshop-asset-name="${name}"]`).click();
     await expect(review.locator('article')).toHaveCount(1);
     await expect(review).toContainText('方案丙');
+    await brief.locator('summary').click();
+    await expect(brief.locator('textarea')).toHaveValue(`${label}持续目标`);
+    await brief.locator('summary').click();
     await review.getByRole('button', { name: '接受全部', exact: true }).click();
     await expect(review).toBeHidden();
     await page.getByTestId('workshop-publish').click();
     await expect(page.getByTestId('workshop-conversation')).toContainText('这一轮已经发布');
+    await page.getByTestId('workshop-new-round').click();
+    await brief.locator('summary').click();
+    await expect(brief.locator('textarea')).toHaveValue(type === 'preferences' ? '' : `${label}持续目标`);
   });
 }

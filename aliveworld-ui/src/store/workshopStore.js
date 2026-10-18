@@ -219,10 +219,11 @@ export const workshopStore = reactive({
   },
   async saveCreativeBrief(text) {
     const context = this.context;
-    if (this.type !== 'worldbooks' || !context.workshopId || context.busy) return false;
+    if (!context.workshopId || context.busy) return false;
+    const api = this.type === 'worldbooks' ? worldbookWorkshopApi : this.type === 'preferences' ? preferenceWorkshopApi : assetWorkshopApi;
     context.busy = true;
     try {
-      this.syncInto(context, await worldbookWorkshopApi.saveBrief(context.workshopId, text));
+      this.syncInto(context, await api.saveBrief(context.workshopId, text));
       uiStore.showToast('创作目标已保存'); return true;
     } catch (error) { uiStore.showToast(error.message, 'error'); return false; }
     finally { context.busy = false; }

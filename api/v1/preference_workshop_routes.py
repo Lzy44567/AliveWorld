@@ -19,7 +19,7 @@ from core.session_manager import active_sessions
 from core.user_preferences import UserPreferenceRepository
 from api.v1.route_guards import guarded_workshop
 from api.v1.streaming import workshop_chat_transaction, workshop_stream_response
-from api.v1.workshop_review_models import ReviewPayload
+from api.v1.workshop_review_models import ReviewPayload, CreativeBriefPayload
 
 
 router = APIRouter()
@@ -44,6 +44,7 @@ class OperationsPayload(BaseModel):
 def _payload(workshop: PreferenceWorkshop):
     return {
         "workshop_id": workshop.id, "draft": workshop.draft,
+        "creative_brief": workshop.creative_brief,
         "pending": workshop.pending, "proposed": workshop.proposed,
         "messages": workshop.messages, "suggested_actions": workshop.suggested_actions,
         "dirty": workshop.dirty, "published": workshop.published,
@@ -151,6 +152,18 @@ def reject_operation(workshop_id: str, operation_id: str):
         return _payload(workshop)
     except PreferenceWorkshopError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.put("/{workshop_id}/creative-brief")
+@guarded_workshop
+def save_creative_brief(workshop_id: str, payload: CreativeBriefPayload):
+    workshop = _get(workshop_id)
+    try:
+        workshop_chat_transaction(workshop, WORKSHOP_DIR, lambda candidate:
+            candidate.set_creative_brief(payload.creative_brief))
+        return _payload(workshop)
+    except PreferenceWorkshopError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/{workshop_id}/review")

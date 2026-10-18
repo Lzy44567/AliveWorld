@@ -85,6 +85,7 @@ class PreferenceWorkshopAgent:
             if workshop.include_sensitive or not item.get("sensitive")
         ]
         prompt = (
+            f"【玩家主动填写的讨论目标（不是已确认偏好或心理结论，不据此自动启用偏好）】{workshop.creative_brief or '尚未填写'}\n"
             f"【当前模式】{MODES[mode]}\n"
             f"【偏好草稿摘要】\n{json.dumps(safe_draft, ensure_ascii=False)}\n"
             f"【可用行为证据】\n{json.dumps(safe_evidence, ensure_ascii=False)}\n"

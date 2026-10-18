@@ -6,6 +6,7 @@ import json
 from typing import Any
 
 from core.ai_engine import robust_json_parse
+from core.workshop_brief import capture_initial_brief
 from core.json_stream import WORKSHOP_FIELDS
 from core.asset_workshop import AssetWorkshop, AssetWorkshopError
 
@@ -36,7 +37,8 @@ SYSTEM_PROMPT = """你是 AliveWorld 资产创作工坊 Agent，不写故事正�
 4. changes 只能使用本轮给出的可编辑字段；每轮提交少量、连贯的修改。可独立审阅的修改分为多个操作；互相依赖的字段保留在同一操作，不拆散完整角色结构。
 5. 只讨论与提案权限下，operations 是尚未写入的可审阅方案；允许修改草稿时才可称已经提交。
 6. 保留玩家原意，指出歧义、冲突、俗套化风险和信息缺口；最多提出 3 个精准问题、4 个后续建议。
-7. 输出严格 JSON：
+7. 持续参考作者创作目标，不将目标当作人物知识或资产事实。仅在目标为空且玩家未编辑时，可用可选creative_brief字段整理玩家明确表达的目标（最多2000字），不补造、不覆盖已有目标；缺失信息再问，不重复确认已知目标。
+8. 输出严格 JSON：
 {
   "collaboration_stage":"explore|design|propose|apply",
   "understanding":"对目标与边界的理解",
@@ -65,6 +67,8 @@ class AssetWorkshopAgent:
         prompt = (
             f"【工坊职责】{TYPE_GUIDANCE[workshop.asset_type]}\n"
             f"【当前工作模式】{mode}\n"
+            f"【作者创作目标（不是资产事实）】{workshop.creative_brief or '尚未填写'}\n"
+            f"【目标是否由玩家编辑】{workshop.brief_edited}\n"
             f"【可编辑字段】{', '.join(sorted(workshop.ai_fields()))}\n"
             f"{structure_rule}"
             f"【当前草稿】\n{json.dumps(workshop.draft, ensure_ascii=False)}\n"
@@ -82,6 +86,7 @@ class AssetWorkshopAgent:
         payload = robust_json_parse(raw)
         if not isinstance(payload, dict):
             raise AssetWorkshopError("资产工坊必须返回 JSON 对象")
+        capture_initial_brief(workshop, payload, AssetWorkshopError)
         understanding = str(payload.get("understanding", "")).strip()
         notes = [str(item).strip() for item in payload.get("design_notes", []) if str(item).strip()][:4]
         parts = []

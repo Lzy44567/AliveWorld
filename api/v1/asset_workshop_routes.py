@@ -20,7 +20,7 @@ from core.session_manager import active_sessions
 from utils.asset_catalog import resolve_asset_path
 from api.v1.route_guards import guarded_workshop
 from api.v1.streaming import workshop_chat_transaction, workshop_stream_response
-from api.v1.workshop_review_models import ReviewPayload
+from api.v1.workshop_review_models import ReviewPayload, CreativeBriefPayload
 
 
 router = APIRouter()
@@ -45,6 +45,7 @@ class OperationsPayload(BaseModel):
 def _payload(workshop: AssetWorkshop) -> dict[str, Any]:
     return {
         "workshop_id": workshop.id, "asset_type": workshop.asset_type,
+        "creative_brief": workshop.creative_brief,
         "asset_name": workshop.draft.get("name", ""), "draft": workshop.draft,
         "proposed": workshop.proposed, "messages": workshop.messages,
         "suggested_actions": workshop.suggested_actions, "dirty": workshop.dirty,
@@ -96,6 +97,11 @@ def start_workshop(payload: StartPayload):
     if resumed:
         return {**_payload(resumed), "resumed": True, "history": history}
     workshop = AssetWorkshop(str(uuid4()), payload.asset_type, target, source)
+    if history:
+        previous = load_asset_workshop(history[0]['workshop_id'])
+        if previous:
+            workshop.creative_brief = previous.creative_brief
+            workshop.brief_edited = previous.brief_edited
     active_asset_workshops[workshop.id] = workshop
     workshop.save_session(WORKSHOP_DIR)
     return {**_payload(workshop), "resumed": False, "history": history}
@@ -145,6 +151,18 @@ def apply_operations(workshop_id: str, payload: OperationsPayload):
             return result
         result = workshop_chat_transaction(workshop, WORKSHOP_DIR, apply)
         return {**_payload(workshop), "applied": result["applied"]}
+    except AssetWorkshopError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.put("/{workshop_id}/creative-brief")
+@guarded_workshop
+def save_creative_brief(workshop_id: str, payload: CreativeBriefPayload):
+    workshop = _get(workshop_id)
+    try:
+        workshop_chat_transaction(workshop, WORKSHOP_DIR, lambda candidate:
+            candidate.set_creative_brief(payload.creative_brief))
+        return _payload(workshop)
     except AssetWorkshopError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
