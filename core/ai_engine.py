@@ -6,6 +6,7 @@ from openai import OpenAI
 from utils.sys_logger import get_logger
 from core.llm_trace import begin_llm_trace, finish_llm_trace
 from core.json_stream import JSONTextPreview, STORY_FIELDS
+from core.generation_control import GenerationCancelled, check_generation
 
 log = get_logger()
 STREAM_MAX_BYTES = 128 * 1024
@@ -75,6 +76,7 @@ class AIEngine:
         started = time.monotonic()
         report = {}
         try:
+            check_generation()
             report = budget_report(system_prompt, user_prompt, max_tokens, self.budget_options, prompt_manifest)
             require_budget(report)
             kwargs = {"model": self.model, "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}], "temperature": temp, "response_format": {"type": "json_object"}}
@@ -83,9 +85,11 @@ class AIEngine:
                 return self._stream_json(kwargs, on_text_delta, visible_fields or STORY_FIELDS,
                                          trace_label, trace_id, report, started)
             for attempt in (1, 2):
+                check_generation()
                 report = budget_report(system_prompt, kwargs["messages"][-1]["content"], kwargs["max_tokens"], self.budget_options, prompt_manifest)
                 require_budget(report)
                 res = self.client.chat.completions.create(**kwargs)
+                check_generation()
                 content = res.choices[0].message.content or ""
                 metadata = _completion_metadata(res, attempt)
                 metadata.update(budget=report, elapsedMs=round((time.monotonic() - started) * 1000))
@@ -104,6 +108,9 @@ class AIEngine:
                     "role": "user",
                     "content": user_prompt + "\n\n请立即只返回一个完整 JSON 对象，禁止只输出空白字符。",
                 }]
+        except GenerationCancelled:
+            finish_llm_trace(trace_label, trace_id, error='generation_cancelled', metadata={"budget": report})
+            raise
         except Exception as e:
             finish_llm_trace(trace_label, trace_id, error=str(e), metadata={"budget": report})
             return "", str(e)
@@ -119,6 +126,7 @@ class AIEngine:
             client = self.client.with_options(max_retries=0, timeout=120.0)
             stream = client.chat.completions.create(**kwargs, stream=True)
             for chunk in stream:
+                check_generation()
                 if time.monotonic() - started > STREAM_MAX_SECONDS:
                     raise ValueError("stream_duration_limit: 模型流持续超过10分钟，请检查服务状态；这不是字数限制")
                 response_id = str(getattr(chunk, "id", "") or response_id)
@@ -177,6 +185,7 @@ class AIEngine:
         started = time.monotonic()
         report = {}
         try:
+            check_generation()
             report = budget_report(system_prompt, user_prompt, options=self.budget_options, manifest=prompt_manifest)
             require_budget(report)
             res = self.client.chat.completions.create(
@@ -185,6 +194,7 @@ class AIEngine:
                 temperature=temp, max_tokens=report["outputReserve"]
             )
             content = res.choices[0].message.content or ""
+            check_generation()
             metadata = _completion_metadata(res)
             metadata.update(budget=report, elapsedMs=round((time.monotonic() - started) * 1000))
             if not content.strip():
@@ -193,6 +203,9 @@ class AIEngine:
                 return "", error
             finish_llm_trace(trace_label, trace_id, response=content, metadata=metadata)
             return content, None
+        except GenerationCancelled:
+            finish_llm_trace(trace_label, trace_id, error='generation_cancelled', metadata={"budget": report})
+            raise
         except Exception as e:
             finish_llm_trace(trace_label, trace_id, error=str(e), metadata={"budget": report})
             return "", str(e)

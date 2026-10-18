@@ -1,5 +1,11 @@
 # AliveWorld 测试流程
 
+## 39-A第一片（2026-10-18，非完整玩家功能）
+
+- `.venv/Scripts/python.exe -m unittest tests.test_generation_control tests.test_streaming -q`：30通过，3.621秒；build/generation-control-first.txt。
+- 验证取消先到阻止提交、提交先到返回committing、跨对象/旧请求隔离、跨线程取消与退出清理、SDK流取消关闭且只调用一次。
+- 尚未接真实生成入口/停止按钮/编辑恢复，目的目标继续；不当作39-A或版本节点完成。
+
 ## 40输出限制修复（2026-10-18）
 
 - `python -m unittest tests.test_streaming tests.test_story_prompt_builder tests.test_story_settings -q`：47通过；build/output-limits-focused.txt。
