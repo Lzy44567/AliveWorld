@@ -315,7 +315,7 @@ def build_settlement_request(
         system,
         user_parts,
         temperature=0.8,
-        max_tokens=max(3000, int(snapshot.word_limit * 3)) if normal else 3000,
+        max_tokens=None,  # Reading-length guidance is independent of the connection's output budget.
         trace_label="剧情结算" if normal else "剧情重写",
         mode=snapshot.mode,
         contract_id=SETTLEMENT_CONTRACT_ID,

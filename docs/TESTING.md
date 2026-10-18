@@ -1,5 +1,13 @@
 # AliveWorld 测试流程
 
+## 40输出限制修复（2026-10-18）
+
+- `python -m unittest tests.test_streaming tests.test_story_prompt_builder tests.test_story_settings -q`：47通过；build/output-limits-focused.txt。
+- `.venv/Scripts/python.exe -m unittest discover -s tests -q`：913通过，51.806秒；build/output-limits-full.txt。
+- 新用例4100推理包+4100空包+5400字逐字JSON完成一次请求，预览不含推理；字节异常/600秒总时长异常关闭请求且不重试。
+- 普通/重写200、500、3000字目标均保持软篇幅提示，输出预算从接口配置独立取值12000；原工坊/故事流式事务测试保持通过。
+- 初次专项仅预览断言漏掉工坊内置“结论”标题，按协议修正后全部重跑通过。无新UI、本轮无需构建新包；未使用付费请求。
+
 ## 38-B持续创作目标（2026-10-18）
 
 - `.venv/Scripts/python.exe -m unittest discover -s tests -q`：910通过，68.938秒；build/workshop38b-python.txt。

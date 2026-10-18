@@ -161,10 +161,9 @@ class ProviderStreamingTests(unittest.TestCase):
         create.assert_not_called()
         client.with_options.assert_not_called()
 
-    def test_byte_and_chunk_limits_are_bounded_and_not_retried(self):
+    def test_byte_limit_is_bounded_and_not_retried(self):
         cases = [
             ([chunk('{"story_text":"' + '中' * 50000)], 'stream_output_limit'),
-            ([chunk() for _ in range(4097)], 'stream_chunk_limit'),
         ]
         for chunks, expected in cases:
             engine, stream, create, _ = stream_engine(chunks)
@@ -173,6 +172,31 @@ class ProviderStreamingTests(unittest.TestCase):
             self.assertIn(expected, error)
             self.assertEqual(create.call_count, 1)
             self.assertTrue(stream.closed)
+
+    def test_many_content_reasoning_and_empty_chunks_complete_once(self):
+        raw = json.dumps({'message': '长内容' * 1800}, ensure_ascii=False)
+        chunks = [chunk(reasoning='推理') for _ in range(4100)]
+        chunks += [chunk(reasoning=None) for _ in range(4100)]
+        chunks += [chunk(char, reasoning=None) for char in raw]
+        chunks.append(chunk(reason='stop'))
+        engine, stream, create, _ = stream_engine(chunks)
+        output = []
+        result, error = engine.chat_json('JSON', 'workshop', on_text_delta=output.append, visible_fields=WORKSHOP_FIELDS)
+        self.assertIsNone(error)
+        self.assertEqual(result, raw)
+        self.assertTrue(''.join(output).endswith('长内容' * 1800))
+        self.assertNotIn('推理', ''.join(output))
+        self.assertEqual(create.call_count, 1)
+        self.assertTrue(stream.closed)
+
+    def test_duration_limit_closes_stream_without_retry(self):
+        engine, stream, create, _ = stream_engine([chunk()])
+        with patch('core.ai_engine.time.monotonic', side_effect=[0, 601]):
+            raw, error = engine.chat_json('JSON', 'test', on_text_delta=lambda _: None)
+        self.assertEqual(raw, '')
+        self.assertIn('stream_duration_limit', error)
+        self.assertEqual(create.call_count, 1)
+        self.assertTrue(stream.closed)
 
     def test_only_choice_zero_is_visible_and_tools_reject_even_with_stop(self):
         other = chunk('秘密分支', 'length').choices[0]

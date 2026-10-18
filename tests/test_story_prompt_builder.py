@@ -81,7 +81,7 @@ class StoryPromptBuilderTests(unittest.TestCase):
         self.assertEqual(result.mode, "normal")
         self.assertEqual(result.trace_label, "剧情结算")
         self.assertEqual(result.temperature, 0.8)
-        self.assertEqual(result.max_tokens, 4200)
+        self.assertIsNone(result.max_tokens)
 
     def test_effect_zero_outcome_is_world_defined_not_assumed_death(self):
         state = {'bars': {'生命': {'current': 8, 'max': 100}},
@@ -97,14 +97,26 @@ class StoryPromptBuilderTests(unittest.TestCase):
             self.assertIn('采用世界规则', result.system_prompt)
             self.assertIn('生命归零只会昏迷', result.system_prompt + result.user_prompt)
 
-    def test_reroll_request_keeps_legacy_limit_and_shared_layout(self):
+    def test_reroll_request_uses_connection_budget_and_shared_layout(self):
         result = self.build(self.snapshot("reroll"))
         normal = self.build(self.snapshot("normal"))
         self.assertEqual(result.mode, "reroll")
         self.assertEqual(result.trace_label, "剧情重写")
-        self.assertEqual(result.max_tokens, 3000)
+        self.assertIsNone(result.max_tokens)
         self.assertEqual(result.system_prompt, normal.system_prompt)
         self.assertEqual(result.user_prompt, normal.user_prompt)
+
+    def test_story_length_is_guidance_not_output_cap(self):
+        from core.request_budget import budget_report
+        for mode in ('normal', 'reroll'):
+            for length in (200, 500, 3000):
+                result = self.build(self.snapshot(mode, word_limit=length,
+                    story_settings={'targetStoryLength': length}))
+                self.assertIsNone(result.max_tokens)
+                self.assertIn(f'目标约 {length}', result.system_prompt + result.user_prompt)
+                report = budget_report(result.system_prompt, result.user_prompt, result.max_tokens,
+                                       {'output_reserve': 12000, 'context_window': 65536})
+                self.assertEqual(report['outputReserve'], 12000)
 
     def test_disabled_optional_parts_are_absent_in_both_modes(self):
         settings = {

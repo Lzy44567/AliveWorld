@@ -9,7 +9,7 @@ from core.json_stream import JSONTextPreview, STORY_FIELDS
 
 log = get_logger()
 STREAM_MAX_BYTES = 128 * 1024
-STREAM_MAX_CHUNKS = 4096
+STREAM_MAX_SECONDS = 600
 
 
 def _completion_metadata(response, attempt=1):
@@ -37,7 +37,7 @@ def _empty_response_error(metadata):
     if reason == "content_filter":
         return "content_filter: 模型服务商过滤了本次输出"
     if reason == "length":
-        return "length: 模型达到输出或上下文长度限制，未返回有效内容"
+        return "length: 模型服务商达到输出token或上下文上限，未完成有效回复；这不是正文目标字数限制，请检查接口输出预算与上下文设置"
     if reason == "insufficient_system_resource":
         return "insufficient_system_resource: 模型服务商推理资源不足"
     return f"empty_response: 模型服务商返回空白内容（finish_reason={reason or 'unknown'}）"
@@ -118,9 +118,9 @@ class AIEngine:
             # OpenAI SDK defaults to retries; opt out specifically for this attempt.
             client = self.client.with_options(max_retries=0, timeout=120.0)
             stream = client.chat.completions.create(**kwargs, stream=True)
-            for chunk_count, chunk in enumerate(stream, 1):
-                if chunk_count > STREAM_MAX_CHUNKS:
-                    raise ValueError("stream_chunk_limit: 模型流超出安全分片上限")
+            for chunk in stream:
+                if time.monotonic() - started > STREAM_MAX_SECONDS:
+                    raise ValueError("stream_duration_limit: 模型流持续超过10分钟，请检查服务状态；这不是字数限制")
                 response_id = str(getattr(chunk, "id", "") or response_id)
                 chunk_usage = getattr(chunk, "usage", None)
                 if chunk_usage is not None:
@@ -144,7 +144,7 @@ class AIEngine:
                         raise ValueError("Invalid streamed content type")
                     size += len(content.encode("utf-8"))
                     if size > STREAM_MAX_BYTES:
-                        raise ValueError("stream_output_limit: 模型输出超出安全上限")
+                        raise ValueError("stream_output_limit: 模型响应超过128KiB资源保护上限；这不是正文目标字数限制")
                     parts.append(content)
                     preview.feed(content)
             metadata = {
