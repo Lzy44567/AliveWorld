@@ -4,9 +4,14 @@ const props = defineProps({ operations: Array, source: String, workshopId: Strin
 const emit = defineEmits(['review']);
 const selected = ref([]);
 watch(() => [props.workshopId, props.operations], () => { selected.value = []; });
-const label = operation => ({ add_entry: '新增条目', update_entry: '修改条目', deactivate_entry: '关闭条目', request_delete: '申请删除', delete_entry: '删除条目', update_overview: '修改概述', set_axioms: '修改公理' })[operation.op] || operation.op;
+const label = operation => ({ update_fields: '修改资产字段', add_preference: '新增偏好', update_preference: '修改偏好', set_status: '改变偏好状态', delete_preference: '删除偏好', add_entry: '新增条目', update_entry: '修改条目', deactivate_entry: '关闭条目', request_delete: '申请删除', delete_entry: '删除条目', update_overview: '修改概述', set_axioms: '修改公理' })[operation.op] || operation.op;
+const fields = { tags: '标签', description: '人物设定', starting_scene: '登场情境', content: '文风规范', role_fields: '角色结构', motive: '动机', status: '状态', mechanisms: '机制', plans: '计划', recent_actions: '近期行动', triggers: '触发条件', relationships: '关系', importance: '重要程度', statement: '偏好内容', category: '分类', polarity: '倾向', sensitive: '敏感内容', id: '编号', preference: '偏好编号' };
+const values = { active: '启用', candidate: '候选', rejected: '拒绝', inactive: '停用', prefer: '喜欢', avoid: '避免' };
+const format = value => Array.isArray(value) ? value.map(format).join('、')
+  : value && typeof value === 'object' ? Object.entries(value).map(([key, item]) => `${fields[key] || key}：${format(item)}`).join('\n')
+  : typeof value === 'boolean' ? (value ? '是' : '否') : values[value] || String(value ?? '');
 const detail = operation => operation.entry?.content || operation.overview
-  || operation.axioms?.join('\n') || JSON.stringify(operation.changes || {}, null, 2);
+  || operation.axioms?.join('\n') || format(operation.preference || operation.changes || { preference: operation.preference_id, status: operation.status });
 const review = (ids, accept) => emit('review', props.source, ids, accept);
 </script>
 

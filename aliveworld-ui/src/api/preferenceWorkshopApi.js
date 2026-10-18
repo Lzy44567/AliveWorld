@@ -15,6 +15,7 @@ const json = body => ({
 });
 
 export const preferenceWorkshopApi = {
+  review(id, source, operationIds, accept) { return request(`${BASE_URL}/${id}/review`, json({ source, operation_ids: operationIds, accept })); },
   chatStream(id, message, mode, commitChanges, onDelta) { return postEventStream(`${BASE_URL}/${id}/chat/stream`, { message, mode, commit_changes: commitChanges }, onDelta); },
   start(sessionId = '') { return request(`${BASE_URL}/start`, json({ session_id: sessionId })); },
   chat(id, message, mode, commitChanges = false) {

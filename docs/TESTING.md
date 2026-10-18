@@ -1,5 +1,14 @@
 # AliveWorld 测试流程
 
+## 38-A其他工坊审阅（2026-10-18）
+
+- `.venv/Scripts/python.exe -m unittest discover -s tests -q`：907通过，51.365秒；build/workshop38-python.txt。
+- `node --test tests/*.test.mjs`：146通过；`npm run build`173模块成功，既有chunk大小警告。
+- `npx playwright test e2e/other-workshop-review.spec.js e2e/workshop-review.spec.js`：5通过，18.8秒；角色/文风/实体/偏好/世界书部分接受拒绝、重载保留、发布真实HTTP流程。
+- test_other_workshop_review覆盖三资产类型存盘失败原子性、存档重读、撤销、过期ID，偏好批次撤销/冲突原子性、高影响队列和发布只读。
+- 首跑因异步新手弹窗遮挡失败，改为明确等待并关闭；修正假模型将偏好工坊误分为后台分析的测试路由。最终完整重跑通过。
+- 已查看build/other-workshop-review.png；原三栏与审阅列表保持，白底编辑框问题记录P2。无真实玩家数据或付费模型请求，不代表模型创作质量验收。
+
 ## dev.21包验证（2026-10-18）
 
 - `tools/build_windows_portable.ps1 -SkipDependencyInstall`：前端、主程序、更新助手重新编译成功；自动ZIP结构/版本/隐私/覆盖保留UserData检查通过。日志build/dev21-package.txt。

@@ -42,6 +42,8 @@ def _message_text(message: dict[str, Any]) -> str:
 
 
 def _classify(system: str) -> str:
+    if '工坊 Agent' in system:
+        return 'workshop'
     if "有限主动联系规划" in system:
         return "character.contact"
     if "character.reply" in system:
@@ -183,6 +185,12 @@ def _response_for(kind: str, system: str, user: str) -> dict[str, Any] | str:
     if kind == "image_prompt":
         return {"positive": "test scene, one character", "negative": "low quality"}
     if kind == "workshop":
+        if "AW_OTHER_REVIEW" in user:
+            if "AW_OTHER_REVIEW_preferences" in user:
+                operations = [{'op': 'add_preference', 'preference': {'statement': text}} for text in ['方案甲', '方案乙', '方案丙']]
+            else:
+                operations = [{'op': 'update_fields', 'changes': {'tags': [text]}} for text in ['方案甲', '方案乙', '方案丙']]
+            return {'message': '请逐项审阅', 'operations': operations, 'suggested_actions': []}
         if "AW_REVIEW_BATCH" in user:
             return {"message": "三项草案等待审阅", "creative_brief": "轻松探索浮岛，不写战争", "operations": [
                 {"op": "add_entry", "entry": {"name": name, "content": f"{name}设定"}}

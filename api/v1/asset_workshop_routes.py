@@ -20,6 +20,7 @@ from core.session_manager import active_sessions
 from utils.asset_catalog import resolve_asset_path
 from api.v1.route_guards import guarded_workshop
 from api.v1.streaming import workshop_chat_transaction, workshop_stream_response
+from api.v1.workshop_review_models import ReviewPayload
 
 
 router = APIRouter()
@@ -144,6 +145,18 @@ def apply_operations(workshop_id: str, payload: OperationsPayload):
             return result
         result = workshop_chat_transaction(workshop, WORKSHOP_DIR, apply)
         return {**_payload(workshop), "applied": result["applied"]}
+    except AssetWorkshopError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/{workshop_id}/review")
+@guarded_workshop
+def review_workshop(workshop_id: str, payload: ReviewPayload):
+    workshop = _get(workshop_id)
+    try:
+        workshop_chat_transaction(workshop, WORKSHOP_DIR, lambda candidate:
+            candidate.review_operations(payload.source, payload.operation_ids, payload.accept))
+        return _payload(workshop)
     except AssetWorkshopError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

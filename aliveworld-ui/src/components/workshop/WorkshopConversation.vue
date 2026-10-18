@@ -14,16 +14,6 @@ watch(() => workshopStore.messages.length, () => jumpToBottom(), { flush: 'post'
 watch(() => workshopStore.context.preview, () => jumpToBottom(), { flush: 'post' });
 watch(() => workshopStore.context.pendingMessage, () => jumpToBottom(), { flush: 'post' });
 
-const operationLabel = operation => ({
-  add_entry: '新增条目', update_entry: '修改条目', deactivate_entry: '关闭条目',
-  request_delete: '申请删除', update_overview: '修改概述', set_axioms: '修改公理',
-  add_preference: '新增偏好', update_preference: '修改偏好',
-  set_status: '改变偏好状态', delete_preference: '删除偏好',
-  update_fields: '修改资产字段',
-})[operation.op] || operation.op;
-const operationTarget = operation =>
-  operation.entry?.name || operation.entry_id || operation.preference?.statement
-  || operation.preference_id || Object.keys(operation.changes || {}).join('、') || workshopStore.assetName;
 const waitingText = computed(() => ({
   worldbooks: '世界书工坊正在检查设定关系与推导链……',
   characters: '角色工坊正在梳理人物目标、矛盾与表现方式……',
@@ -65,30 +55,7 @@ const historyTime = value => {
         <div v-if="workshopStore.context.preview" data-testid="workshop-stream-preview" class="max-w-[84%] rounded-xl bg-slate-800 p-3"><div class="mb-2 text-[10px] text-amber-400">生成中 / 未保存</div><div class="whitespace-pre-wrap text-sm leading-relaxed text-slate-200">{{ workshopStore.context.preview }}</div></div>
         <div v-else-if="workshopStore.activity==='chat'" class="w-fit rounded-xl bg-slate-800 p-3 text-sm text-slate-400">{{ waitingText }}</div>
         <p v-if="workshopStore.context.task.status==='failed'" class="text-xs text-rose-300">{{ workshopStore.context.task.error }}</p>
-        <template v-if="workshopStore.type === 'worldbooks'">
-          <WorkshopReviewList v-for="source in ['proposed', 'pending']" :key="source" :source="source" :operations="workshopStore[source]" :workshop-id="workshopStore.workshopId" :busy="workshopStore.busy" @review="(list, ids, accept) => workshopStore.reviewSelection(list, ids, accept)" />
-        </template>
-        <section v-if="workshopStore.type !== 'worldbooks' && workshopStore.proposed.length" class="rounded-xl border border-cyan-700/60 bg-cyan-950/25 p-3">
-          <div class="flex items-center justify-between"><div><h3 class="text-xs font-bold text-cyan-300">AI 拟议修改 · 尚未写入</h3><p class="mt-1 text-[10px] text-slate-500">先审阅，再写入工坊草稿。</p></div><button class="rounded bg-cyan-700 px-3 py-1.5 text-xs font-bold text-white" @click="workshopStore.submitProposal">提交方案</button></div>
-          <div v-for="operation in workshopStore.proposed" :key="operation.operation_id" class="mt-2 rounded-lg bg-black/25 p-2 text-xs text-slate-300">
-            <strong class="text-cyan-200">{{ operationLabel(operation) }}</strong> · {{ operationTarget(operation) }}
-            <ol v-if="operation.op==='set_axioms'" class="mt-2 list-decimal space-y-1 pl-5 text-slate-300"><li v-for="axiom in operation.axioms" :key="axiom">{{ axiom }}</li></ol>
-            <p v-else-if="operation.op==='update_overview'" class="mt-2 whitespace-pre-wrap text-slate-400">{{ operation.overview }}</p>
-            <p v-else-if="operation.op==='add_entry'" class="mt-2 whitespace-pre-wrap text-slate-400">{{ operation.entry?.content }}</p>
-            <p v-else-if="operation.op==='update_entry'" class="mt-2 whitespace-pre-wrap text-slate-400">{{ operation.changes?.content || '将修改名称、触发词、标签或启用状态；可在左侧草稿中继续审阅。' }}</p>
-            <p v-if="operation.reason" class="mt-1 text-slate-500">{{ operation.reason }}</p>
-          </div>
-        </section>
-        <section v-if="workshopStore.type !== 'worldbooks' && workshopStore.pending.length" class="rounded-xl border border-amber-700/60 bg-amber-950/25 p-3">
-          <h3 class="text-xs font-bold text-amber-300">需要玩家确认的高影响修改</h3>
-          <div v-for="operation in workshopStore.pending" :key="operation.operation_id" class="mt-2 rounded-lg bg-black/25 p-3 text-xs text-slate-300">
-            <strong>{{ operationLabel(operation) }}</strong> · {{ operationTarget(operation) }}
-            <ol v-if="operation.op==='set_axioms'" class="mt-2 list-decimal space-y-1 pl-5"><li v-for="axiom in operation.axioms" :key="axiom">{{ axiom }}</li></ol>
-            <p v-else-if="operation.entry?.content" class="mt-2 whitespace-pre-wrap text-slate-400">{{ operation.entry.content }}</p>
-            <p v-else-if="operation.changes?.content" class="mt-2 whitespace-pre-wrap text-slate-400">{{ operation.changes.content }}</p>
-            <div class="mt-2 flex gap-2"><button class="rounded bg-emerald-700 px-2 py-1" @click="workshopStore.decide(operation.operation_id,true)">接受</button><button class="rounded bg-slate-700 px-2 py-1" @click="workshopStore.decide(operation.operation_id,false)">拒绝</button></div>
-          </div>
-        </section>
+        <WorkshopReviewList v-for="source in ['proposed', 'pending']" :key="source" :source="source" :operations="workshopStore[source]" :workshop-id="workshopStore.workshopId" :busy="workshopStore.busy || workshopStore.published" @review="(list, ids, accept) => workshopStore.reviewSelection(list, ids, accept)" />
       </section>
 
       <footer v-if="!workshopStore.published" class="border-t border-slate-800 bg-slate-950/80 p-3">

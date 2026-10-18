@@ -19,6 +19,7 @@ from core.session_manager import active_sessions
 from core.user_preferences import UserPreferenceRepository
 from api.v1.route_guards import guarded_workshop
 from api.v1.streaming import workshop_chat_transaction, workshop_stream_response
+from api.v1.workshop_review_models import ReviewPayload
 
 
 router = APIRouter()
@@ -150,6 +151,18 @@ def reject_operation(workshop_id: str, operation_id: str):
         return _payload(workshop)
     except PreferenceWorkshopError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.post("/{workshop_id}/review")
+@guarded_workshop
+def review_workshop(workshop_id: str, payload: ReviewPayload):
+    workshop = _get(workshop_id)
+    try:
+        workshop_chat_transaction(workshop, WORKSHOP_DIR, lambda candidate:
+            candidate.review_operations(payload.source, payload.operation_ids, payload.accept))
+        return _payload(workshop)
+    except PreferenceWorkshopError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/{workshop_id}/undo")

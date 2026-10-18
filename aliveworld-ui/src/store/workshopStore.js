@@ -207,10 +207,11 @@ export const workshopStore = reactive({
   async submitProposal() { if (this.proposed.length) await this.applyOperations(this.proposed, false); },
   async reviewSelection(source, operationIds, accept) {
     const context = this.context;
-    if (this.type !== 'worldbooks' || !context.workshopId || context.busy) return;
+    if (!context.workshopId || context.busy) return;
+    const api = this.type === 'worldbooks' ? worldbookWorkshopApi : this.type === 'preferences' ? preferenceWorkshopApi : assetWorkshopApi;
     context.busy = true; this.markTask(context, 'running', 'review');
     try {
-      this.syncInto(context, await worldbookWorkshopApi.review(context.workshopId, source, operationIds, accept));
+      this.syncInto(context, await api.review(context.workshopId, source, operationIds, accept));
       this.markTask(context, 'completed');
     } catch (error) {
       this.markTask(context, 'failed', 'review', error.message); uiStore.showToast(error.message, 'error');

@@ -166,6 +166,18 @@ class AssetWorkshop:
     def clear_proposal(self) -> None:
         self.proposed = []
 
+    def review_operations(self, source, operation_ids, accept):
+        from core.workshop_review import select_operations
+        self.assert_editable()
+        if source != 'proposed':
+            raise AssetWorkshopError('未知的审阅列表')
+        selected = select_operations(self.proposed, operation_ids, AssetWorkshopError)
+        if accept:
+            self.apply_operations(selected, actor='ai')
+        ids = set(operation_ids)
+        self.proposed = [item for item in self.proposed if item['operation_id'] not in ids]
+        self.touch()
+
     def apply_operations(self, operations: list[dict[str, Any]], *, actor: str = "player") -> dict[str, Any]:
         self.assert_editable()
         candidate = deepcopy(self.draft)

@@ -159,6 +159,24 @@ class PreferenceWorkshop:
     def clear_proposal(self) -> None:
         self.proposed = []
 
+    def review_operations(self, source, operation_ids, accept):
+        from core.workshop_review import select_operations
+        self.assert_editable()
+        if source not in {'proposed', 'pending'}:
+            raise PreferenceWorkshopError('未知的审阅列表')
+        selected = select_operations(getattr(self, source), operation_ids, PreferenceWorkshopError)
+        candidate = deepcopy(self)
+        if accept:
+            candidate._snapshot()
+            for raw in selected:
+                operation = candidate._validate(raw)
+                apply_preference_operation(candidate.draft, operation)
+                candidate.operations.append(operation)
+        ids = set(operation_ids)
+        setattr(candidate, source, [item for item in getattr(candidate, source) if item['operation_id'] not in ids])
+        candidate.touch()
+        self.__dict__.update(candidate.__dict__)
+
     def apply_operations(self, operations: list[dict[str, Any]], *, confirm_high_risk: bool = False) -> dict[str, Any]:
         self.assert_editable()
         applied = []
