@@ -185,6 +185,9 @@ def _response_for(kind: str, system: str, user: str) -> dict[str, Any] | str:
     if kind == "image_prompt":
         return {"positive": "test scene, one character", "negative": "low quality"}
     if kind == "workshop":
+        if user.endswith('AW_CONTINUITY_PROBE'):
+            found = 'AW_REVIEW_BATCH' in user
+            return {'message': '历史取材就绪' if found else '未携带旧讨论', 'operations': [], 'suggested_actions': []}
         if "AW_OTHER_REVIEW" in user:
             if "AW_OTHER_REVIEW_preferences" in user:
                 operations = [{'op': 'add_preference', 'preference': {'statement': text}} for text in ['方案甲', '方案乙', '方案丙']]

@@ -37,7 +37,7 @@ const MODE_MAP = {
 function newContext(mode = 'expand') {
   return {
     workshopId: '', draft: null, messages: [], history: [], suggestions: [], creativeBrief: '',
-    proposed: [], pending: [], dirty: false, published: false,
+    proposed: [], pending: [], dirty: false, published: false, useHistory: true, contextInfo: null,
     busy: false, activity: '', input: '', commitChanges: false, mode, preview: '', pendingMessage: '',
     task: { status: 'idle', kind: '', error: '', startedAt: '', finishedAt: '' },
   };
@@ -91,7 +91,18 @@ export const workshopStore = reactive({
     this.assetName = name;
     this.scope = scope;
     const key = this.identity();
-    if (force || !this.contexts[key]) this.contexts[key] = newContext(this.modes[0].id);
+    if (force || !this.contexts[key]) {
+      const previous = this.contexts[key];
+      this.contexts[key] = newContext(previous?.mode || this.modes[0].id);
+      this.contexts[key].useHistory = previous?.useHistory ?? this.type !== 'preferences';
+      this.contexts[key].input = previous?.input || '';
+      this.contexts[key].commitChanges = previous?.commitChanges || false;
+      if (previous) {
+        for (const field of ['workshopId', 'draft', 'messages', 'history', 'published', 'creativeBrief']) {
+          this.contexts[key][field] = previous[field];
+        }
+      }
+    }
     this.activeContextKey = key;
     return this.contexts[key];
   },
@@ -113,6 +124,7 @@ export const workshopStore = reactive({
     context.pending = data.pending || [];
     context.dirty = Boolean(data.dirty);
     context.published = Boolean(data.published);
+    if (data.context_info) context.contextInfo = data.context_info;
   },
   sync(data) { this.syncInto(this.context, data); },
 
@@ -148,6 +160,7 @@ export const workshopStore = reactive({
     this.scope = scope; this.assetName = name;
     const key = this.identity();
     const existing = this.contexts[key];
+    if (existing?.busy && force) return;
     if (existing && !force) { this.activeContextKey = key; return; }
     const context = this.activateContext(name, scope, force);
     if (context.busy) return;
@@ -170,9 +183,22 @@ export const workshopStore = reactive({
 
   async send(text = this.input) {
     const message = String(text || '').trim();
-    const context = this.context;
+    let context = this.context;
     if (!message || context.busy || !context.workshopId) return;
-    context.input = '';
+    const continuing = context.published;
+    if (continuing) {
+      const key = this.activeContextKey;
+      context.input = '';
+      await this.startNewRound();
+      context = this.contexts[key];
+      if (!context.workshopId || context.published || context.task.status === 'failed') {
+        context.input ||= message;
+        return;
+      }
+      // Selection may change during the request that opens the new draft.
+      if (this.activeContextKey !== key) { context.input ||= message; return; }
+    }
+    if (!continuing) context.input = '';
     context.pendingMessage = message;
     context.failedMessage = '';
     context.generationId = crypto.randomUUID();
@@ -184,8 +210,8 @@ export const workshopStore = reactive({
       let data;
       const api = type === 'worldbooks' ? worldbookWorkshopApi : type === 'preferences' ? preferenceWorkshopApi : assetWorkshopApi;
       data = this.streamingEnabled
-        ? await api.chatStream(workshopId, message, mode, commitChanges, text => { context.preview += text; }, context.generationId)
-        : await api.chat(workshopId, message, mode, commitChanges, context.generationId);
+        ? await api.chatStream(workshopId, message, mode, commitChanges, text => { context.preview += text; }, context.generationId, context.useHistory)
+        : await api.chat(workshopId, message, mode, commitChanges, context.generationId, context.useHistory);
       this.syncInto(context, data); this.markTask(context, 'completed');
     } catch (error) {
       context.input = context.input || message;

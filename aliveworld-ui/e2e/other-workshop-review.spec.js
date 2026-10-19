@@ -46,7 +46,7 @@ for (const [type, label] of [['characters', '角色卡'], ['styles', '文风卡'
     await review.getByRole('button', { name: '接受全部', exact: true }).click();
     await expect(review).toBeHidden();
     await page.getByTestId('workshop-publish').click();
-    await expect(page.getByTestId('workshop-conversation')).toContainText('这一轮已经发布');
+    await expect(page.getByTestId('workshop-conversation')).toContainText('已保存发布检查点');
     await page.getByTestId('workshop-new-round').click();
     await brief.locator('summary').click();
     await expect(brief.locator('textarea')).toHaveValue(type === 'preferences' ? '' : `${label}持续目标`);

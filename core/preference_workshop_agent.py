@@ -7,6 +7,7 @@ from typing import Any
 
 from core.ai_engine import robust_json_parse
 from core.json_stream import PREFERENCE_FIELDS
+from core.workshop_context import conversation_context
 from core.preference_workshop import PreferenceWorkshop, PreferenceWorkshopError
 
 
@@ -62,6 +63,7 @@ class PreferenceWorkshopAgent:
         *,
         commit_changes: bool = False,
         on_text_delta=None,
+        history=(),
     ) -> dict[str, Any]:
         if mode not in MODES:
             raise PreferenceWorkshopError("未知的偏好工坊模式")
@@ -84,12 +86,13 @@ class PreferenceWorkshopAgent:
             for item in workshop.draft
             if workshop.include_sensitive or not item.get("sensitive")
         ]
+        context, context_info = conversation_context(workshop, user_message, history)
         prompt = (
             f"【玩家主动填写的讨论目标（不是已确认偏好或心理结论，不据此自动启用偏好）】{workshop.creative_brief or '尚未填写'}\n"
             f"【当前模式】{MODES[mode]}\n"
             f"【偏好草稿摘要】\n{json.dumps(safe_draft, ensure_ascii=False)}\n"
             f"【可用行为证据】\n{json.dumps(safe_evidence, ensure_ascii=False)}\n"
-            f"【近期工坊对话】\n{json.dumps(workshop.messages[-12:], ensure_ascii=False)}\n"
+            f"{context}\n"
             f"【本轮权限】\n{'允许低风险修改草稿；启用和删除仍等待确认' if commit_changes else '只讨论与提案；不得改变草稿'}\n"
             f"【玩家本轮消息】\n{user_message}"
         )
@@ -134,6 +137,7 @@ class PreferenceWorkshopAgent:
         ])
         workshop.touch()
         return {
+            "context_info": context_info,
             "message": message, "collaboration_stage": stage, "suggested_actions": suggestions,
             "applied": result["applied"], "pending": result["pending"],
             "proposed": proposed, "draft": result["draft"],

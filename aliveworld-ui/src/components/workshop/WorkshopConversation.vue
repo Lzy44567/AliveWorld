@@ -52,7 +52,7 @@ const historyTime = value => {
             <div class="space-y-2 border-t border-slate-800 p-3"><div v-for="(message,index) in record.messages" :key="index" class="w-fit max-w-[90%] whitespace-pre-wrap rounded-lg p-2 text-xs leading-relaxed select-text" :class="message.role==='user'?'ml-auto bg-cyan-950 text-cyan-100':'bg-slate-800 text-slate-300'">{{ message.content }}</div></div>
           </details>
         </section>
-        <div v-if="workshopStore.published" class="rounded-xl border border-emerald-800/60 bg-emerald-950/25 p-3 text-xs text-emerald-200">这一轮已经发布，聊天与修改记录会继续保存在本机。需要继续讨论时，请开启新一轮草稿。</div>
+        <div v-if="workshopStore.published" class="rounded-xl border border-emerald-800/60 bg-emerald-950/25 p-3 text-xs text-emerald-200">已保存发布检查点。直接发送下一条消息即可继续创作；新修改仍需发布才生效，旧讨论保留。</div>
         <GenerationRetryStatus kind="workshop" :identity="workshopStore.workshopId" :request-id="workshopStore.context.generationId" />
         <p v-if="workshopStore.activity==='loading'" class="text-sm text-slate-500">正在载入或恢复工坊草稿……</p>
         <div v-for="(message,index) in workshopStore.messages" :key="index" class="group relative w-fit max-w-[84%] whitespace-pre-wrap rounded-xl p-3 pr-14 text-sm leading-relaxed select-text cursor-text" :class="message.role==='user'?'ml-auto bg-cyan-700 text-white':'bg-slate-800 text-slate-200'">{{ message.content }}<span v-if="message.failed" class="ml-2 text-xs text-rose-200">发送失败</span><CopyTextButton :text="message.content" class="absolute right-2 top-2 opacity-70 group-hover:opacity-100" /></div>
@@ -67,13 +67,19 @@ const historyTime = value => {
         <WorkshopReviewList v-for="source in ['proposed', 'pending']" :key="source" :source="source" :operations="workshopStore[source]" :workshop-id="workshopStore.workshopId" :busy="workshopStore.busy || workshopStore.published" @review="(list, ids, accept) => workshopStore.reviewSelection(list, ids, accept)" />
       </section>
 
-      <footer v-if="!workshopStore.published" class="border-t border-slate-800 bg-slate-950/80 p-3">
+      <footer class="border-t border-slate-800 bg-slate-950/80 p-3">
+        <details class="mb-2 text-[10px] text-slate-400" data-testid="workshop-context-settings">
+          <summary class="cursor-pointer">创作记忆 · {{ workshopStore.context.useHistory ? '参考已发布讨论' : '仅参考本轮讨论' }}</summary>
+          <label class="mt-2 block"><input v-model="workshopStore.context.useHistory" type="checkbox" :disabled="workshopStore.busy" /> 参考同一资产的已发布讨论</label>
+          <p class="mt-1">不额外调用模型；历史原文按相关性和长度选取，会增加本次输入token，不保证召回所有细节。重要约束可写入创作目标。刷新后恢复默认设置。</p>
+          <p v-if="workshopStore.type === 'preferences'" class="mt-1 text-amber-400">默认关闭。开启后会把旧偏好讨论片段发送给当前模型，其中可能包含敏感内容。</p>
+          <p v-if="workshopStore.context.contextInfo" class="mt-1" data-testid="workshop-context-info">上次请求：近期 {{ workshopStore.context.contextInfo.recent_count }} 条，历史节选 {{ workshopStore.context.contextInfo.excerpt_count }} 条；可用原文共 {{ workshopStore.context.contextInfo.available_messages }} 条。</p>
+        </details>
         <label class="mb-2 block text-right text-[10px] text-slate-500"><input data-testid="workshop-stream-toggle" v-model="workshopStore.streamingEnabled" type="checkbox" :disabled="workshopStore.busy" /> 流式输出</label>
         <div class="mb-2 flex items-center justify-between gap-3"><div class="flex rounded-lg border border-slate-700 bg-slate-900 p-0.5 text-[10px]"><button class="rounded px-2 py-1" :class="!workshopStore.commitChanges?'bg-cyan-800 text-white':'text-slate-500'" @click="workshopStore.commitChanges=false">先讨论方案</button><button class="rounded px-2 py-1" :class="workshopStore.commitChanges?'bg-emerald-800 text-white':'text-slate-500'" @click="workshopStore.commitChanges=true">允许 AI 修改草稿</button></div><span class="text-[10px] text-slate-500">{{ workshopStore.commitChanges?'低风险修改可进入草稿':'AI 只提出方案' }}</span></div>
         <div v-if="workshopStore.suggestions.length" class="mb-2 flex flex-wrap gap-1"><button v-for="item in workshopStore.suggestions" :key="item" class="rounded-full border border-cyan-800 px-2 py-1 text-[10px] text-cyan-300" @click="workshopStore.input=item">{{ item }}</button></div>
         <div class="flex gap-2"><ExpandableTextarea v-model="workshopStore.input" label="工坊消息" wrapper-class="flex-1" textarea-class="h-20 rounded-lg border border-slate-700 bg-slate-900 p-3 text-sm text-slate-200" :placeholder="`${workshopStore.activeMode.description} Ctrl+Enter 发送`" @keydown.ctrl.enter.prevent="workshopStore.send()" /><button v-if="workshopStore.context.activity === 'chat'" data-testid="workshop-stop" aria-label="停止生成" title="停止生成" class="w-20 rounded-lg bg-slate-700 text-white disabled:opacity-40" :disabled="workshopStore.context.stopping" @click="workshopStore.stop">{{ workshopStore.context.stopping ? '正在停止' : '■ 停止' }}</button><button v-else class="w-20 rounded-lg bg-cyan-700 text-sm font-bold text-white disabled:opacity-40" :disabled="workshopStore.busy" @click="workshopStore.send()">{{ workshopStore.busy?'处理中':'发送' }}</button></div>
       </footer>
-      <footer v-else class="border-t border-slate-800 bg-slate-950/80 p-3 text-center"><button data-testid="workshop-new-round-footer" class="rounded-lg bg-cyan-700 px-5 py-2 text-sm font-bold text-white" @click="workshopStore.startNewRound">开启新一轮讨论</button></footer>
     </template>
     <div v-else class="flex flex-1 items-center justify-center p-8 text-center"><div><div class="text-5xl">🧰</div><h2 class="mt-4 text-lg font-bold text-cyan-200">选择一个创作对象</h2><p class="mt-2 max-w-md text-xs leading-relaxed text-slate-500">从右侧选择世界书、角色、文风或实体；偏好卡可以直接进入。工坊会复用当前主界面，但不会载入或推进故事。</p></div></div>
   </main>

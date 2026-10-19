@@ -51,6 +51,7 @@ class CreativeBriefRequest(BaseModel):
 
 
 class WorkshopChatRequest(GenerationPayload):
+    use_history: bool = True
     message: str
     mode: str = "expand"
     commit_changes: bool = False
@@ -212,6 +213,7 @@ def _chat_workshop(workshop_id, payload, *, on_text_delta=None):
     try:
         result = workshop_chat_transaction(workshop, WORKSHOP_DIR, lambda candidate:
             WorldbookWorkshopAgent(engine).respond(candidate, payload.message.strip(), payload.mode,
+                history=list_worldbook_workshop_history(workshop.target_path) if payload.use_history else (),
                 commit_changes=payload.commit_changes,
                 **({"on_text_delta": on_text_delta} if on_text_delta is not None else {})))
         return {**_payload(workshop), **result}

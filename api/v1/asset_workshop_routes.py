@@ -34,6 +34,7 @@ class StartPayload(BaseModel):
 
 
 class ChatPayload(GenerationPayload):
+    use_history: bool = True
     message: str
     mode: str = "refine"
     commit_changes: bool = False
@@ -135,6 +136,7 @@ def _chat_workshop(workshop_id, payload, *, on_text_delta=None):
     try:
         result = workshop_chat_transaction(workshop, WORKSHOP_DIR, lambda candidate:
             AssetWorkshopAgent(engine).respond(candidate, payload.message.strip(), payload.mode,
+                history=list_asset_workshop_history(workshop.asset_type, workshop.target_path) if payload.use_history else (),
                 commit_changes=payload.commit_changes,
                 **({"on_text_delta": on_text_delta} if on_text_delta is not None else {})))
         return {**_payload(workshop), **result}

@@ -7,6 +7,7 @@ from typing import Any
 
 from core.ai_engine import robust_json_parse
 from core.json_stream import WORKSHOP_FIELDS
+from core.workshop_context import conversation_context
 from core.worldbook_workshop import WorldbookWorkshop, WorkshopError
 
 
@@ -62,10 +63,10 @@ class WorldbookWorkshopAgent:
     def __init__(self, ai_engine):
         self.ai_engine = ai_engine
 
-    def respond(self, workshop: WorldbookWorkshop, user_message: str, mode: str, *, commit_changes: bool = False, on_text_delta=None) -> dict[str, Any]:
+    def respond(self, workshop: WorldbookWorkshop, user_message: str, mode: str, *, commit_changes: bool = False, on_text_delta=None, history=()) -> dict[str, Any]:
         if mode not in MODES:
             raise WorkshopError("未知的世界书工坊模式")
-        recent = workshop.messages[-10:]
+        context, context_info = conversation_context(workshop, user_message, history)
         visible_draft = {key: value for key, value in workshop.draft.items()
                          if key not in {'capture_history', 'capture_reviews'}}
         prompt = (
@@ -73,7 +74,7 @@ class WorldbookWorkshopAgent:
             f"【作者创作目标（不是世界事实）】\n{workshop.creative_brief or '尚未填写'}\n"
             f"【目标是否由玩家编辑】{workshop.brief_edited}\n"
             f"【当前世界书草稿】\n{json.dumps(visible_draft, ensure_ascii=False)}\n"
-            f"【近期工坊对话】\n{json.dumps(recent, ensure_ascii=False)}\n"
+            f"{context}\n"
             f"【本轮协作权限】\n{'允许修改草稿：低风险操作可写入，高风险操作仍需玩家确认' if commit_changes else '只讨论与提案：operations 仅作为拟议修改展示，不得声称已经写入'}\n"
             f"【玩家本轮要求】\n{user_message}"
         )
@@ -117,6 +118,7 @@ class WorldbookWorkshopAgent:
         ])
         workshop.touch()
         return {
+            "context_info": context_info,
             "message": message,
             "collaboration_stage": stage,
             "suggested_actions": suggestions,
