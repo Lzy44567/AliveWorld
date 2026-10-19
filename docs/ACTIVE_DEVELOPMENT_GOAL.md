@@ -1,6 +1,8 @@
 # Active development goal
 
-Updated: 2026-10-19
+Updated: 2026-10-20
+
+发布收口：用户授权后已发布 [v1.6.0-dev.22](https://github.com/Lzy44567/AliveWorld/releases/tag/v1.6.0-dev.22) 预发布。标签指向实际构建提交4255d4d，ZIP与SHA256附件均已上传，GitHub返回的ZIP摘要与本地验收一致。开发分支同步；本轮新增主观措辞/客观状态问题仅记P2待设计，不改功能。以下未发布文字为当时阶段记录。
 
 ## Current — 39请求控制与聊天体验至版本节点
 

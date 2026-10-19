@@ -1,5 +1,11 @@
 # AliveWorld 测试流程
 
+## dev.22远端发布核对（2026-10-20）
+
+- GitHub Release非草稿、预发布，标签v1.6.0-dev.22指向4255d4d0c12e898f28de17705100533e311a2b94。
+- ZIP 38,426,953字节和SHA256文件均为uploaded；GitHub返回ZIP digest与本地abb1d4c4dbbe77f959f23cfb2c8f06b69dfa4bec370286c847ea33cb9b667d93一致。发布正文包含分类更新概要。
+- 发布仅复用已验收包，本轮无功能改动；未宣称从旧游玩目录完成真实自动更新测试。Git直连失败后使用Windows现有127.0.0.1:7897代理的单次命令成功，不修改全局Git配置。
+
 ## dev.22本地交付门（2026-10-19）
 
 - 8项Edge统一重跑全部通过，57.9秒（character-groups、provider-retry、story-stop、workshop-stop）；旧格式character-mode停止/修改重发专项通过，17.7秒。旧专项补独立角色卡fixture，不再依赖其他用例先执行。
