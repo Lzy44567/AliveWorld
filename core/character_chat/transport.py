@@ -1,10 +1,11 @@
-"""One asynchronous provider call, zero retries and content-minimized tracing."""
+"""Asynchronous provider calls with bounded establishment retries and private traces."""
 import asyncio
 import time
 from openai import AsyncOpenAI, APITimeoutError, RateLimitError, BadRequestError
 from core.llm_trace import begin_llm_trace, finish_llm_trace
 from core.model_connections.runtime import get_task_connection
 from core.request_budget import normalize_usage
+from core.provider_retry import request_with_retry_async
 from .models import CharacterSessionError
 from .stream_json import ReplyPreview
 from .group_stream import GroupPreview
@@ -46,6 +47,7 @@ class CharacterTransport:
         trace = begin_llm_trace(trace_kind, config['model'], '[private content omitted]',
                                 '[private content omitted]', 'json', plan.prompt_manifest)
         started, usage, error = time.monotonic(), None, None
+        retries = config.get('automatic_retries', 0) if trace_kind == 'character.reply' else 0
         try:
             async with AsyncOpenAI(api_key=config['api_key'], base_url=config['base_url'], max_retries=0, timeout=60.0) as client:
                 kwargs = {'model': config['model'], 'messages': [
@@ -54,7 +56,7 @@ class CharacterTransport:
                     'response_format': {'type': 'json_object'}}
                 async with asyncio.timeout(180):
                     if delivery == 'non_stream':
-                        response = await client.chat.completions.create(**kwargs)
+                        response = await request_with_retry_async(lambda: client.chat.completions.create(**kwargs), retries)
                         if len(response.choices) != 1:
                             raise CharacterSessionError('CONTRACT_INVALID')
                         choice = response.choices[0]
@@ -67,7 +69,7 @@ class CharacterTransport:
                         if len(raw.encode('utf-8')) > 65536:
                             raise CharacterSessionError('CONTRACT_INVALID')
                         return raw
-                    stream = await client.chat.completions.create(**kwargs, stream=True)
+                    stream = await request_with_retry_async(lambda: client.chat.completions.create(**kwargs, stream=True), retries)
                     preview = GroupPreview(emit) if plan.contract_id == V3 else ReplyPreview(emit, plan.contract_id)
                     parts, finish, count = [], None, 0
                     last_content = time.monotonic()

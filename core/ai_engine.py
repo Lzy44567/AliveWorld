@@ -7,6 +7,7 @@ from utils.sys_logger import get_logger
 from core.llm_trace import begin_llm_trace, finish_llm_trace
 from core.json_stream import JSONTextPreview, STORY_FIELDS
 from core.generation_control import GenerationCancelled, check_generation
+from core.provider_retry import request_with_retry
 
 log = get_logger()
 STREAM_MAX_BYTES = 128 * 1024
@@ -66,7 +67,8 @@ def robust_json_parse(raw_str):
 
 class AIEngine:
     def __init__(self, config):
-        self.client = OpenAI(api_key=config['api_key'], base_url=config['base_url'])
+        self.client = OpenAI(api_key=config['api_key'], base_url=config['base_url'], max_retries=0)
+        self.automatic_retries = config.get('automatic_retries', 0)
         self.model = config['model']
         self.budget_options = dict(config.get('budget_options') or {})
 
@@ -84,30 +86,17 @@ class AIEngine:
             if on_text_delta is not None:
                 return self._stream_json(kwargs, on_text_delta, visible_fields or STORY_FIELDS,
                                          trace_label, trace_id, report, started)
-            for attempt in (1, 2):
-                check_generation()
-                report = budget_report(system_prompt, kwargs["messages"][-1]["content"], kwargs["max_tokens"], self.budget_options, prompt_manifest)
-                require_budget(report)
-                res = self.client.chat.completions.create(**kwargs)
-                check_generation()
-                content = res.choices[0].message.content or ""
-                metadata = _completion_metadata(res, attempt)
-                metadata.update(budget=report, elapsedMs=round((time.monotonic() - started) * 1000))
-                if content.strip():
-                    finish_llm_trace(trace_label, trace_id, response=content, metadata=metadata)
-                    return content, None
-                error = _empty_response_error(metadata)
-                if metadata["finish_reason"] in ("content_filter", "length") or attempt == 2:
-                    finish_llm_trace(trace_label, trace_id, error=error, metadata=metadata)
-                    return "", error
-                log.warning(
-                    "LLM JSON 空白响应，执行一次受控重试: label=%s id=%s finish_reason=%s",
-                    trace_label, trace_id, metadata["finish_reason"] or "unknown",
-                )
-                kwargs["messages"] = [*kwargs["messages"][:-1], {
-                    "role": "user",
-                    "content": user_prompt + "\n\n请立即只返回一个完整 JSON 对象，禁止只输出空白字符。",
-                }]
+            res = self._request(lambda: self.client.chat.completions.create(**kwargs))
+            check_generation()
+            content = res.choices[0].message.content or ""
+            metadata = _completion_metadata(res)
+            metadata.update(budget=report, elapsedMs=round((time.monotonic() - started) * 1000))
+            if content.strip():
+                finish_llm_trace(trace_label, trace_id, response=content, metadata=metadata)
+                return content, None
+            error = _empty_response_error(metadata)
+            finish_llm_trace(trace_label, trace_id, error=error, metadata=metadata)
+            return "", error
         except GenerationCancelled:
             finish_llm_trace(trace_label, trace_id, error='generation_cancelled', metadata={"budget": report})
             raise
@@ -115,8 +104,11 @@ class AIEngine:
             finish_llm_trace(trace_label, trace_id, error=str(e), metadata={"budget": report})
             return "", str(e)
 
+    def _request(self, call):
+        return request_with_retry(call, getattr(self, 'automatic_retries', 0))
+
     def _stream_json(self, kwargs, emit, fields, label, trace_id, report, started):
-        """One real provider stream; never retry or fall back to another paid call."""
+        """Retry only establishment failures; never replay a partially received stream."""
         preview = JSONTextPreview(fields, emit)
         parts, usage, response_id, finish_reason = [], None, "", ""
         stream = None
@@ -124,7 +116,7 @@ class AIEngine:
         try:
             # OpenAI SDK defaults to retries; opt out specifically for this attempt.
             client = self.client.with_options(max_retries=0, timeout=120.0)
-            stream = client.chat.completions.create(**kwargs, stream=True)
+            stream = self._request(lambda: client.chat.completions.create(**kwargs, stream=True))
             for chunk in stream:
                 check_generation()
                 if time.monotonic() - started > STREAM_MAX_SECONDS:
@@ -188,11 +180,11 @@ class AIEngine:
             check_generation()
             report = budget_report(system_prompt, user_prompt, options=self.budget_options, manifest=prompt_manifest)
             require_budget(report)
-            res = self.client.chat.completions.create(
+            res = self._request(lambda: self.client.chat.completions.create(
                 model=self.model, 
                 messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}], 
                 temperature=temp, max_tokens=report["outputReserve"]
-            )
+            ))
             content = res.choices[0].message.content or ""
             check_generation()
             metadata = _completion_metadata(res)

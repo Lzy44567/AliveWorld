@@ -44,7 +44,7 @@ function reset() {
     apiKey: '',
     defaultModel: props.profile?.default_model || '',
     enabled: props.profile?.enabled ?? true,
-    advancedOptions: { context_window: 32768, output_reserve: 4096, ...(props.profile?.advanced_options || {}) },
+    advancedOptions: { context_window: 32768, output_reserve: 4096, automatic_retries: 0, ...(props.profile?.advanced_options || {}) },
     clearApiKey: false,
   });
   secretVisible.value = false;
@@ -157,6 +157,8 @@ async function save(testAfter = false) {
               <p class="text-slate-500">默认按保守窗口估算，并预留10%误差。请按接口实际模型能力调整；修改模型时也应核对。超限会停止请求并说明来源，不会裁掉规则或玩家行动。</p>
               <label class="block">上下文窗口（tokens）<input v-model.number="form.advancedOptions.context_window" aria-label="上下文窗口" type="number" min="8192" max="2000000" class="mt-1 w-full rounded bg-slate-900 p-2" /></label>
               <label class="block">默认输出预留（tokens）<input v-model.number="form.advancedOptions.output_reserve" aria-label="默认输出预留" type="number" min="256" max="131072" class="mt-1 w-full rounded bg-slate-900 p-2" /></label>
+              <label class="block">失败后自动重试次数<input v-model.number="form.advancedOptions.automatic_retries" aria-label="失败后自动重试次数" type="number" min="0" max="3" step="1" class="mt-1 w-full rounded bg-slate-900 p-2" /></label>
+              <p class="text-xs text-slate-400">默认 0（关闭）。仅对连接建立失败、限流和暂时服务故障额外尝试，最多 3 次；可能产生额外费用。已开始输出、余额不足或内容拒绝不会自动重试。</p>
               <p class="text-slate-500">正文等任务已指定输出上限时，以任务设置为准。原文与已确认资产不会被预算检查改写。</p>
             </div>
           </details>

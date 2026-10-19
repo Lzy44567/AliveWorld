@@ -52,7 +52,7 @@ class ConnectionProfile:
         self.default_model = _text(self.default_model)
         self.provider_hint = _text(self.provider_hint) or "custom"
         self.advanced_options = dict(self.advanced_options or {})
-        for key, lower, upper in (("context_window", 8192, 2000000), ("output_reserve", 256, 131072)):
+        for key, lower, upper in (("context_window", 8192, 2000000), ("output_reserve", 256, 131072), ("automatic_retries", 0, 3)):
             if key in self.advanced_options:
                 value = self.advanced_options[key]
                 if isinstance(value, bool) or not isinstance(value, int) or not lower <= value <= upper:
@@ -180,5 +180,6 @@ class ResolvedConnection:
             "api_key": self.profile.api_key or ("not-required" if self.profile.base_url else ""),
             "base_url": self.profile.base_url,
             "model": self.model or self.profile.default_model,
+            "automatic_retries": self.profile.advanced_options.get("automatic_retries", 0),
             "budget_options": {k: self.profile.advanced_options[k] for k in ("context_window", "output_reserve") if k in self.profile.advanced_options},
         }

@@ -1,5 +1,10 @@
 # AliveWorld 测试流程
 
+## 39-B请求策略接线（2026-10-19）
+
+- `python -m unittest tests.test_provider_retry tests.test_ai_engine tests.test_model_connections tests.test_character_chat_transport -q`：28通过，1.197秒；默认关闭、次数上限、Retry-After、余额/认证/读取失败不重试、同步/异步等待取消。
+- 同策略与流式回归29通过，3.252秒；174模块前端构建通过。UI进度及真实HTTP故障注入验收尚待完成。
+
 ## 39-A停止改发续验（2026-10-19）
 
 - `npx playwright test e2e/story-stop.spec.js`：1通过，9.4秒；停止后load结果等于初始正文、新草稿保护、原请求恢复和修改重发。
