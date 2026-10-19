@@ -269,6 +269,12 @@ export function createCharacterChatStore(api = characterChatApi, delay = ms => n
       try { const result = await api.cancel(id, flight.request_id); if (terminal(result.status) || result.status === 'already_committed') await this.settle(id, flight, result); }
       catch (e) { ctx.error = '停止结果待确认：' + e.message; }
     },
+    async editFailed(id) {
+      const ctx = this.context(id);
+      if (ctx.session?.schema_version === 2) return groups.run(id, 'edit');
+      if (ctx.busy || !ctx.failure || ctx.failure.operation !== 'send') return;
+      if (!restoreInputPair(ctx, ctx.failure.content, ctx.failure.oocDraft)) ctx.error = '请先保留或清空新草稿，再编辑未完成消息。';
+    },
     async update(id, changes) {
       const ctx = this.context(id);
       if (ctx.busy || ctx.settingsBusy || ctx.needsReload || ctx.session.schema_read_only) return;

@@ -50,6 +50,29 @@ class GroupLifecycleTests(unittest.TestCase):
     def complete(self, attempt, value=None):
         return self.mutate(lambda s: commit_generated(s, attempt['request_id'], json.dumps(value or result('一', '第二句', '第三句')), [], set(), self.clock))
 
+    def test_withdraw_unanswered_cancelled_batch_before_editing(self):
+        sent, _ = self.send('要修改的台词', note='保留场外说明', claim=True)
+        attempt = sent['attempt']
+        self.mutate(lambda s: fail_generation(s, attempt['request_id'], 'cancelled', 'CANCELLED'))
+        payload = {'client_action_id': str(uuid4()), 'expected_revision': self.load()['revision'],
+                   'operation': 'undo', 'target_group_id': attempt['group_id']}
+        self.mutate(lambda s: batch_action(s, payload))
+        self.assertEqual([], pending_inputs(self.load()))
+        self.assertEqual({}, formal_messages(self.load()))
+        self.assertEqual('withdrawn', self.load()['requests'][0]['result_state'])
+        self.mutate(lambda s: batch_action(s, payload))  # Lost response can be checked idempotently.
+        self.send('修改后的台词', claim=True)
+        self.assertEqual(['修改后的台词'], [m['content'] for m in formal_messages(self.load()).values()])
+
+    def test_failed_batch_cannot_withdraw_later_input(self):
+        sent, _ = self.send(claim=True)
+        self.mutate(lambda s: fail_generation(s, sent['attempt']['request_id'], 'cancelled', 'CANCELLED'))
+        self.send('后续输入')
+        payload = {'client_action_id': str(uuid4()), 'expected_revision': self.load()['revision'],
+                   'operation': 'undo', 'target_group_id': sent['attempt']['group_id']}
+        with self.assertRaises(CharacterSessionError):
+            self.mutate(lambda s: batch_action(s, payload))
+
     def test_stream_and_instant_single_atomic_batch_no_candidate_sources(self):
         for mode in ('stream', 'instant'):
             sent, _ = self.send(claim=True, mode=mode)

@@ -16,6 +16,25 @@ async function send(page,text) {await page.getByTestId('character-composer').fil
 async function detail(request,sid) {return(await request.get(`${base}/${sid}`)).json();}
 async function records(request) {return(await(await request.get(`${fake}/__test__/requests`)).json()).requests.filter(r=>r.kind==='character.reply'&&JSON.parse(r.user).reply_contract_id==='character.reply.v3');}
 test.describe.configure({mode:'serial'});
+
+test('停止后编辑未完成台词，保留新草稿且不重复发送旧输入',async({page,request})=>{
+  const session=await create(request,'停止与编辑验收');await enter(page,session.session_id);
+  const composer=page.getByTestId('character-composer');
+  await send(page,'【角色慢流】原始请求');
+  await expect(page.locator('[data-temporary="true"]')).not.toHaveCount(0);
+  await composer.fill('新的草稿');
+  await page.getByTestId('character-stop').click();
+  await expect(page.getByTestId('character-stop')).toHaveCount(0);
+  await expect(page.getByTestId('character-edit-failed')).toBeVisible();
+  await page.getByTestId('character-edit-failed').click();
+  await expect(composer).toHaveValue('新的草稿');
+  await composer.fill('');await page.getByTestId('character-edit-failed').click();
+  await expect(composer).toHaveValue('【角色慢流】原始请求');
+  await expect(page.getByTestId('character-user-message')).toHaveCount(0);
+  await send(page,'修改后的请求');
+  await expect(page.getByTestId('character-ai-message')).toHaveCount(2);
+  await expect(page.getByTestId('character-user-message')).toHaveCount(1);
+});
 test('C4真实新建入口选择新格式，创建后即接通订阅，旧记录不自动转换',async({page,request})=>{
   const old=await create(request,'C4入口列表准备',1);await enter(page,old.session_id);
   await page.getByTestId('character-new').click();await page.getByTestId('character-title').fill('C4真实UI新建');

@@ -296,14 +296,19 @@ def recover_groups(session, timestamp=None):
     return True
 
 
-def latest_batch(session, group_id):
+def latest_batch(session, group_id, *, allow_unanswered=False):
     if busy(session):
         raise CharacterSessionError('SESSION_BUSY')
-    completed = [g for g in active_groups(session) if g['status'] == 'complete']
+    unresolved = {i['input_id'] for i in pending_inputs(session)}
+    completed = [g for g in active_groups(session) if g['status'] == 'complete' or
+                 (allow_unanswered and g['status'] in {'failed', 'cancelled', 'interrupted'}
+                  and g['input_ids'] and set(g['input_ids']) <= unresolved)]
     if not completed or completed[-1]['group_id'] != group_id:
         raise CharacterSessionError('REVISION_CONFLICT')
     group = completed[-1]
     own = set(group['input_ids'])
+    if group['status'] != 'complete' and (not own or not own <= {i['input_id'] for i in pending_inputs(session)}):
+        raise CharacterSessionError('REVISION_CONFLICT')
     # Input arriving between A/B bubbles can depend on A even though its seq is
     # less than the final B. The barrier is the claimed input cutoff, not the
     # latest delivered AI sequence.
@@ -347,7 +352,7 @@ def batch_action(session, payload, display_mode='stream'):
             raise CharacterSessionError('IDEMPOTENCY_MISMATCH')
         return old, False
     check_revision(session, payload['expected_revision'])
-    target = latest_batch(session, gid)
+    target = latest_batch(session, gid, allow_unanswered=payload['operation'] == 'undo')
     if target.get('origin') == 'proactive' and payload['operation'] == 'regenerate':
         raise CharacterSessionError('REPLY_CONTRACT_UNSUPPORTED')
     if len(session['requests']) >= MAX_ACTIONS or sum(len(a['attempts']) for a in session['requests']) >= MAX_ATTEMPTS:
@@ -367,7 +372,7 @@ def batch_action(session, payload, display_mode='stream'):
         if entry['input_id'] in target['input_ids']:
             entry['status'] = 'withdrawn'
     for original in session['requests']:
-        if original.get('result_group_id') == gid or original.get('resolved_by_group_id') == gid:
+        if original.get('result_group_id') == gid or original.get('resolved_by_group_id') == gid or original.get('input_id') in target['input_ids']:
             original['result_state'] = 'withdrawn'
     action['result_group_id'] = gid
     action['attempts'].append({'request_id': str(uuid4()), 'base_revision': session['revision'] - 1,

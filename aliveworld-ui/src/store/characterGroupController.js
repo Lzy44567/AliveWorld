@@ -126,15 +126,27 @@ export function createCharacterGroupController(state, api, noticeCache) {
   }
   async function run(id, operation = 'send', retry = false) {
     const ctx = state.context(id);
+    const editing = operation === 'edit';
+    if (editing) {
+      if (ctx.draft || ctx.oocDraft) { ctx.error = '请先保留或清空新草稿，再编辑未完成消息。'; return; }
+      if (!ctx.failure?.group_id || ctx.failure.operation !== 'send') return;
+      operation = 'undo';
+    }
     if (!ctx.session || ctx.session.schema_version !== 2 || ctx.commandPending || ctx.settingsBusy || ctx.needsReload) return;
-    if ((retry || operation !== 'send') && (ctx.busy || ctx.queuedCount)) return;
+    if ((retry || operation !== 'send') && (ctx.busy || (!editing && ctx.queuedCount))) return;
     if (!retry && operation === 'send' && (!ctx.draft.trim() || oocError(ctx.oocDraft))) { ctx.error = oocError(ctx.oocDraft); return; }
     const failed = ctx.failure; if (retry && !failed?.retryable) return;
-    const target = ctx.session.groups.at(-1);
+    const target = editing ? ctx.failure : ctx.session.groups.at(-1);
+    if (editing && !target) return;
     if (operation === 'regenerate' && target?.origin === 'proactive' || retry && failed?.operation === 'proactive') return;
     const input = ctx.session.messages.find(row => row.message.message_id === target?.input_ids?.[0]);
     const command = { action_id: retry ? failed.action_id : crypto.randomUUID(), operation, clearsDraft: !retry && operation === 'send', content: ctx.draft, oocDraft: ctx.oocDraft,
       withdrawnInput: target?.input_ids?.length === 1 ? input?.message.content || '' : '', withdrawnOoc: target?.input_ids?.length === 1 ? input?.ooc_note || '' : '' };
+    if (editing) {
+      const inputs = ctx.session.messages.filter(row => target.input_ids.includes(row.message.message_id));
+      command.withdrawnInput = inputs.map(row => row.message.content).join('\n\n');
+      command.withdrawnOoc = inputs.map(row => row.ooc_note).filter(Boolean).join('\n\n');
+    }
     ctx.groupCommand = command; ctx.commandPending = true; ctx.error = '';
     // Read ACK is a real revision mutation. Finish it before freezing a CAS
     // command; no new acknowledgement starts while this command is pending.

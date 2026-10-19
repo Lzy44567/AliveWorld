@@ -143,7 +143,9 @@ def _validate(value):
         if not isinstance(group['bubbles'], list) or len(group['bubbles']) > 6:
             corrupt()
         count = integer(group['delivered_count'], 0, len(group['bubbles']))
-        if group['status'] in {'complete', 'replaced', 'withdrawn'} and (not group['bubbles'] or count != len(group['bubbles'])):
+        if group['status'] in {'complete', 'replaced'} and (not group['bubbles'] or count != len(group['bubbles'])):
+            corrupt()
+        if group['status'] == 'withdrawn' and count != len(group['bubbles']):
             corrupt()
         if group['status'] == 'generating' and (group['bubbles'] or count):
             corrupt()
@@ -360,18 +362,22 @@ def _validate(value):
             corrupt()
         if not owner[1].get('legacy_attempt') and owner[1]['group_id'] != group['group_id']:
             corrupt()
+        withdrawn_unanswered = group['status'] == 'withdrawn' and not group['bubbles']
+        if withdrawn_unanswered and (owner[1]['status'] not in {'failed', 'cancelled', 'interrupted'}
+                                    or any(inputs[mid]['status'] != 'withdrawn' for mid in group['input_ids'])):
+            corrupt()
         if not owner[1].get('legacy_attempt'):
             timestamp(group['created_at'])
             timestamp(owner[1]['created_at'])
-            if group['status'] in {'delivering', 'complete', 'replaced', 'withdrawn'}:
+            if group['status'] in {'delivering', 'complete', 'replaced', 'withdrawn'} and not withdrawn_unanswered:
                 timestamp(group['generated_at'])
             if group['status'] in {'complete', 'replaced', 'withdrawn', 'failed', 'cancelled', 'interrupted', 'partial_failed'}:
                 timestamp(group['settled_at'])
-            if group['status'] in {'complete', 'replaced', 'withdrawn', 'partial_failed'}:
+            if group['status'] in {'complete', 'replaced', 'withdrawn', 'partial_failed'} and not withdrawn_unanswered:
                 integer(group['committed_revision'], 1, value['revision'])
         if group['status'] == 'generating' and owner[1]['status'] != 'pending':
             corrupt()
-        if group['status'] in {'delivering', 'complete', 'replaced', 'withdrawn'} and owner[1]['status'] != 'committed':
+        if group['status'] in {'delivering', 'complete', 'replaced', 'withdrawn'} and not withdrawn_unanswered and owner[1]['status'] != 'committed':
             corrupt()
         if group['status'] in {'failed', 'cancelled', 'interrupted'} and owner[1]['status'] != group['status']:
             corrupt()

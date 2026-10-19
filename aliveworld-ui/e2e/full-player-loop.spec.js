@@ -141,7 +141,7 @@ test('前端创建和载入全类资产，正文上下文启停可由假模型�
   await page.getByTestId('story-action-submit').click();
   await expect(page.getByTestId('story-stream-preview')).toContainText('前端正文');
   await expect(page.getByTestId('story-stream-preview')).toContainText('未保存');
-  await expect(page.getByTestId('story-action-submit')).toBeDisabled();
+  await expect(page.getByTestId('story-stop')).toBeVisible();
   await expect(page.getByText('自动验收阶段')).not.toBeVisible();
   await expect(page.getByTestId('story-action-submit')).toBeEnabled();
   await expect(page.getByTestId('story-stream-preview')).toBeHidden();

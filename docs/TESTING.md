@@ -1,5 +1,12 @@
 # AliveWorld 测试流程
 
+## 39-A停止改发续验（2026-10-19）
+
+- `npx playwright test e2e/story-stop.spec.js`：1通过，9.4秒；停止后load结果等于初始正文、新草稿保护、原请求恢复和修改重发。
+- `.venv/Scripts/python.exe -m unittest tests.test_character_group_lifecycle tests.test_character_group_service tests.test_character_group_routes -q`：68通过，13.603秒。新增取消批次撤回重发、不越过后续输入；原重生成失败撤回成功批次保持兼容。
+- `npx playwright test e2e/character-groups.spec.js`：5通过，36.7秒；停止修改无重复、连续发送、显示间隔、后台未读、撤回重生成、无效JSON隔离。
+- 前端构建174模块通过；旧格式编辑及早停竞态待补，不声称39全部完成。
+
 ## 39-A实际接线（2026-10-19，阶段中）
 
 - `.venv/Scripts/python.exe -m unittest tests.test_generation_routes tests.test_generation_control tests.test_streaming -q`：32通过，3.459秒。HTTP同步/流式停止、旧请求隔离、取消不落盘及故事checkpoint回退。

@@ -1,0 +1,35 @@
+import { test, expect } from '@playwright/test';
+
+test('故事停止不入档，保护新草稿并可修改重发', async ({ page, request }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: '稍后再说' }).click();
+  await page.getByTestId('tab-saves').click();
+  await page.getByRole('button', { name: '+ 新局' }).click();
+  await page.getByTestId('new-game-name').fill('停止验收故事');
+  await page.getByTestId('new-game-premise').fill('隔离的合成测试世界');
+  const created = page.waitForResponse(r => r.url().endsWith('/game/start') && r.request().method() === 'POST');
+  await page.getByTestId('new-game-submit').click();
+  const initial = await (await created).json();
+  const input = page.getByTestId('story-action-input');
+  const original = '【停止验收慢流】我要观察房间';
+  await input.fill(original);
+  await page.getByTestId('story-action-submit').click();
+  await expect(page.getByTestId('story-stream-preview')).toBeVisible();
+  await input.fill('新的行动草稿');
+  await page.getByTestId('story-stop').click();
+  await expect(page.getByTestId('story-action-submit')).toBeEnabled();
+  await expect(input).toHaveValue('新的行动草稿');
+  await page.getByRole('button', { name: '编辑未完成行动' }).click();
+  await expect(input).toHaveValue('新的行动草稿');
+  await input.fill('');
+  await page.getByRole('button', { name: '编辑未完成行动' }).click();
+  await expect(input).toHaveValue(original);
+  await expect(page.getByTestId('story-stream-preview')).toBeHidden();
+  const loaded = await request.post('/api/v1/game/load', { data: { save_name: '停止验收故事' } });
+  expect(loaded.ok()).toBeTruthy();
+  expect((await loaded.json()).chat_messages).toEqual(initial.chat_messages);
+  await input.fill('修改后观察房间');
+  await page.getByTestId('story-action-submit').click();
+  await expect(page.getByTestId('story-action-submit')).toBeEnabled();
+  await expect(page.getByRole('button', { name: '编辑未完成行动' })).toBeHidden();
+});

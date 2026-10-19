@@ -154,6 +154,7 @@ onUnmounted(() => { mounted = false; document.removeEventListener('visibilitycha
           <p v-if="grouped && ctx.subscriptionError" class="text-xs text-amber-300">{{ ctx.subscriptionError }} <button class="underline" @click="store.open(store.activeId)">重新连接并核对</button></p>
           <button v-if="grouped && ctx.commandPending && ctx.groupCommand" class="text-xs underline text-amber-300" @click="store.recover(store.activeId)">核对发送结果（不会重发）</button>
           <div v-if="hasHistory" class="flex justify-end gap-3 text-xs text-slate-500"><button v-if="!grouped || session.groups.at(-1)?.origin!=='proactive'" data-testid="character-regenerate" :disabled="batchDisabled" @click="regenerate">{{ grouped ? '重新生成最后一批' : '重新生成末轮' }}</button><button data-testid="character-undo" :disabled="batchDisabled" @click="undo">{{ grouped ? '撤回最后一批' : '撤回末轮' }}</button></div>
+          <button v-if="ctx.failure?.operation==='send' && !ctx.busy" data-testid="character-edit-failed" type="button" class="text-xs text-slate-400 hover:text-cyan-300" @click="store.editFailed(store.activeId)" title="将未获回复的整批台词退回输入框，保留场外提示；不会修改已完成对话">✎ 修改未完成消息</button>
           <form class="space-y-2" @submit.prevent="run('send')">
             <CharacterOocComposer v-model="ctx.oocDraft" v-model:open="ctx.oocOpen" @activity="store.contactActivity(store.activeId)" />
             <p v-if="ctx.oocDraft.trim() && !ctx.draft.trim()" class="text-xs text-slate-400">请同时输入角色台词；暂不支持仅发送场外提示。</p>
