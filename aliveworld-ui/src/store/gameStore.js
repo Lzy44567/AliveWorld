@@ -1,5 +1,5 @@
 import { reactive } from 'vue';
-import { stopGeneration } from '../api/generationApi';
+import { stopGeneration } from '../api/generationApi.js';
 
 function emptyContext(sessionId = null, saveName = null) {
   return {

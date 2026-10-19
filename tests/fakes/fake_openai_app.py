@@ -10,7 +10,7 @@ from threading import Lock
 from typing import Any
 
 from fastapi import FastAPI
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel, Field
 
 from tests.fakes.prompt_contract import next_story_index, scan_prompt, visible_readiness_lines
@@ -307,6 +307,10 @@ def chat(payload: ChatRequest):
     }
     with _lock:
         _requests.append(record)
+        occurrence = sum(r['user'] == user and r['kind'] == kind for r in _requests)
+    if '【重试取消验收】' in user or ('【重试成功验收】' in user and occurrence == 1):
+        return JSONResponse({'error': {'code': 'temporarily_unavailable'}}, status_code=503,
+                            headers={'Retry-After': '4'})
     content = _response_for(kind, system, user)
     if not isinstance(content, str):
         content = json.dumps(content, ensure_ascii=False)

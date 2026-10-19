@@ -5,7 +5,7 @@ from uuid import UUID, uuid4
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from core.generation_control import (
-    GenerationBusy, GenerationCancelled, generation_scope, cancel_generation,
+    GenerationBusy, GenerationCancelled, generation_scope, cancel_generation, generation_status,
 )
 
 router = APIRouter()
@@ -33,3 +33,9 @@ def controlled_generation(kind):
 @router.post('/{kind}/{identity}/{request_id}/stop')
 def stop_generation(kind: Literal['story', 'workshop'], identity: str, request_id: UUID):
     return cancel_generation((kind, identity), str(request_id))
+
+
+@router.get('/{kind}/{identity}/{request_id}')
+def get_generation_status(kind: Literal['story', 'workshop', 'character'], identity: str, request_id: UUID):
+    scope = (kind, identity, str(request_id)) if kind == 'character' else (kind, identity)
+    return generation_status(scope, str(request_id))

@@ -1,6 +1,7 @@
 """Server-owned C4 workers. Disconnected subscribers do not own generation."""
 import asyncio
 import copy
+from core.generation_control import generation_scope
 from datetime import datetime, timezone
 
 from .models import CharacterSessionError, canonical_id
@@ -308,8 +309,9 @@ class CharacterGroupService:
             epoch = current['legacy_execution']['context_epoch'] if legacy else current['context_epoch']
             if current['status'] != 'pending' or epoch != authoritative['context_epoch']:
                 return False
-            raw = await self.transport.generate(config, plan, report,
-                                                'stream' if mode == 'stream' else 'non_stream', preview)
+            with generation_scope(('character', sid, attempt['request_id']), attempt['request_id']):
+                raw = await self.transport.generate(config, plan, report,
+                                                    'stream' if mode == 'stream' else 'non_stream', preview)
             if legacy_started:
                 self._publish(sid, 'preview_end', attempt, ordinal=0)
             self._publish(sid, 'validating', attempt)

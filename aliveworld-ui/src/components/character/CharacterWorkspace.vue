@@ -1,5 +1,6 @@
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
+import GenerationRetryStatus from '../common/GenerationRetryStatus.vue';
 import { characterChatStore as store } from '../../store/characterChatStore.js';
 import { assetStore } from '../../store/assetStore';
 import { uiStore } from '../../store/uiStore';
@@ -96,16 +97,15 @@ onUnmounted(() => { mounted = false; document.removeEventListener('visibilitycha
 
 <template>
   <section data-testid="character-workspace" class="flex flex-1 min-h-0 overflow-hidden bg-slate-950 relative">
-    <aside :class="listOpen ? 'flex absolute inset-y-0 left-0 z-20 w-72 shadow-xl' : 'hidden md:flex w-72'" class="shrink-0 flex-col bg-slate-900 border-r border-slate-700 p-3 gap-3">
-      <div class="flex justify-between items-center"><h1 class="font-bold">角色对话</h1><button class="md:hidden" @click="listOpen=false" aria-label="关闭会话列表">✕</button></div>
-      <button data-testid="character-new" class="rounded-lg bg-indigo-700 p-2 hover:bg-indigo-600" @click="creating=true; listOpen=false">＋ 新对话</button>
+    <aside :class="listOpen ? 'flex absolute inset-y-0 left-0 z-20 w-72 shadow-xl' : 'hidden md:flex w-72'" class="shrink-0 flex-col bg-slate-900 border-r border-slate-800 p-3 gap-2">
+      <div class="flex justify-between items-center h-10"><h1 class="font-semibold text-sm text-slate-200">聊天</h1><div class="flex items-center gap-2"><button data-testid="character-new" class="rounded-md bg-slate-800 px-2 py-1 text-sm hover:bg-slate-700" title="选择角色卡，建立新对话" @click="creating=true; listOpen=false">＋ 新对话</button><button class="md:hidden" @click="listOpen=false" aria-label="关闭会话列表">✕</button></div></div>
       <p v-if="store.error" class="text-xs text-rose-300">{{ store.error }}</p>
       <CharacterConversationList :store="store" @open="open" />
       <button class="text-xs text-slate-400" @click="store.refreshList()">刷新列表</button>
     </aside>
 
     <main class="flex flex-1 flex-col min-w-0 min-h-0">
-      <div class="flex items-center gap-3 p-3 border-b border-slate-800 shrink-0">
+      <div class="flex items-center gap-3 px-5 py-4 border-b border-slate-800 shrink-0 bg-slate-900/40">
         <button ref="listToggle" class="md:hidden text-slate-300" @click="listOpen=!listOpen" aria-label="会话列表">☷</button>
         <h2 class="font-bold flex-1 truncate">{{ creating ? '建立新对话' : session?.title || '独立角色对话' }}</h2>
         <button class="md:hidden text-sm" @click="creating=true">＋ 新对话</button>
@@ -135,7 +135,7 @@ onUnmounted(() => { mounted = false; document.removeEventListener('visibilitycha
       <template v-else-if="session">
         <CharacterMemoryNotice :notice="ctx.memoryNotice" @close="store.closeMemoryNotice(session.session_id)" />
         <div v-if="capacityAlert" data-testid="character-capacity-warning" role="status" class="text-xs text-amber-200 px-4 py-2">{{ capacityAlert }} <button class="underline" @click="showCapacity">查看容量</button></div>
-        <div ref="messagePane" data-testid="character-history" class="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-4 md:p-6 space-y-5">
+        <div ref="messagePane" data-testid="character-history" class="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-4 md:px-8 md:py-6 space-y-5 bg-slate-900/30">
           <button v-if="hasHistory && !ctx.historyComplete" class="text-xs text-slate-400 block mx-auto" :disabled="ctx.historyLoading" @click="store.loadEarlier(store.activeId)">{{ ctx.historyLoading?'载入中…':'载入更早的对话' }}</button>
           <CharacterOpeningMessage v-if="session.opening" :opening="session.opening" :name="participant('ai')?.display_name" />
           <div v-if="!hasHistory && !session.opening" class="text-slate-500 text-center py-10">和 {{ participant('ai')?.display_name || '角色' }} 说点什么吧。</div>
@@ -147,7 +147,7 @@ onUnmounted(() => { mounted = false; document.removeEventListener('visibilitycha
             <p class="whitespace-pre-wrap break-words select-text">{{ ctx.preview }}</p>
           </div>
         </div>
-        <div class="shrink-0 border-t border-slate-800 p-3 space-y-2">
+        <div class="shrink-0 border-t border-slate-700/60 px-4 py-3 md:px-6 space-y-2 bg-slate-900/50">
           <p v-if="ctx.contextNotice" data-testid="character-context-notice" class="text-xs text-amber-300">{{ ctx.contextNotice }}</p>
           <div v-if="ctx.error" data-testid="character-error" class="text-sm text-rose-300 flex flex-wrap items-center gap-2"><span>{{ ctx.error }}</span><button v-if="ctx.failure?.retryable && ctx.failure.operation!=='proactive' && !ctx.busy" data-testid="character-retry" class="underline" @click="run(ctx.failure.operation,true)">重试原台词及场外提示</button><button v-if="ctx.busy && ctx.inflight?.status==='unknown'" class="underline" @click="store.recover(store.activeId,ctx.inflight)">核对状态</button></div>
           <button v-if="ctx.needsReload" class="text-xs underline text-amber-300" @click="store.open(store.activeId)">重新载入记录</button>
@@ -155,19 +155,20 @@ onUnmounted(() => { mounted = false; document.removeEventListener('visibilitycha
           <button v-if="grouped && ctx.commandPending && ctx.groupCommand" class="text-xs underline text-amber-300" @click="store.recover(store.activeId)">核对发送结果（不会重发）</button>
           <div v-if="hasHistory" class="flex justify-end gap-3 text-xs text-slate-500"><button v-if="!grouped || session.groups.at(-1)?.origin!=='proactive'" data-testid="character-regenerate" :disabled="batchDisabled" @click="regenerate">{{ grouped ? '重新生成最后一批' : '重新生成末轮' }}</button><button data-testid="character-undo" :disabled="batchDisabled" @click="undo">{{ grouped ? '撤回最后一批' : '撤回末轮' }}</button></div>
           <button v-if="ctx.failure?.operation==='send' && !ctx.busy" data-testid="character-edit-failed" type="button" class="text-xs text-slate-400 hover:text-cyan-300" @click="store.editFailed(store.activeId)" title="将未获回复的整批台词退回输入框，保留场外提示；不会修改已完成对话">✎ 修改未完成消息</button>
+          <GenerationRetryStatus kind="character" :identity="store.activeId" :request-id="ctx.busy ? (grouped ? session.busy_group?.request_id : ctx.inflight?.request_id) : ''" />
           <form class="space-y-2" @submit.prevent="run('send')">
             <CharacterOocComposer v-model="ctx.oocDraft" v-model:open="ctx.oocOpen" @activity="store.contactActivity(store.activeId)" />
             <p v-if="ctx.oocDraft.trim() && !ctx.draft.trim()" class="text-xs text-slate-400">请同时输入角色台词；暂不支持仅发送场外提示。</p>
             <p v-if="oocError(ctx.oocDraft)" class="text-xs text-rose-300">{{ oocError(ctx.oocDraft) }}</p>
-            <textarea v-model="ctx.draft" data-testid="character-composer" rows="3" maxlength="4000" class="field !mt-0 resize-none" :placeholder="ctx.sendKey==='ctrl_enter'?'输入消息；Enter 换行，Ctrl+Enter 发送':'输入消息；Enter 发送，Shift+Enter 换行'" @input="store.contactActivity(store.activeId)" @compositionstart="composing=true" @compositionend="composing=false" @keydown="keydown"></textarea>
-            <div class="flex justify-end items-center gap-3"><span class="text-[11px] text-slate-500">{{ ctx.sendKey==='ctrl_enter'?'Ctrl+Enter 发送':'Enter 发送 · Shift+Enter 换行' }}</span><button v-if="ctx.busy && (!grouped || session.busy_group?.status==='generating')" data-testid="character-stop" type="button" class="rounded-lg bg-amber-900 px-5 py-2 disabled:opacity-40" :disabled="grouped ? !session.busy_group?.request_id : !ctx.inflight?.request_id" @click="store.stop(store.activeId)">停止</button><button v-if="grouped || !ctx.busy" data-testid="character-send" class="rounded-lg bg-indigo-700 px-5 py-2 disabled:opacity-40" :disabled="!ctx.draft.trim() || Boolean(oocError(ctx.oocDraft)) || ctx.needsReload || ctx.settingsBusy || ctx.commandPending">{{ ctx.commandPending ? '保存中…' : '发送' }}</button></div>
+            <textarea v-model="ctx.draft" data-testid="character-composer" aria-label="聊天消息" rows="3" maxlength="4000" class="chat-composer" placeholder="输入消息…" @input="store.contactActivity(store.activeId)" @compositionstart="composing=true" @compositionend="composing=false" @keydown="keydown"></textarea>
+            <div class="flex justify-end items-center gap-3"><span class="text-[11px] text-slate-500">{{ ctx.sendKey==='ctrl_enter'?'Ctrl+Enter 发送':'Enter 发送 · Shift+Enter 换行' }}</span><button v-if="ctx.busy && (!grouped || session.busy_group?.status==='generating')" data-testid="character-stop" type="button" title="停止当前生成；未完成回复不会保存" class="rounded-lg bg-slate-700 px-4 py-2 text-sm disabled:opacity-40" :disabled="grouped ? !session.busy_group?.request_id : !ctx.inflight?.request_id" @click="store.stop(store.activeId)">■ 停止</button><button v-if="!ctx.busy || (grouped && ctx.draft.trim())" data-testid="character-send" class="rounded-lg bg-indigo-600 hover:bg-indigo-500 px-5 py-2 text-sm disabled:opacity-40" :disabled="!ctx.draft.trim() || Boolean(oocError(ctx.oocDraft)) || ctx.needsReload || ctx.settingsBusy || ctx.commandPending">{{ ctx.commandPending ? '保存中…' : '发送' }}</button></div>
           </form>
         </div>
       </template>
       <div v-else class="flex-1 flex flex-col items-center justify-center gap-4 text-slate-400"><p>独立的一对一角色对话，保存后可随时继续。</p><button class="bg-indigo-700 rounded-lg px-5 py-2 text-white" @click="creating=true">新对话</button></div>
     </main>
 
-    <aside v-if="details && session && !creating" class="absolute md:static md:shrink-0 right-0 inset-y-0 w-72 z-10 bg-slate-900 border-l border-slate-700 p-4 overflow-y-auto shadow-xl">
+    <aside v-if="details && session && !creating" class="absolute xl:static xl:shrink-0 right-0 inset-y-0 w-72 z-10 bg-slate-900 border-l border-slate-700 p-4 overflow-y-auto shadow-xl">
       <div class="flex justify-between"><h3 class="font-bold">当前对话</h3><button @click="details=false" aria-label="关闭资料">✕</button></div>
       <h4 class="mt-5 text-sm font-bold text-indigo-200">资料</h4>
       <details v-if="session.opening" class="mt-4 text-sm"><summary>本会话预设开场</summary><p class="mt-2 whitespace-pre-wrap break-words select-text text-slate-400">{{ session.opening.content }}</p><p class="mt-2 text-xs text-slate-500">创建后冻结，不是正式回合或玩家行动证据。</p></details>
@@ -197,5 +198,7 @@ onUnmounted(() => { mounted = false; document.removeEventListener('visibilitycha
 
 <style scoped>
 .field { display:block; width:100%; margin-top:0.5rem; padding:0.6rem; background:#020617; border:1px solid #334155; border-radius:0.5rem; color:#e2e8f0; }
+.chat-composer { display:block; width:100%; min-height:88px; max-height:25vh; resize:vertical; padding:8px 0; background:transparent; color:#e2e8f0; border:0; outline:none; line-height:1.6; }
+.chat-composer:focus-visible { box-shadow:0 1px 0 #6366f1; }
 button:disabled { opacity:.4; cursor:not-allowed; }
 </style>

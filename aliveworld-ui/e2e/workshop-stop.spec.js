@@ -7,7 +7,8 @@ test('工坊停止后恢复原输入且不写入会话', async ({ page, request 
   } });
   expect(created.ok()).toBeTruthy();
   await page.goto('/');
-  await page.getByRole('button', { name: '稍后再说' }).click();
+  const later = page.getByRole('button', { name: '稍后再说' });
+  if (await later.waitFor({state:'visible',timeout:3000}).then(()=>true,()=>false)) await later.click();
   await page.getByRole('button', { name: '🧰 工坊' }).click();
   await page.getByRole('button', { name: /文风卡/ }).last().click();
   await page.locator(`[data-workshop-asset-name="${name}"]`).click();

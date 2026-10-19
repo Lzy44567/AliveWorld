@@ -420,8 +420,10 @@ class CharacterChatService:
             authoritative = self.repository.load(sid)
             if action_view(authoritative, action_by_id(authoritative, aid), rid)['status'] != 'pending':
                 raise asyncio.CancelledError()
-            raw = await self.transport.generate(job['config'], job['plan'], job['report'], job['delivery'],
-                                                lambda body: event('reply_delta', {'text': body}))
+            from core.generation_control import generation_scope
+            with generation_scope(('character', sid, rid), rid):
+                raw = await self.transport.generate(job['config'], job['plan'], job['report'], job['delivery'],
+                                                    lambda body: event('reply_delta', {'text': body}))
             event('validating', {})
             def commit(value):
                 action = action_by_id(value, aid)

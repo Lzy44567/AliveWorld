@@ -1,5 +1,12 @@
 # AliveWorld 测试流程
 
+## 39-B/C集成回归（2026-10-19）
+
+- Python全量：928通过，65.746秒，build/request39-python.txt。首轮发现旧角色取消后任务收尾阻挡新重试，改为按请求观察后完整重跑通过。
+- 前端单元：146通过，721ms，build/request39-frontend.txt；修复Node ESM新增API导入缺少扩展名。
+- 8项浏览器合跑7通过；末项工坊因前项配置完成后无新手弹窗而超时，修正测试前置后独立1通过（7.6秒）。前7项含角色5场景、503重试取消/成功、故事停止重载；不是宣称整套浏览器全绿。
+- 已查看character-c4-wide.png及character-c4-narrow.png：175模块构建通过，宽屏紧凑列表和无重复边框输入区、窄屏头像气泡无横向溢出。整体产品视觉满意度仍由玩家评价。
+
 ## 39-B请求策略接线（2026-10-19）
 
 - `python -m unittest tests.test_provider_retry tests.test_ai_engine tests.test_model_connections tests.test_character_chat_transport -q`：28通过，1.197秒；默认关闭、次数上限、Retry-After、余额/认证/读取失败不重试、同步/异步等待取消。

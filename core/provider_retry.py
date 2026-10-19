@@ -6,7 +6,7 @@ from email.utils import parsedate_to_datetime
 
 import httpx
 from openai import APIConnectionError, APIStatusError
-from core.generation_control import check_generation
+from core.generation_control import check_generation, clear_retry, report_retry
 
 
 def retry_delay(error, ordinal):
@@ -43,7 +43,8 @@ def wait_retry(seconds):
         time.sleep(min(0.1, remaining))
 
 
-def request_with_retry(call, retries=0, *, notify=lambda *_: None, wait=wait_retry):
+def request_with_retry(call, retries=0, *, notify=report_retry, wait=wait_retry):
+    clear_retry()
     for attempt in range(retries + 1):
         check_generation()
         try:
@@ -56,7 +57,8 @@ def request_with_retry(call, retries=0, *, notify=lambda *_: None, wait=wait_ret
             wait(delay)
 
 
-async def request_with_retry_async(call, retries=0, *, notify=lambda *_: None, wait=asyncio.sleep):
+async def request_with_retry_async(call, retries=0, *, notify=report_retry, wait=asyncio.sleep):
+    clear_retry()
     for attempt in range(retries + 1):
         try:
             return await call()

@@ -4,3 +4,9 @@ export async function stopGeneration(kind, identity, requestId) {
   if (!response.ok) throw new Error(data.detail || '停止请求失败');
   return data;
 }
+
+export async function generationStatus(kind, identity, requestId) {
+  const response = await fetch(`/api/v1/generations/${kind}/${encodeURIComponent(identity)}/${encodeURIComponent(requestId)}`);
+  if (!response.ok) throw new Error('暂时无法查询请求状态');
+  return response.json();
+}

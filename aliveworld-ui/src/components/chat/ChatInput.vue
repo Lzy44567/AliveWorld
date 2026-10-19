@@ -1,6 +1,7 @@
 <!-- src/components/chat/ChatInput.vue -->
 <script setup>
 import { watch } from 'vue';
+import GenerationRetryStatus from '../common/GenerationRetryStatus.vue';
 import { gameStore } from '../../store/gameStore';
 import { configStore, effectiveStorySettings } from '../../store/configStore';
 import { gameApi } from '../../api/gameApi';
@@ -135,6 +136,7 @@ const editFailed = () => {
 <template>
   <div class="w-full p-4 md:p-6 bg-aw_bg border-t border-slate-700 z-20 shrink-0 shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
     <div class="max-w-4xl mx-auto flex flex-col gap-2">
+      <GenerationRetryStatus kind="story" :identity="gameStore.sessionId" :request-id="gameStore.currentContext.generationId" />
       <div v-if="gameStore.currentContext.failedAction" class="text-xs text-slate-400 rounded-lg border border-slate-700 p-2">
         <span class="whitespace-pre-wrap">{{ gameStore.currentContext.failedAction }}</span>
         <button @click="editFailed" aria-label="编辑未完成行动" class="ml-2 text-cyan-300" title="未完成，未写入故事；编辑原请求">✎</button>

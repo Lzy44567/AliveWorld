@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, watch } from 'vue';
+import GenerationRetryStatus from '../common/GenerationRetryStatus.vue';
 import { workshopStore } from '../../store/workshopStore';
 import CopyTextButton from '../common/CopyTextButton.vue';
 import WorkshopReviewList from './WorkshopReviewList.vue';
@@ -49,6 +50,7 @@ const historyTime = value => {
           </details>
         </section>
         <div v-if="workshopStore.published" class="rounded-xl border border-emerald-800/60 bg-emerald-950/25 p-3 text-xs text-emerald-200">这一轮已经发布，聊天与修改记录会继续保存在本机。需要继续讨论时，请开启新一轮草稿。</div>
+        <GenerationRetryStatus kind="workshop" :identity="workshopStore.workshopId" :request-id="workshopStore.context.generationId" />
         <p v-if="workshopStore.activity==='loading'" class="text-sm text-slate-500">正在载入或恢复工坊草稿……</p>
         <div v-for="(message,index) in workshopStore.messages" :key="index" class="group relative w-fit max-w-[84%] whitespace-pre-wrap rounded-xl p-3 pr-14 text-sm leading-relaxed select-text cursor-text" :class="message.role==='user'?'ml-auto bg-cyan-700 text-white':'bg-slate-800 text-slate-200'">{{ message.content }}<span v-if="message.failed" class="ml-2 text-xs text-rose-200">发送失败</span><CopyTextButton :text="message.content" class="absolute right-2 top-2 opacity-70 group-hover:opacity-100" /></div>
         <div v-if="workshopStore.context.pendingMessage" class="ml-auto w-fit max-w-[84%] whitespace-pre-wrap rounded-xl bg-cyan-700/70 p-3 text-sm text-white">{{ workshopStore.context.pendingMessage }}<span class="block text-[10px] opacity-60">待完成 / 未保存</span></div>
