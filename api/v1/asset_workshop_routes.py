@@ -20,6 +20,7 @@ from core.session_manager import active_sessions
 from utils.asset_catalog import resolve_asset_path
 from api.v1.route_guards import guarded_workshop
 from api.v1.streaming import workshop_chat_transaction, workshop_stream_response
+from api.v1.generation_routes import GenerationPayload, controlled_generation
 from api.v1.workshop_review_models import ReviewPayload, CreativeBriefPayload
 
 
@@ -32,7 +33,7 @@ class StartPayload(BaseModel):
     session_id: str = ""
 
 
-class ChatPayload(BaseModel):
+class ChatPayload(GenerationPayload):
     message: str
     mode: str = "refine"
     commit_changes: bool = False
@@ -123,6 +124,7 @@ def chat_workshop_stream(workshop_id: str, payload: ChatPayload):
     return workshop_stream_response(workshop_id, lambda emit: _chat_workshop(workshop_id, payload, on_text_delta=emit))
 
 
+@controlled_generation('workshop')
 def _chat_workshop(workshop_id, payload, *, on_text_delta=None):
     workshop = _get(workshop_id)
     if workshop.published:

@@ -17,15 +17,15 @@ const json = body => ({
 export const assetWorkshopApi = {
   saveBrief(id, text) { return request(`${BASE_URL}/${id}/creative-brief`, { ...json({ creative_brief: text }), method: 'PUT' }); },
   review(id, source, operationIds, accept) { return request(`${BASE_URL}/${id}/review`, json({ source, operation_ids: operationIds, accept })); },
-  chatStream(id, message, mode, commitChanges, onDelta) { return postEventStream(`${BASE_URL}/${id}/chat/stream`, { message, mode, commit_changes: commitChanges }, onDelta); },
+  chatStream(id, message, mode, commitChanges, onDelta, generationId) { return postEventStream(`${BASE_URL}/${id}/chat/stream`, { message, mode, commit_changes: commitChanges, generation_id: generationId }, onDelta); },
   start(assetType, assetName, sessionId = '') {
     return request(`${BASE_URL}/start`, json({
       asset_type: assetType, asset_name: assetName, session_id: sessionId
     }));
   },
-  chat(id, message, mode, commitChanges = false) {
+  chat(id, message, mode, commitChanges = false, generationId) {
     return request(`${BASE_URL}/${id}/chat`, json({
-      message, mode, commit_changes: commitChanges
+      message, mode, commit_changes: commitChanges, generation_id: generationId
     }));
   },
   operations(id, operations) {

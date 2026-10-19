@@ -17,10 +17,10 @@ const json = body => ({
 export const preferenceWorkshopApi = {
   saveBrief(id, text) { return request(`${BASE_URL}/${id}/creative-brief`, { ...json({ creative_brief: text }), method: 'PUT' }); },
   review(id, source, operationIds, accept) { return request(`${BASE_URL}/${id}/review`, json({ source, operation_ids: operationIds, accept })); },
-  chatStream(id, message, mode, commitChanges, onDelta) { return postEventStream(`${BASE_URL}/${id}/chat/stream`, { message, mode, commit_changes: commitChanges }, onDelta); },
+  chatStream(id, message, mode, commitChanges, onDelta, generationId) { return postEventStream(`${BASE_URL}/${id}/chat/stream`, { message, mode, commit_changes: commitChanges, generation_id: generationId }, onDelta); },
   start(sessionId = '') { return request(`${BASE_URL}/start`, json({ session_id: sessionId })); },
-  chat(id, message, mode, commitChanges = false) {
-    return request(`${BASE_URL}/${id}/chat`, json({ message, mode, commit_changes: commitChanges }));
+  chat(id, message, mode, commitChanges = false, generationId) {
+    return request(`${BASE_URL}/${id}/chat`, json({ message, mode, commit_changes: commitChanges, generation_id: generationId }));
   },
   operations(id, operations, confirmHighRisk = true) {
     return request(`${BASE_URL}/${id}/operations`, json({ operations, confirm_high_risk: confirmHighRisk }));

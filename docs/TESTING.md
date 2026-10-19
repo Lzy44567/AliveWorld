@@ -1,5 +1,11 @@
 # AliveWorld 测试流程
 
+## 39-A实际接线（2026-10-19，阶段中）
+
+- `.venv/Scripts/python.exe -m unittest tests.test_generation_routes tests.test_generation_control tests.test_streaming -q`：32通过，3.459秒。HTTP同步/流式停止、旧请求隔离、取消不落盘及故事checkpoint回退。
+- `npx playwright test e2e/workshop-stop.spec.js`：1通过，8.0秒；停止恢复、已有新草稿不覆盖、编辑找回原请求、修改重发。假模型专用慢流标记避免预览过短产生时序误报，不改变生产延迟。
+- `npm run build`：174模块通过，既有chunk体积警告。故事按钮仅构建验证，尚未以工坊通过替代故事/角色验收。
+
 ## 39-A第一片（2026-10-18，非完整玩家功能）
 
 - `.venv/Scripts/python.exe -m unittest tests.test_generation_control tests.test_streaming -q`：30通过，3.621秒；build/generation-control-first.txt。

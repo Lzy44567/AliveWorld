@@ -45,6 +45,7 @@ const submitAction = async (text = null) => {
   try {
     const res = await (gameStore.streamingEnabled ? gameApi.processActionStream : gameApi.processAction)(sessionId, {
       action: finalAction,
+      generation_id: context.generationId,
       plot_compass: plotCompass
     }, text => { context.preview += text; });
     
@@ -56,6 +57,7 @@ const submitAction = async (text = null) => {
     });
   } catch (err) {
     context.draftInput = context.draftInput || finalAction;
+    context.failedAction = finalAction;
     gameStore.failTask(sessionId, err);
   } finally {
     context.pendingAction = '';
@@ -92,6 +94,7 @@ const retryTurn = async () => {
   try {
     const res = await (gameStore.streamingEnabled ? gameApi.retryTurnStream : gameApi.retryTurn)(sessionId, {
       action: lastAction,
+      generation_id: context.generationId,
       plot_compass: configStore.story.plotCompass
     }, text => { context.preview += text; });
     gameStore.finishTask(sessionId, context => {
@@ -102,6 +105,8 @@ const retryTurn = async () => {
   } catch (err) {
     gameStore.failTask(sessionId, err);
     uiStore.showToast(err.message || '重试失败', 'error');
+    context.failedAction = lastAction;
+    context.draftInput = context.draftInput || lastAction;
   } finally {
     if (gameStore.sessionId === sessionId) assetStore.fetchLocalAssets(sessionId);
   }
@@ -112,11 +117,28 @@ const insertPreference = () => {
     ? `${gameStore.draftInput.trim()} [[偏好：]]`
     : '/偏好 ';
 };
+
+const stopAction = async () => {
+  try { await gameStore.stopTask(); }
+  catch (error) { uiStore.showToast(error.message, 'error'); }
+};
+const editFailed = () => {
+  const context = gameStore.currentContext;
+  if (context.draftInput && context.draftInput !== context.failedAction) {
+    uiStore.showToast('输入框中有新草稿，请先保留或清空后再编辑原请求');
+    return;
+  }
+  context.draftInput = context.failedAction;
+};
 </script>
 
 <template>
   <div class="w-full p-4 md:p-6 bg-aw_bg border-t border-slate-700 z-20 shrink-0 shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
     <div class="max-w-4xl mx-auto flex flex-col gap-2">
+      <div v-if="gameStore.currentContext.failedAction" class="text-xs text-slate-400 rounded-lg border border-slate-700 p-2">
+        <span class="whitespace-pre-wrap">{{ gameStore.currentContext.failedAction }}</span>
+        <button @click="editFailed" aria-label="编辑未完成行动" class="ml-2 text-cyan-300" title="未完成，未写入故事；编辑原请求">✎</button>
+      </div>
       <label class="self-end text-[10px] text-slate-500"><input data-testid="story-stream-toggle" v-model="gameStore.streamingEnabled" type="checkbox" :disabled="gameStore.isProcessing" /> 流式输出</label>
       
       <div class="grid grid-cols-1 gap-2 px-1 mb-1 md:grid-cols-2" v-if="effectiveStorySettings.aiSuggestions && !gameStore.isProcessing && gameStore.sessionId && gameStore.aiSuggestions.length > 0">
@@ -135,7 +157,8 @@ const insertPreference = () => {
            <button data-testid="story-retry" @click="retryTurn" :disabled="gameStore.isProcessing" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded text-[10px] border border-slate-700 transition disabled:opacity-50" title="重试">🔄</button>
         </div>
         
-        <button data-testid="story-action-submit" @click="submitAction()" :disabled="gameStore.isProcessing || !gameStore.sessionId" class="px-8 py-4 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-bold disabled:opacity-50 transition shadow-lg text-lg">发送</button>
+        <button v-if="gameStore.isProcessing && gameStore.currentContext.generationId" data-testid="story-stop" @click="stopAction" :disabled="gameStore.currentContext.stopping" aria-label="停止生成" class="px-5 py-4 bg-slate-700 hover:bg-slate-600 rounded-xl disabled:opacity-50">{{ gameStore.currentContext.stopping ? '正在停止' : '■ 停止' }}</button>
+        <button v-else data-testid="story-action-submit" @click="submitAction()" :disabled="gameStore.isProcessing || !gameStore.sessionId" class="px-8 py-4 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-bold disabled:opacity-50 transition shadow-lg text-lg">发送</button>
       </div>
     </div>
   </div>

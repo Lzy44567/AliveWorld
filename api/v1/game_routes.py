@@ -21,6 +21,8 @@ from utils.file_io import init_save_folder, get_all_saves, save_game_data
 from utils.runtime_paths import PATHS
 from utils.sys_logger import get_logger
 from api.v1.streaming import stream_response
+from api.v1.generation_routes import GenerationPayload, controlled_generation
+from core.generation_control import generation_commit
 
 router = APIRouter()
 log = get_logger()
@@ -75,11 +77,11 @@ class StartRequest(BaseModel):
     world_premise: Optional[str] = None
     story_settings: Dict[str, Any] = Field(default_factory=dict)
 
-class ActionRequest(BaseModel):
+class ActionRequest(GenerationPayload):
     action: str
     plot_compass: Optional[str] = None
 
-class EntityRuntimeRequest(BaseModel):
+class EntityRuntimeRequest(GenerationPayload):
     entities_enabled: Optional[bool] = None
 
 class StoryConfigPayload(BaseModel):
@@ -250,7 +252,8 @@ def _persisted_story_mutation(game, operation):
     checkpoint = game.capture_transaction_state()
     try:
         result = operation()
-        save_game_data(game.save_dir_path, game.export_save_data())
+        with generation_commit():
+            save_game_data(game.save_dir_path, game.export_save_data())
     except Exception:
         try:
             game.restore_transaction_state(checkpoint)
@@ -276,6 +279,7 @@ def process_turn_stream(session_id: str, payload: ActionRequest):
     return stream_response(lambda emit: _process_turn(session_id, payload, on_text_delta=emit), identity=session_id)
 
 
+@controlled_generation('story')
 def _process_turn(session_id, payload, *, on_text_delta=None):
     game = active_sessions.get(session_id)
     if not game: raise HTTPException(status_code=404, detail="会话失效")
@@ -328,6 +332,7 @@ def retry_turn_stream(session_id: str, payload: ActionRequest):
     return stream_response(lambda emit: _retry_turn(session_id, payload, on_text_delta=emit), identity=session_id)
 
 
+@controlled_generation('story')
 def _retry_turn(session_id, payload, *, on_text_delta=None):
     game = active_sessions.get(session_id)
     if not game: raise HTTPException(status_code=404, detail="会话失效")
@@ -357,6 +362,7 @@ def reroll_turn_stream(session_id: str, payload: EntityRuntimeRequest):
     return stream_response(lambda emit: _reroll_turn(session_id, payload, on_text_delta=emit), identity=session_id)
 
 
+@controlled_generation('story')
 def _reroll_turn(session_id, payload, *, on_text_delta=None):
     game = active_sessions.get(session_id)
     if not game: raise HTTPException(status_code=404, detail="会话失效")

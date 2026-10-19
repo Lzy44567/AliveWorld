@@ -14,6 +14,7 @@ import time
 from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
 from core.session_manager import MutationBusyError, mutation_guard
+from core.generation_control import generation_commit
 
 
 def workshop_stream_response(workshop_id, operation):
@@ -30,9 +31,10 @@ def workshop_chat_transaction(workshop, directory, operation):
     """Apply on an isolated copy; expose it only after the atomic session save."""
     candidate = copy.deepcopy(workshop)
     result = operation(candidate)
-    candidate.save_session(directory)
-    workshop.__dict__.clear()
-    workshop.__dict__.update(candidate.__dict__)
+    with generation_commit():
+        candidate.save_session(directory)
+        workshop.__dict__.clear()
+        workshop.__dict__.update(candidate.__dict__)
     return result
 
 

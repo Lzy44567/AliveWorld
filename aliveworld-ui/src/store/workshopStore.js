@@ -1,4 +1,5 @@
 import { reactive } from 'vue';
+import { stopGeneration } from '../api/generationApi';
 import { assetWorkshopApi } from '../api/assetWorkshopApi';
 import { preferenceWorkshopApi } from '../api/preferenceWorkshopApi';
 import { worldbookWorkshopApi } from '../api/worldbookWorkshopApi';
@@ -173,6 +174,9 @@ export const workshopStore = reactive({
     if (!message || context.busy || !context.workshopId) return;
     context.input = '';
     context.pendingMessage = message;
+    context.failedMessage = '';
+    context.generationId = crypto.randomUUID();
+    context.stopping = false;
     context.preview = '';
     context.busy = true; context.activity = 'chat'; this.markTask(context, 'running', 'chat');
     const type = this.type, mode = context.mode, commitChanges = context.commitChanges, workshopId = context.workshopId;
@@ -180,13 +184,36 @@ export const workshopStore = reactive({
       let data;
       const api = type === 'worldbooks' ? worldbookWorkshopApi : type === 'preferences' ? preferenceWorkshopApi : assetWorkshopApi;
       data = this.streamingEnabled
-        ? await api.chatStream(workshopId, message, mode, commitChanges, text => { context.preview += text; })
-        : await api.chat(workshopId, message, mode, commitChanges);
+        ? await api.chatStream(workshopId, message, mode, commitChanges, text => { context.preview += text; }, context.generationId)
+        : await api.chat(workshopId, message, mode, commitChanges, context.generationId);
       this.syncInto(context, data); this.markTask(context, 'completed');
     } catch (error) {
       context.input = context.input || message;
+      context.failedMessage = message;
       this.markTask(context, 'failed', 'chat', error.message); uiStore.showToast(error.message, 'error');
-    } finally { context.preview = ''; context.pendingMessage = ''; context.busy = false; context.activity = ''; }
+    } finally { context.preview = ''; context.pendingMessage = ''; context.busy = false; context.activity = ''; context.generationId = ''; context.stopping = false; }
+  },
+
+  async stop() {
+    const context = this.context;
+    if (!context.generationId || context.stopping) return;
+    context.stopping = true;
+    try {
+      const result = await stopGeneration('workshop', context.workshopId, context.generationId);
+      if (result.status !== 'cancelling') {
+        context.stopping = false;
+        uiStore.showToast(result.status === 'committing' ? '结果已开始保存，不能再停止' : '任务尚未确认或已经结束，请稍后核对');
+      }
+    } catch (error) { context.stopping = false; uiStore.showToast(error.message, 'error'); }
+  },
+
+  editFailedMessage() {
+    const context = this.context;
+    if (context.input && context.input !== context.failedMessage) {
+      uiStore.showToast('输入框中已有新草稿，请先保存或清空，再编辑这条请求');
+      return;
+    }
+    context.input = context.failedMessage || '';
   },
 
   async applyOperations(operations, confirmHighRisk = false) {

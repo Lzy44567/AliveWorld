@@ -332,8 +332,8 @@ def chat(payload: ChatRequest):
                     "choices": [{"index": 0, "delta": {"content": piece}, "finish_reason": None}],
                 }
                 yield "data: " + json.dumps(chunk, ensure_ascii=False) + "\n\n"
-                time.sleep((0.1 if "【角色慢流】" in user else 0.075)
-                           if kind == "character.reply" else 0.025)
+                delay = (0.1 if "【角色慢流】" in user else 0.075) if kind == "character.reply" else 0.025
+                time.sleep(0.15 if "【停止验收慢流】" in user else delay)
             if kind == "character.reply":
                 # Hold upstream terminal completion briefly after all visible
                 # text. Browser polling can then reliably observe unsaved

@@ -1,10 +1,12 @@
 import { reactive } from 'vue';
+import { stopGeneration } from '../api/generationApi';
 
 function emptyContext(sessionId = null, saveName = null) {
   return {
     sessionId, saveName, isProcessing: false, chatLog: [],
     dynamicBars: {}, properties: {}, npcs: {}, buffs: {}, aiSuggestions: [],
     lastAction: '', draftInput: '', storyConfig: null, preview: '', pendingAction: '',
+    generationId: '', stopping: false, failedAction: '',
     task: { status: 'idle', kind: '', startedAt: '', finishedAt: '', error: '' },
   };
 }
@@ -88,7 +90,25 @@ export const gameStore = reactive({
     context.isProcessing = true;
     context.preview = '';
     context.task = { status: 'running', kind, startedAt: new Date().toISOString(), finishedAt: '', error: '' };
+    context.generationId = ['turn', 'retry', 'reroll'].includes(kind) ? crypto.randomUUID() : '';
+    context.stopping = false;
+    context.failedAction = '';
     return context;
+  },
+
+  async stopTask(sessionId = this.sessionId) {
+    const context = this.contextFor(sessionId);
+    if (!context?.generationId || context.stopping) return;
+    context.stopping = true;
+    try {
+      const result = await stopGeneration('story', sessionId, context.generationId);
+      if (result.status !== 'cancelling') {
+        throw new Error(result.status === 'committing' ? '结果正在保存，不能再停止' : '请求尚未确认运行或已经结束，请稍后核对');
+      }
+    } catch (error) {
+      context.stopping = false;
+      throw error;
+    }
   },
 
   finishTask(sessionId, update) {
@@ -98,6 +118,8 @@ export const gameStore = reactive({
     context.preview = '';
     context.isProcessing = false;
     context.task = { ...context.task, status: 'completed', finishedAt: new Date().toISOString(), error: '' };
+    context.generationId = '';
+    context.stopping = false;
   },
 
   failTask(sessionId, error) {
@@ -106,6 +128,8 @@ export const gameStore = reactive({
     context.preview = '';
     context.isProcessing = false;
     context.task = { ...context.task, status: 'failed', finishedAt: new Date().toISOString(), error: String(error?.message || error || '操作失败') };
+    context.generationId = '';
+    context.stopping = false;
   },
 
   normalizeSuggestions(items) {

@@ -15,7 +15,7 @@ export const worldbookWorkshopApi = {
   review(id, source, operationIds, accept) {
     return request(`${BASE_URL}/${id}/review`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source, operation_ids: operationIds, accept }) });
   },
-  chatStream(id, message, mode, commitChanges, onDelta) { return postEventStream(`${BASE_URL}/${id}/chat/stream`, { message, mode, commit_changes: commitChanges }, onDelta); },
+  chatStream(id, message, mode, commitChanges, onDelta, generationId) { return postEventStream(`${BASE_URL}/${id}/chat/stream`, { message, mode, commit_changes: commitChanges, generation_id: generationId }, onDelta); },
   embeddingStatus() { return request(`${BASE_URL}/embeddings/status`); },
   downloadEmbeddings() { return request(`${BASE_URL}/embeddings/download`, { method: 'POST' }); },
   pauseEmbeddings() { return request(`${BASE_URL}/embeddings/pause`, { method: 'POST' }); },
@@ -24,8 +24,8 @@ export const worldbookWorkshopApi = {
   start(worldbookName, sessionId = null) {
     return request(`${BASE_URL}/start`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ worldbook_name: worldbookName, session_id: sessionId }) });
   },
-  chat(id, message, mode, commitChanges = false) {
-    return request(`${BASE_URL}/${id}/chat`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message, mode, commit_changes: commitChanges }) });
+  chat(id, message, mode, commitChanges = false, generationId) {
+    return request(`${BASE_URL}/${id}/chat`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message, mode, commit_changes: commitChanges, generation_id: generationId }) });
   },
   operations(id, operations, confirmHighRisk = true) {
     return request(`${BASE_URL}/${id}/operations`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ operations, confirm_high_risk: confirmHighRisk }) });
