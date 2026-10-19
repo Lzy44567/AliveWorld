@@ -576,6 +576,7 @@ test('非法最终JSON清掉预览但保留历史草稿，重生成与撤回同�
 });
 
 test('停止未完成请求和显式重试失败请求均不留下半轮历史', async ({ page, request }) => {
+  await request.post(`/api/v1/lobby/assets/characters/${encodeURIComponent(cardName)}`, {data:{parsed_data:{name:cardName,description:'独立合成成年角色'},overwrite:true}});
   await enterCharacters(page);
   await createSession(page, '角色验收C');
   await request.delete(`${fakeBase}/__test__/requests`);
@@ -599,6 +600,12 @@ test('停止未完成请求和显式重试失败请求均不留下半轮历史',
   await expect(page.getByTestId('character-composer')).toHaveValue('【角色慢流】停止请求，不保存这轮输入');
   await page.waitForTimeout(800);
   expect((await savedSession(request, '角色验收C')).turns).toEqual(committed.turns);
+  await page.getByTestId('character-composer').fill('');
+  await page.getByTestId('character-edit-failed').click();
+  await expect(page.getByTestId('character-composer')).toHaveValue('【角色慢流】停止请求，不保存这轮输入');
+  await send(page, '修改后的旧格式台词');
+  await expect(page.getByTestId('character-preview')).toBeHidden();
+  expect((await savedSession(request, '角色验收C')).turns).toHaveLength(committed.turns.length + 1);
 });
 
 test('小屏顶部故事角色工坊三个入口均可见可达', async ({ page, request }) => {

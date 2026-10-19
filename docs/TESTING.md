@@ -1,5 +1,12 @@
 # AliveWorld 测试流程
 
+## dev.22本地交付门（2026-10-19）
+
+- 8项Edge统一重跑全部通过，57.9秒（character-groups、provider-retry、story-stop、workshop-stop）；旧格式character-mode停止/修改重发专项通过，17.7秒。旧专项补独立角色卡fixture，不再依赖其他用例先执行。
+- model_connections＋generation_control 17通过，0.420秒，含新增重试参数范围与请求状态隔离；前述928全量和146前端通过证据仍适用。
+- `tools/build_windows_portable.ps1 -SkipDependencyInstall` 成功，重新构建前端、主EXE与更新助手；内置test_windows_portable_package验证版本、结构、隐私及覆盖升级保留UserData通过。日志build/request39-package.txt。
+- ZIP：release/AliveWorld-1.6.0-dev.22-windows-x64.zip；SHA256 abb1d4c4dbbe77f959f23cfb2c8f06b69dfa4bec370286c847ea33cb9b667d93。无玩家数据或凭据，旧发布包保留；没有推送/发布远端。未额外宣称纯净Windows真实启动验收。
+
 ## 39-B/C集成回归（2026-10-19）
 
 - Python全量：928通过，65.746秒，build/request39-python.txt。首轮发现旧角色取消后任务收尾阻挡新重试，改为按请求观察后完整重跑通过。

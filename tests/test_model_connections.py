@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 
 from api.v1 import model_connection_routes
 from core.model_connections.discovery import ModelDiscoveryResult
-from core.model_connections.models import TaskRoute
+from core.model_connections.models import TaskRoute, ConnectionProfile, ResolvedConnection
 from core.model_connections.repository import (
     MAIN_PROFILE_ID,
     PREFERENCE_PROFILE_ID,
@@ -20,6 +20,17 @@ from main import create_app
 
 
 class ConnectionRepositoryTests(unittest.TestCase):
+    def test_retry_count_is_validated_and_resolved_independently_of_budget(self):
+        for count in (0, 1, 3):
+            profile = ConnectionProfile('test', '测试', 'text', 'openai_compatible',
+                                        advanced_options={'automatic_retries': count})
+            config = ResolvedConnection('workshop', profile).ai_config()
+            self.assertEqual(count, config['automatic_retries'])
+            self.assertEqual({}, config['budget_options'])
+        for count in (-1, 4, True, 1.5, '2'):
+            with self.assertRaises(ValueError):
+                ConnectionProfile('test', '测试', 'text', 'openai_compatible', advanced_options={'automatic_retries': count})
+
     def _repository(self, root: Path, text: str) -> ConnectionRepository:
         path = root / "config.yml"
         path.write_text(text, encoding="utf-8")

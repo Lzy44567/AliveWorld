@@ -39,6 +39,7 @@ const doReroll = async () => {
   if (!context) return;
   try {
     const res = await (gameStore.streamingEnabled ? gameApi.rerollTurnStream : gameApi.rerollTurn)(sessionId, {
+      generation_id: context.generationId,
       entities_enabled: effectiveStorySettings.value.entitiesEnabled
     }, text => { context.preview += text; });
     gameStore.finishTask(sessionId, context => {
