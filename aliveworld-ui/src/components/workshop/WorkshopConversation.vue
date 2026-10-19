@@ -7,6 +7,8 @@ import WorkshopReviewList from './WorkshopReviewList.vue';
 import WorkshopCreativeBrief from './WorkshopCreativeBrief.vue';
 import ExpandableTextarea from '../common/ExpandableTextarea.vue';
 import { useBottomAnchoredScroll } from '../../composables/useBottomAnchoredScroll';
+defineProps({ focused: Boolean });
+defineEmits(['toggle-focus']);
 
 const { container, positioned, updateFollowState, jumpToBottom, prepareAtBottom } = useBottomAnchoredScroll();
 onMounted(prepareAtBottom);
@@ -32,13 +34,14 @@ const historyTime = value => {
   <main class="flex min-w-0 flex-1 flex-col bg-slate-950/55">
     <template v-if="workshopStore.workshopId">
       <header class="border-b border-slate-800 bg-slate-950/75 px-5 py-3">
+        <button class="float-right ml-3 rounded px-2 py-1 text-xs text-slate-400 hover:bg-slate-800 hover:text-cyan-200" data-testid="workshop-focus-toggle" :aria-pressed="focused" :title="focused ? '退出专注阅读（Esc）' : '收起两侧栏与说明，展开对话区域'" @click="$emit('toggle-focus')">{{ focused ? '退出专注' : '专注阅读' }}</button>
         <div class="flex items-center justify-between gap-4">
           <div><div class="flex items-center gap-2"><h2 class="font-bold text-cyan-200">{{ workshopStore.typeInfo.icon }} {{ workshopStore.typeInfo.label }}工坊<span v-if="workshopStore.assetName"> · {{ workshopStore.assetName }}</span></h2><span v-if="workshopStore.dirty" class="text-[10px] text-amber-400">草稿已自动保存</span></div><p class="mt-1 text-[10px] text-slate-500">不推进故事时间；发布前不会改变正式资产</p></div>
           <div class="flex gap-2"><button v-if="workshopStore.published" data-testid="workshop-new-round" class="rounded bg-cyan-700 px-3 py-1.5 text-xs font-bold text-white" @click="workshopStore.startNewRound">开启新一轮</button><template v-else><button class="rounded bg-slate-800 px-3 py-1.5 text-xs text-slate-300" @click="workshopStore.undo">撤销</button><button data-testid="workshop-publish" class="rounded bg-emerald-700 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-30" :disabled="workshopStore.busy || !workshopStore.dirty" @click="workshopStore.publish">发布草稿</button></template></div>
         </div>
-        <div class="mt-3 flex flex-wrap gap-2"><button v-for="item in workshopStore.modes" :key="item.id" class="rounded px-3 py-1 text-[10px]" :class="workshopStore.mode===item.id?'bg-cyan-800 text-white':'bg-slate-900 text-slate-500'" :title="item.description" @click="workshopStore.mode=item.id">{{ item.label }}</button></div>
-        <p class="mt-2 text-[10px] leading-relaxed text-cyan-300/70">{{ workshopStore.activeMode.description }}</p>
-        <WorkshopCreativeBrief />
+        <div v-show="!focused" class="mt-3 flex flex-wrap gap-2"><button v-for="item in workshopStore.modes" :key="item.id" class="rounded px-3 py-1 text-[10px]" :class="workshopStore.mode===item.id?'bg-cyan-800 text-white':'bg-slate-900 text-slate-500'" :title="item.description" @click="workshopStore.mode=item.id">{{ item.label }}</button></div>
+        <p v-show="!focused" class="mt-2 text-[10px] leading-relaxed text-cyan-300/70">{{ workshopStore.activeMode.description }}</p>
+        <WorkshopCreativeBrief v-show="!focused" />
       </header>
 
       <section ref="container" class="min-h-0 flex-1 space-y-3 overflow-y-auto p-5 custom-scrollbar" :class="positioned?'opacity-100':'opacity-0'" data-testid="workshop-conversation" @scroll.passive="updateFollowState">
