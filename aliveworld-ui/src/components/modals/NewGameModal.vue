@@ -12,11 +12,13 @@ import ExpandableTextarea from '../common/ExpandableTextarea.vue';
 const prefill = uiStore.newGamePrefill || {};
 if (prefill.name) assetStore.newSaveName = prefill.name;
 const newSaveDesc = ref(prefill.worldPremise || "");
+const opening = ref('');
 const creating = ref(false);
 const resetPrefill = () => {
   uiStore.newGamePrefill = { name: '', worldPremise: '', fromOnboarding: false };
 };
 const close = () => {
+  if (creating.value) return;
   uiStore.modals.newGame = false;
   resetPrefill();
 };
@@ -26,36 +28,42 @@ const startNewGame = async () => {
   if (creating.value) return;
   creating.value = true;
   try {
-    const data = await gameApi.startGame({ save_name: assetStore.newSaveName, world_premise: newSaveDesc.value, story_settings: configStore.settings });
+    const data = await gameApi.startGame({ save_name: assetStore.newSaveName, world_premise: newSaveDesc.value, opening: opening.value, story_settings: configStore.settings });
     gameStore.registerSession(data, assetStore.newSaveName);
     configStore.applyStoryConfig(data);
     
-    close();
+    uiStore.modals.newGame = false;
+    resetPrefill();
     await assetStore.fetchAssets();
     await assetStore.fetchLocalAssets(data.session_id);
     onboardingStore.complete();
     assetStore.newSaveName = "";
     newSaveDesc.value = "";
-    uiStore.showToast("新世界已降临");
+    uiStore.showToast("故事已创建");
   } catch (err) {
-    uiStore.showToast(err.message || "创世失败", "error");
+    uiStore.showToast(err.message || "创建故事失败", "error");
   } finally { creating.value = false; }
 };
 </script>
 <template>
   <div class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center backdrop-blur-sm p-4">
-    <div data-testid="new-game-modal" class="bg-aw_panel border border-emerald-900/50 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col slide-up">
+    <div data-testid="new-game-modal" role="dialog" aria-label="新建故事" class="bg-aw_panel border border-emerald-900/50 rounded-2xl w-full max-w-lg max-h-[90vh] shadow-2xl overflow-hidden flex flex-col slide-up">
       <div class="p-5 border-b border-slate-700 flex justify-between bg-slate-900/80">
-        <h2 class="font-bold text-emerald-400 text-xl">✨ 创世协议</h2>
-        <button @click="close" class="text-slate-400 hover:text-white text-2xl">✕</button>
+        <h2 class="font-bold text-emerald-400 text-xl">新建故事</h2>
+        <button @click="close" :disabled="creating" aria-label="关闭新建故事" class="text-slate-400 hover:text-white text-2xl disabled:opacity-40">✕</button>
       </div>
-      <div class="p-6 space-y-5">
-        <div><label class="text-xs font-bold text-slate-400 block mb-1">📝 时间线命名</label><input data-testid="new-game-name" v-model="assetStore.newSaveName" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-emerald-500" /></div>
+      <div class="p-6 space-y-5 overflow-y-auto">
+        <div><label class="text-xs font-bold text-slate-400 block mb-1">故事名称</label><input data-testid="new-game-name" v-model="assetStore.newSaveName" :disabled="creating" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-emerald-500" /></div>
         <div>
-          <label class="text-xs font-bold text-slate-400 block mb-1">🌌 宇宙主导向简述 (选填)</label>
+          <label class="text-xs font-bold text-slate-400 block mb-1">故事与世界概述（选填）</label>
           <ExpandableTextarea data-testid="new-game-premise" v-model="newSaveDesc" label="新故事世界梗概" textarea-class="bg-slate-900 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-emerald-500 h-24 resize-none shadow-inner" />
         </div>
-        <button data-testid="new-game-submit" @click="startNewGame" :disabled="creating" class="w-full py-4 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-bold shadow-lg disabled:opacity-50 transition text-lg mt-2">{{ creating ? '正在建立…' : '降临新世界' }}</button>
+        <div>
+          <label class="text-xs font-bold text-slate-400 block mb-1">开场（选填）</label>
+          <ExpandableTextarea data-testid="new-game-opening" v-model="opening" label="故事开场" :maxlength="20000" placeholder="例如：傍晚，你站在山间驿站门口，屋内传来争执声。" textarea-class="bg-slate-900 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-emerald-500 h-24 resize-none" />
+          <p class="text-xs text-slate-400 mt-2">写下当前地点和处境；留空也能开始。创建不会调用 AI，之后可载入资产并输入第一步行动。</p>
+        </div>
+        <button data-testid="new-game-submit" @click="startNewGame" :disabled="creating" class="w-full py-4 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-bold shadow-lg disabled:opacity-50 transition text-lg mt-2">{{ creating ? '正在创建…' : '创建故事' }}</button>
       </div>
     </div>
   </div>

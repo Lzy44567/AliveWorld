@@ -65,10 +65,15 @@ const initWorldState = async () => {
          <p class="text-slate-500">世界的齿轮尚未转动，请新建或载入档案。</p>
       </div>
       <template v-else>
+        <div v-if="!gameStore.chatLog.length && !gameStore.isProcessing" data-testid="story-empty-start" class="mx-auto max-w-lg py-12 text-center text-slate-400">
+          <h2 class="text-xl text-slate-200 mb-3">故事准备好了</h2>
+          <p>在下方写下你在哪里、准备做什么，即可开始。也可以先从右侧载入世界书、角色或文风。</p>
+          <p class="text-xs text-slate-500 mt-3">这段提示不会进入故事或发送给 AI。</p>
+        </div>
         <MessageBubble v-for="(msg, idx) in gameStore.chatLog" :key="msg.id || `legacy-${idx}`" :msg="msg" />
-        <div v-if="gameStore.chatLog.length === 1 && Object.keys(gameStore.dynamicBars).length === 0 && !gameStore.isProcessing" class="flex justify-center my-6 animate-pulse">
+        <div v-if="gameStore.chatLog.length <= 1 && Object.keys(gameStore.dynamicBars).length === 0 && !gameStore.isProcessing" class="flex justify-center my-6">
           <button @click="initWorldState" class="px-6 py-3 bg-indigo-600/80 hover:bg-indigo-500 text-white rounded-full font-bold shadow-lg shadow-indigo-900/50 transition border border-indigo-400/50 backdrop-blur">
-            🌌 让 AI 降临并初始化世界状态
+            仅生成初始状态（可选，会调用 AI）
           </button>
         </div>
         <div v-if="gameStore.currentContext.pendingAction" class="ml-auto w-fit max-w-[85%] rounded-xl bg-indigo-600/70 p-4 whitespace-pre-wrap">{{ gameStore.currentContext.pendingAction }}<span class="block text-[10px] opacity-60">待完成 / 未保存</span></div>

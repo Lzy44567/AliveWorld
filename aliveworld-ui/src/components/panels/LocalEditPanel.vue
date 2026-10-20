@@ -17,9 +17,9 @@ const restoreDefaults = () => {
     <div v-if="!gameStore.sessionId" class="text-center text-slate-500 text-xs mt-10">未连接时间线</div>
     <template v-else>
       <section class="bg-emerald-950/20 border border-emerald-800/50 p-4 rounded-xl">
-        <h3 class="text-xs font-bold text-emerald-300 mb-2">🌌 宇宙主导向简述</h3>
+        <h3 class="text-xs font-bold text-emerald-300 mb-2">故事与世界概述</h3>
         <p class="text-[10px] text-slate-400 mb-3">当前故事的基础世界观与开局前提；可代替一份简单世界书。</p>
-        <ExpandableTextarea v-model="configStore.story.worldPremise" label="宇宙主导向简述" textarea-class="story-textarea" placeholder="例如：现代都市中隐藏着少量超能力者……" />
+        <ExpandableTextarea v-model="configStore.story.worldPremise" label="故事与世界概述" textarea-class="story-textarea" placeholder="例如：现代都市中隐藏着少量超能力者……" />
       </section>
 
       <section class="bg-indigo-950/20 border border-indigo-800/50 p-4 rounded-xl">

@@ -164,15 +164,16 @@ class GameSession:
 
     def start_new_game(self, world_premise, opening):
         self.world_premise = world_premise
-        self.history["chat_messages"] = [{"role": "ai", "content": opening}]
+        opening = opening.strip()
+        self.history["chat_messages"] = [{"role": "ai", "content": opening}] if opening else []
         ensure_message_ids(self.history["chat_messages"])
-        self.history["context_history"] = [opening]
+        self.history["context_history"] = [opening] if opening else []
         self.history["story_turns"] = [{
             "turn_id": 0,
             "player": "",
             "story": opening,
             "text": opening,
-        }]
+        }] if opening else []
 
     def _sync_entities_to_local(self):
         self.undercurrent.sync_influence_refs()

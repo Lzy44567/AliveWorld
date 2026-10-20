@@ -75,6 +75,7 @@ class StartRequest(BaseModel):
     save_name: str = "未命名冒险"
     description: str = ""
     world_premise: Optional[str] = None
+    opening: str = Field(default="", max_length=20000)
     story_settings: Dict[str, Any] = Field(default_factory=dict)
 
 class ActionRequest(GenerationPayload):
@@ -166,6 +167,7 @@ def start_game(payload: StartRequest):
         save_dir_path=save_dir_path,
         world_premise=payload.world_premise if payload.world_premise is not None else payload.description,
         story_settings=payload.story_settings,
+        opening=payload.opening,
     )
 
 
@@ -196,12 +198,6 @@ def start_prepared_game(
     )
     if initial_state:
         game.state_mgr.state = copy.deepcopy(initial_state)
-    if not opening:
-        opening = "【时间线已建立】\n"
-        if world_premise:
-            opening += f"宇宙法则主导向被设定为：{world_premise}\n"
-        opening += "当前世界犹如一张白纸。你可以随时从右侧“万象资产”中拉取角色、世界书或文风进入本局..."
-    
     game.start_new_game(world_premise=world_premise, opening=opening.strip())
     register_session(session_id, game)
     save_game_data(game.save_dir_path, game.export_save_data())

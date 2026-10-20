@@ -1,8 +1,8 @@
 import { test, expect } from '@playwright/test';
 
 test('故事停止不入档，保护新草稿并可修改重发', async ({ page, request }) => {
+  await page.addInitScript(() => localStorage.setItem('aw_onboarding_v1', JSON.stringify({ completed: true })));
   await page.goto('/');
-  await page.getByRole('button', { name: '稍后再说' }).click();
   await page.getByTestId('tab-saves').click();
   await page.getByRole('button', { name: '+ 新局' }).click();
   await page.getByTestId('new-game-name').fill('停止验收故事');

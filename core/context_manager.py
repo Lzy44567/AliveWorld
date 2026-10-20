@@ -49,7 +49,7 @@ class ContextManager:
         
         self.char_info = "\n---\n".join(player_chars) if player_chars else "无名冒险者"
         if npc_chars: self.world_info_base += "\n\n【当前登场的重要NPC与势力】：\n" + "\n".join(npc_chars)
-        if description: self.world_info_base = f"【🔥宇宙主导向 (最高法则)】：{description}\n\n" + self.world_info_base
+        if description: self.world_info_base = f"【故事与世界概述】：{description}\n\n" + self.world_info_base
 
 
     def build_visible_world_info(self, context_text, action):
