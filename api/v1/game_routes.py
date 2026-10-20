@@ -23,6 +23,7 @@ from utils.sys_logger import get_logger
 from api.v1.streaming import stream_response
 from api.v1.generation_routes import GenerationPayload, controlled_generation
 from core.generation_control import generation_commit
+from core.story_start_assets import prepare_start_assets, write_start_assets
 
 router = APIRouter()
 log = get_logger()
@@ -76,6 +77,9 @@ class StartRequest(BaseModel):
     description: str = ""
     world_premise: Optional[str] = None
     opening: str = Field(default="", max_length=20000)
+    worldbook: str = ""
+    player_character: str = ""
+    style: str = ""
     story_settings: Dict[str, Any] = Field(default_factory=dict)
 
 class ActionRequest(GenerationPayload):
@@ -153,6 +157,10 @@ def start_game(payload: StartRequest):
         raise HTTPException(status_code=500, detail="请先在设置中配置可用的大语言模型 API")
     try:
         save_name = normalize_asset_name(payload.save_name)
+        prepared = prepare_start_assets({
+            "worldbooks": payload.worldbook, "characters": payload.player_character,
+            "styles": payload.style,
+        })
         save_dir_path = init_save_folder(save_name)
     except FileExistsError as exc:
         raise HTTPException(
@@ -162,13 +170,19 @@ def start_game(payload: StartRequest):
     except AssetLifecycleError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    return start_prepared_game(
-        save_name=save_name,
-        save_dir_path=save_dir_path,
-        world_premise=payload.world_premise if payload.world_premise is not None else payload.description,
-        story_settings=payload.story_settings,
-        opening=payload.opening,
-    )
+    try:
+        write_start_assets(save_dir_path, prepared)
+        return start_prepared_game(
+            save_name=save_name,
+            save_dir_path=save_dir_path,
+            world_premise=payload.world_premise if payload.world_premise is not None else payload.description,
+            story_settings=payload.story_settings,
+            opening=payload.opening,
+        )
+    except Exception:
+        # init_save_folder exclusively created this directory; never remove an old save.
+        shutil.rmtree(save_dir_path, ignore_errors=True)
+        raise
 
 
 def start_prepared_game(
@@ -199,8 +213,8 @@ def start_prepared_game(
     if initial_state:
         game.state_mgr.state = copy.deepcopy(initial_state)
     game.start_new_game(world_premise=world_premise, opening=opening.strip())
-    register_session(session_id, game)
     save_game_data(game.save_dir_path, game.export_save_data())
+    register_session(session_id, game)
     return _session_payload(session_id, game)
 
 @router.post("/load")

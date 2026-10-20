@@ -1,13 +1,55 @@
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
+import yaml
 
 from api.v1 import game_routes
 from core.game_session import GameSession
 from tests.test_game_action_suggestions import FakeResolver
+from core.story_start_assets import prepare_start_assets, write_start_assets
+from core.asset_lifecycle import AssetLifecycleError
 
 
 class StoryStartTests(unittest.TestCase):
+    def test_selected_assets_are_local_active_copies(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / 'source.yml'
+            original = 'name: 测试角色\nis_player: false\nis_active: false\ndescription: 喜欢探索\n'
+            source.write_text(original, encoding='utf-8')
+            with patch('core.story_start_assets.resolve_asset_path', return_value=source):
+                prepared = prepare_start_assets({'characters': '测试角色'})
+            (root / 'characters').mkdir()
+            write_start_assets(str(root), prepared)
+            local = yaml.safe_load((root / 'characters' / '测试角色.yml').read_text(encoding='utf-8'))
+            self.assertTrue(local['is_player'])
+            self.assertTrue(local['is_active'])
+            self.assertEqual(source.read_text(encoding='utf-8'), original)
+
+    def test_missing_asset_does_not_create_directory(self):
+        with patch.object(game_routes, 'global_ai_engine', object()), patch('core.story_start_assets.resolve_asset_path', return_value=None), patch.object(game_routes, 'init_save_folder') as create:
+            with self.assertRaises(game_routes.HTTPException) as error:
+                game_routes.start_game(game_routes.StartRequest(save_name='test', worldbook='missing'))
+            self.assertEqual(error.exception.status_code, 400)
+            create.assert_not_called()
+
+    def test_failed_creation_removes_only_new_directory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            old = root / 'old'
+            old.mkdir()
+            marker = old / 'keep.txt'
+            marker.write_text('unchanged')
+            new = root / 'new'
+            new.mkdir()
+            with patch.object(game_routes, 'global_ai_engine', object()), patch.object(game_routes, 'init_save_folder', return_value=str(new)), patch.object(game_routes, 'save_game_data', side_effect=OSError('disk full')), patch.object(game_routes, 'register_session') as register:
+                with self.assertRaises(OSError):
+                    game_routes.start_game(game_routes.StartRequest(save_name='test'))
+                register.assert_not_called()
+            self.assertFalse(new.exists())
+            self.assertEqual(marker.read_text(), 'unchanged')
+
     def test_blank_start_first_turn_and_restore(self):
         with tempfile.TemporaryDirectory() as directory:
             game = GameSession(None, 'test', directory)
