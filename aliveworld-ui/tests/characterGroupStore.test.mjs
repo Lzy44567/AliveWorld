@@ -86,10 +86,13 @@ test('schema2 page merges IDs/sequence, changed cursor revision refused; capacit
   assert.equal(characterCapacity(report,id(1)).version,2);assert.equal(characterCapacity({...report,version:1},id(1)),null);
 });
 test('explicit retry never consumes current drafts and compatibility busy rejection preserves them',async()=>{
-  const f=fixture({groupRetry:async(sid,aid)=>({session_id:sid,action_id:aid,status:'pending'})});
+  let retries=0;
+  const f=fixture({groupRetry:async(sid,aid)=>{retries++;return{session_id:sid,action_id:aid,status:'pending'};}});
+  f.session.queued_count=1;
   f.session.last_failed_action={action_id:id(5),request_id:id(6),operation:'send',retryable:true,status:'failed'};
   await f.store.open(id(1));const ctx=f.store.current;ctx.draft='new draft';ctx.oocDraft='new note';await f.store.run(id(1),'send',true);
   assert.equal(ctx.draft,'new draft');assert.equal(ctx.oocDraft,'new note');
+  assert.equal(retries,1);
   f.api.groupAction=async()=>{const e=Error('旧请求执行中');e.code='SESSION_BUSY';throw e;};
   await f.store.run(id(1));assert.equal(ctx.draft,'new draft');assert.equal(ctx.commandPending,false);
 });

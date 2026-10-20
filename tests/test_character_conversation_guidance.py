@@ -16,6 +16,19 @@ from tests.test_character_memory import fixture, pending
 
 
 class ConversationGuidanceTests(unittest.TestCase):
+    def test_current_group_guidance_is_single_and_author_override_is_preserved(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = PromptOverrideStore(Path(directory) / 'overrides.json')
+            task = 'character.reply.c4.v3'
+            result = compose_prompt(task, {'character.presentation_mode': 'messenger'}, store=store)
+            self.assertEqual(1, result.text.count(CONVERSATION_GUIDANCE))
+            self.assertIn('一句短答可以完整结束', result.text)
+            self.assertIn('1–6条', result.text)
+            store.save(task + '.core', 'AUTHOR_CORE')
+            overridden = compose_prompt(task, {'character.presentation_mode': 'messenger'}, store=store)
+            self.assertNotIn(CONVERSATION_GUIDANCE, overridden.text)
+            self.assertIn('1–6条', overridden.text)
+
     def test_current_four_tasks_include_guidance_once_in_existing_core(self):
         with tempfile.TemporaryDirectory() as directory:
             store = PromptOverrideStore(Path(directory) / 'overrides.json')

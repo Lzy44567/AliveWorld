@@ -1,5 +1,24 @@
 # AliveWorld 测试流程
 
+## 42最终代码验收（2026-10-21）
+
+- 943 Python、149前端通过；构建178模块通过。修改后前端再次全测149项通过（build/character42-frontend-final.txt）。
+- 27项相关Edge分组验收通过：旧格式17项与主动联系3项；新格式7项最终43.0秒（build/character42-groups-final.txt），旧键位专项12.0秒（build/character42-keys-final.txt）。不是声明整个仓库所有浏览器用例通过。
+- 首轮新格式失败因未重建dist仍使用旧队列判断；重新构建后真实失败点击重试只增加一次模型请求。旧键位断言还检查已移走的placeholder提示，改为检查真实页脚提示与实际按键发送，未改生产键位行为。
+- 截图发现首条气泡菜单向上被聊天滚动区裁切，改为视口范围内定位；重新验收右键、长按、菜单边界和草稿保留，查看character42-failure-menu.png、character42-details-wide.png/narrow.png。
+- 单句假模型通过真实HTTP仅生成一条气泡，实际请求包含表达指导；指导覆盖/缓存片身份测试通过。不宣称真实模型文学质量或真实Windows纯净机验收。
+
+## 42角色体验验收进行中（2026-10-21）
+
+- 全量943 Python通过（56.069秒，build/character42-python.txt）；149前端通过（build/character42-frontend.txt），生产构建178模块通过。
+- 浏览器首轮发现失败输入也在queued_count内，导致气泡重试入口被隐藏；前端投影及控制器改为遵循服务器retryable。新增待回应失败输入下的重试测试。修改后必须重新构建前端再跑浏览器，不能把旧dist测试作为当前源码结论。
+- 旧会话浏览器测试已按四分类更新导航，兼容轮次数据不改。最终浏览器结果及包验收尚待补齐。
+
+## dev.24实际发布（2026-10-21）
+
+- 构建提交e665a0f，真实主程序和更新助手、便携包验证完成（build/dev24-package.txt）。ZIP为38,435,347字节。
+- GitHub预发布非草稿，ZIP/校验文件均uploaded；远端digest与本地fb2ea0484a7d3e5b7ffa6d3d8656c4e28508a6ed1c80d66a4358de428ef143a2一致。
+
 ## 43发布准备验收（2026-10-20）
 
 - 全量942 Python通过（71.947秒，build/story43-final-python.txt），146前端通过（625.778ms，build/story43-final-frontend.txt）；前端176模块构建通过，既有chunk大小警告。

@@ -8,6 +8,7 @@ async function create(request,title,version=2) {
   expect(response.ok()).toBeTruthy();return response.json();
 }
 async function enter(page,sid) {
+  await page.addInitScript(()=>localStorage.setItem('aw_onboarding_v1',JSON.stringify({completed:true})));
   await page.goto('/');const later=page.getByRole('button',{name:'稍后再说'});if(await later.isVisible().catch(()=>false))await later.click();
   await page.getByTestId('mode-character').click();await page.getByTestId(`character-session-${sid}`).click();
   await expect(page.getByTestId('character-composer')).toBeVisible();
@@ -25,10 +26,11 @@ test('停止后编辑未完成台词，保留新草稿且不重复发送旧输�
   await composer.fill('新的草稿');
   await page.getByTestId('character-stop').click();
   await expect(page.getByTestId('character-stop')).toHaveCount(0);
+  await page.getByRole('button',{name:'消息操作',exact:true}).click();
   await expect(page.getByTestId('character-edit-failed')).toBeVisible();
   await page.getByTestId('character-edit-failed').click();
   await expect(composer).toHaveValue('新的草稿');
-  await composer.fill('');await page.getByTestId('character-edit-failed').click();
+  await composer.fill('');await page.getByRole('button',{name:'消息操作',exact:true}).click();await page.getByTestId('character-edit-failed').click();
   await expect(composer).toHaveValue('【角色慢流】原始请求');
   await expect(page.getByTestId('character-user-message')).toHaveCount(0);
   await send(page,'修改后的请求');
@@ -59,13 +61,14 @@ test('C4真实流式气泡原位确认、连发合并下一请求、互斥设置
   const calls=await records(request);expect(calls).toHaveLength(2);expect(JSON.parse(calls[1].user).current_user_messages.map(m=>m.content)).toEqual(['排队输入甲','排队输入乙']);
   expect(await page.getByTestId('character-ai-message').allTextContents()).not.toEqual(expect.arrayContaining([expect.stringContaining('ledger_ops')]));
   await page.getByRole('button',{name:'会话资料',exact:true}).click();
+  await page.getByTestId('character-details-settings').click();
   const stream=page.getByTestId('character-delivery'),gaps=page.getByTestId('character-bubble-gaps');await expect(stream).toBeChecked();await gaps.check();await expect(stream).not.toBeChecked();await gaps.uncheck();await expect(stream).not.toBeChecked();await stream.check();await expect(gaps).not.toBeChecked();
   await page.getByRole('button',{name:'关闭资料'}).click();await page.screenshot({path:'../build/e2e-results/character-c4-wide.png'});
   await page.setViewportSize({width:390,height:844});expect(await page.getByTestId('character-history').evaluate(el=>el.scrollWidth<=el.clientWidth)).toBeTruthy();await page.screenshot({path:'../build/e2e-results/character-c4-narrow.png'});
 });
 test('C4间隔后台送达、未读、重新打开不重播；整批撤回重生成',async({page,request})=>{
   test.setTimeout(60000);const a=await create(request,'C4间隔后台'),b=await create(request,'C4背景切换');await enter(page,a.session_id);
-  await page.getByRole('button',{name:'会话资料',exact:true}).click();await page.getByTestId('character-bubble-gaps').check();await page.getByRole('button',{name:'关闭资料'}).click();
+  await page.getByRole('button',{name:'会话资料',exact:true}).click();await page.getByTestId('character-details-settings').click();await page.getByTestId('character-bubble-gaps').check();await page.getByRole('button',{name:'关闭资料'}).click();
   await send(page,'间隔后台测试');await expect(page.getByTestId('character-ai-message')).toHaveCount(1);await expect(page.getByTestId('character-stop')).toHaveCount(0);
   await page.getByTestId(`character-session-${b.session_id}`).click();await expect.poll(async()=> (await detail(request,a.session_id)).busy_group,{timeout:15000}).toBeNull();
   await page.getByRole('button',{name:'刷新列表',exact:true}).click();await expect(page.getByTestId(`character-unread-${a.session_id}`)).toBeVisible();
@@ -80,4 +83,63 @@ test('C4最终JSON失败不把预览保存为正文或未读，正式输入保�
   await expect(page.locator('[data-temporary="true"]')).not.toHaveCount(0);await expect(page.getByTestId('character-error')).toBeVisible({timeout:20000});
   await expect(page.getByTestId('character-ai-message')).toHaveCount(0);await expect(page.getByTestId('character-user-message')).toHaveCount(1);await expect(page.getByTestId('character-composer')).toHaveValue('');
   const saved=await detail(request,session.session_id);expect(saved.messages).toHaveLength(1);expect(saved.unread_count).toBe(0);expect(saved.last_failed_action.status).toBe('failed');
+  await expect(page.getByTestId('character-message-failed')).toBeVisible();
+  await expect(page.getByTestId('character-message-failed')).toHaveAttribute('title',/消息已发送/);
+  const beforeRetry=(await records(request)).length;
+  await page.getByTestId('character-message-failed').click();
+  await expect.poll(async()=> (await records(request)).length).toBe(beforeRetry+1);
+  await expect(page.getByTestId('character-message-failed')).toBeVisible({timeout:20000});
+  await page.getByTestId('character-user-message').click({button:'right'});
+  await expect(page.getByRole('menuitem',{name:'撤回并修改本批消息'})).toBeVisible();
+  const menuBox=await page.getByRole('menu').boundingBox();
+  expect(menuBox.y).toBeGreaterThanOrEqual(0);expect(menuBox.y+menuBox.height).toBeLessThanOrEqual(page.viewportSize().height);
+  await page.screenshot({path:'../build/character42-failure-menu.png'});
+  await page.getByRole('menuitem',{name:'关闭菜单',exact:true}).click();
+  await page.getByTestId('character-user-message').dispatchEvent('pointerdown',{pointerType:'touch'});
+  await expect(page.getByRole('menuitem',{name:'撤回并修改本批消息'})).toBeVisible();
+  await page.getByTestId('character-user-message').dispatchEvent('pointerup',{pointerType:'touch'});
+  await page.getByTestId('character-composer').fill('新草稿');
+  await page.getByRole('menuitem',{name:'撤回并修改本批消息'}).click();
+  await expect(page.getByTestId('character-composer')).toHaveValue('新草稿');
+  await page.getByTestId('character-composer').fill('');
+  await page.getByRole('button',{name:'消息操作',exact:true}).click();
+  await page.getByRole('menuitem',{name:'撤回并修改本批消息'}).click();
+  await expect(page.getByTestId('character-composer')).toHaveValue('【C4坏JSON】保留这条输入');
+  await expect(page.getByTestId('character-message-failed')).toHaveCount(0);
+});
+
+test('分类资料保留草稿、隐藏非当前分类，窄屏可关闭',async({page,request})=>{
+  const session=await create(request,'分类资料验收');await enter(page,session.session_id);
+  await page.getByTestId('character-composer').fill('不应丢失的草稿');
+  await page.getByRole('button',{name:'会话资料',exact:true}).click();
+  await expect(page.getByTestId('character-details-profile')).toHaveAttribute('aria-pressed','true');
+  await expect(page.getByTestId('character-delivery')).toBeHidden();
+  await page.getByTestId('character-details-world').click();
+  await expect(page.getByTestId('character-world-details')).toBeVisible();
+  await page.getByTestId('character-details-memory').click();
+  await expect(page.getByTestId('character-memory-panel')).toBeVisible();
+  await page.getByTestId('character-spoiler').click();
+  await expect(page.getByTestId('character-spoiler')).toHaveText('隐藏内部记录');
+  await page.getByTestId('character-details-settings').click();
+  await expect(page.getByTestId('character-delivery')).toBeVisible();
+  await page.getByTestId('character-details-memory').click();
+  await expect(page.getByTestId('character-spoiler')).toHaveText('查看角色内部记录（剧透）');
+  await page.getByTestId('character-details-profile').click();
+  await page.screenshot({path:'../build/character42-details-wide.png'});
+  await page.setViewportSize({width:390,height:844});
+  await page.screenshot({path:'../build/character42-details-narrow.png'});
+  expect(await page.getByTestId('character-details').evaluate(el=>el.scrollWidth<=el.clientWidth)).toBeTruthy();
+  await page.getByRole('button',{name:'关闭资料'}).click();
+  await expect(page.getByTestId('character-composer')).toHaveValue('不应丢失的草稿');
+});
+
+test('一条简短气泡无需补齐，实际请求保留自然表达指导',async({page,request})=>{
+  const session=await create(request,'单句回复验收');await enter(page,session.session_id);
+  await request.delete(`${fake}/__test__/requests`);
+  await send(page,'【C4单句】那就六点见');
+  await expect(page.getByTestId('character-ai-message')).toHaveText('好，六点见。');
+  await expect.poll(async()=> (await detail(request,session.session_id)).busy_group).toBeNull();
+  const calls=await records(request);expect(calls).toHaveLength(1);
+  expect(calls[0].system).toContain('一句短答可以完整结束');
+  expect((await detail(request,session.session_id)).groups.at(-1).bubbles).toHaveLength(1);
 });

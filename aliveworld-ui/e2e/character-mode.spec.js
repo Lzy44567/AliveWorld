@@ -101,7 +101,7 @@ test('M3公开认知、完整旧原文召回、修订撤回和小屏', async ({ 
   const original='【角色账本】【记忆M1】平时喜欢海边散步 Coffee，但暴雨时不要去海边。';
   await send(page,original);
   let saved=await savedSession(request,'M3认知验收');const root=saved.ledger.find(e=>e.kind==='knowledge').entry_id;
-  await page.getByRole('button',{name:'会话资料',exact:true}).click();
+  await page.getByRole('button',{name:'会话资料',exact:true}).click(); await page.getByTestId('character-details-memory').click();
   const panel=page.getByTestId('character-cognition-panel');await panel.locator('summary').click();
   await expect(panel.locator(`[data-cognition-id="${root}"]`)).toContainText('对方明确说过');
   await expect(panel).not.toContainText('内部记录');
@@ -118,7 +118,7 @@ test('M3公开认知、完整旧原文召回、修订撤回和小屏', async ({ 
   }
   await page.reload();await dismissStartup(page);await page.getByTestId('mode-character').click();await selectSession(page,request,'M3认知验收');
   await send(page,'海边 Coffee 的约定有什么限定？');
-  await page.getByRole('button',{name:'会话资料',exact:true}).click();
+  await page.getByRole('button',{name:'会话资料',exact:true}).click(); await page.getByTestId('character-details-memory').click();
   const recallPanel=page.getByTestId('character-source-recall-report');await recallPanel.locator('summary').click();
   await expect(recallPanel).toContainText('关联旧原文已送入请求');await recallPanel.getByRole('button',{name:'查看当前来源'}).click();await expect(page.locator(`[data-source-entry="${root}"]`)).toContainText(original);
   await page.getByRole('button',{name:'收起资料',exact:true}).click();
@@ -127,7 +127,7 @@ test('M3公开认知、完整旧原文召回、修订撤回和小屏', async ({ 
   expect(data.context_contract_id).toBe('character.context.m3.v1');expect(data.history.some(m=>m.content===original)).toBe(false);
   expect(data.recalled_sources.map(m=>m.content)).toContain(original);expect(data.recalled_sources.length).toBeLessThanOrEqual(4);expect(data.recalled_sources.reduce((n,m)=>n+Array.from(m.content).length,0)).toBeLessThanOrEqual(4000);
   saved=await savedSession(request,'M3认知验收');const revised=saved.ledger.find(e=>e.supersedes_entry_id===root);expect(revised).toBeTruthy();
-  await page.getByRole('button',{name:'会话资料',exact:true}).click();
+  await page.getByRole('button',{name:'会话资料',exact:true}).click(); await page.getByTestId('character-details-memory').click();
   await page.getByTestId('character-source-recall-report').locator('summary').click();await expect(page.getByTestId('character-source-recall-report')).toContainText('关联旧原文已送入请求');
   await panel.locator('summary').click();await expect(panel.locator(`[data-cognition-id="${revised.entry_id}"]`)).toContainText('已修订此前认知');
   await page.screenshot({path:'../build/e2e-results/character-m3-wide.png'});
@@ -135,19 +135,19 @@ test('M3公开认知、完整旧原文召回、修订撤回和小屏', async ({ 
   await page.getByRole('button',{name:'关闭资料'}).click();page.once('dialog',dialog=>dialog.accept());await page.getByTestId('character-undo').click();
   await expect.poll(async()=> (await (await request.get(`${sessionsBase}/${saved.session_id}/memory/cognition`)).json()).entries.some(e=>e.entry_id===root)).toBeTruthy();
   await page.setViewportSize({width:1600,height:1000});
-  await page.reload();await dismissStartup(page);await page.getByTestId('mode-character').click();await selectSession(page,request,'M3认知验收');await page.getByRole('button',{name:'会话资料',exact:true}).click();await page.getByTestId('character-source-recall-report').locator('summary').click();await expect(page.getByTestId('character-source-recall-report')).toContainText('尚无本次');
+  await page.reload();await dismissStartup(page);await page.getByTestId('mode-character').click();await selectSession(page,request,'M3认知验收');await page.getByRole('button',{name:'会话资料',exact:true}).click(); await page.getByTestId('character-details-memory').click();await page.getByTestId('character-source-recall-report').locator('summary').click();await expect(page.getByTestId('character-source-recall-report')).toContainText('尚无本次');
 });
 
 test('M4a容量只读、正式回合刷新、临界提醒与小屏说明', async ({ page, request }) => {
   await request.post(`/api/v1/lobby/assets/characters/${encodeURIComponent(cardName)}`, { data: { parsed_data: { name: cardName, description: '独立合成成年角色' }, overwrite: true } });
   await enterCharacters(page); await createSession(page, '容量验收');
-  await page.getByRole('button', { name: '会话资料', exact: true }).click();
+  await page.getByRole('button', { name: '会话资料', exact: true }).click(); await page.getByTestId('character-details-settings').click();
   const panel = page.getByTestId('character-capacity-panel');
   await panel.locator('summary').first().click();
   await expect(page.getByTestId('character-capacity-turns')).toHaveText('正式回合：0 / 512');
   await page.getByRole('button', { name: '收起资料', exact: true }).click();
   await send(page, '容量测试第一条');
-  await page.getByRole('button', { name: '会话资料', exact: true }).click();
+  await page.getByRole('button', { name: '会话资料', exact: true }).click(); await page.getByTestId('character-details-settings').click();
   await expect(page.getByTestId('character-capacity-turns')).toHaveText('正式回合：1 / 512');
   const saved = await savedSession(request, '容量验收');
   const real = await (await request.get(`${sessionsBase}/${saved.session_id}/capacity`)).json();
@@ -177,7 +177,7 @@ test('M2自动重要记忆公开来源、取消恢复、通知去重和末轮撤
   await expect.poll(async () => (await savedSession(request, 'M2自动记忆验收')).memory_settings.notice_ack_revision).toBeGreaterThan(0);
   const root = saved.memory_settings.automatic_entries.find(e => e.reason === 'explicit_boundary');
   expect(root).toBeTruthy();
-  await page.getByRole('button', { name: '会话资料', exact: true }).click();
+  await page.getByRole('button', { name: '会话资料', exact: true }).click(); await page.getByTestId('character-details-memory').click();
   const panel = page.getByTestId('character-memory-panel'), item = panel.locator(`[data-entry-id="${root.entry_id}"]`);
   await expect(item).toContainText('自动重要 · 明确边界');
   await item.getByTestId('character-memory-auto-select').click();
@@ -187,7 +187,7 @@ test('M2自动重要记忆公开来源、取消恢复、通知去重和末轮撤
   await page.reload(); await dismissStartup(page); await page.getByTestId('mode-character').click();
   await selectSession(page, request, 'M2自动记忆验收');
   await expect(page.getByTestId('character-memory-notice')).toHaveCount(0);
-  await page.getByRole('button', { name: '会话资料', exact: true }).click();
+  await page.getByRole('button', { name: '会话资料', exact: true }).click(); await page.getByTestId('character-details-memory').click();
   await expect(item.getByTestId('character-memory-auto-select')).toHaveText('恢复自动选取');
   await expect(item.getByTestId('character-memory-mark')).toHaveText('★ 取消重要');
   await item.getByTestId('character-memory-auto-select').click();
@@ -221,7 +221,7 @@ test('M1公开记忆重要保护、旧话题取材、来源、纠正草稿及重
   await request.post(`/api/v1/lobby/assets/characters/${encodeURIComponent(cardName)}`, { data: { parsed_data: { name: cardName, description: '独立合成成年角色' }, overwrite: true } });
   await enterCharacters(page); await createSession(page, 'M1记忆验收');
   await send(page, '【角色账本】【记忆M1】我喜欢海边散步，记得我们的约定。');
-  await page.getByRole('button', { name: '会话资料', exact: true }).click();
+  await page.getByRole('button', { name: '会话资料', exact: true }).click(); await page.getByTestId('character-details-memory').click();
   const panel = page.getByTestId('character-memory-panel');
   await panel.getByTestId('character-memory-mark').click();
   await expect(panel.getByTestId('character-memory-mark')).toHaveText('★ 取消重要');
@@ -245,13 +245,13 @@ test('M1公开记忆重要保护、旧话题取材、来源、纠正草稿及重
   }
   await page.reload(); await dismissStartup(page); await page.getByTestId('mode-character').click();
   await selectSession(page, request, 'M1记忆验收');
-  await page.getByRole('button', { name: '会话资料', exact: true }).click();
+  await page.getByRole('button', { name: '会话资料', exact: true }).click(); await page.getByTestId('character-details-memory').click();
   await expect(panel.locator(`[data-entry-id="${root}"]`).getByTestId('character-memory-mark')).toHaveText('★ 取消重要');
   await page.getByRole('button', { name: '关闭资料' }).click();
   await send(page, '我们去海边吧');
   const raw = JSON.parse((await records(request)).at(-1).user);
   expect(raw.ledger[0].entry_id).toBe(root); expect(raw.history.some(m => m.content.includes('我们的约定'))).toBe(false);
-  await page.getByRole('button', { name: '会话资料', exact: true }).click();
+  await page.getByRole('button', { name: '会话资料', exact: true }).click(); await page.getByTestId('character-details-memory').click();
   await panel.getByTestId('character-memory-report').locator('summary').click();
   await expect(panel.getByTestId('character-memory-report')).toContainText('玩家重要 · 已送入本次请求');
   await expect(panel.getByTestId('character-memory-report')).not.toContainText('内部记录');
@@ -381,7 +381,7 @@ test('角色偏好默认关闭，独立授权敏感内容并保存，关闭后�
     const picker = page.getByTestId('asset-card-picker'); await picker.getByTestId('asset-picker-search').fill(name);
     await picker.getByRole('button', { name, exact: true }).click(); await page.getByTestId('character-create').click();
     await expect(page.getByTestId('character-composer')).toBeVisible();
-    await page.getByRole('button', { name: '会话资料', exact: true }).click();
+    await page.getByRole('button', { name: '会话资料', exact: true }).click(); await page.getByTestId('character-details-world').click();
     const enabled = page.getByTestId('character-preferences-enabled');
     await expect(enabled).not.toBeChecked(); await expect(page.getByTestId('character-preferences-sensitive')).toHaveCount(0);
     await request.delete(`${fakeBase}/__test__/requests`); await send(page, '默认请求');
@@ -392,7 +392,9 @@ test('角色偏好默认关闭，独立授权敏感内容并保存，关闭后�
     expect(projection.some(item => item.statement.includes('【C2普通】'))).toBeTruthy();
     expect(projection.some(item => item.statement.includes('【C2敏感】'))).toBeFalsy();
     await page.getByTestId('character-preferences-sensitive').click(); await expect(page.getByTestId('character-preferences-sensitive')).toBeChecked();
+  await page.getByTestId('character-details-settings').click();
     await page.getByTestId('character-delivery').uncheck(); await send(page, '明确敏感授权', false);
+  await page.getByTestId('character-details-world').click();
     projection = JSON.parse((await records(request)).at(-1).user).user_preferences;
     expect(projection.some(item => item.statement.includes('【C2敏感】'))).toBeTruthy();
     await page.screenshot({ path: '../build/e2e-results/character-preferences-wide.png', fullPage: true });
@@ -401,7 +403,7 @@ test('角色偏好默认关闭，独立授权敏感内容并保存，关闭后�
     await page.screenshot({ path: '../build/e2e-results/character-preferences-narrow.png', fullPage: true });
     await page.setViewportSize({ width: 1600, height: 1000 }); await page.reload(); await dismissStartup(page);
     await page.getByTestId('mode-character').click(); await selectSession(page, request, 'C2偏好验收');
-    await page.getByRole('button', { name: '会话资料', exact: true }).click();
+    await page.getByRole('button', { name: '会话资料', exact: true }).click(); await page.getByTestId('character-details-world').click();
     await expect(enabled).toBeChecked(); await expect(page.getByTestId('character-preferences-sensitive')).toBeChecked();
     await enabled.click(); await expect(enabled).not.toBeChecked();
     await send(page, '关闭后请求', false); expect(JSON.parse((await records(request)).at(-1).user)).not.toHaveProperty('user_preferences');
@@ -433,12 +435,12 @@ test('会话搜索置顶持久化，后台完成未读，当前资料与小屏�
   await expect(page.getByTestId(`character-unread-${a.session_id}`)).toBeVisible({ timeout: 30000 });
   await selectSession(page, request, '侧栏验收A');
   await expect(page.getByTestId(`character-unread-${a.session_id}`)).toHaveCount(0);
-  await page.getByRole('button', { name: '会话资料', exact: true }).click();
-  for (const heading of ['资料', '共同经历与记忆', '会话设置']) await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible();
+  await page.getByRole('button', { name: '会话资料', exact: true }).click(); await page.getByTestId('character-details-memory').click();
+  for (const label of ['人物','世界与偏好','记忆与关系','会话设置']) await expect(page.getByRole('button',{name:label,exact:true})).toBeVisible();
   await page.getByTestId('character-spoiler').click();
   await expect(page.getByTestId('character-spoiler')).toHaveText('隐藏内部记录');
   await page.getByRole('button', { name: '收起资料', exact: true }).click();
-  await page.getByRole('button', { name: '会话资料', exact: true }).click();
+  await page.getByRole('button', { name: '会话资料', exact: true }).click(); await page.getByTestId('character-details-memory').click();
   await expect(page.getByTestId('character-spoiler')).toHaveText('查看角色内部记录（剧透）');
   await page.screenshot({ path: '../build/e2e-results/character-sidebars-wide.png', fullPage: true });
   await page.setViewportSize({ width: 640, height: 900 });
@@ -486,7 +488,7 @@ test('现有角色卡建立即时聊天，真实预览先于消息与来源账�
   expect(privateResponse.ok()).toBeTruthy();
   const ledgerPayload = await privateResponse.json();
   expect(ledgerPayload.ledger || ledgerPayload.entries).toHaveLength(2);
-  await page.getByRole('button', { name: '会话资料', exact: true }).click();
+  await page.getByRole('button', { name: '会话资料', exact: true }).click(); await page.getByTestId('character-details-memory').click();
   await expect(page.getByTestId('character-public-ledger')).toContainText('公开记录');
   await expect(page.getByTestId('character-public-ledger')).not.toContainText('内部记录');
   await page.getByTestId('character-public-ledger').getByText('来源证据', { exact: true }).click();
@@ -507,7 +509,7 @@ test('情景扮演与即时聊天共享会话历史，显式非流式与重载�
   await createSession(page, '角色验收B', 'roleplay');
   await send(page, '情景消息B');
   await expect(page.getByTestId('character-ai-message')).toContainText('roleplay');
-  await page.getByRole('button', { name: '会话资料', exact: true }).click();
+  await page.getByRole('button', { name: '会话资料', exact: true }).click(); await page.getByTestId('character-details-settings').click();
   await page.getByTestId('character-mode').locator('input[value="messenger"]').check();
   await expect(page.getByTestId('character-mode').locator('input[value="messenger"]')).toBeChecked();
   await page.getByTestId('character-delivery').uncheck();
@@ -663,12 +665,14 @@ test('角色与世界书用搜索卡片选择，世界规则进入请求且重�
   await send(page, '继续看看');
   const continued = (await records(request)).at(-1);
   expect(JSON.parse(continued.user).world_related_entries[0].content).toContain('【C1世界条目】');
-  await page.getByRole('button', { name: '会话资料', exact: true }).click();
+  await page.getByRole('button', { name: '会话资料', exact: true }).click(); await page.getByTestId('character-details-world').click();
   const report = page.getByTestId('character-world-report');
   await report.locator('summary').click();
   await expect(report).toContainText('钟楼规则 · 近第1回合聊天 · 计划发送');
   await expect(report).not.toContainText('【C1世界条目】');
+  await page.getByTestId('character-details-settings').click();
   await page.getByTestId('character-delivery').uncheck();
+  await page.getByTestId('character-details-world').click();
   await send(page, '好，继续', false);
   await expect(report).toContainText('近第2回合聊天');
   await report.locator('summary').click();
@@ -681,7 +685,7 @@ test('角色与世界书用搜索卡片选择，世界规则进入请求且重�
   await dismissStartup(page);
   await page.getByTestId('mode-character').click();
   await selectSession(page, request, '世界书载入验收');
-  await page.getByRole('button', { name: '会话资料', exact: true }).click();
+  await page.getByRole('button', { name: '会话资料', exact: true }).click(); await page.getByTestId('character-details-world').click();
   await expect(page.getByTestId('character-world-details')).toContainText(worldName);
   await expect(page.getByTestId('character-world-report')).toHaveCount(0);
   await page.screenshot({ path: '../build/e2e-results/character-world-binding.png', fullPage: true });
@@ -711,7 +715,7 @@ test('外部卡字段独立投影，开场仅资料，显式编辑不改变旧�
   }
   await createI1('I1原会话');
   await expect(page.getByTestId('character-ai-message')).toHaveCount(0);
-  await page.getByRole('button', { name: '会话资料', exact: true }).click();
+  await page.getByRole('button', { name: '会话资料', exact: true }).click(); await page.getByTestId('character-details-profile').click();
   await page.getByText(`${name} · AI扮演`, { exact: true }).click();
   await page.getByText('作者开场（仅资料，未发送）', { exact: true }).click();
   await expect(page.getByTestId('character-profile-first_message')).toContainText('【I1开场】');
@@ -793,9 +797,11 @@ test('外部卡字段独立投影，开场仅资料，显式编辑不改变旧�
 });
 
 test('通讯式聊天键位保护IME，设置移出输入区并按会话重载，模式选择有解释', async ({ page, request }) => {
+  await request.post(`/api/v1/lobby/assets/characters/${encodeURIComponent(cardName)}`, {data:{parsed_data:{name:cardName,description:'成年合成角色'},overwrite:true}});
   await enterCharacters(page); await createSession(page, '通讯交互验收');
   const input = page.getByTestId('character-composer');
-  await expect(input).toHaveAttribute('placeholder', /Enter 发送，Shift\+Enter 换行/);
+  await expect(input).toHaveAttribute('placeholder', '输入消息…');
+  await expect(page.getByText('Enter 发送 · Shift+Enter 换行',{exact:true})).toBeVisible();
   await expect(page.getByTestId('character-delivery')).toHaveCount(0);
   await request.delete(`${fakeBase}/__test__/requests`);
   await input.fill('第一行'); await input.press('Shift+Enter'); await input.press('x');
@@ -808,7 +814,7 @@ test('通讯式聊天键位保护IME，设置移出输入区并按会话重载�
   await expect(page.getByTestId('character-preview')).toBeHidden();
   await expect(input).toHaveValue('');
   const first = await savedSession(request, '通讯交互验收'); expect(first.turns).toHaveLength(1);
-  await page.getByRole('button', { name:'会话资料', exact:true }).click();
+  await page.getByRole('button', { name:'会话资料', exact:true }).click(); await page.getByTestId('character-details-settings').click();
   const modes=page.getByTestId('character-mode');
   await expect(modes).toContainText('以角色的对白为主'); await expect(modes).toContainText('不替你决定行动');
   await modes.locator('input[value="roleplay"]').check();
@@ -823,8 +829,8 @@ test('通讯式聊天键位保护IME，设置移出输入区并按会话重载�
   await page.screenshot({path:'../build/e2e-results/character-chat-ux-wide.png',fullPage:true});
   await page.reload(); await dismissStartup(page); await page.getByTestId('mode-character').click();
   await selectSession(page, request, '通讯交互验收');
-  await expect(page.getByTestId('character-composer')).toHaveAttribute('placeholder', /Ctrl\+Enter 发送/);
-  await page.getByRole('button', {name:'会话资料',exact:true}).click();
+  await expect(page.getByTestId('character-composer')).toHaveAttribute('placeholder', '输入消息…');
+  await page.getByRole('button', {name:'会话资料',exact:true}).click(); await page.getByTestId('character-details-settings').click();
   await expect(page.getByTestId('character-delivery')).not.toBeChecked();
   await expect(page.getByTestId('character-send-key')).not.toBeChecked();
   await page.getByRole('button', {name:'关闭资料'}).click();
@@ -833,6 +839,6 @@ test('通讯式聊天键位保护IME，设置移出输入区并按会话重载�
   const history=page.getByTestId('character-history');
   expect(await history.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
   await expect(page.getByTestId('character-send')).toBeVisible();
-  await page.getByRole('button', {name:'会话资料',exact:true}).click();
+  await page.getByRole('button', {name:'会话资料',exact:true}).click(); await page.getByTestId('character-details-settings').click();
   await expect(page.getByTestId('character-send-key')).toBeVisible();
 });

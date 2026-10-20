@@ -133,7 +133,8 @@ export function createCharacterGroupController(state, api, noticeCache) {
       operation = 'undo';
     }
     if (!ctx.session || ctx.session.schema_version !== 2 || ctx.commandPending || ctx.settingsBusy || ctx.needsReload) return;
-    if ((retry || operation !== 'send') && (ctx.busy || (!editing && ctx.queuedCount))) return;
+    // Failed inputs remain pending too; server-issued retryable already checks their ownership.
+    if ((retry || operation !== 'send') && (ctx.busy || (!editing && !retry && ctx.queuedCount))) return;
     if (!retry && operation === 'send' && (!ctx.draft.trim() || oocError(ctx.oocDraft))) { ctx.error = oocError(ctx.oocDraft); return; }
     const failed = ctx.failure; if (retry && !failed?.retryable) return;
     const target = editing ? ctx.failure : ctx.session.groups.at(-1);

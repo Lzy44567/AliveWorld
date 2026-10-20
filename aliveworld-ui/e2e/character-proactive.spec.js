@@ -10,7 +10,7 @@ async function enter(page,sid) {
   await page.goto('/');const later=page.getByRole('button',{name:'稍后再说'});if(await later.isVisible().catch(()=>false))await later.click();
   await page.getByTestId('mode-character').click();await page.getByTestId(`character-session-${sid}`).click();await expect(page.getByTestId('character-composer')).toBeVisible();
 }
-async function panel(page) {await page.getByRole('button',{name:'会话资料',exact:true}).click();await page.getByTestId('character-proactive-panel').locator('summary').first().click();}
+async function panel(page) {await page.getByRole('button',{name:'会话资料',exact:true}).click();await page.getByTestId('character-details-settings').click();await page.getByTestId('character-proactive-panel').locator('summary').first().click();}
 async function detail(request,sid) {return(await request.get(`${base}/${sid}`)).json();}
 test.describe.configure({mode:'serial'});
 test('C5当前会话授权、真实无输入主动组、编辑节流、撤回与宽窄设置',async({page,request})=>{
