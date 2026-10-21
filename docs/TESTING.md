@@ -1,5 +1,11 @@
 # AliveWorld 测试流程
 
+## dev.25实际发布（2026-10-21）
+
+- 构建提交24cc0b84ed2eab23a6c89d22e2778e8d1c162bca，主EXE/更新助手与ZIP成功，内置便携包结构/隐私/覆盖保留UserData验证通过，日志build/dev25-package.txt。
+- ZIP 38,438,047字节，SHA256 5b9dfbc482b7a8a27345bc743f2e67ca8e3359ce8ccd2f2333a8e4c064e0776c。GitHub非草稿预发布，ZIP与校验附件均uploaded；API digest与本地Get-FileHash一致，标签指向构建提交。
+- 发布正文已包含分类更新概要及质量边界。没有在用户游玩目录上执行更新，也没有宣称纯净Windows实测。
+
 ## 42最终代码验收（2026-10-21）
 
 - 943 Python、149前端通过；构建178模块通过。修改后前端再次全测149项通过（build/character42-frontend-final.txt）。
