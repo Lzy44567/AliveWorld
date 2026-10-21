@@ -26,6 +26,7 @@ from core.character_chat.prompts import CORE_V2 as CHARACTER_CORE_V2, CONTRACT_V
 from core.character_chat.prompts import M3_GUIDANCE, C3_GUIDANCE, AGENCY_GUIDANCE, CONVERSATION_GUIDANCE
 from core.character_chat.prompts import CORE_V3, CONTRACT_V3, C4_GUIDANCE, C4_OOC_GUIDANCE
 from core.character_chat.proactive_prompts import CONTACT_CORE, CONTACT_CONTRACT
+from core.character_chat.compaction_prompts import CORE as COMPACTION_CORE
 from utils.runtime_paths import PATHS
 
 
@@ -67,6 +68,8 @@ def _settlement_section(name: str) -> Callable[[], str]:
 
 
 SLICES: tuple[PromptSlice, ...] = (
+    PromptSlice("character.compaction.v1.core", "character.compaction.v1", "角色长聊整理", "system", 100,
+                "仅整理已送达聊天，不改人设或原文。", True, (), lambda: COMPACTION_CORE),
     PromptSlice("character.contact_plan.v1.core", "character.contact_plan.v1", "角色主动联系规划", "system", 100,
                 "开启后的单次闲置规划；不推断离开原因、不代写玩家。", True, (),
                 lambda: CONTACT_CORE,

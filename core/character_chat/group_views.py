@@ -104,10 +104,11 @@ def action_view(session, action, request_id=None):
 
 def public_session(session, *, detail=True):
     from .proactive_contact import settings as proactive_settings
+    from .compaction import public_state as compaction_state
     group = busy(session)
     result = {k: session[k] for k in ('session_id', 'title', 'revision', 'presentation_mode', 'created_at', 'updated_at')}
     result.update(schema_version=2, preference_settings=session_settings(session), memory_settings=public_state(session),
-                  proactive_contact=proactive_settings(session),
+                  proactive_contact=proactive_settings(session), long_chat=compaction_state(session),
                   participants=[{k: copy.deepcopy(p[k]) for k in ('instance_id', 'controller', 'display_name')}
                                 | {'profile_snapshot': profile_projection(p, detail=True)} for p in session['participants']],
                   world_binding=None if not session['world_binding'] else {'name': session['world_binding']['snapshot'].get('name', '')},

@@ -42,6 +42,8 @@ class CharacterGroupService:
         self.closed = False
         self.started = False
         self.proactive = None
+        from .compaction_service import CharacterCompactionService
+        self.compaction = CharacterCompactionService(self)
 
     def _refresh_contact(self, sid):
         if self.proactive is not None:
@@ -117,6 +119,7 @@ class CharacterGroupService:
         if self.closed:
             return
         self.closed = True
+        await self.compaction.close()
         sessions = list(self.workers)
         tasks = list(self.workers.values())
         for task in tasks:
@@ -183,6 +186,37 @@ class CharacterGroupService:
         self._transaction(sid, lambda s: group_settings.mark_memory(s, revision, entry_id, important))
         self._refresh_contact(sid)
         return self.view(sid)
+
+    def long_chat_update(self, sid, revision, enabled, acknowledged=False, rebuild=False):
+        from . import compaction
+        self._check(sid)
+        def change(session):
+            check_revision(session, revision)
+            changed = compaction.configure(session, enabled, acknowledged=acknowledged)
+            if rebuild:
+                if acknowledged is not True:
+                    raise CharacterSessionError('INVALID_REQUEST')
+                compaction.rebuild(session)
+                changed = True
+            if changed:
+                session['revision'] += 1
+        self._transaction(sid, change)
+        if not enabled:
+            task = self.compaction.workers.get(sid)
+            if task:
+                task.cancel()
+        elif rebuild:
+            self.compaction.schedule(sid, explicit=True)
+        return self.view(sid)
+
+    def long_chat_sources(self, sid, through_seq):
+        from . import compaction
+        self._check(sid)
+        session = self.repository.load(sid)
+        segment = next((s for s in compaction.valid_segments(session) if s['through_seq'] == through_seq), None)
+        if segment is None:
+            raise CharacterSessionError('INVALID_REQUEST')
+        return {'messages': [m for u in compaction.units(session) if u['group_id'] in segment['sources'] for m in u['messages']]}
 
     def memory_update(self, sid, revision, operation, *args):
         self._check(sid)
@@ -318,6 +352,8 @@ class CharacterGroupService:
             commit = commit_legacy if legacy else commit_generated
             group = self._transaction(sid, lambda s: commit(s, attempt['request_id'], raw, messages, entries))
             self._publish(sid, 'group_saved', attempt, group=public_group(group), state=self._event_state(sid))
+            if not legacy and group['status'] == 'complete':
+                self.compaction.schedule(sid)
             return True
         except asyncio.CancelledError:
             status, code = ('interrupted', 'PROCESS_INTERRUPTED') if self.closed else ('cancelled', 'USER_CANCELLED')
@@ -353,6 +389,8 @@ class CharacterGroupService:
                     if delivered:
                         attempt = current_attempt(self.repository.load(sid), group['request_id'])[1]
                         self._publish(sid, 'group_saved', attempt, group=delivered, state=self._event_state(sid))
+                        if not resume_only and delivered['status'] == 'complete' and delivered.get('origin', 'reply') == 'reply':
+                            self.compaction.schedule(sid)
                     continue
                 if resume_only:
                     if sid not in self.resume_continue:

@@ -18,6 +18,7 @@ import CharacterOpeningMessage from './CharacterOpeningMessage.vue';
 import CharacterWorldContextReport from './CharacterWorldContextReport.vue';
 import CharacterPreferenceSettings from './CharacterPreferenceSettings.vue';
 import CharacterMemoryPanel from './CharacterMemoryPanel.vue';
+import CharacterLongChatPanel from './CharacterLongChatPanel.vue';
 import CharacterMemoryNotice from './CharacterMemoryNotice.vue';
 import CharacterCapacityPanel from './CharacterCapacityPanel.vue';
 import CharacterOocComposer from './CharacterOocComposer.vue';
@@ -191,6 +192,7 @@ onUnmounted(() => { mounted = false; document.removeEventListener('visibilitycha
       <CharacterPreferenceSettings :settings="session.preference_settings" :disabled="ctx.busy || ctx.settingsBusy || readonly" @update="updatePreferences" />
       </div>
       <div v-show="detailsTab==='memory'">
+      <CharacterLongChatPanel :session="session" :active="detailsTab==='memory'" @updated="value=>{session.revision=Math.max(session.revision,value.revision);session.long_chat=value.long_chat}" />
       <CharacterMemoryPanel :session="session" :report="ctx.memoryReport" :cognition="ctx.cognition" :cognition-loading="ctx.cognitionLoading" :cognition-error="ctx.cognitionError" :recall-report="ctx.sourceRecallReport" :disabled="ctx.busy || ctx.settingsBusy || readonly" :source-loader="(id,entry)=>store.memorySources(id,entry)" @cognition-open="store.setCognitionOpen(session.session_id,$event)" @mark="(entry,important)=>store.markMemory(session.session_id,entry,important)" @correct="entry=>store.correctMemory(session.session_id,entry)" @enable-automatic="store.enableAutomaticMemory(session.session_id)" @select-automatic="(entry,dismissed)=>store.selectAutomaticMemory(session.session_id,entry,dismissed)" @release-automatic="root=>store.releaseAutomaticMemory(session.session_id,root)" />
       <button data-testid="character-spoiler" class="text-xs text-amber-300 mt-4" @click="ctx.spoiler ? store.clearSpoiler() : store.loadSpoiler(store.activeId).catch(e=>ctx.error=e.message)">{{ ctx.spoiler ? '隐藏内部记录' : '查看角色内部记录（剧透）' }}</button>
       <div v-if="ctx.spoiler" data-testid="character-private-ledger" class="space-y-2 mt-2"><div v-for="entry in ctx.spoiler" :key="entry.entry_id" class="text-sm rounded bg-amber-950/40 p-2 whitespace-pre-wrap select-text">{{ entry.content || entry.text || entry.summary }}</div></div>

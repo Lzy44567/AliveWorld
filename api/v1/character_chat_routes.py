@@ -367,6 +367,43 @@ async def mark_memory(sid: str, request: Request):
         return error_response(exc)
 
 
+@router.put('/{sid}/long-chat')
+async def update_long_chat(sid: str, request: Request):
+    try:
+        payload = await body(request, {'expected_revision', 'enabled', 'acknowledged', 'rebuild'}, {'expected_revision', 'enabled'})
+        if load_supported(request, sid)['schema_version'] != 2:
+            raise CharacterSessionError('SCHEMA_READ_ONLY')
+        if any(type(payload[k]) is not bool for k in ('enabled', 'acknowledged', 'rebuild') if k in payload):
+            raise CharacterSessionError('INVALID_REQUEST')
+        return session_service(request, sid).long_chat_update(sid, payload['expected_revision'], payload['enabled'],
+            payload.get('acknowledged', False), payload.get('rebuild', False))
+    except Exception as exc:
+        return error_response(exc)
+
+
+@router.get('/{sid}/long-chat')
+async def get_long_chat(sid: str, request: Request):
+    try:
+        from core.character_chat.compaction import public_state
+        session = load_supported(request, sid)
+        if session['schema_version'] != 2:
+            raise CharacterSessionError('SCHEMA_READ_ONLY')
+        return {**public_state(session), 'running': sid in session_service(request, sid).compaction.workers,
+                'revision': session['revision']}
+    except Exception as exc:
+        return error_response(exc)
+
+
+@router.get('/{sid}/long-chat/sources/{through_seq}')
+async def long_chat_sources(sid: str, through_seq: int, request: Request):
+    try:
+        if load_supported(request, sid)['schema_version'] != 2:
+            raise CharacterSessionError('SCHEMA_READ_ONLY')
+        return session_service(request, sid).long_chat_sources(sid, through_seq)
+    except Exception as exc:
+        return error_response(exc)
+
+
 @router.get('/{sid}/memory/{entry_id}/sources')
 async def memory_sources(sid: str, entry_id: str, request: Request):
     try:

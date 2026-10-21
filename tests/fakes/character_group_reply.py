@@ -3,7 +3,7 @@ import json
 
 
 def response(data):
-    if data.get('context_contract_id') != 'character.context.c4.v1':
+    if data.get('context_contract_id') not in {'character.context.c4.v1', 'character.context.long_chat.v1'}:
         raise ValueError('Unknown group test context')
     inputs = data.get('current_user_messages')
     if not isinstance(inputs, list) or not inputs:

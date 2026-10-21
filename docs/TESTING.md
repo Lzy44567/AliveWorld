@@ -1,5 +1,12 @@
 # AliveWorld 测试流程
 
+## 44角色长聊交付验收（2026-10-21）
+
+- 952 Python全量通过（71.766秒，build/character44-python.txt）；随后补足最近10组保留用例，22项定向通过（build/character44-focused-final.txt）。149前端单元通过（build/character44-frontend.txt），生产构建179模块通过，仍有既存分包体积提示。
+- 10项既有多气泡/主动联系Edge通过。新增真实HTTP长聊闭环独立最终通过（48.9秒，build/character44-longchat-final.txt）：开启费用确认、22组聊天低频整理、来源查看、整理结束后真实后续请求携带摘要、关闭后GET不新增模型调用。合跑最初因测试在异步摘要完成前检查下一请求而失败，补充完成后真实发送，未伪造模型记录。
+- build/character44-long-chat.png已查看，入口位于右侧资料的记忆分类。默认关闭、失败停自动整理、关闭取消迟到结果、来源改写失效、原文不变及摘要不扩展证据集合由专项覆盖。
+- 使用隔离合成会话与假模型，无玩家私聊上传、真实模型语义质量或纯净Windows声明。打包及远端附件证据另行补记。
+
 ## dev.25实际发布（2026-10-21）
 
 - 构建提交24cc0b84ed2eab23a6c89d22e2778e8d1c162bca，主EXE/更新助手与ZIP成功，内置便携包结构/隐私/覆盖保留UserData验证通过，日志build/dev25-package.txt。

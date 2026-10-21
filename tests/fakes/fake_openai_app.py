@@ -42,6 +42,8 @@ def _message_text(message: dict[str, Any]) -> str:
 
 
 def _classify(system: str) -> str:
+    if '你负责整理双方已送达的角色聊天' in system:
+        return 'character.compaction'
     if '工坊 Agent' in system:
         return 'workshop'
     if "有限主动联系规划" in system:
@@ -85,6 +87,9 @@ def _response_for(kind: str, system: str, user: str) -> dict[str, Any] | str:
     if effect_reply is not None:
         return effect_reply
     full = f"{system}\n{user}"
+    if kind == 'character.compaction':
+        messages = json.loads(user)['messages']
+        return {'summary': '已整理共同经历：' + '；'.join(m['content'] for m in messages)[:1000]}
     if kind == "character.contact":
         maximum = json.loads(user)["max_contacts"]
         return {"contacts": [{"delay_seconds": index, "reply": {

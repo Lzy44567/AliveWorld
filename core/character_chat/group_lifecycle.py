@@ -7,7 +7,7 @@ from uuid import uuid4
 from .models import CharacterSessionError, canonical_id, json_bytes, MAX_FILE_BYTES
 from .limits import MAX_TURNS, MAX_ACTIONS, MAX_ATTEMPTS
 from .protocol import V3
-from .context_contract import C4
+from .context_contract import C4, LONG_CHAT
 from .group_requests import send_values, batch_values
 from .contract import now, parse_result, plan_ledger, reverse_ledger
 from .annotations import parse_annotations
@@ -123,6 +123,8 @@ def create_group(session, action, members, display_mode):
                'reserved_ai_ids': [str(uuid4()) for _ in range(6)], 'reply_contract_id': V3, 'context_contract_id': C4,
                'display_mode': display_mode, 'status': 'pending', 'created_at': timestamp}
     action['attempts'].append(attempt); session['groups'].append(group)
+    if session.get('character_compaction', {}).get('enabled'):
+        attempt['context_contract_id'] = LONG_CHAT
     return copy.deepcopy(attempt)
 
 
@@ -396,7 +398,7 @@ def retry_group(session, action_id, request_id, retry_token, display_mode='strea
         raise CharacterSessionError('STALE_RETRY')
     created = create_group(session, action, list(previous['input_ids']), display_mode)
     new_attempt = action['attempts'][-1]
-    new_attempt.update(retry_of=request_id, retry_token=retry_token)
+    new_attempt.update(retry_of=request_id, retry_token=retry_token, context_contract_id=previous['context_contract_id'])
     return copy.deepcopy(new_attempt), True
 
 

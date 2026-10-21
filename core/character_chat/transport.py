@@ -43,6 +43,9 @@ class CharacterTransport:
             raise CharacterSessionError('REPLY_CONTRACT_UNSUPPORTED')
         return await self._generate(config, plan, report, 'non_stream', lambda *_: None, 'character.contact')
 
+    async def generate_summary(self, config, plan, report):
+        return await self._generate(config, plan, report, 'non_stream', lambda *_: None, 'character.compaction')
+
     async def _generate(self, config, plan, report, delivery, emit, trace_kind):
         trace = begin_llm_trace(trace_kind, config['model'], '[private content omitted]',
                                 '[private content omitted]', 'json', plan.prompt_manifest)

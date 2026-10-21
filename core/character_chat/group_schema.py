@@ -4,7 +4,7 @@ from .models import (CharacterSessionError, canonical_id, json_bytes, text, vali
                      validate_envelope, MAX_FILE_BYTES)
 from .limits import MAX_TURNS, MAX_ACTIONS, MAX_ATTEMPTS, MAX_LEDGER, MAX_ACTIVE
 from .protocol import V1, V2, V3, validate_contract
-from .context_contract import LEGACY, C3, C4, validate_context_contract
+from .context_contract import LEGACY, C3, C4, LONG_CHAT, validate_context_contract
 from .annotations import validate_annotation
 from .opening import validate_opening
 from .notices import validate_notice
@@ -52,8 +52,10 @@ def _validate(value):
         return
     fields(value, {'schema_version', 'session_id', 'creation_fingerprint', 'participants', 'world_binding',
                    'created_at', 'title', 'presentation_mode', 'revision', 'updated_at', 'extensions',
-                   'context_epoch', 'next_seq', 'read_ai_seq', 'inputs', 'groups', 'requests', 'ledger'}, {'opening'})
+                   'context_epoch', 'next_seq', 'read_ai_seq', 'inputs', 'groups', 'requests', 'ledger'}, {'opening', 'character_compaction'})
     validate_envelope(value)
+    from .compaction import validate_stored as validate_compaction
+    validate_compaction(value)
     from .proactive_contact import validate_stored
     validate_stored(value)
     validate_depth(value, 40)
@@ -211,7 +213,7 @@ def _validate(value):
         context = validate_context_contract(attempt.get('context_contract_id', LEGACY))
         if contract not in {V1, V2} or snapshot.get('reply_contract_id', contract) != contract:
             corrupt()
-        if context == C4 or snapshot.get('context_contract_id', context) != context or bool(snapshot.get('ooc_note')) != (context == C3):
+        if context in {C4, LONG_CHAT} or snapshot.get('context_contract_id', context) != context or bool(snapshot.get('ooc_note')) != (context == C3):
             corrupt()
         signature = (snapshot['content'], snapshot['mode'], snapshot['user_message_id'], snapshot['ai_message_id'],
                      snapshot.get('ooc_note', ''), contract, context)
@@ -258,7 +260,7 @@ def _validate(value):
                         'reply_contract_id', 'context_contract_id', 'legacy_retry_snapshot', 'legacy_execution'})
                 if validate_contract(attempt.get('reply_contract_id', V1)) not in {V1, V2}:
                     corrupt()
-                if validate_context_contract(attempt.get('context_contract_id', LEGACY)) == C4:
+                if validate_context_contract(attempt.get('context_contract_id', LEGACY)) in {C4, LONG_CHAT}:
                     corrupt()
                 if 'legacy_retry_snapshot' in attempt:
                     legacy_snapshot(attempt['legacy_retry_snapshot'], action, attempt)
@@ -278,7 +280,7 @@ def _validate(value):
                        {'ended_at', 'error_code', 'committed_revision', 'retry_of', 'retry_token'})
                 if attempt['reply_contract_id'] != V3 or attempt['group_id'] not in groups:
                     corrupt()
-                if attempt['context_contract_id'] != C4:
+                if attempt['context_contract_id'] not in {C4, LONG_CHAT}:
                     corrupt()
                 integer(attempt['context_epoch']); integer(attempt['history_cutoff_seq'], 0, value['next_seq'] - 1)
                 group = groups[attempt['group_id']]

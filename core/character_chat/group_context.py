@@ -6,7 +6,9 @@ from core.prompt_studio import compose_prompt, plan_model_request, RequestMessag
 from core.request_budget import budget_report
 from .models import CharacterSessionError, profile_projection
 from .protocol import V3
-from .context_contract import C4
+from .context_contract import C4, LONG_CHAT
+from .compaction import references
+from .compaction_prompts import REFERENCE
 from .group_lifecycle import current_attempt, regeneration_context
 from .group_records import formal_messages
 from .memory import select_memory, final_report
@@ -20,7 +22,7 @@ def request_snapshot(session, request_id):
         raise CharacterSessionError('REPLY_CONTRACT_UNSUPPORTED')
     action, attempt, group = current_attempt(session, request_id)
     if (attempt.get('reply_contract_id') != V3
-            or attempt.get('context_contract_id') != C4):
+            or attempt.get('context_contract_id') not in {C4, LONG_CHAT}):
         raise CharacterSessionError('REPLY_CONTRACT_UNSUPPORTED')
     if (attempt['status'] != 'pending' or group['status'] != 'generating'
             or attempt['context_epoch'] != session['context_epoch']):
@@ -66,29 +68,36 @@ def build_group_context(session, request_id, budget_options=None, *, preferences
     ledger, memory_candidates = select_memory(snapshot, query)
     selected_ids = {e['entry_id'] for e in ledger}
     rules, entries, world_report = select_world_context(snapshot, query)
-    system = compose_prompt('character.reply.c4.v3', {'character.presentation_mode': mode})
+    long_chat = attempt['context_contract_id'] == LONG_CHAT
+    summaries = references(snapshot) if long_chat else []
+    system = compose_prompt('character.reply.c4.v3', {'character.presentation_mode': mode},
+                            runtime_parts=[('character.long_chat.reference', REFERENCE, 'runtime')] if long_chat else None)
     recall = recall_candidates(snapshot, ledger, query, [*history(), *current])
     omitted = []
     while True:
         messages = history()
         recalled = close_groups(recall, [*messages, *current], ledger)
-        data = {'reply_contract_id': V3, 'context_contract_id': C4, 'participants': participants,
+        data = {'reply_contract_id': V3, 'context_contract_id': attempt['context_contract_id'], 'participants': participants,
                 'world_rules': rules, 'world_related_entries': entries, 'ledger': ledger,
                 'history': messages, 'recalled_sources': recalled, 'current_user_messages': current,
                 'current_ooc_notes': notes, 'presentation_mode': mode}
+        if summaries:
+            data['derived_summaries'] = summaries
         if snapshot.get('opening'):
             data['author_opening'] = opening_context(snapshot['opening'])
         if preferences:
             data['user_preferences'] = preferences
         plan = plan_model_request(system, [RequestMessagePart('character.context', json.dumps(data, ensure_ascii=False))],
                                   temperature=0.8, max_tokens=None, trace_label='character.reply', mode='json',
-                                  contract_id=V3, context_contract_id=C4)
+                                  contract_id=V3, context_contract_id=attempt['context_contract_id'])
         report = budget_report(plan.system_prompt, plan.user_prompt, options=budget_options, manifest=plan.prompt_manifest)
         if report['fits']:
             report.update(omitted=omitted,
                           world_context=final_world_report(world_report, sum('world_entry_id' in i for i in omitted)),
                           memory_context=final_report(memory_candidates, selected_ids, {e['entry_id'] for e in ledger}),
                           source_recall=public_report(recall))
+            if long_chat:
+                report['long_chat'] = {'sent_segments': len(summaries)}
             return plan, evidence_messages([*messages, *current], recalled), {e['entry_id'] for e in ledger}, report
         if preferences:
             preferences.pop(); omitted.append({'field': 'user_preferences'})
@@ -99,6 +108,8 @@ def build_group_context(session, request_id, budget_options=None, *, preferences
             p['profile'].pop('dialogue_examples'); omitted.append({'participant_id': p['instance_id'], 'field': 'dialogue_examples'})
         elif trim_group(recall):
             omitted.append({'field': 'recalled_sources'})
+        elif summaries:
+            summaries.pop(0); omitted.append({'field': 'derived_summaries'})
         elif len(batches) > 2:
             omitted.append({'group_id': batches.pop(0)['group_id']})
         elif ledger:
