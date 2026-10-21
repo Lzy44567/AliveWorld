@@ -1,5 +1,11 @@
 # AliveWorld 测试流程
 
+## dev.26实际包与发布（2026-10-21）
+
+- 构建提交7207b1b89fe61bf023517672e95f6f4323cc80c9。build/dev26-package.txt：主EXE与更新助手构建成功；便携包结构、隐私排除及覆盖UserData保留验证通过。
+- ZIP 38,454,101字节；SHA256 10b727e819b7f028fe8c7a536812279322966d68fc89c6b2c86537d4a195d5c4。GitHub API确认非草稿预发布，两附件uploaded，远端digest相同，标签精确指向构建提交。
+- Release正文来自本版本分类更新概要。未操作游玩区数据；不宣称本次在纯净Windows或玩家旧EXE实际自动更新测试过。
+
 ## 44角色长聊交付验收（2026-10-21）
 
 - 952 Python全量通过（71.766秒，build/character44-python.txt）；随后补足最近10组保留用例，22项定向通过（build/character44-focused-final.txt）。149前端单元通过（build/character44-frontend.txt），生产构建179模块通过，仍有既存分包体积提示。
