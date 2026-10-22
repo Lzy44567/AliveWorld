@@ -144,6 +144,7 @@ const openEditAsset = async (name) => {
         tags: Array.isArray(p.tags) ? p.tags.join(', ') : (p.tags || ''),
         desc: p.description || p.content || p.motive || '',
         overview: p.overview ?? p.global_setting ?? '',
+        capture_topic: p.capture_topic || '',
         axiomsText: Array.isArray(p.axioms) ? p.axioms.join('\n') : (p.axioms || ''),
         starting_scene: p.starting_scene || '',
         role_fields: p.role_fields,

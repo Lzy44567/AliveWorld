@@ -150,6 +150,7 @@ const saveContent = async () => {
 
     if (type.value === 'worldbooks') {
       payload.overview = form.value.overview;
+      payload.capture_topic = form.value.capture_topic || '';
       payload.axioms = String(form.value.axiomsText || '').split(/\r?\n/).map(item => item.trim()).filter(Boolean);
       payload.starting_scene = form.value.starting_scene;
       payload.entries = form.value.entries.filter(e => e.name || e.keys || e.content).map(e => ({
@@ -209,6 +210,7 @@ const saveContent = async () => {
 
         <!-- 🚀 修复问题10：补回完整视图 -->
         <template v-if="type === 'worldbooks'">
+          <details class="text-xs text-slate-400"><summary class="cursor-pointer">收录主题（可选）</summary><p class="my-2">说明这本书适合收录哪类知识，帮助新设定归类；不是世界规则。留空时依据概述和已有条目判断。</p><ExpandableTextarea data-testid="worldbook-capture-topic" v-model="form.capture_topic" label="收录主题" textarea-class="h-20 bg-[#0d0d12] border border-slate-700 text-slate-300 p-3 rounded-lg text-sm" /></details>
           <div><label class="text-xs text-slate-400 font-bold block mb-1.5">世界概述</label><p class="mb-1.5 text-[10px] text-slate-500">介绍世界背景与总体印象，不视为不可违反的规则。</p><ExpandableTextarea data-testid="worldbook-overview" v-model="form.overview" label="世界概述" textarea-class="h-24 bg-[#0d0d12] border border-slate-700 text-slate-300 p-3 rounded-lg text-sm" /></div>
           <div><label class="text-xs text-amber-300 font-bold block mb-1.5">世界公理（每行一条）</label><p class="mb-1.5 text-[10px] text-slate-500">定义世界最基础的客观规则与基调，和口语化概述分开。</p><ExpandableTextarea v-model="form.axiomsText" label="世界公理" textarea-class="h-24 bg-[#0d0d12] border border-amber-900/70 text-slate-300 p-3 rounded-lg text-sm" /></div>
           <div class="border-t border-slate-700 pt-4">

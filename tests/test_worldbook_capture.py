@@ -142,9 +142,12 @@ class WorldbookCaptureTests(unittest.TestCase):
             self.assertEqual(len(yaml.safe_load(path.read_text(encoding="utf-8"))["entries"]), 0)
 
     def test_schedule_creates_a_fallback_when_no_worldbook_exists(self):
+        from unittest.mock import patch
         with tempfile.TemporaryDirectory() as temp_dir:
             ai = FakeAI('{"candidates":[]}')
-            self.assertTrue(WorldbookCaptureService(ai).schedule(temp_dir, "行动", "正文", review_all=False))
+            with patch('core.worldbook_capture.threading.Thread') as thread:
+                thread.side_effect = lambda **kw: type('InlineThread', (), {'start': lambda self: kw['target'](*kw['args'], **kw['kwargs'])})()
+                self.assertTrue(WorldbookCaptureService(ai).schedule(temp_dir, "行动", "正文", review_all=False))
             self.assertEqual(len(list((Path(temp_dir) / "worldbooks").glob("*.yml"))), 1)
 
     def test_command_rules_are_only_added_to_the_capture_request_when_triggered(self):

@@ -14,7 +14,7 @@ import yaml
 
 from core.ai_engine import robust_json_parse
 from core.auto_worldbook import select_capture_worldbook
-from core.worldbook import normalize_entry, normalize_tags, normalize_worldbook, save_worldbook_atomic, worldbook_revision, WorldbookRevisionConflict
+from core.worldbook import normalize_entry, normalize_tags, normalize_worldbook, save_worldbook_atomic, worldbook_revision, WorldbookRevisionConflict, read_worldbook_bytes
 from core.capture_source import source_is_current
 from core.worldbook_revisions import record_capture_changes, reconcile_capture_history
 from core.worldbook_capture_policy import automatic_revision
@@ -85,20 +85,28 @@ class WorldbookCaptureService:
         if source_turn is not None and not source_is_current(save_dir, source_turn):
             log.info("世界书捕获未启动：源回合未保存或已失效")
             return False
-        path = select_capture_worldbook(save_dir, create_fallback=True)
-        if not path or not self.ai_engine or not story_text.strip():
+        if not self.ai_engine or not story_text.strip():
             return False
         thread = threading.Thread(
-            target=self._run_capture,
-            args=(path, player_action, story_text),
+            target=self._run_capture_books,
+            args=(save_dir, player_action, story_text),
             kwargs={"review_all": review_all, "world_change_events": world_change_events,
-                    "source_turn": source_turn, "save_dir": save_dir,
-                    "expected_revision": worldbook_revision(path.read_bytes())},
+                    "source_turn": source_turn},
             name="worldbook-capture",
             daemon=True,
         )
         thread.start()
         return True
+
+    def _run_capture_books(self, *args, **kwargs):
+        from core.worldbook_capture_batch import capture_books
+        try:
+            result = capture_books(self, *args, **kwargs)
+            if result.get('skipped'):
+                log.info('世界书后台捕获跳过项: %s', result['skipped'])
+            return result
+        except Exception as exc:
+            log.exception('世界书后台捕获失败，已保存正文不受影响: %s', exc)
 
     def _run_capture(self, *args, **kwargs):
         try:
@@ -110,7 +118,8 @@ class WorldbookCaptureService:
             log.exception("世界书后台捕获失败，已保存正文不受影响: %s", exc)
 
     def capture(self, path: Path, player_action: str, story_text: str, *, review_all: bool, world_change_events=None,
-                source_turn=None, save_dir=None, expected_revision=None) -> dict[str, Any]:
+                source_turn=None, save_dir=None, expected_revision=None, candidate_payload=None,
+                expected_primary=None) -> dict[str, Any]:
         if source_turn is not None and not source_is_current(save_dir, source_turn):
             return {"added": [], "pending": [], "skipped": ["源回合已失效"]}
         if world_change_events is not None:
@@ -125,7 +134,7 @@ class WorldbookCaptureService:
             )
         with _path_lock(path):
             try:
-                original = path.read_bytes()
+                original = read_worldbook_bytes(path)
                 revision = worldbook_revision(original)
                 if expected_revision is not None and revision != expected_revision:
                     return {"added": [], "pending": [], "skipped": ["目标修订已变化"]}
@@ -149,15 +158,17 @@ class WorldbookCaptureService:
                 f"{command_section}"
                 f"【玩家行动】\n{player_action}\n【本回合正文】\n{story_text}"
             )
-            raw, error = self.ai_engine.chat_json(CAPTURE_PROMPT, prompt, temp=0.3, trace_label="世界书异步捕获")
-            if error or not raw:
-                log.warning("世界书异步捕获失败，正文不受影响: %s", error or "空返回")
-                return {"added": [], "pending": [], "skipped": [error or "空返回"]}
-            try:
-                payload = robust_json_parse(raw)
-            except ValueError as exc:
-                log.warning("世界书异步捕获JSON无效，正文不受影响: %s", exc)
-                return {"added": [], "pending": [], "skipped": [str(exc)]}
+            payload = candidate_payload
+            if payload is None:
+                raw, error = self.ai_engine.chat_json(CAPTURE_PROMPT, prompt, temp=0.3, trace_label="世界书异步捕获")
+                if error or not raw:
+                    log.warning("世界书异步捕获失败，正文不受影响: %s", error or "空返回")
+                    return {"added": [], "pending": [], "skipped": [error or "空返回"]}
+                try:
+                    payload = robust_json_parse(raw)
+                except ValueError as exc:
+                    log.warning("世界书异步捕获JSON无效，正文不受影响: %s", exc)
+                    return {"added": [], "pending": [], "skipped": [str(exc)]}
 
             existing_names = {entry.get("name", "").casefold() for entry in book.get("entries", [])}
             existing_contents = {entry.get("content", "").strip() for entry in book.get("entries", [])}
@@ -249,9 +260,13 @@ class WorldbookCaptureService:
                 # Share the story mutation gate only for the short commit, not
                 # the model request. Undo/save and source checking cannot race.
                 from core.session_manager import mutation_guard, save_identity
-                gate = mutation_guard("story", save_identity(save_dir), blocking=True) if source_turn is not None else nullcontext()
+                gate = mutation_guard("story", save_identity(save_dir), blocking=True) if save_dir is not None else nullcontext()
                 try:
                     with gate:
+                        if expected_primary is not None:
+                            from core.worldbook_capture_batch import read_state
+                            if read_state(save_dir).get('worldbook_collaboration', {}).get('primary_book', '') != expected_primary:
+                                return {'added': [], 'pending': [], 'skipped': ['主书选择已变化']}
                         if source_turn is not None and not source_is_current(save_dir, source_turn):
                             log.info("世界书异步捕获弃用：源回合已撤回或替换")
                             return {"added": [], "pending": [], "skipped": ["源回合已失效"]}

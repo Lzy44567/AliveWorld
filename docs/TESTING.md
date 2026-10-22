@@ -1,5 +1,12 @@
 # AliveWorld 测试流程
 
+## dev.28归属验收（2026-10-23）
+
+- `build/worldbook46-python.txt`：971项通过，83.284秒；随后增加关闭自动书测试，最终世界书专项76项通过。
+- `build/worldbook46-frontend.txt`：149项通过。
+- Edge分别通过worldbook-routing（最终13.4秒，含主题编辑保存）、worldbook-revisions和worldbook-collaboration三个不同用例。真HTTP假模型验证一次捕获请求分入三书，撤回投影全部清除；截图worldbook46-topic/routing已查看。
+- 初次主题编辑验收的定位器误把textarea当容器，修正测试定位后通过，不是界面故障。未使用真实付费模型，不声称完成分类语义质量验收。
+
 ## dev.27实际包与发布（2026-10-23）
 
 - 构建与标签提交7d3ab5c8b4d6f9bebfb4020944413f3d1c787a92；build/dev27-package.txt确认主EXE、更新助手、便携包结构/隐私排除/覆盖更新保留UserData检查通过。
