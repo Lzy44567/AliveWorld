@@ -1,5 +1,10 @@
 # AliveWorld 测试流程
 
+## dev.28实际包与发布（2026-10-23）
+
+- 构建/标签e438a10571416203a3014bc67baf2df31fa1d25b，build/dev28-package.txt确认EXE、更新助手及结构/隐私/覆盖更新保留检查通过。
+- ZIP 38,475,925字节，SHA256 `5ba92f0ca352e05f8e666edcf6c4fcc7b2c4235e16364e1156e4c6e1958e4b4f`；sha256文件107字节，其自身摘要 `fba6012726849b296927471659bed3d2d02cddec5156cf95f6c64423a446e6f8`。GitHub API确认两附件uploaded、digest一致、标签精确指向构建提交、非草稿预发布。
+
 ## dev.28归属验收（2026-10-23）
 
 - `build/worldbook46-python.txt`：971项通过，83.284秒；随后增加关闭自动书测试，最终世界书专项76项通过。
