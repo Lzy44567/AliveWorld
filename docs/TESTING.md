@@ -1,5 +1,11 @@
 # AliveWorld 测试流程
 
+## dev.27实际包与发布（2026-10-23）
+
+- 构建与标签提交7d3ab5c8b4d6f9bebfb4020944413f3d1c787a92；build/dev27-package.txt确认主EXE、更新助手、便携包结构/隐私排除/覆盖更新保留UserData检查通过。
+- ZIP 38,469,055字节，SHA256 d577b8d255034f595c978dd1e62780f947f46046b95aa55bfdfe043705748a2f。GitHub API确认非草稿预发布，ZIP与sha256两个附件uploaded，远端digest分别与本地一致，标签精确指向构建提交。
+- 发布正文包含本版分类概要，源码分支已推送。未接触用户游玩区、未宣称纯净Windows测试或真实付费模型语义质量验证。
+
 ## 45 多世界书验收（2026-10-22）
 
 - 963项全量Python通过（96.152秒，build/worldbook45-python.txt）；领域、API、存档事务、同ID跨书、来源变动、内容编辑、恢复去重、旧档无主书均有专项。
