@@ -3,6 +3,7 @@ import os
 import glob
 import yaml
 import shutil
+from pathlib import Path
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, StrictBool
 from typing import Dict, Any
@@ -10,7 +11,7 @@ from typing import Dict, Any
 from core.session_manager import active_sessions
 from utils.file_io import DATA_DIR, save_game_data
 from utils.asset_catalog import resolve_asset_path
-from core.worldbook import normalize_worldbook, save_worldbook_atomic, worldbook_write_guard
+from core.worldbook import normalize_worldbook, save_worldbook_atomic, worldbook_write_guard, read_worldbook_bytes
 from core.character_asset_write import CharacterWriteError, character_revision, write_character
 from core.image_generation.runtime import get_image_runtime
 from core.image_generation.portrait import task_is_local_portrait
@@ -92,20 +93,19 @@ def get_local_assets(session_id: str):
         
         for f in glob.glob(os.path.join(target_path, '*.yml')):
             try:
-                with open(f, 'rb') as file:
-                    raw = file.read()
-                    data = yaml.safe_load(raw.decode('utf-8'))
-                    if data:
-                        if sub_dir == 'worldbooks' and data.get('capture_history'):
-                            data, _ = reconcile_capture_history(data, game.history.get('story_turns', []))
-                        if sub_dir == 'worldbooks':
-                            data['edit_revision'] = worldbook_revision(raw)
-                        if sub_dir == 'characters':
-                            data['edit_revision'] = character_revision(data)
-                        data['is_active'] = data.get('is_active', True)
-                        data['tags'] = data.get('tags', []) + ["本局独有"]
-                        data['system_tags'] = system_tags_from_asset(data)
-                        items.append(data)
+                raw = read_worldbook_bytes(f) if sub_dir == 'worldbooks' else Path(f).read_bytes()
+                data = yaml.safe_load(raw.decode('utf-8'))
+                if data:
+                    if sub_dir == 'worldbooks' and data.get('capture_history'):
+                        data, _ = reconcile_capture_history(data, game.history.get('story_turns', []))
+                    if sub_dir == 'worldbooks':
+                        data['edit_revision'] = worldbook_revision(raw)
+                    if sub_dir == 'characters':
+                        data['edit_revision'] = character_revision(data)
+                    data['is_active'] = data.get('is_active', True)
+                    data['tags'] = data.get('tags', []) + ["本局独有"]
+                    data['system_tags'] = system_tags_from_asset(data)
+                    items.append(data)
             except: pass
         return items
 

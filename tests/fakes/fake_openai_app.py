@@ -125,6 +125,16 @@ def _response_for(kind: str, system: str, user: str) -> dict[str, Any] | str:
         }
     if kind == "settlement":
         story_index = next_story_index(full)
+        conflicts = []
+        if '多世界书验收' in full:
+            refs = {}
+            for role, ref, content in re.findall(r'【(主世界书|补充知识书) · [^\n]+? · 引用 (wb_[a-f0-9]+)】：([^\n]+)', full):
+                if content in ('验收地区禁止飞行', '验收地区允许飞行'):
+                    refs[role] = (ref, content)
+            if '主世界书' in refs and '补充知识书' in refs:
+                conflicts.append({'keep': refs['主世界书'][0], 'disable': refs['补充知识书'][0],
+                                  'keep_quote': refs['主世界书'][1], 'disable_quote': refs['补充知识书'][1],
+                                  'scope': '同一验收地区', 'reason': '飞行许可互斥'})
         paragraphs = [
             "前端正文测试成功。",
             f"自动测试正文{story_index}",
@@ -148,6 +158,7 @@ def _response_for(kind: str, system: str, user: str) -> dict[str, Any] | str:
             "status_deletions": [],
             "resolved_influences": [],
             "world_change_events": [],
+            "worldbook_conflicts": conflicts,
             "action_suggestions": ["继续检查世界", "观察身边角色"],
             "preference_observations": [],
         }

@@ -34,6 +34,7 @@ from core.effect_progress import (
     FUTURE_EFFECT_INSTRUCTION, SETTLEMENT_EFFECT_INSTRUCTION, needs_effect_progress,
 )
 from core.npc_identity import NPC_IDENTITY_INSTRUCTION
+from core.worldbook_collaboration_prompt import CONFLICT_INSTRUCTION
 
 
 SettlementMode = Literal["normal", "reroll"]
@@ -74,6 +75,7 @@ class SettlementRequestSnapshot:
     triggered_influences: Sequence[Mapping[str, Any]]
     effect_report: Mapping[str, Any] | None = None
     npc_identities: Sequence[Mapping[str, Any]] = ()
+    worldbook_collaboration: bool = False
 
 
 @dataclass(frozen=True)
@@ -182,6 +184,9 @@ def _influence_instruction(items: Sequence[Mapping[str, Any]]) -> str:
 def _runtime_parts(snapshot: SettlementRequestSnapshot) -> list[RuntimePromptPart]:
     suggestion = action_suggestion_instruction(snapshot.story_settings.get("aiSuggestions", True))
     parts = [
+        RuntimePromptPart('story.worldbook.collaboration',
+                          CONFLICT_INSTRUCTION if snapshot.worldbook_collaboration else '',
+                          layer='contract', cache_class='configuration'),
         RuntimePromptPart('story.state.npc_identity', NPC_IDENTITY_INSTRUCTION,
                           layer='contract', cache_class='static'),
         RuntimePromptPart(

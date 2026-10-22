@@ -19,6 +19,7 @@ import CharacterAssetCard from '../assets/CharacterAssetCard.vue';
 import CharacterDeleteConfirmModal from '../modals/CharacterDeleteConfirmModal.vue';
 import { buildCharacterImageContext } from '../../utils/characterImageContext';
 import { workshopStore } from '../../store/workshopStore';
+import WorldbookCollaborationPanel from '../worldbook/WorldbookCollaborationPanel.vue';
 
 const props = defineProps({ layout: { type: String, default: 'list' } });
 
@@ -303,6 +304,7 @@ onBeforeUnmount(() => {
     </div>
     
     <div class="flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-1">
+      <WorldbookCollaborationPanel v-if="uiStore.rightTab === 'world' && uiStore.assetScope === 'local' && uiStore.appMode === 'game'" />
       <div v-if="entitiesHiddenByDisclosure" class="mx-1 mt-6 rounded-lg border border-purple-800/60 bg-purple-950/20 p-3 text-center text-xs leading-relaxed text-purple-300">
         本局已载入 {{ rawLocalEntityCount }} 个暗流实体。名称当前隐藏；可在设置中勾选“显示名称”或“允许编辑”进行查看。
       </div>

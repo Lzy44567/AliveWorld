@@ -4,6 +4,7 @@ from unittest.mock import patch
 from core.causal_ledger import CausalLedger
 from core.resolution_engine import DualTrackResolver
 from core.state_manager import StateManager
+from core.context_manager import ContextManager
 
 
 class SequenceAI:
@@ -28,6 +29,7 @@ class FakeSession:
     def __init__(self, ai, ledger):
         self.ai_engine = ai
         self.state_mgr = StateManager()
+        self.ctx_mgr = ContextManager()
         self.undercurrent = FakeUndercurrent(ledger)
         self.char_info = "测试角色"
         self.style_info = "测试文风"

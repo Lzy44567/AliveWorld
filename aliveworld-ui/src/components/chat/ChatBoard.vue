@@ -25,6 +25,12 @@ onMounted(async () => {
 onBeforeUnmount(() => contentObserver?.disconnect());
 watch(() => gameStore.sessionId, prepareAtBottom, { flush: 'post' });
 watch(() => gameStore.chatLog.length, () => jumpToBottom(), { flush: 'post' });
+watch(() => gameStore.isProcessing, (running, wasRunning) => {
+  if (!running && wasRunning && gameStore.currentContext.task.kind !== 'undo') {
+    const count = gameStore.chatLog.at(-1)?.worldbook_conflict_count || 0;
+    if (count) uiStore.showToast(`发现 ${count} 条世界书冲突，可在右侧“世界书 → 本局专属”查看或恢复。`);
+  }
+});
 watch(() => gameStore.currentContext.preview, () => jumpToBottom(), { flush: 'post' });
 watch(() => gameStore.currentContext.pendingAction, () => jumpToBottom(), { flush: 'post' });
 watch(() => gameStore.sessionId, async (sessionId) => {

@@ -5,6 +5,8 @@ from pathlib import Path
 import yaml
 
 from core.context_manager import ContextManager
+from core.worldbook import WorldbookRetriever
+from core.worldbook_collaboration import default_collaboration
 
 
 def write_yaml(path: Path, data: dict) -> None:
@@ -13,6 +15,25 @@ def write_yaml(path: Path, data: dict) -> None:
 
 
 class ContextActivationTests(unittest.TestCase):
+    def test_collaboration_preserves_both_duplicate_ids_and_only_exposes_selected_rules(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            for name in ('主书', '次书'):
+                write_yaml(Path(temp_dir) / 'worldbooks' / f'{name}.yml', {
+                    'name': name, 'overview': name + '概述',
+                    'entries': [{'id': 'same', 'name': name + '规则', 'content': name + '内容', 'keys': '进城'},
+                                {'id': 'unused', 'name': '未命中', 'content': '不应提供', 'keys': '海底'}],
+                })
+            context = ContextManager(WorldbookRetriever())
+            context.refresh_from_local(temp_dir, '', active_turns=[],
+                                       collaboration={**default_collaboration(), 'primary_book': '主书'})
+            visible, names = context.build_visible_world_info('', '进城')
+            self.assertEqual(set(names), {'主书规则', '次书规则'})
+            self.assertIn('主世界书 · 主书', visible)
+            self.assertIn('补充知识书 · 次书', visible)
+            self.assertNotIn('不应提供', visible)
+            self.assertEqual(len(context.supplied_world_rules), 4)
+            self.assertEqual(len(context.world_rules), 6)
+
     def test_inactive_worldbook_style_and_character_are_excluded(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             save_dir = Path(temp_dir)

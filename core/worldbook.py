@@ -121,6 +121,12 @@ def worldbook_revision(content: bytes) -> str:
     return hashlib.sha256(content).hexdigest()
 
 
+def read_worldbook_bytes(path):
+    """Close readers before atomic replacement, including on Windows."""
+    with worldbook_write_guard(path):
+        return Path(path).read_bytes()
+
+
 def save_worldbook_atomic(path: Path | str, book: dict[str, Any], *, expected_revision: str | None = None) -> None:
     """Write a complete YAML file without exposing readers to partial content."""
     import yaml

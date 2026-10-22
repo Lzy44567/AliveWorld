@@ -24,6 +24,7 @@ from core.preference_analysis import PreferenceAnalysisService
 from core.player_agency import normalize_action_adjudication
 from core.story_prompt_builder import SettlementRequestSnapshot, build_settlement_request
 from core.settlement_contract import SettlementContractError, validate_settlement
+from core.worldbook_collaboration import default_collaboration, collect_conflicts
 from utils.sys_logger import get_logger
 
 log = get_logger()
@@ -56,6 +57,7 @@ class GameSession:
         self.resolver = DualTrackResolver()
         self.worldbook_capture = WorldbookCaptureService(worldbook_capture_ai_engine or self.ai_engine)
         self._pending_worldbook_captures = []
+        self.worldbook_collaboration = default_collaboration()
         self.user_preferences = UserPreferenceRepository()
         self.preference_analysis = PreferenceAnalysisService(preference_ai_engine or self.ai_engine)
         memory_config = memory_config or {}
@@ -181,7 +183,8 @@ class GameSession:
 
     def _refresh_local_context(self):
         self.ctx_mgr.refresh_from_local(self.save_dir_path, self.world_premise,
-                                       active_turns=self.history.get('story_turns', []))
+                                       active_turns=self.history.get('story_turns', []),
+                                       collaboration=self.worldbook_collaboration)
         self.undercurrent.entities = self.entity_repository.load()
 
     def _update_action_suggestions(self, settlement):
@@ -221,6 +224,7 @@ class GameSession:
             return result or {"error": True, "message": "推演未完成，本回合未保存。"}
             
         settlement = result['settlement']
+        conflict_rules = copy.deepcopy(self.ctx_mgr.supplied_world_rules)
         story_text = format_story_text(settlement.get('story_text', ''))
         if not story_text:
             self.rollback()
@@ -274,6 +278,7 @@ class GameSession:
         self._record_preference_evidence(
             settlement, self.history["story_turns"][-1]["turn_id"], interpreted_action
         )
+        self._record_worldbook_conflicts(settlement, conflict_rules)
         self._queue_worldbook_capture(settlement, interpreted_action, story_text)
         self.story_memory.schedule(
             self.history.get("story_turns", []),
@@ -339,6 +344,7 @@ class GameSession:
         from core.prompts import load_system_prompts
         from core.world_rule_commands import resolution_instruction
         visible_world, _ = self.build_visible_world_info(interpreted_action)
+        conflict_rules = copy.deepcopy(self.ctx_mgr.supplied_world_rules)
         pts = load_system_prompts()
         rule_command_prompt = resolution_instruction(interpreted_action)
         preference_context = self.get_user_preference_context()
@@ -361,6 +367,7 @@ class GameSession:
             triggered_influences=triggered_influences,
             effect_report=effect_preview["report"] if effect_preview is not None else None,
             npc_identities=self.state_mgr.npc_identity_context(interpreted_action),
+            worldbook_collaboration=bool(self.ctx_mgr.primary_worldbook and len(self.ctx_mgr.world_books) > 1),
         ))
         raw_settle, err2 = self.ai_engine.chat_json(
             request.system_prompt, request.user_prompt,
@@ -437,6 +444,7 @@ class GameSession:
         self._record_preference_evidence(
             settlement, self.history["story_turns"][-1]["turn_id"], interpreted_action
         )
+        self._record_worldbook_conflicts(settlement, conflict_rules)
         self._queue_worldbook_capture(settlement, interpreted_action, story_text)
         self.story_memory.schedule(
             self.history.get("story_turns", []),
@@ -444,6 +452,15 @@ class GameSession:
         )
         return {"chat_messages": self.history["chat_messages"], "state": self.state, "action_suggestions": self.action_suggestions}
     
+    def _record_worldbook_conflicts(self, settlement, supplied_rules):
+        self.worldbook_collaboration, count = collect_conflicts(
+            settlement.get("worldbook_conflicts"), state=self.worldbook_collaboration,
+            books=self.ctx_mgr.world_books, supplied_rules=supplied_rules,
+            source_turn=self.history["story_turns"][-1], active_turns=self.history["story_turns"],
+        )
+        if count:
+            self.history["chat_messages"][-1]["worldbook_conflict_count"] = count
+
     def _queue_worldbook_capture(self, settlement, action, story):
         if self.story_settings["worldbookCaptureEnabled"] and capture_requested(settlement, action):
             self._pending_worldbook_captures.append({
@@ -484,9 +501,12 @@ class GameSession:
         payload["word_limit"] = self.word_limit
         payload["is_game_over"] = self.is_game_over
         payload["pending_worldbook_captures"] = copy.deepcopy(self._pending_worldbook_captures)
+        payload["worldbook_collaboration"] = copy.deepcopy(self.worldbook_collaboration)
         return payload
 
     def _restore_runtime(self, snap):
+        if "worldbook_collaboration" in snap:
+            self.worldbook_collaboration = copy.deepcopy(snap["worldbook_collaboration"])
         self._pending_worldbook_captures = copy.deepcopy(snap.get("pending_worldbook_captures", []))
         self.state_mgr.state = copy.deepcopy(snap["state"])
         self.state_mgr.load_metadata(copy.deepcopy(snap.get("state_meta")))
@@ -539,6 +559,7 @@ class GameSession:
             "state": self.state, "history": self.history, "undercurrent": self.undercurrent.export_state(), "snapshots": self.snapshots,
             "action_suggestions": self.action_suggestions,
             "story_memory": self.story_memory.export_state(),
+            "worldbook_collaboration": self.worldbook_collaboration,
             "state_meta": self.state_mgr.export_metadata(),
         }
 
@@ -549,6 +570,7 @@ class GameSession:
         self.save_name, self.save_dir_path = data.get('save_name', ''), runtime_save_dir
         self.world_premise = data.get('world_premise', data.get('description', ''))
         self.plot_compass = data.get('plot_compass', '')
+        self.worldbook_collaboration = {**default_collaboration(), **data.get('worldbook_collaboration', {})}
         legacy_settings = dict(data.get('story_settings') or {})
         if "targetStoryLength" not in legacy_settings and data.get("word_limit") is not None:
             legacy_settings["targetStoryLength"] = data.get("word_limit")

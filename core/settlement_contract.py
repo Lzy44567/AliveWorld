@@ -257,6 +257,9 @@ def validate_settlement(
     if missing:
         raise SettlementContractError("resolved_influences", f"缺少必须兑现的影响 {missing[0]}")
     result["resolved_influences"] = resolved
+    # The collaboration boundary checks supplied references and quoted evidence.
+    if isinstance(payload.get("worldbook_conflicts"), list):
+        result["worldbook_conflicts"] = payload["worldbook_conflicts"][:8]
     if "world_change_events" in payload:
         try:
             result["world_change_events"] = validate_world_change_events(payload["world_change_events"])
