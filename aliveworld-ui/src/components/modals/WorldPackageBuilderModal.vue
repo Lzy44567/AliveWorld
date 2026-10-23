@@ -4,6 +4,8 @@ import { worldPackageApi } from '../../api/worldPackageApi';
 import { assetStore } from '../../store/assetStore';
 import { uiStore } from '../../store/uiStore';
 import ExpandableTextarea from '../common/ExpandableTextarea.vue';
+import StoryWorldbookExtraction from '../worldbook/StoryWorldbookExtraction.vue';
+import { gameStore } from '../../store/gameStore';
 
 const DRAFT_KEY = 'aliveworld.world-package-builder.v1';
 const TYPE_META = {
@@ -17,6 +19,14 @@ const assets = ref([]);
 const selected = ref([]);
 const busy = ref(false);
 const loading = ref(true);
+const extracting = ref(false);
+function extracted(asset) {
+  assets.value.push(asset);
+  selected.value = [...selected.value, keyOf(asset)];
+  extracting.value = false;
+  uiStore.showToast(`已保存“${asset.name}”并加入打包选择；也可取消打包后在资源库编辑`);
+  assetStore.fetchAssets();
+}
 const form = reactive({
   package_id: '', version: '1.0.0', name: '', author: '', description: '', tags: '',
   adult: false, license: 'unspecified', world_premise: '', opening: '',
@@ -31,7 +41,7 @@ function toggle(item) {
   const key = keyOf(item);
   selected.value = isSelected(item) ? selected.value.filter(value => value !== key) : [...selected.value, key];
 }
-function close() { if (!busy.value) uiStore.modals.worldPackageBuilder = false; }
+function close() { if (!busy.value && !extracting.value) uiStore.modals.worldPackageBuilder = false; }
 
 function persistDraft() {
   localStorage.setItem(DRAFT_KEY, JSON.stringify({ form: { ...form }, selected: selected.value }));
@@ -81,7 +91,8 @@ onMounted(async () => {
 
 <template>
   <div class="fixed inset-0 z-[80] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm" @click.self="close">
-    <section role="dialog" aria-label="创建世界包" class="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-cyan-700 bg-slate-950 shadow-2xl">
+    <section role="dialog" aria-label="创建世界包" class="relative flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-cyan-700 bg-slate-950 shadow-2xl">
+      <StoryWorldbookExtraction v-if="extracting" @close="extracting=false" @saved="extracted" />
       <header class="flex items-start justify-between border-b border-slate-800 px-6 py-4">
         <div><h2 class="text-lg font-black text-cyan-200">📦 创建世界包</h2><p class="mt-1 text-xs text-slate-500">选择正式资产，生成可分享的本地文件；此操作不会上传或公开任何内容。</p></div>
         <button class="text-2xl text-slate-500 hover:text-white" @click="close">×</button>
@@ -109,6 +120,7 @@ onMounted(async () => {
         </div>
         <div class="flex min-h-0 flex-col p-5">
           <div class="mb-3 flex items-center justify-between"><div><h3 class="font-bold text-slate-200">选择包内资产</h3><p class="mt-1 text-[10px] text-slate-500">只读取全局正式资产；不打包存档、日志、密钥、偏好或工坊草稿。</p></div><span class="rounded bg-cyan-950 px-2 py-1 text-xs text-cyan-300">已选 {{ selected.length }}</span></div>
+          <button :disabled="busy || !gameStore.sessionId" class="mb-3 rounded-lg border border-cyan-800 p-2 text-sm text-cyan-200 disabled:opacity-40" :title="gameStore.sessionId ? '先预览筛选，再保存独立全局副本' : '请先载入故事'" @click="extracting=true">从当前故事提取世界书</button>
           <div v-if="loading" class="flex flex-1 items-center justify-center text-sm text-slate-500">正在读取资产……</div>
           <div v-else class="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1 custom-scrollbar">
             <details v-for="group in groups" :key="group.type" open class="rounded-xl border border-slate-800 bg-slate-900/45 p-3">

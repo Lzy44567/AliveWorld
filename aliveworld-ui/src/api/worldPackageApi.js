@@ -16,6 +16,14 @@ async function sendFile(path, file) {
 }
 
 export const worldPackageApi = {
+  async storyWorldbooks(sessionId) {
+    return requireOk(await fetch(`${BASE_URL}/authoring/stories/${encodeURIComponent(sessionId)}/worldbooks`), '读取故事设定失败');
+  },
+  async extractWorldbook(sessionId, payload) {
+    return requireOk(await fetch(`${BASE_URL}/authoring/stories/${encodeURIComponent(sessionId)}/worldbooks`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+    }), '提取世界书失败');
+  },
   async authoringAssets() {
     return requireOk(await fetch(`${BASE_URL}/authoring/assets`), '读取可打包资产失败');
   },

@@ -13,7 +13,8 @@ from pydantic import BaseModel, Field
 
 from api.v1.game_routes import start_prepared_game
 from core.asset_lifecycle import AssetLifecycleError, normalize_asset_name
-from core.session_manager import active_sessions
+from core.session_manager import active_sessions, mutation_guard, save_identity, MutationBusyError
+from core.worldbook_extraction import extraction_view, prepare_extraction, save_extraction, ExtractionConflict
 from core.world_packages.archive import MAX_PACKAGE_SIZE
 from core.world_packages.authoring import AssetSelection, WorldPackageAuthoringService
 from core.world_packages.models import PackageFormatError
@@ -56,6 +57,52 @@ class PackageExportPayload(BaseModel):
     world_premise: str = ""
     opening: str = ""
     experience_preset: dict[str, Any] = Field(default_factory=dict)
+
+
+class WorldbookExtractionPayload(BaseModel):
+    book_id: str
+    expected_revision: str
+    name: str
+    entry_ids: list[str]
+    include_overview: bool = True
+    include_axioms: bool = True
+    reviewed: bool = False
+
+
+def _extraction_game(session_id):
+    game = active_sessions.get(session_id)
+    if not game or not game.save_dir_path:
+        raise HTTPException(404, '请先载入要提取设定的故事')
+    return game
+
+
+def _extraction_view(game):
+    return extraction_view(game.save_dir_path, game.history.get('story_turns', []), game.worldbook_collaboration)
+
+
+@router.get('/authoring/stories/{session_id}/worldbooks')
+def preview_story_worldbooks(session_id: str):
+    game = _extraction_game(session_id)
+    try:
+        with mutation_guard('story', save_identity(game.save_dir_path)):
+            return _extraction_view(game)
+    except MutationBusyError as exc:
+        raise HTTPException(409, str(exc)) from exc
+
+
+@router.post('/authoring/stories/{session_id}/worldbooks')
+def extract_story_worldbook(session_id: str, payload: WorldbookExtractionPayload):
+    game = _extraction_game(session_id)
+    if not payload.reviewed:
+        raise HTTPException(400, '请先检查选中内容是否包含隐私或剧透，并确认保存')
+    try:
+        with mutation_guard('story', save_identity(game.save_dir_path)):
+            book = prepare_extraction(_extraction_view(game), **payload.model_dump(exclude={'reviewed'}))
+            return {'asset': save_extraction(AUTHORING.data_root / 'worldbooks', book)}
+    except (MutationBusyError, ExtractionConflict) as exc:
+        raise HTTPException(409, str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
 
 
 async def _receive_archive(request: Request) -> Path:
