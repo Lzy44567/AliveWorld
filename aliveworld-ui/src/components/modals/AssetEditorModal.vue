@@ -52,7 +52,7 @@ const reviewEntries = async (ids, accept) => {
   if (JSON.stringify(form.value.entries || []) !== reviewBaseline) return uiStore.showToast('请先保存条目编辑，再处理候选', 'error');
   reviewBusy.value = true;
   try {
-    const book = await gameApi.reviewWorldbook(gameStore.sessionId, uiStore.editorData.name, form.value.edit_revision, ids.map(id => ({ id, accept })));
+    const book = await gameApi.reviewWorldbook(gameStore.sessionId, form.value.file_id || uiStore.editorData.name, form.value.edit_revision, ids.map(id => ({ id, accept })), Boolean(form.value.file_id));
     form.value.entries = book.entries;
     form.value.edit_revision = book.edit_revision;
     reviewBaseline = JSON.stringify(book.entries);
@@ -172,7 +172,7 @@ const saveContent = async () => {
       await gameApi.updateLocalAsset(
         gameStore.sessionId,
         type.value,
-        form.value.name,
+        uiStore.editorData.isNew ? form.value.name : (form.value.file_id || uiStore.editorData.name),
         payload,
         !uiStore.editorData.isNew,
         form.value.edit_revision,

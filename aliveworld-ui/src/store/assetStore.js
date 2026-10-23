@@ -4,9 +4,6 @@
 import { reactive } from 'vue';
 import { assetApi } from '../api/assetApi';
 import { gameStore } from './gameStore';
-import { uiStore } from './uiStore';
-
-const captureSeen = new Map();
 
 export const assetStore = reactive({
   newSaveName: "",
@@ -75,11 +72,6 @@ export const assetStore = reactive({
       if (res.ok) {
         const data = await res.json();
         if (gameStore.sessionId !== sessionId) return;
-        const changes = (data.worldbooks || []).flatMap(book => book.capture_history || []);
-        const seen = captureSeen.get(sessionId);
-        const fresh = seen ? changes.filter(change => change.status === 'applied' && !seen.has(change.id)) : [];
-        captureSeen.set(sessionId, new Set(changes.map(change => change.id)));
-        if (notify && fresh.length) uiStore.showToast('本局世界书有新设定或修订，可在世界书中查看或审阅');
         this.worlds.local = data.worldbooks || [];
         this.styles.local = data.styles || [];
         this.characters.local = data.characters || [];

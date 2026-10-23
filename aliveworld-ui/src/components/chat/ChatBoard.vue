@@ -7,6 +7,7 @@ import { uiStore } from '../../store/uiStore';
 import { gameApi } from '../../api/gameApi';
 import MessageBubble from './MessageBubble.vue';
 import ChatInput from './ChatInput.vue';
+import WorldbookActivityNotice from '../worldbook/WorldbookActivityNotice.vue';
 import { imageStore } from '../../store/imageStore';
 import { useBottomAnchoredScroll } from '../../composables/useBottomAnchoredScroll';
 
@@ -90,5 +91,6 @@ const initWorldState = async () => {
       </div>
     </div>
     <ChatInput />
+    <WorldbookActivityNotice />
   </main>
 </template>

@@ -1,5 +1,12 @@
 # AliveWorld 测试流程
 
+## dev.29世界书修订记录（2026-10-23）
+
+- build/worldbook47-python.txt：977项Python全量通过（59.837秒）；最终build/worldbook47-focused.txt：82项世界书专项通过，含同名书精确文件审阅。
+- build/worldbook47-frontend.txt：151项通过。浏览器3项通过（27.3秒）：worldbook-activity、worldbook-revisions、worldbook-routing，含真HTTP假模型、首次静默/聚合提示、默认不传正文、详情、原书批量审阅、撤回失效、一捕获调用。
+- build/worldbook47-history.png已检查。新增面板默认折叠，展开后有界滚动，详情显式开启。失败定位：首次测试搜索提示符错误，随后真实自动书显示名/文件名不一致的审阅失败已修复。
+- 不代表真实模型语义质量、纯净Windows或玩家旧EXE自动更新实测。
+
 ## dev.28实际包与发布（2026-10-23）
 
 - 构建/标签e438a10571416203a3014bc67baf2df31fa1d25b，build/dev28-package.txt确认EXE、更新助手及结构/隐私/覆盖更新保留检查通过。

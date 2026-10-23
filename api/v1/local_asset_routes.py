@@ -56,14 +56,15 @@ class CaptureReviewRequest(BaseModel):
     decisions: list[CaptureReviewDecision] = Field(min_length=1, max_length=100)
 
 @router.post('/{session_id}/worldbooks/{asset_name}/review')
-def review_worldbook_capture(session_id: str, asset_name: str, payload: CaptureReviewRequest):
+def review_worldbook_capture(session_id: str, asset_name: str, payload: CaptureReviewRequest, by_id: bool = False):
     game = active_sessions.get(session_id)
     if not game or not game.save_dir_path:
         raise HTTPException(status_code=404, detail='会话失效')
     try:
         with mutation_guard('story', save_identity(game.save_dir_path)):
-            path = find_yaml_asset(os.path.join(game.save_dir_path, 'worldbooks'), asset_name)
-            if path is None:
+            path = (Path(game.save_dir_path) / 'worldbooks' / f'{normalize_asset_name(asset_name)}.yml'
+                    if by_id else find_yaml_asset(os.path.join(game.save_dir_path, 'worldbooks'), asset_name))
+            if path is None or not path.is_file():
                 raise HTTPException(status_code=404, detail='局内世界书不存在')
             with worldbook_write_guard(path):
                 raw = path.read_bytes()
@@ -100,6 +101,7 @@ def get_local_assets(session_id: str):
                         data, _ = reconcile_capture_history(data, game.history.get('story_turns', []))
                     if sub_dir == 'worldbooks':
                         data['edit_revision'] = worldbook_revision(raw)
+                        data['file_id'] = Path(f).stem
                     if sub_dir == 'characters':
                         data['edit_revision'] = character_revision(data)
                     data['is_active'] = data.get('is_active', True)

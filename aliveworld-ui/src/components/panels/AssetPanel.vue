@@ -20,6 +20,7 @@ import CharacterDeleteConfirmModal from '../modals/CharacterDeleteConfirmModal.v
 import { buildCharacterImageContext } from '../../utils/characterImageContext';
 import { workshopStore } from '../../store/workshopStore';
 import WorldbookCollaborationPanel from '../worldbook/WorldbookCollaborationPanel.vue';
+import WorldbookActivityPanel from '../worldbook/WorldbookActivityPanel.vue';
 
 const props = defineProps({ layout: { type: String, default: 'list' } });
 
@@ -123,12 +124,16 @@ const openNewAsset = () => {
   uiStore.modals.assetEditor = true;
 };
 
-const openEditAsset = async (name) => {
+const openEditAsset = async (name, byBookId = false) => {
   try {
     let p = {};
     if (uiStore.assetScope === 'local') {
-      await assetStore.fetchLocalAssets(gameStore.sessionId);
-      const item = currentList.value.find(i => i.name === name);
+      const sessionId = gameStore.sessionId;
+      const tab = uiStore.rightTab;
+      await assetStore.fetchLocalAssets(sessionId);
+      if (sessionId !== gameStore.sessionId || tab !== uiStore.rightTab || uiStore.assetScope !== 'local') return;
+      const item = byBookId ? assetStore.worlds.local.find(i => i.file_id === name) : currentList.value.find(i => i.name === name);
+      if (!item) throw new Error('资产已不存在');
       if (item) p = JSON.parse(JSON.stringify(item));
       p.tags = (p.tags || []).filter(t => t !== '本局独有');
     } else {
@@ -138,8 +143,9 @@ const openEditAsset = async (name) => {
     }
 
     uiStore.editorData = { 
-      type: getApiType(), name: name, isNew: false,
+      type: getApiType(), name: byBookId ? p.name : name, isNew: false,
       form: {
+        file_id: getApiType() === 'worldbooks' && uiStore.assetScope === 'local' ? p.file_id : undefined,
         name: p.name || name,
         tags: Array.isArray(p.tags) ? p.tags.join(', ') : (p.tags || ''),
         desc: p.description || p.content || p.motive || '',
@@ -306,6 +312,7 @@ onBeforeUnmount(() => {
     
     <div class="flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-1">
       <WorldbookCollaborationPanel v-if="uiStore.rightTab === 'world' && uiStore.assetScope === 'local' && uiStore.appMode === 'game'" />
+      <WorldbookActivityPanel v-if="uiStore.rightTab === 'world' && uiStore.assetScope === 'local' && uiStore.appMode === 'game'" @open-book="openEditAsset($event, true)" />
       <div v-if="entitiesHiddenByDisclosure" class="mx-1 mt-6 rounded-lg border border-purple-800/60 bg-purple-950/20 p-3 text-center text-xs leading-relaxed text-purple-300">
         本局已载入 {{ rawLocalEntityCount }} 个暗流实体。名称当前隐藏；可在设置中勾选“显示名称”或“允许编辑”进行查看。
       </div>

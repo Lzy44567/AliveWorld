@@ -3,8 +3,8 @@ import { postEventStream } from './streaming.js';
 const API_URL = "/api/v1/game";
 
 export const gameApi = {
-  async reviewWorldbook(sessionId, name, revision, decisions) {
-    const res = await fetch(`${API_URL}/${sessionId}/worldbooks/${encodeURIComponent(name)}/review`, {
+  async reviewWorldbook(sessionId, name, revision, decisions, byId = false) {
+    const res = await fetch(`${API_URL}/${sessionId}/worldbooks/${encodeURIComponent(name)}/review?by_id=${byId}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ expected_revision: revision, decisions }),
     });

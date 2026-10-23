@@ -11,6 +11,8 @@ export const uiStore = reactive({
   rightDrawerOpen: true,
   rightTab: 'saves',
   assetScope: 'global', 
+  worldbookActivityOpen: false,
+  worldbookActivityRefresh: 0,
   resourceLibrarySection: 'images',
 
   modals: { 
