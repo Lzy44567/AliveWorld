@@ -1,5 +1,10 @@
 # AliveWorld 测试流程
 
+## dev.33实际包与发布（2026-10-24）
+
+- 构建/标签606d25ca5cd13f4be0d437b398e5132c704c0245；build/dev33-package.txt确认主EXE、更新助手、结构/隐私/覆盖保留检查通过。最终dev.33前端提取/导出/导入新故事流程再次通过（7.1秒）。
+- ZIP 38,500,449字节，SHA256 `79bb1af7e0fae1397ab0d80f27de92e44d77e996b4baaa04460c33ff78decf52`；校验文件107字节，自身摘要 `996ad03baf2bab0c7108395f06373f52f1812bb400ca24ec5695cb1d5e24ceef`。GitHub API确认非草稿预发布，两附件uploaded且digest匹配，标签精确指向构建提交。
+
 ## dev.33游玩设定提取（2026-10-24）
 
 - build/worldbook51-python.txt：994 Python全量通过（58.374秒）；含6项新提取测试：来源/历史清理、独立身份、世界包内容检查、撤回投影、过期预览、选择/隐私检查、冲突停用过滤、HTTP确认/重名/忙碌和写失败。
