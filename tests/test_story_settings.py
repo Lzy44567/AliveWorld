@@ -7,6 +7,20 @@ from core.story_length import story_length_instruction
 
 
 class StorySettingsTests(unittest.TestCase):
+    def test_notification_preferences_survive_save_without_changing_review(self):
+        defaults = normalize_story_settings()
+        self.assertTrue(defaults['worldbookNotices'])
+        self.assertFalse(defaults['worldbookDetailedNotices'])
+        self.assertFalse(defaults['worldbookNoticeContent'])
+        session = GameSession(None)
+        session.story_settings = normalize_story_settings({'worldbookNotices': False,
+            'worldbookDetailedNotices': True, 'worldbookNoticeContent': True, 'worldbookCaptureReview': True})
+        restored = GameSession(None)
+        restored.load_save_data(session.export_save_data())
+        self.assertEqual(restored.story_settings, session.story_settings)
+        self.assertTrue(restored.story_settings['worldbookCaptureEnabled'])
+        self.assertTrue(restored.story_settings['worldbookCaptureReview'])
+
     def test_partial_and_unknown_settings_are_normalized(self):
         settings = normalize_story_settings({"showDice": False, "unknown": True})
         self.assertFalse(settings["showDice"])

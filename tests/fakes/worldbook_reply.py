@@ -35,4 +35,6 @@ def response(kind, user):
         candidate.update(operation=tag, target_entry_id=next(e['id'] for e in book['entries'] if e['name'] == '验收法令'), content='绿灯时通行')
     if tag == 'manual':
         return {'candidates': [{**candidate, 'name': f'候选{i}', 'content': f'候选法令{i}'} for i in (1, 2)]}
+    if tag.startswith('notice'):
+        return {'candidates': [{**candidate, 'name': f'候选{tag}', 'content': f'候选法令{tag}'}]}
     return {'candidates': [candidate]}

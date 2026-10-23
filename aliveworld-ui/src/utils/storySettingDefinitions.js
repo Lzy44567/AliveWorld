@@ -59,6 +59,9 @@ export const STORY_SETTING_GROUPS = [
     items: [
       ['worldbookCaptureEnabled', '捕获局内新设定', '正文明确建立长期世界规则时，异步判断并写入本局世界书；一次性事件不会捕获。'],
       ['worldbookCaptureReview', 'AI 内容二次确认', '所有 AI 捕获内容先标记为待确认，不直接成为启用条目。'],
+      ['worldbookNotices', '世界书修订轻提示', '角落通知后台修订；关闭不影响捕获和人工确认，仍可查看修订记录。'],
+      ['worldbookDetailedNotices', '详细修订轻提示', '开启轻提示时列出最多3项新修订的目标书、操作与状态，不自动显示条目内容。'],
+      ['worldbookNoticeContent', '允许通知显示隐藏设定', '仅在详细轻提示开启时生效：允许显示条目标题和内容摘录，可能剧透。关闭不影响手动查看历史详情。'],
     ]
   },
   {

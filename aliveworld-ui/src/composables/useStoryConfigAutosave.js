@@ -13,7 +13,7 @@ export function useStoryConfigAutosave(delay = 600) {
     payload: {
       world_premise: configStore.story.worldPremise,
       plot_compass: configStore.story.plotCompass,
-      story_settings: structuredClone(configStore.story.settings),
+      story_settings: { ...configStore.story.settings },
     },
   });
 

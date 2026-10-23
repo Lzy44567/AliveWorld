@@ -1,5 +1,9 @@
 # Active development goal
 
+2026-10-23 dev.31发布门：49实现与982 Python、155前端、2项Edge通过，实际本局自动保存缺陷已修复。当前正在Git、EXE/ZIP与Release交付，目的仍active。
+
+2026-10-23当前主线：[49通知设置](features/49_worldbook_notification_preferences.md)。dev.30完成，补24已确认的通知详略；默认简要、安全摘要与明确内容授权，复用局内设置。不做自动弹窗、不增模型调用。目标dev.31实际打包发布。
+
 2026-10-23完成48实际交付：[dev.30](https://github.com/Lzy44567/AliveWorld/releases/tag/v1.6.0-dev.30)已发布非草稿预发布。构建/标签5f529ea1e57d3379d3e8d9f7ce57ea80ab91e9be；EXE、更新助手和便携包检查通过，两附件uploaded且远端摘要与本地相同。最终dev.30浏览器流程9.4秒再验通过。目的到实际发布完成，下方发布门为历史；融合、搬移、AI重写未纳入。
 
 2026-10-23 dev.30发布门：48实现、981 Python全量、153前端、85世界书专项及2项Edge通过；截图已查看，版本统一dev.30。下一步实际构建、提交推送和Release附件核对；目的保持active。
