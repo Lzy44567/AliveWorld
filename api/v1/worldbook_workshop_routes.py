@@ -11,6 +11,7 @@ from core.worldbook_workshop_agent import WorldbookWorkshopAgent
 from core.worldbook_embeddings import embedding_manager
 from core.worldbook import normalize_worldbook, worldbook_write_guard
 from core.worldbook_revisions import reconcile_capture_history
+from core.worldbook_reauthoring import reference_catalog, select_references, reference_summaries
 from core.session_manager import active_sessions, mutation_guard, save_identity, MutationBusyError
 from core.worldbook_workshop_registry import (
     WORKSHOP_DIR, active_workshops, list_worldbook_workshop_history,
@@ -48,6 +49,10 @@ class ReviewOperationsRequest(BaseModel):
 
 class CreativeBriefRequest(BaseModel):
     creative_brief: str = Field(max_length=2000)
+
+class ReauthoringRequest(BaseModel):
+    reference_ids: list[str] | None = Field(default=None, max_length=3)
+    focus_entry_id: str | None = Field(default=None, max_length=200)
 
 
 class WorkshopChatRequest(GenerationPayload):
@@ -94,7 +99,34 @@ def _get(workshop_id: str) -> WorldbookWorkshop:
 
 
 def _payload(workshop: WorldbookWorkshop):
-    return {"workshop_id": workshop.id, "draft": workshop.draft, "pending": workshop.pending, "proposed": workshop.proposed, "messages": workshop.messages, "suggested_actions": workshop.suggested_actions, "creative_brief": workshop.creative_brief, "dirty": workshop.dirty, "published": workshop.published, "updated_at": workshop.updated_at}
+    return {"workshop_id": workshop.id, "draft": workshop.draft, "pending": workshop.pending, "proposed": workshop.proposed, "messages": workshop.messages, "suggested_actions": workshop.suggested_actions, "creative_brief": workshop.creative_brief, "dirty": workshop.dirty, "published": workshop.published, "updated_at": workshop.updated_at,
+            "references": reference_summaries(workshop.references), "focus_entry_id": workshop.focus_entry_id}
+
+def _reference_catalog(workshop):
+    if workshop.local_save_path:
+        game = next((g for g in active_sessions.values() if g.save_dir_path and
+                     Path(g.save_dir_path).resolve() == Path(workshop.local_save_path).resolve()), None)
+        if game is None:
+            raise HTTPException(409, '请先载入该工坊所属故事，再选择参考书')
+        return reference_catalog(workshop.target_path, game.history.get('story_turns', []))
+    return reference_catalog(workshop.target_path)
+
+@router.get('/workshops/{workshop_id}/references')
+def list_references(workshop_id: str):
+    workshop = _get(workshop_id)
+    return {'items': reference_summaries(_reference_catalog(workshop).values())}
+
+@router.put('/workshops/{workshop_id}/reauthoring')
+@guarded_workshop
+def save_reauthoring(workshop_id: str, payload: ReauthoringRequest):
+    workshop = _get(workshop_id)
+    try:
+        references = select_references(_reference_catalog(workshop), payload.reference_ids) if payload.reference_ids else ([] if payload.reference_ids == [] else None)
+        workshop_chat_transaction(workshop, WORKSHOP_DIR, lambda candidate:
+            candidate.set_reauthoring(references, payload.focus_entry_id))
+        return _payload(workshop)
+    except (WorkshopError, ValueError) as exc:
+        raise HTTPException(400, str(exc)) from exc
 
 
 def _find_resumable(target_path: Path, current_book: dict[str, Any]) -> tuple[WorldbookWorkshop | None, int]:

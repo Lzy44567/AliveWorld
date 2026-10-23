@@ -64,6 +64,8 @@ class WorldbookWorkshop:
         self.suggested_actions: list[str] = []
         self.creative_brief = ""
         self.brief_edited = False
+        self.references = []
+        self.focus_entry_id = ''
         self.dirty = False
         self.published = False
         self.updated_at = datetime.now(timezone.utc).isoformat()
@@ -88,6 +90,22 @@ class WorldbookWorkshop:
         self.snapshots.append(copy.deepcopy(self.draft))
         if len(self.snapshots) > 50:
             self.snapshots.pop(0)
+
+    def set_reauthoring(self, references=None, focus_entry_id=None):
+        self.assert_editable()
+        if focus_entry_id:
+            _find_entry(self.draft, focus_entry_id)
+        if references is not None:
+            self.references = copy.deepcopy(references)
+        if focus_entry_id is not None:
+            self.focus_entry_id = focus_entry_id
+        self.touch()
+
+    def validate_focused_operations(self, operations):
+        if self.focus_entry_id:
+            _find_entry(self.draft, self.focus_entry_id)
+            if any(not isinstance(op, dict) or op.get('op') != 'update_entry' or op.get('entry_id') != self.focus_entry_id for op in operations):
+                raise WorkshopError('定向重写返回了其他修改，本轮未写入；请调整要求后重试或清除定向目标')
 
     def _validate(self, operation: Any) -> dict[str, Any]:
         if not isinstance(operation, dict) or operation.get("op") not in ALLOWED_OPERATIONS:
@@ -271,6 +289,8 @@ class WorldbookWorkshop:
             "suggested_actions": self.suggested_actions,
             "creative_brief": self.creative_brief,
             "brief_edited": self.brief_edited,
+            "references": self.references,
+            "focus_entry_id": self.focus_entry_id,
             "source_revision": self.source_revision,
             "dirty": self.dirty,
             "published": self.published,
@@ -299,6 +319,8 @@ class WorldbookWorkshop:
         workshop.suggested_actions = data.get("suggested_actions", [])
         workshop.creative_brief = str(data.get("creative_brief", ""))
         workshop.brief_edited = bool(data.get("brief_edited", False))
+        workshop.references = data.get('references', [])
+        workshop.focus_entry_id = data.get('focus_entry_id', '')
         # Legacy sessions did not record their source. Treat their saved draft as
         # the old source so a newer edited file will not be silently shadowed.
         workshop.source_revision = str(data.get("source_revision") or worldbook_revision(data.get("draft", {})))

@@ -204,6 +204,14 @@ def _response_for(kind: str, system: str, user: str) -> dict[str, Any] | str:
     if kind == "image_prompt":
         return {"positive": "test scene, one character", "negative": "low quality"}
     if kind == "workshop":
+        if 'AW_REAUTHOR' in user:
+            focused = re.search(r'【定向重写】.*?entry_id=([^，]+)', user)
+            has_reference = '参考快照' in user and '灵力来自山川' in user
+            return {'message': '参考适配依据就绪' if has_reference else '未使用参考快照',
+                    'operations': ([{'op': 'update_entry', 'entry_id': focused.group(1),
+                                     'changes': {'content': '灵力经过魔力转化后才能使用'}}] if focused else
+                                   [{'op': 'add_entry', 'entry': {'name': '融合桥梁', 'content': '两种力量通过转换桥梁兼容'}}]),
+                    'suggested_actions': []}
         if user.endswith('AW_CONTINUITY_PROBE'):
             found = 'AW_REVIEW_BATCH' in user
             return {'message': '历史取材就绪' if found else '未携带旧讨论', 'operations': [], 'suggested_actions': []}

@@ -21,6 +21,7 @@ const MODE_MAP = {
     { id: 'create', label: '从一句话创建', description: '根据一句核心想法、题材与偏好，协作建立概述、公理和首批条目。' },
     { id: 'expand', label: '拓展新领域', description: '横向补充尚未覆盖的地区、制度、文化、职业或生活细节。' },
     { id: 'evolve', label: '演化已有设定', description: '从已有公理与规则推导逻辑后果，检查关联、缺口和冲突。' },
+    { id: 'adapt', label: '参考与融合', description: '选择参考书，比较差异并为当前目标书设计适配方案；参考原书不会改变。' },
   ],
   preferences: [
     { id: 'discover', label: '探索偏好', description: '讨论玩家行为背后的多种可能动机，形成可验证假设。' },
@@ -37,6 +38,7 @@ const MODE_MAP = {
 function newContext(mode = 'expand') {
   return {
     workshopId: '', draft: null, messages: [], history: [], suggestions: [], creativeBrief: '',
+    references: [], focusEntryId: '',
     proposed: [], pending: [], dirty: false, published: false, useHistory: true, contextInfo: null,
     busy: false, activity: '', input: '', commitChanges: false, mode, preview: '', pendingMessage: '',
     task: { status: 'idle', kind: '', error: '', startedAt: '', finishedAt: '' },
@@ -117,6 +119,8 @@ export const workshopStore = reactive({
     context.workshopId = data.workshop_id || context.workshopId;
     context.draft = data.draft ?? context.draft;
     if (Object.prototype.hasOwnProperty.call(data, 'creative_brief')) context.creativeBrief = data.creative_brief;
+    if (Object.prototype.hasOwnProperty.call(data, 'references')) context.references = data.references;
+    if (Object.prototype.hasOwnProperty.call(data, 'focus_entry_id')) context.focusEntryId = data.focus_entry_id;
     context.messages = data.messages || context.messages;
     if (Object.prototype.hasOwnProperty.call(data, 'history')) context.history = data.history || [];
     context.suggestions = data.suggested_actions || [];
@@ -332,13 +336,26 @@ export const workshopStore = reactive({
     if (this.type === 'preferences') return false;
     return this.applyOperations([{ op: 'update_fields', changes, reason: '玩家在工坊左栏直接编辑' }], true);
   },
-  prepareWorldbookEntryPrompt(entry) {
-    if (this.type !== 'worldbooks' || !entry) return;
-    this.mode = 'evolve';
-    this.input = `请和我讨论并修改指定条目“${entry.name}”（entry_id: ${entry.id}）。先说明它与世界概述、公理及其他条目的关系和修改取舍；未达成一致前不要写入。我的要求是：`;
+  async saveReauthoring(change) {
+    const context = this.context;
+    if (this.type !== 'worldbooks' || !context.workshopId || context.busy || context.published) return false;
+    context.busy = true;
+    try { this.syncInto(context, await worldbookWorkshopApi.reauthoring(context.workshopId, change)); return true; }
+    catch (error) { uiStore.showToast(error.message, 'error'); return false; }
+    finally { context.busy = false; }
   },
-  prepareWorldbookAxiomPrompt(axiom, index) {
+  async prepareWorldbookEntryPrompt(entry) {
+    if (this.type !== 'worldbooks' || !entry) return;
+    const key = this.activeContextKey;
+    if (!await this.saveReauthoring({ focus_entry_id: entry.id }) || this.activeContextKey !== key) return;
+    this.mode = 'evolve';
+    if (!this.input.trim()) this.input = `请重写指定条目“${entry.name}”，先讨论取舍并形成待审方案。我的要求是：`;
+  },
+  async prepareWorldbookAxiomPrompt(axiom, index) {
     if (this.type !== 'worldbooks') return;
+    const key = this.activeContextKey;
+    if (this.context.focusEntryId && !await this.saveReauthoring({ focus_entry_id: '' })) return;
+    if (this.activeContextKey !== key) return;
     this.mode = 'evolve';
     this.input = `请和我讨论并修改第 ${index + 1} 条世界公理“${axiom}”。先说明它与其他公理、概述及条目的关系和修改取舍；未达成一致前不要写入。我的要求是：`;
   },

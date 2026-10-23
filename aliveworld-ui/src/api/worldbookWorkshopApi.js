@@ -9,6 +9,8 @@ const request = async (url, options = {}) => {
 };
 
 export const worldbookWorkshopApi = {
+  references(id) { return request(`${BASE_URL}/${id}/references`); },
+  reauthoring(id, change) { return request(`${BASE_URL}/${id}/reauthoring`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(change) }); },
   saveBrief(id, creativeBrief) {
     return request(`${BASE_URL}/${id}/creative-brief`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ creative_brief: creativeBrief }) });
   },

@@ -9,12 +9,14 @@ from core.ai_engine import robust_json_parse
 from core.json_stream import WORKSHOP_FIELDS
 from core.workshop_context import conversation_context
 from core.worldbook_workshop import WorldbookWorkshop, WorkshopError
+from core.worldbook_reauthoring import reauthoring_context
 
 
 MODES = {
     "create": "从玩家的一句话和偏好建立或重构世界书框架",
     "expand": "横向拓展新领域，补充此前没有覆盖的主题和条目",
     "evolve": "从已有公理和规则推导逻辑后果，完善设定体系",
+    "adapt": "比较玩家选择的参考书，讨论兼容性和取舍，为当前目标草稿设计适配或融合方案；不改变参考原书",
 }
 
 
@@ -67,6 +69,9 @@ class WorldbookWorkshopAgent:
         if mode not in MODES:
             raise WorkshopError("未知的世界书工坊模式")
         context, context_info = conversation_context(workshop, user_message, history)
+        if workshop.focus_entry_id:
+            workshop.validate_focused_operations([])
+            commit_changes = False
         visible_draft = {key: value for key, value in workshop.draft.items()
                          if key not in {'capture_history', 'capture_reviews'}}
         prompt = (
@@ -74,6 +79,7 @@ class WorldbookWorkshopAgent:
             f"【作者创作目标（不是世界事实）】\n{workshop.creative_brief or '尚未填写'}\n"
             f"【目标是否由玩家编辑】{workshop.brief_edited}\n"
             f"【当前世界书草稿】\n{json.dumps(visible_draft, ensure_ascii=False)}\n"
+            f"{reauthoring_context(workshop)}\n"
             f"{context}\n"
             f"【本轮协作权限】\n{'允许修改草稿：低风险操作可写入，高风险操作仍需玩家确认' if commit_changes else '只讨论与提案：operations 仅作为拟议修改展示，不得声称已经写入'}\n"
             f"【玩家本轮要求】\n{user_message}"
@@ -105,6 +111,7 @@ class WorldbookWorkshopAgent:
         suggestions = [str(item).strip() for item in payload.get("suggested_actions", []) if str(item).strip()][:4]
         workshop.suggested_actions = suggestions
         operations = operations if isinstance(operations, list) else []
+        workshop.validate_focused_operations(operations)
         if commit_changes:
             workshop.clear_proposal()
             result = workshop.apply_operations(operations)
