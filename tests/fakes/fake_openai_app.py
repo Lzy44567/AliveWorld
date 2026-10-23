@@ -128,12 +128,15 @@ def _response_for(kind: str, system: str, user: str) -> dict[str, Any] | str:
         conflicts = []
         if '多世界书验收' in full:
             refs = {}
+            extras = []
             for role, ref, content in re.findall(r'【(主世界书|补充知识书) · [^\n]+? · 引用 (wb_[a-f0-9]+)】：([^\n]+)', full):
                 if content in ('验收地区禁止飞行', '验收地区允许飞行'):
                     refs[role] = (ref, content)
-            if '主世界书' in refs and '补充知识书' in refs:
-                conflicts.append({'keep': refs['主世界书'][0], 'disable': refs['补充知识书'][0],
-                                  'keep_quote': refs['主世界书'][1], 'disable_quote': refs['补充知识书'][1],
+                    if role == '补充知识书':
+                        extras.append((ref, content))
+            for ref, content in extras if '主世界书' in refs else []:
+                conflicts.append({'keep': refs['主世界书'][0], 'disable': ref,
+                                  'keep_quote': refs['主世界书'][1], 'disable_quote': content,
                                   'scope': '同一验收地区', 'reason': '飞行许可互斥'})
         paragraphs = [
             "前端正文测试成功。",

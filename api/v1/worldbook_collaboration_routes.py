@@ -2,13 +2,18 @@
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, StrictBool
+from pydantic import BaseModel, StrictBool, Field, model_validator
 
 from core.session_manager import active_sessions, mutation_guard, save_identity, MutationBusyError
-from core.worldbook_collaboration import load_books, fingerprint, public_collaboration, decide_conflict
+from core.worldbook_collaboration import load_books, fingerprint, public_collaboration, decide_conflict, decide_conflicts
 from utils.file_io import save_game_data
 
 router = APIRouter()
+
+
+class ConflictDecision(BaseModel):
+    conflict_id: str = Field(min_length=1, max_length=200)
+    decision: Literal['disable', 'restore']
 
 
 class CollaborationChange(BaseModel):
@@ -18,6 +23,14 @@ class CollaborationChange(BaseModel):
     review: StrictBool | None = None
     conflict_id: str | None = None
     decision: Literal['disable', 'restore'] | None = None
+    decisions: list[ConflictDecision] | None = Field(default=None, min_length=1, max_length=100)
+
+    @model_validator(mode='after')
+    def exclusive_batch(self):
+        if self.decisions is not None and any(value is not None for value in (
+                self.conflict_id, self.decision, self.primary_book, self.auto_disable, self.review)):
+            raise ValueError('批量审阅不能同时修改其他协作设置')
+        return self
 
 
 def session(session_id):
@@ -55,6 +68,8 @@ def update_collaboration(session_id: str, payload: CollaborationChange):
                     updated[field] = value
             if payload.conflict_id is not None or payload.decision is not None:
                 updated = decide_conflict(updated, payload.conflict_id, payload.decision, books=books, turns=turns)
+            if payload.decisions is not None:
+                updated = decide_conflicts(updated, [item.model_dump() for item in payload.decisions], books=books, turns=turns)
             game.worldbook_collaboration = updated
             try:
                 save_game_data(game.save_dir_path, game.export_save_data())

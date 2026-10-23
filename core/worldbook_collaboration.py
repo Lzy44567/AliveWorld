@@ -124,15 +124,28 @@ def collect_conflicts(payload, *, state, books, supplied_rules, source_turn, act
 
 
 def decide_conflict(state, conflict_id, decision, *, books, turns):
-    if decision not in {"disable", "restore"}:
-        raise ValueError("请选择停用或恢复")
+    return decide_conflicts(state, [{'conflict_id': conflict_id, 'decision': decision}], books=books, turns=turns)
+
+
+def decide_conflicts(state, decisions, *, books, turns):
+    """Validate the whole batch before returning a changed story-local copy."""
     result = deepcopy(state)
-    record = next((item for item in result.get("conflicts", []) if item["id"] == conflict_id), None)
-    if record is None:
-        raise ValueError("冲突记录不存在")
-    if decision == "disable" and not conflict_is_current(record, state, books, rule_catalog(books), turns):
-        raise ValueError("来源或条目已变化，请依据最新内容判断")
-    record["status"] = "disabled" if decision == "disable" else "restored"
+    records = {item['id']: item for item in result.get('conflicts', [])}
+    rules = rule_catalog(books)
+    seen = set()
+    for item in decisions:
+        conflict_id, decision = item['conflict_id'], item['decision']
+        if decision not in {'disable', 'restore'}:
+            raise ValueError('请选择停用或恢复')
+        if conflict_id in seen:
+            raise ValueError('同一冲突不能重复处理')
+        seen.add(conflict_id)
+        record = records.get(conflict_id)
+        if record is None:
+            raise ValueError('冲突记录不存在')
+        if decision == 'disable' and not conflict_is_current(record, state, books, rules, turns):
+            raise ValueError('来源或条目已变化，请刷新后重新选择；本批未保存')
+        record['status'] = 'disabled' if decision == 'disable' else 'restored'
     return result
 
 
