@@ -1,5 +1,7 @@
 # Active development goal
 
+2026-10-23完成48实际交付：[dev.30](https://github.com/Lzy44567/AliveWorld/releases/tag/v1.6.0-dev.30)已发布非草稿预发布。构建/标签5f529ea1e57d3379d3e8d9f7ce57ea80ab91e9be；EXE、更新助手和便携包检查通过，两附件uploaded且远端摘要与本地相同。最终dev.30浏览器流程9.4秒再验通过。目的到实际发布完成，下方发布门为历史；融合、搬移、AI重写未纳入。
+
 2026-10-23 dev.30发布门：48实现、981 Python全量、153前端、85世界书专项及2项Edge通过；截图已查看，版本统一dev.30。下一步实际构建、提交推送和Release附件核对；目的保持active。
 
 2026-10-23当前主线：[48世界书冲突批量审阅](features/48_worldbook_conflict_batch_review.md)。47/dev.29已实际发布，继续补45已记录P2：逐条/勾选/全部待审、可逆恢复与清楚的阅读操作。不新增模型调用、不改书原文。目标dev.30实际打包发布。

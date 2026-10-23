@@ -1,5 +1,11 @@
 # AliveWorld 测试流程
 
+## dev.30实际包与发布（2026-10-23）
+
+- 构建/标签5f529ea1e57d3379d3e8d9f7ce57ea80ab91e9be；build/dev30-package.txt确认主EXE、更新助手与便携包结构/隐私/覆盖更新保留检查通过。
+- ZIP 38,485,213字节，SHA256 `a623f9d60dd8425d34387adf5ca9d83ad9ad559f934b44fea6e0dcc7c8bbdb45`；校验文件107字节，自身摘要 `940d6e9f0f0a28dbe96b64299b7bd83a30d47b457cf551cc0761763f7fe021b2`。GitHub API确认非草稿预发布、两附件uploaded、digest均匹配、标签精确指向构建提交。
+- 最终dev.30产物的批量流程再次通过（9.4秒），已查看dev.30截图；源码、分类发布说明与证据同步。
+
 ## dev.30冲突批量审阅（2026-10-23）
 
 - build/worldbook48-python.txt：981项Python全量通过（76.168秒）。
