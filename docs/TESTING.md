@@ -1,5 +1,11 @@
 # AliveWorld 测试流程
 
+## dev.29实际包与发布（2026-10-23）
+
+- 构建/标签df6082b004c47a2b0ff0b594d850c6d3e8c35b16，build/dev29-package.txt确认主EXE、更新助手及便携包结构/隐私/覆盖更新保留检查通过。
+- ZIP 38,482,778字节，SHA256 `60b54a5d00f015de1b9dcf9bbce4776abcb2763ab626fba75b0ea89527f09e7a`；校验文件107字节，自身摘要 `e89fef66116119b5ca3eebc37a830480316f9ab077b88e1ad05e378943676426`。GitHub API确认非草稿预发布、两附件uploaded、digest匹配、标签精确指向构建提交。
+- 最终dev.29前端产物的修订记录Edge流程再次通过（12.6秒），截图显示dev.29且已查看。源码与发布说明同步推送。
+
 ## dev.29世界书修订记录（2026-10-23）
 
 - build/worldbook47-python.txt：977项Python全量通过（59.837秒）；最终build/worldbook47-focused.txt：82项世界书专项通过，含同名书精确文件审阅。
