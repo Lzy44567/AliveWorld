@@ -2,7 +2,8 @@ export const STORY_SETTING_GROUPS = [
   {
     id: 'gameplay', title: '🎲 基础玩法', advanced: false, open: true,
     items: [
-      { key: 'targetStoryLength', label: '正文目标长度', help: '每回合 story_text 的目标中文字符数，允许按场景完整性上下浮动；不会硬切断关键动作。', type: 'number', min: 200, max: 3000, step: 100, suffix: '字' },
+      { key: 'targetStoryLength', label: '建议字数上限', help: '仅指导故事正文篇幅，允许为完整表达适量超出。不是接口token上限，不截断输出，也不影响工坊。', type: 'number', min: 200, max: 3000, step: 100, suffix: '字' },
+      { key: 'minimumStoryLength', label: '建议字数下限（可选）', help: '留空或0表示不要求最低长度；不会为凑字数自动补写。超过上限时会调整为上限。', type: 'number', min: 0, max: 3000, step: 100, suffix: '字' },
       ['showFutures', '显示未来可能性', '显示正文生成前参与物理抽取的近期未来候选。关闭只隐藏界面，不停止未来推演。'],
       ['showDice', '显示未来投掷结果', '显示本回合从有效未来候选中抽取到的结果。'],
       ['allowReroll', '允许重掷未来', '允许保留玩家行动并重新抽取另一个未来；会回溯本回合状态和偏好证据。'],

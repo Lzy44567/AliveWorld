@@ -15,6 +15,7 @@ function normalizeNumber(item) {
   const parsed = Number.parseInt(props.settings[item.key], 10);
   const fallback = item.key === 'targetStoryLength' ? 500 : item.min;
   props.settings[item.key] = Math.max(item.min, Math.min(item.max, Number.isFinite(parsed) ? parsed : fallback));
+  props.settings.minimumStoryLength = Math.min(props.settings.minimumStoryLength || 0, props.settings.targetStoryLength || 500);
 }
 </script>
 
@@ -27,11 +28,11 @@ function normalizeNumber(item) {
       </summary>
       <div class="border-t border-slate-700/70 p-3">
         <p v-if="group.description" class="mb-3 text-[10px] leading-relaxed text-slate-500">{{ group.description }}</p>
-        <div class="grid grid-cols-1 gap-2 xl:grid-cols-2">
+        <div class="settings-grid">
           <label v-for="item in group.items" :key="item.key" class="setting-row">
             <span class="min-w-0"><span>{{ item.label }}</span><FieldHelp :text="item.help" /></span>
             <span v-if="item.type==='number'" class="flex shrink-0 items-center gap-1 text-[10px] text-slate-500">
-              <input type="number" v-model.number="settings[item.key]" :min="item.min" :max="item.max" :step="item.step" class="w-20 rounded border border-slate-600 bg-slate-950 px-2 py-1 text-right text-xs text-slate-200" @change="normalizeNumber(item)">
+              <input type="number" v-model.number="settings[item.key]" :aria-label="item.label" :data-testid="`story-setting-${item.key}`" :min="item.min" :max="item.max" :step="item.step" class="w-20 rounded border border-slate-600 bg-slate-950 px-2 py-1 text-right text-xs text-slate-200" @change="normalizeNumber(item)">
               {{ item.suffix }}
             </span>
             <select v-else-if="item.type==='select'" v-model="settings[item.key]" :data-testid="`story-setting-${item.key}`" class="max-w-56 shrink-0 rounded border border-slate-600 bg-slate-950 px-2 py-1 text-xs text-slate-200">
@@ -48,6 +49,7 @@ function normalizeNumber(item) {
 
 <style scoped>
 .setting-group { overflow: visible; border: 1px solid rgb(51 65 85); border-radius: .75rem; background: rgb(30 41 59 / .28); }
+.settings-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: .5rem; }
 .setting-group[open] { background: rgb(30 41 59 / .42); }
 .setting-row { display: flex; align-items: center; justify-content: space-between; gap: .75rem; cursor: pointer; border: 1px solid rgb(51 65 85); border-radius: .5rem; background: rgb(15 23 42 / .55); padding: .65rem .75rem; font-size: .75rem; color: rgb(203 213 225); }
 .setting-row:hover { border-color: rgb(100 116 139); }

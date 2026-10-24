@@ -77,7 +77,8 @@ export const configStore = reactive({
     preferenceRelationshipEnabled: savedConfig.settings?.preferenceRelationshipEnabled ?? true,
     preferenceVisualEnabled: savedConfig.settings?.preferenceVisualEnabled ?? true,
     storyExperiencePreset: savedConfig.settings?.storyExperiencePreset ?? 'aliveworld_default',
-    targetStoryLength: savedConfig.settings?.targetStoryLength ?? 500
+    targetStoryLength: savedConfig.settings?.targetStoryLength ?? 500,
+    minimumStoryLength: savedConfig.settings?.minimumStoryLength ?? 0
   }),
   
   story: {

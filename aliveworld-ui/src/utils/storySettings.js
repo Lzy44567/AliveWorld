@@ -21,19 +21,23 @@ export const STORY_SETTING_DEFAULTS = Object.freeze({
   preferenceRelationshipEnabled: true,
   preferenceVisualEnabled: true,
   storyExperiencePreset: 'aliveworld_default',
-  targetStoryLength: 500
+  targetStoryLength: 500,
+  minimumStoryLength: 0
 });
 
 export function normalizeStorySettings(settings = {}, defaults = STORY_SETTING_DEFAULTS) {
-  return Object.fromEntries(Object.keys(STORY_SETTING_DEFAULTS).map(key => {
+  const normalized = Object.fromEntries(Object.keys(STORY_SETTING_DEFAULTS).map(key => {
     const value = settings[key] ?? defaults[key] ?? STORY_SETTING_DEFAULTS[key];
     if (key === 'targetStoryLength') {
       const parsed = Number.parseInt(value, 10);
       return [key, Math.max(200, Math.min(3000, Number.isFinite(parsed) ? parsed : 500))];
     }
+    if (key === 'minimumStoryLength') return [key, Math.max(0, Number.parseInt(value, 10) || 0)];
     if (key === 'storyExperiencePreset') {
       return [key, ['aliveworld_default', 'engine_only'].includes(value) ? value : 'aliveworld_default'];
     }
     return [key, Boolean(value)];
   }));
+  normalized.minimumStoryLength = Math.min(normalized.minimumStoryLength, normalized.targetStoryLength);
+  return normalized;
 }

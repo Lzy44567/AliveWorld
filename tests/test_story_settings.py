@@ -7,6 +7,21 @@ from core.story_length import story_length_instruction
 
 
 class StorySettingsTests(unittest.TestCase):
+    def test_soft_range_normalization_and_save_roundtrip(self):
+        self.assertEqual(normalize_story_settings()['minimumStoryLength'], 0)
+        for value, expected in [(None, 0), ('', 0), (-2, 0), (350, 350), (900, 800)]:
+            settings = normalize_story_settings({'targetStoryLength': 800, 'minimumStoryLength': value})
+            self.assertEqual(settings['minimumStoryLength'], expected)
+        session = GameSession(None)
+        session.story_settings = normalize_story_settings({'targetStoryLength': 1200, 'minimumStoryLength': 600})
+        restored = GameSession(None)
+        restored.load_save_data(session.export_save_data())
+        self.assertEqual(restored.story_settings, session.story_settings)
+        text = story_length_instruction(1200, 600)
+        self.assertIn('600–1200', text)
+        self.assertIn('软建议', text)
+        self.assertIn('只约束 story_text', text)
+
     def test_notification_preferences_survive_save_without_changing_review(self):
         defaults = normalize_story_settings()
         self.assertTrue(defaults['worldbookNotices'])

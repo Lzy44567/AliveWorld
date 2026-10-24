@@ -202,7 +202,7 @@ def _runtime_parts(snapshot: SettlementRequestSnapshot) -> list[RuntimePromptPar
         ),
         RuntimePromptPart(
             "story.settlement.length",
-            story_length_instruction(snapshot.story_settings.get("targetStoryLength")),
+            story_length_instruction(snapshot.story_settings.get("targetStoryLength"), snapshot.story_settings.get("minimumStoryLength", 0)),
             layer="feature",
             cache_class="configuration",
         ),

@@ -18,12 +18,22 @@ def normalize_target_story_length(value: Any) -> int:
     return max(MIN_TARGET_STORY_LENGTH, min(MAX_TARGET_STORY_LENGTH, parsed))
 
 
-def story_length_instruction(value: Any) -> str:
+def normalize_minimum_story_length(value: Any, maximum: Any) -> int:
+    try:
+        parsed = int(value or 0)
+    except (TypeError, ValueError):
+        parsed = 0
+    return max(0, min(normalize_target_story_length(maximum), parsed))
+
+
+def story_length_instruction(value: Any, minimum: Any = 0) -> str:
     target = normalize_target_story_length(value)
-    tolerance = max(80, round(target * 0.2 / 50) * 50)
+    lower = normalize_minimum_story_length(minimum, target)
+    guidance = (f"建议正文为 {lower}–{target} 个中文字符。" if lower
+                else f"目标约 {target} 个中文字符以内，不要求最低长度。")
     return (
         "【本回合正文篇幅】\n"
-        f"目标约 {target} 个中文字符，允许按场景完整性上下浮动约 {tolerance} 字。"
+        + guidance + "这是软建议，场景完整性优先，允许合理超出范围。"
         "不要为凑字数重复描写，也不要在关键动作、对白或因果尚未完成时生硬截断。"
         "该目标只约束 story_text，不包含其他 JSON 结构字段。"
     )

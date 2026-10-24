@@ -118,6 +118,12 @@ class StoryPromptBuilderTests(unittest.TestCase):
                                        {'output_reserve': 12000, 'context_window': 65536})
                 self.assertEqual(report['outputReserve'], 12000)
 
+    def test_soft_range_applies_to_normal_and_reroll_without_token_override(self):
+        for mode in ('normal', 'reroll'):
+            result = self.build(self.snapshot(mode, story_settings={'targetStoryLength': 1200, 'minimumStoryLength': 600}))
+            self.assertIn('600–1200', result.system_prompt + result.user_prompt)
+            self.assertIsNone(result.max_tokens)
+
     def test_disabled_optional_parts_are_absent_in_both_modes(self):
         settings = {
             "targetStoryLength": 500,

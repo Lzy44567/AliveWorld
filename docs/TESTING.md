@@ -1,5 +1,11 @@
 # AliveWorld 测试流程
 
+## dev.36阅读篇幅与预算（2026-10-24）
+
+- `build/dev36-python.txt`：1002 Python全量通过；`build/dev36-node.txt`：156前端通过；`build/dev36-ui.txt`：生产构建通过。
+- `build/dev36-browser.txt`：8 Edge通过。全局范围→新故事继承→单局修改→实际请求→重载→清空下限→全局不被覆盖；工坊请求不含正文篇幅段；高级token填写/重载；旧截断残稿、开场与工坊阅读布局回归。
+- 已查看`stage54-story-range.png`、`stage54-token-budget.png`，修复窄侧栏数值标签竖排后复查通过。测试均使用隔离数据和假模型，无付费请求。
+
 ## dev.35工坊阅读布局（2026-10-24）
 
 - 实际EXE/更新助手及ZIP结构、隐私排除、覆盖保留验收通过（build/dev35-package.txt）。GitHub tag=58b2732c41d5390dd50e383721508cf201270a2e，非草稿预发布，两附件uploaded。
