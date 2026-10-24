@@ -1,5 +1,7 @@
 # Active development goal
 
+2026-10-24完成54实际交付：[dev.36](https://github.com/Lzy44567/AliveWorld/releases/tag/v1.6.0-dev.36)已发布。构建/标签4764d715bc6cb6f6886b8275b50b321c0e84395c，Windows主EXE/更新助手构建及包结构、隐私排除、覆盖保留验证通过；两附件uploaded且摘要一致。软字数范围与高级预算分层目标完成，下方发布门为历史。非流式恢复/自动续写未扩大实施。
+
 2026-10-24 dev.36发布门：54已实现并验证（1002 Python、156前端、8 Edge），字数范围保存/重载/实际请求、工坊隔离、高级token保存与界面检查通过。下一实际EXE/ZIP、推送、Release附件核验，目的仍active。
 
 2026-10-24新主线：[54阅读篇幅与高级预算分层](features/54_reading_length_and_budget.md)。52/53已发布；现在推进软字数范围、保存重载与高级token说明完整流程，到dev.36实际发布。非流式恢复/自动续写不在范围。第一片领域规范化、短提示词和设置入口，随后浏览器闭环与发行。

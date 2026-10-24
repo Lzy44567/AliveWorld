@@ -2,6 +2,9 @@
 
 ## dev.36阅读篇幅与预算（2026-10-24）
 
+- `build/dev36-package.txt`：主EXE及更新助手真实构建成功，ZIP结构/隐私/覆盖保留验证通过。GitHub非草稿预发布，tag=4764d715bc6cb6f6886b8275b50b321c0e84395c。
+- ZIP 38502629 bytes，SHA256 `e09b4cf2d30efd36d4810754ef8426da83989807e5a734cd7f8919c248fc35dd`；摘要文件107 bytes，SHA256 `14ca1e685c24d5ef5c48f8387f58972934510d9fc442027e45be072639c47fbb`。两附件均uploaded，本地与远端digest一致。
+
 - `build/dev36-python.txt`：1002 Python全量通过；`build/dev36-node.txt`：156前端通过；`build/dev36-ui.txt`：生产构建通过。
 - `build/dev36-browser.txt`：8 Edge通过。全局范围→新故事继承→单局修改→实际请求→重载→清空下限→全局不被覆盖；工坊请求不含正文篇幅段；高级token填写/重载；旧截断残稿、开场与工坊阅读布局回归。
 - 已查看`stage54-story-range.png`、`stage54-token-budget.png`，修复窄侧栏数值标签竖排后复查通过。测试均使用隔离数据和假模型，无付费请求。
