@@ -1,6 +1,9 @@
 # AliveWorld 测试流程
 
 ## 55生成失败恢复功能组（开发中）
+- 最终`build/recovery55-python-final.txt`：1010 Python通过（61.649秒）；`recovery55-node.txt`：157前端通过；`dev37-ui.txt`生产构建通过。文案修正后10项专项再次通过（dev37-recovery.txt）。
+- `build/dev37-browser.txt`：18 Edge全部通过，最终dev.37产物；故事流/非流截断，五工坊各流/非流格式错误、持久重载、复制/导出/删除、原请求恢复与新草稿保护、成功不清理旧残稿、过滤不留、旧停止与布局回归。合成服务真实HTTP返回，不调用收费模型。
+- 领域/API测试含线程隔离、重启会话身份、目标资产隔离、存储失败、取消/成功不存残稿、原始私有错误不落盘。截图recovery55-story-false.png和recovery55-workshop.png已查看。
 - 首轮`build/recovery55-python.txt` 1006 Python、`build/recovery55-browser.txt` 7 Edge通过；模型服务实际返回截断/格式错误，并非只mock前端失败。截图story-false和workshop已查看。
 - 后补过滤清理、非流式坏JSON错误映射、并发捕获/重启身份/目标隔离及存储失败专项；10项专项通过。浏览器扩展轮两项失败来自把“格式错误”断言误放到“额度不足”场景，已纠正测试，需完整重跑后再交付。
 

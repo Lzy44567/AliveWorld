@@ -67,9 +67,9 @@ test('服务商过滤后不展示也不保存收到的流式残片', async ({ pa
   await expect(page.getByTestId('generation-recovery')).toHaveCount(0);
   await expect(page.getByText(/content_filter:/).first()).toBeVisible();
 });
-for (const [type, label, streaming] of [['worldbooks', '世界书', false], ['characters', '角色卡', true], ['styles', '文风卡', false], ['entities', '实体卡', true], ['preferences', '偏好卡', false]]) {
-  test(`${label}真实格式错误保留残稿、跨新轮重载且不修改资产`, async ({ page, request }) => {
-    const name = `恢复组-${type}`;
+for (const [type, label, streaming] of [['worldbooks', '世界书'], ['characters', '角色卡'], ['styles', '文风卡'], ['entities', '实体卡'], ['preferences', '偏好卡']].flatMap(([type, label]) => [false, true].map(streaming => [type, label, streaming]))) {
+  test(`${label}${streaming ? '流式' : '非流式'}真实格式错误保留残稿、跨新轮重载且不修改资产`, async ({ page, request }) => {
+    const name = `恢复组-${type}-${streaming}`;
     if (type !== 'preferences') await request.post(`/api/v1/lobby/assets/${type}/${encodeURIComponent(name)}`, { data: {
       content: '', parsed_data: { name, description: '原角色', content: '原文风', motive: '原动机', overview: '原概述', entries: [] },
     } });

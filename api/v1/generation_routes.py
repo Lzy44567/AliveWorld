@@ -40,7 +40,7 @@ def controlled_generation(kind):
                                 except (OSError, ValueError) as storage_error:
                                     raise HTTPException(500, '生成失败，残稿保存也失败；请立即复制当前可见文字并检查磁盘空间。') from storage_error
                             if failure_reason(captured['reason'], exc) == 'format':
-                                raise HTTPException(500, '模型回复格式不完整，本次未保存为正式结果；已收到的可读文字请在“未完成内容”中查看。') from exc
+                                raise HTTPException(500, '模型回复格式不完整，本次未保存为正式结果；如有可提取文字，会保留在“未完成内容”中。') from exc
                             raise
             except GenerationCancelled as exc:
                 raise HTTPException(status_code=409, detail=f'generation_cancelled: {exc}') from exc
