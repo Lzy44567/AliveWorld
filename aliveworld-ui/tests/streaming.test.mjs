@@ -109,7 +109,7 @@ test('legacy JSON methods remain available without stream flag', async t => {
   assert.ok(urls.every(url => !url.endsWith('/stream')));
 });
 
-test('story previews stay initiating-context owned; complete/failure clear only its preview', async () => {
+test('story failure retains uncommitted prose in its initiating context; success clears it', async () => {
   gameStore.registerSession({ session_id: 'a', chat_messages: [{ role: 'ai', content: 'old-a' }], state: { bars: { hp: 1 } }, action_suggestions: ['old suggestion'] }, 'a');
   gameStore.registerSession({ session_id: 'b', chat_messages: [{ role: 'ai', content: 'old-b' }], state: { bars: { hp: 2 } } }, 'b');
   const a = gameStore.beginTask('a', 'reroll');
@@ -120,7 +120,7 @@ test('story previews stay initiating-context owned; complete/failure clear only 
   assert.equal(a.dynamicBars.hp, 1);
   assert.deepEqual(a.aiSuggestions, ['old suggestion']);
   gameStore.failTask('a', new Error('failed'));
-  assert.equal(a.preview, '');
+  assert.equal(a.preview, 'new preview');
   assert.equal(a.chatLog[0].content, 'old-a');
   gameStore.beginTask('a', 'retry');
   a.preview = 'new';

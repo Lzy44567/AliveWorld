@@ -1,5 +1,12 @@
 # AliveWorld 测试流程
 
+## dev.34输出截断热修复（2026-10-24）
+
+- Python全量1000通过（56.118s）；前端155通过；前端生产构建通过。
+- Edge `output-recovery.spec.js story-stop.spec.js workshop-stop.spec.js` 4项通过（16.5s）：故事残稿不入档、工坊失败恢复输入、主动停止丢弃预览及重试。
+- 截图build/dev34-story-recovery.png、dev34-workshop-recovery.png；不使用真实玩家内容或付费模型。
+- 原有显式预算保持原值；默认8192、任务默认让位于连接配置。非流式残片仅写本地日志。
+
 ## dev.33实际包与发布（2026-10-24）
 
 - 构建/标签606d25ca5cd13f4be0d437b398e5132c704c0245；build/dev33-package.txt确认主EXE、更新助手、结构/隐私/覆盖保留检查通过。最终dev.33前端提取/导出/导入新故事流程再次通过（7.1秒）。

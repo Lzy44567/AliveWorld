@@ -1,5 +1,9 @@
 # Active development goal
 
+2026-10-24临时紧急主线：[53输出截断热修复](features/53_output_truncation_hotfix.md)。用户明确要求优先修复并发布，52布局暂缓；dev.34改为输出预算、length一致性与可见残稿保留，验证并实际发布后恢复52。不能将52标记为完成。
+
+2026-10-24当前主线：[52工坊阅读优先布局](features/52_workshop_reading_layout.md)。51已发布，按用户P1优化上下占位：配置浮层、紧凑头尾、正文面积与草稿/审阅多尺寸验收，统一dev.34实际发布，不改生成/存储契约。
+
 2026-10-24完成51实际交付：[dev.33](https://github.com/Lzy44567/AliveWorld/releases/tag/v1.6.0-dev.33)已发布。标签/构建606d25ca5cd13f4be0d437b398e5132c704c0245；EXE/更新助手及便携包检查通过，两附件uploaded且摘要一致。最终版本浏览器提取流程再次通过（7.1秒）。当前目的完成，下一阶段优先工坊阅读布局P1；下方发布门为历史。
 
 2026-10-24 dev.33发布门：51限定提取分享流程完成，994 Python、155前端、5项Edge通过，截图已查看。版本统一dev.33，正在Git提交、EXE/ZIP和GitHub实际发布核对，目的仍active。

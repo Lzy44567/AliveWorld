@@ -52,7 +52,7 @@ def finish_llm_trace(label, trace_id, response="", error=None, metadata=None):
                 "aw_task": label or "unspecified", "aw_trace_id": trace_id,
                 "aw_phase": "response", "aw_status": "error",
                 "aw_summary": f"模型请求失败：{error}",
-                "aw_details": {"error": error, "metadata": metadata or {}},
+                "aw_details": {"error": error, "metadata": metadata or {}, **({"partial_response": response} if response else {})},
             },
         )
         return

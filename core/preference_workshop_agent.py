@@ -97,7 +97,7 @@ class PreferenceWorkshopAgent:
             f"【玩家本轮消息】\n{user_message}"
         )
         raw, error = self.ai_engine.chat_json(
-            SYSTEM_PROMPT, prompt, temp=0.45, max_tokens=2600, trace_label="用户偏好工坊",
+            SYSTEM_PROMPT, prompt, temp=0.45, trace_label="用户偏好工坊",
             **({"on_text_delta": on_text_delta, "visible_fields": PREFERENCE_FIELDS} if on_text_delta is not None else {}),
         )
         if error or not raw:

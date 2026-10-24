@@ -84,7 +84,7 @@ const initWorldState = async () => {
           </button>
         </div>
         <div v-if="gameStore.currentContext.pendingAction" class="ml-auto w-fit max-w-[85%] rounded-xl bg-indigo-600/70 p-4 whitespace-pre-wrap">{{ gameStore.currentContext.pendingAction }}<span class="block text-[10px] opacity-60">待完成 / 未保存</span></div>
-        <div v-if="gameStore.currentContext.preview" data-testid="story-stream-preview" class="max-w-[85%] rounded-xl border border-slate-600 bg-slate-900/90 p-5"><div class="mb-2 text-[10px] text-amber-400">生成中 / 未保存</div><div class="whitespace-pre-wrap leading-relaxed text-slate-200">{{ gameStore.currentContext.preview }}</div></div>
+        <div v-if="gameStore.currentContext.preview" data-testid="story-stream-preview" class="max-w-[85%] select-text rounded-xl border border-slate-600 bg-slate-900/90 p-5"><div class="mb-2 text-[10px] text-amber-400">{{ gameStore.isProcessing ? '生成中 / 未保存' : '未完成残稿 · 可选择复制，未写入故事或结算状态；重试前请保存需要的文字' }}</div><div class="whitespace-pre-wrap leading-relaxed text-slate-200">{{ gameStore.currentContext.preview }}</div></div>
         <div v-else-if="gameStore.isProcessing" class="text-emerald-400 text-sm font-bold italic animate-pulse">🧠 主引擎双轨推演中...</div>
         <p v-if="gameStore.currentContext.task.status==='failed'" class="text-xs text-rose-300">{{ gameStore.currentContext.task.error }}</p>
       </template>

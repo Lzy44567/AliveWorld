@@ -115,7 +115,7 @@ class PreferenceAnalysisService:
             "\n\n【尚未分析的行为证据】\n" + json.dumps(evidence, ensure_ascii=False)
         )
         raw, error = self.ai_engine.chat_json(
-            ANALYSIS_PROMPT, user_prompt, temp=0.3, max_tokens=2600, trace_label="用户偏好深度分析"
+            ANALYSIS_PROMPT, user_prompt, temp=0.3, trace_label="用户偏好深度分析"
         )
         if error or not raw:
             return {"changed": [], "error": error or "偏好分析返回空内容"}

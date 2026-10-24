@@ -125,7 +125,8 @@ export const gameStore = reactive({
   failTask(sessionId, error) {
     const context = this.contextFor(sessionId);
     if (!context) return;
-    context.preview = '';
+    // Keep received prose as an uncommitted preview, never as settled history.
+    if (context.stopping || /content_filter|服务商过滤/.test(String(error?.message || error))) context.preview = '';
     context.isProcessing = false;
     context.task = { ...context.task, status: 'failed', finishedAt: new Date().toISOString(), error: String(error?.message || error || '操作失败') };
     context.generationId = '';

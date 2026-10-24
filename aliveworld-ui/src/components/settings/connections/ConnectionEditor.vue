@@ -44,7 +44,7 @@ function reset() {
     apiKey: '',
     defaultModel: props.profile?.default_model || '',
     enabled: props.profile?.enabled ?? true,
-    advancedOptions: { context_window: 32768, output_reserve: 4096, automatic_retries: 0, ...(props.profile?.advanced_options || {}) },
+    advancedOptions: { context_window: 32768, output_reserve: 8192, automatic_retries: 0, ...(props.profile?.advanced_options || {}) },
     clearApiKey: false,
   });
   secretVisible.value = false;

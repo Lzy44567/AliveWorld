@@ -176,7 +176,7 @@ export const workshopStore = reactive({
       if (type === 'worldbooks') data = await worldbookWorkshopApi.start(name, sessionId || null);
       else if (type === 'preferences') data = await preferenceWorkshopApi.start(gameStore.sessionId || '');
       else data = await assetWorkshopApi.start(type, name, sessionId);
-      this.syncInto(context, data); this.markTask(context, 'completed');
+      this.syncInto(context, data); context.preview = ''; this.markTask(context, 'completed');
       if (data.resumed) uiStore.showToast('已恢复尚未发布的工坊草稿');
       if (data.rebased) uiStore.showToast('草稿已安全合并到最新正式偏好卡');
     } catch (error) {
@@ -220,8 +220,9 @@ export const workshopStore = reactive({
     } catch (error) {
       context.input = context.input || message;
       context.failedMessage = message;
+      if (context.stopping || /content_filter|服务商过滤/.test(error.message)) context.preview = '';
       this.markTask(context, 'failed', 'chat', error.message); uiStore.showToast(error.message, 'error');
-    } finally { context.preview = ''; context.pendingMessage = ''; context.busy = false; context.activity = ''; context.generationId = ''; context.stopping = false; }
+    } finally { context.pendingMessage = ''; context.busy = false; context.activity = ''; context.generationId = ''; context.stopping = false; }
   },
 
   async stop() {

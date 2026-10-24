@@ -9,7 +9,8 @@ def estimate_tokens(text):
 def budget_report(system, user, output_tokens=None, options=None, manifest=None):
     options = options or {}
     window = int(options.get("context_window") or 32768)
-    reserve = int(output_tokens or options.get("output_reserve") or 4096)
+    # A player's connection setting overrides a task's built-in default.
+    reserve = int(options.get("output_reserve") or output_tokens or 8192)
     margin = math.ceil(window * 0.1)
     estimated = estimate_tokens(system) + estimate_tokens(user) + 16
     return {

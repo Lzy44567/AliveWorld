@@ -79,7 +79,7 @@ class AssetWorkshopAgent:
             f"【玩家消息】\n{user_message}"
         )
         raw, error = self.ai_engine.chat_json(
-            SYSTEM_PROMPT, prompt, temp=0.55, max_tokens=2800,
+            SYSTEM_PROMPT, prompt, temp=0.55,
             trace_label={"characters": "角色卡工坊", "styles": "文风卡工坊", "entities": "实体卡工坊"}[workshop.asset_type],
             **({"on_text_delta": on_text_delta, "visible_fields": WORKSHOP_FIELDS} if on_text_delta is not None else {}),
         )

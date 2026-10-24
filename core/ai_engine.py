@@ -91,6 +91,10 @@ class AIEngine:
             content = res.choices[0].message.content or ""
             metadata = _completion_metadata(res)
             metadata.update(budget=report, elapsedMs=round((time.monotonic() - started) * 1000))
+            if metadata["finish_reason"] not in ("", "stop"):
+                error = _empty_response_error(metadata)
+                finish_llm_trace(trace_label, trace_id, response=content if metadata["finish_reason"] == "length" else "", error=error, metadata=metadata)
+                return "", error
             if content.strip():
                 finish_llm_trace(trace_label, trace_id, response=content, metadata=metadata)
                 return content, None
@@ -131,8 +135,6 @@ class AIEngine:
                     reason = getattr(choice, "finish_reason", None)
                     if reason:
                         finish_reason = str(reason)
-                        if finish_reason != "stop":
-                            raise ValueError(_empty_response_error({"finish_reason": finish_reason}))
                     # Never consume reasoning_content, tool_calls or any other delta.
                     delta = getattr(choice, "delta", None)
                     if getattr(delta, "tool_calls", None) or getattr(delta, "function_call", None):
@@ -155,7 +157,7 @@ class AIEngine:
             raw = "".join(parts)
             if finish_reason != "stop":
                 error = _empty_response_error(metadata) if finish_reason else "incomplete_stream: 模型流未完整结束"
-                finish_llm_trace(label, trace_id, error=error, metadata=metadata)
+                finish_llm_trace(label, trace_id, response=raw if finish_reason == "length" else "", error=error, metadata=metadata)
                 return "", error
             if not raw.strip():
                 error = _empty_response_error(metadata)
