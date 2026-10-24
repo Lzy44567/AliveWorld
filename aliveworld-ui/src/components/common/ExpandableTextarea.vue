@@ -49,7 +49,7 @@ watch(expanded, async value => {
       @keydown.enter.prevent="expanded = true"
       @keydown.space.prevent="expanded = true"
     >⛶</span>
-    <Teleport to="body">
+    <Teleport :to="inlineEditor?.closest('dialog') || 'body'">
       <div
         v-if="expanded"
         data-testid="expanded-textarea-dialog"
@@ -57,7 +57,7 @@ watch(expanded, async value => {
         role="dialog"
         aria-modal="true"
         :aria-label="`展开编辑：${label}`"
-        @keydown.esc.prevent="expanded = false"
+        @keydown.esc.stop.prevent="expanded = false"
       >
         <header class="mb-3 flex items-center justify-between gap-4">
           <div class="min-w-0"><h3 class="truncate font-bold text-slate-100">{{ label }}</h3><p class="mt-1 text-xs text-slate-500">Esc 或右上角按钮返回；内容会实时保留在原输入框中。</p></div>

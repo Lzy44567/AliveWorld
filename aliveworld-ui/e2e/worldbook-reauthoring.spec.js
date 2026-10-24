@@ -13,17 +13,22 @@ test('多书参考到定向改写、重开、审阅撤销和发布的完整流�
     await page.locator('[data-workshop-asset-name="再创作目标"]').click();
   }
   await page.goto('/'); await open();
+  await page.getByTestId('workshop-settings-toggle').click();
   const refs = page.getByTestId('worldbook-reauthoring');
   await refs.locator('summary').click();
   await refs.getByRole('checkbox', { name: '参考 再创作参考', exact: true }).check();
   await refs.getByRole('button', { name: '保存 / 更新参考快照', exact: true }).click();
   await expect(refs.locator('summary')).toContainText('已保存 1 本');
+  await page.getByRole('button', { name: '关闭创作设置' }).click();
   await page.getByRole('button', { name: '条目 1', exact: true }).click();
   await page.getByRole('button', { name: '让 AI 修改', exact: true }).click();
+  await page.getByTestId('workshop-settings-toggle').click();
   await expect(refs).toContainText('定向重写：力量规则');
   await page.reload(); await open();
+  await page.getByTestId('workshop-settings-toggle').click();
   await expect(refs).toContainText('定向重写：力量规则');
   await expect(refs.locator('summary')).toContainText('已保存 1 本');
+  await page.getByRole('button', { name: '关闭创作设置' }).click();
   const input = page.locator('textarea[placeholder*="Ctrl+Enter"]');
   await input.fill('AW_REAUTHOR 请参考其他书改写力量规则');
   await page.getByRole('button', { name: '发送', exact: true }).click();
@@ -43,6 +48,7 @@ test('多书参考到定向改写、重开、审阅撤销和发布的完整流�
   expect(JSON.stringify(source)).toContain('灵力来自山川');
   expect(JSON.stringify(source)).not.toContain('灵力经过魔力转化');
   await page.getByTestId('workshop-new-round').click();
+  await page.getByTestId('workshop-settings-toggle').click();
   await expect(refs.locator('summary')).toContainText('已保存 0 本');
   await expect(refs).not.toContainText('定向重写：');
   await refs.locator('summary').click();
@@ -50,13 +56,16 @@ test('多书参考到定向改写、重开、审阅撤销和发布的完整流�
   await refs.getByRole('button', { name: '保存 / 更新参考快照', exact: true }).click();
   await expect(refs.locator('summary')).toContainText('已保存 1 本');
   await page.getByRole('button', { name: '参考与融合', exact: true }).click();
+  await page.getByRole('button', { name: '关闭创作设置' }).click();
   await input.fill('AW_REAUTHOR 为目标世界设计兼容桥梁');
   await page.getByRole('button', { name: '发送', exact: true }).click();
   await expect(review).toContainText('融合桥梁');
   await page.screenshot({ path: '../build/worldbook50-reauthoring.png' });
   await review.getByRole('button', { name: '拒绝全部', exact: true }).click();
+  await page.getByTestId('workshop-settings-toggle').click();
   await refs.getByRole('button', { name: '清空参考', exact: true }).click();
   await expect(refs.locator('summary')).toContainText('已保存 0 本');
+  await page.getByRole('button', { name: '关闭创作设置' }).click();
   await input.fill('AW_REAUTHOR 确认没有参考');
   await page.getByRole('button', { name: '发送', exact: true }).click();
   await expect(page.getByTestId('workshop-conversation')).toContainText('未使用参考快照');

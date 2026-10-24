@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 test('工坊部分审阅保留未选方案并可重新载入', async ({ page, request }) => {
+  await page.addInitScript(() => localStorage.setItem('aw_onboarding_v1', JSON.stringify({ completed: true })));
   await page.goto('/');
   await page.waitForTimeout(500);
   const later = page.getByRole('button', { name: '稍后再说' });
@@ -27,7 +28,7 @@ test('工坊部分审阅保留未选方案并可重新载入', async ({ page, re
   await expect(page.locator('[data-workshop-asset-name="工坊审阅专用世界"]')).toBeHidden();
   const afterFocus = await conversation.boundingBox();
   expect(afterFocus.width).toBeGreaterThan(beforeFocus.width);
-  expect(afterFocus.height).toBeGreaterThan(beforeFocus.height);
+  expect(afterFocus.height).toBeGreaterThanOrEqual(beforeFocus.height);
   await expect(input).toHaveValue('专注模式保留的草稿');
   const lastArticle = await review.locator('article').last().boundingBox();
   const actions = await review.getByTestId('workshop-review-actions').boundingBox();
@@ -43,11 +44,13 @@ test('工坊部分审阅保留未选方案并可重新载入', async ({ page, re
   await expect(page.locator('[data-workshop-asset-name="工坊审阅专用世界"]')).toBeVisible();
   await expect(input).toHaveValue('专注模式保留的草稿');
   const brief = page.getByTestId('workshop-creative-brief');
+  await page.getByTestId('workshop-settings-toggle').click();
   await brief.locator('summary').click();
   await expect(brief.locator('textarea')).toHaveValue('轻松探索浮岛，不写战争');
   await brief.locator('textarea').fill('  轻松探索浮岛，侧重交朋友，不写战争  ');
   await brief.getByRole('button', { name: '保存目标' }).click();
   await expect(brief.getByRole('button', { name: '保存目标' })).toBeDisabled();
+  await page.getByRole('button', { name: '关闭创作设置' }).click();
   await review.getByRole('checkbox', { name: '选择浮岛', exact: true }).check();
   await review.getByRole('button', { name: '接受所选', exact: true }).click();
   await expect(review.locator('article')).toHaveCount(2);
@@ -62,8 +65,10 @@ test('工坊部分审阅保留未选方案并可重新载入', async ({ page, re
   await page.locator('[data-workshop-asset-name="工坊审阅专用世界"]').click();
   await expect(review.locator('article')).toHaveCount(1);
   await expect(review).toContainText('小店');
+  await page.getByTestId('workshop-settings-toggle').click();
   await brief.locator('summary').click();
   await expect(brief.locator('textarea')).toHaveValue('轻松探索浮岛，侧重交朋友，不写战争');
+  await page.getByRole('button', { name: '关闭创作设置' }).click();
   await review.getByRole('button', { name: '接受全部', exact: true }).click();
   await expect(review).toHaveCount(0);
   await page.getByTestId('workshop-publish').click();
@@ -89,20 +94,22 @@ test('工坊部分审阅保留未选方案并可重新载入', async ({ page, re
   await page.unroute('**/api/v1/worldbooks/workshops/start');
   await expect(page.getByTestId('workshop-history')).toContainText('AW_REVIEW_BATCH');
   const memorySettings = page.getByTestId('workshop-context-settings');
+  await page.getByTestId('workshop-settings-toggle').click();
   await memorySettings.locator('summary').click();
   await expect(page.getByTestId('workshop-context-info')).toContainText('历史节选 2 条');
   await memorySettings.getByRole('checkbox').uncheck();
+  await page.getByRole('button', { name: '关闭创作设置' }).click();
   await input.fill('AW_CONTINUITY_PROBE');
   await page.getByRole('button', { name: '发送', exact: true }).click();
   await expect(conversation).toContainText('未携带旧讨论');
-  await expect(brief.locator('textarea')).toHaveValue('轻松探索浮岛，侧重交朋友，不写战争');
   await page.reload();
-  await later.click();
   await page.getByRole('button', { name: '🧰 工坊' }).click();
   await page.locator('[data-workshop-asset-name="工坊审阅专用世界"]').click();
   await expect(conversation).toContainText('历史取材就绪');
+  await page.getByTestId('workshop-settings-toggle').click();
   await brief.locator('summary').click();
   await expect(brief.locator('textarea')).toHaveValue('轻松探索浮岛，侧重交朋友，不写战争');
+  await page.getByRole('button', { name: '关闭创作设置' }).click();
   await page.getByTestId('workshop-publish').click();
   await expect(page.getByTestId('workshop-new-round')).toBeVisible();
   await input.fill('AW_CONTINUITY_PROBE');

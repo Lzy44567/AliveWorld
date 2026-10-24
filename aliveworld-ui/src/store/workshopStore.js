@@ -216,7 +216,7 @@ export const workshopStore = reactive({
       data = this.streamingEnabled
         ? await api.chatStream(workshopId, message, mode, commitChanges, text => { context.preview += text; }, context.generationId, context.useHistory)
         : await api.chat(workshopId, message, mode, commitChanges, context.generationId, context.useHistory);
-      this.syncInto(context, data); this.markTask(context, 'completed');
+      this.syncInto(context, data); context.preview = ''; this.markTask(context, 'completed');
     } catch (error) {
       context.input = context.input || message;
       context.failedMessage = message;

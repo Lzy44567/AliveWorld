@@ -1,16 +1,17 @@
 <script setup>
-import { computed, onMounted, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import GenerationRetryStatus from '../common/GenerationRetryStatus.vue';
 import { workshopStore } from '../../store/workshopStore';
 import CopyTextButton from '../common/CopyTextButton.vue';
 import WorkshopReviewList from './WorkshopReviewList.vue';
-import WorkshopCreativeBrief from './WorkshopCreativeBrief.vue';
-import WorldbookReferences from './WorldbookReferences.vue';
+import WorkshopSettingsDialog from './WorkshopSettingsDialog.vue';
 import ExpandableTextarea from '../common/ExpandableTextarea.vue';
 import { useBottomAnchoredScroll } from '../../composables/useBottomAnchoredScroll';
 defineProps({ focused: Boolean });
 defineEmits(['toggle-focus']);
 
+const settingsOpen = ref(false);
+const focusEntry = computed(() => workshopStore.draft?.entries?.find(e => e.id === workshopStore.context.focusEntryId));
 const { container, positioned, updateFollowState, jumpToBottom, prepareAtBottom } = useBottomAnchoredScroll();
 onMounted(prepareAtBottom);
 watch(() => workshopStore.workshopId, prepareAtBottom, { flush: 'post' });
@@ -32,19 +33,17 @@ const historyTime = value => {
 </script>
 
 <template>
-  <main class="flex min-w-0 flex-1 flex-col bg-slate-950/55">
+  <main data-testid="workshop-main" class="flex min-h-0 min-w-0 flex-1 flex-col bg-slate-950/55">
     <template v-if="workshopStore.workshopId">
-      <header class="border-b border-slate-800 bg-slate-950/75 px-5 py-3">
+      <header class="border-b border-slate-800 bg-slate-950/75 px-3 py-2 shrink-0">
         <button class="float-right ml-3 rounded px-2 py-1 text-xs text-slate-400 hover:bg-slate-800 hover:text-cyan-200" data-testid="workshop-focus-toggle" :aria-pressed="focused" :title="focused ? '退出专注阅读（Esc）' : '收起两侧栏与说明，展开对话区域'" @click="$emit('toggle-focus')">{{ focused ? '退出专注' : '专注阅读' }}</button>
-        <div class="flex items-center justify-between gap-4">
-          <div><div class="flex items-center gap-2"><h2 class="font-bold text-cyan-200">{{ workshopStore.typeInfo.icon }} {{ workshopStore.typeInfo.label }}工坊<span v-if="workshopStore.assetName"> · {{ workshopStore.assetName }}</span></h2><span v-if="workshopStore.dirty" class="text-[10px] text-amber-400">草稿已自动保存</span></div><p class="mt-1 text-[10px] text-slate-500">不推进故事时间；发布前不会改变正式资产</p></div>
+        <div class="flex items-center justify-between gap-2">
+          <div class="min-w-0"><div class="flex items-center gap-2"><h2 class="truncate text-sm font-bold text-cyan-200">{{ workshopStore.typeInfo.icon }} {{ workshopStore.typeInfo.label }}工坊<span v-if="workshopStore.assetName"> · {{ workshopStore.assetName }}</span></h2><span v-if="workshopStore.dirty" class="text-[10px] text-amber-400">草稿已自动保存</span></div></div>
           <div class="flex gap-2"><button v-if="workshopStore.published" data-testid="workshop-new-round" class="rounded bg-cyan-700 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-30" :disabled="workshopStore.busy" @click="workshopStore.startNewRound">继续编辑</button><template v-else><button class="rounded bg-slate-800 px-3 py-1.5 text-xs text-slate-300" @click="workshopStore.undo">撤销</button><button data-testid="workshop-publish" class="rounded bg-emerald-700 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-30" :disabled="workshopStore.busy || !workshopStore.dirty" @click="workshopStore.publish">发布草稿</button></template></div>
         </div>
-        <div v-show="!focused" class="mt-3 flex flex-wrap gap-2"><button v-for="item in workshopStore.modes" :key="item.id" class="rounded px-3 py-1 text-[10px]" :class="workshopStore.mode===item.id?'bg-cyan-800 text-white':'bg-slate-900 text-slate-500'" :title="item.description" @click="workshopStore.mode=item.id">{{ item.label }}</button></div>
-        <p v-show="!focused" class="mt-2 text-[10px] leading-relaxed text-cyan-300/70">{{ workshopStore.activeMode.description }}</p>
-        <WorkshopCreativeBrief v-show="!focused" />
-        <WorldbookReferences />
       </header>
+      <WorkshopSettingsDialog :open="settingsOpen" @close="settingsOpen=false" />
+      <button v-if="workshopStore.context.focusEntryId" class="shrink-0 truncate px-3 py-1 text-left text-xs text-violet-300" @click="settingsOpen=true">定向重写：{{ focusEntry?.name || '目标已移除' }} · 仅生成待审修改</button>
 
       <section ref="container" class="min-h-0 flex-1 space-y-3 overflow-y-auto p-5 custom-scrollbar" :class="positioned?'opacity-100':'opacity-0'" data-testid="workshop-conversation" @scroll.passive="updateFollowState">
         <section v-if="workshopStore.history.length" data-testid="workshop-history" class="space-y-2 rounded-xl border border-slate-700 bg-slate-950/55 p-3">
@@ -67,20 +66,12 @@ const historyTime = value => {
           <p class="mt-2 whitespace-pre-wrap">{{ workshopStore.context.failedMessage }}</p>
         </div>
         <WorkshopReviewList v-for="source in ['proposed', 'pending']" :key="source" :source="source" :operations="workshopStore[source]" :workshop-id="workshopStore.workshopId" :busy="workshopStore.busy || workshopStore.published" @review="(list, ids, accept) => workshopStore.reviewSelection(list, ids, accept)" />
+        <div v-if="workshopStore.suggestions.length" class="mb-2 flex flex-wrap gap-1"><button v-for="item in workshopStore.suggestions" :key="item" class="rounded-full border border-cyan-800 px-2 py-1 text-[10px] text-cyan-300" @click="workshopStore.input=item">{{ item }}</button></div>
       </section>
 
-      <footer class="border-t border-slate-800 bg-slate-950/80 p-3">
-        <details class="mb-2 text-[10px] text-slate-400" data-testid="workshop-context-settings">
-          <summary class="cursor-pointer">创作记忆 · {{ workshopStore.context.useHistory ? '参考已发布讨论' : '仅参考本轮讨论' }}</summary>
-          <label class="mt-2 block"><input v-model="workshopStore.context.useHistory" type="checkbox" :disabled="workshopStore.busy" /> 参考同一资产的已发布讨论</label>
-          <p class="mt-1">不额外调用模型；历史原文按相关性和长度选取，会增加本次输入token，不保证召回所有细节。重要约束可写入创作目标。刷新后恢复默认设置。</p>
-          <p v-if="workshopStore.type === 'preferences'" class="mt-1 text-amber-400">默认关闭。开启后会把旧偏好讨论片段发送给当前模型，其中可能包含敏感内容。</p>
-          <p v-if="workshopStore.context.contextInfo" class="mt-1" data-testid="workshop-context-info">上次请求：近期 {{ workshopStore.context.contextInfo.recent_count }} 条，历史节选 {{ workshopStore.context.contextInfo.excerpt_count }} 条；可用原文共 {{ workshopStore.context.contextInfo.available_messages }} 条。</p>
-        </details>
-        <label class="mb-2 block text-right text-[10px] text-slate-500"><input data-testid="workshop-stream-toggle" v-model="workshopStore.streamingEnabled" type="checkbox" :disabled="workshopStore.busy" /> 流式输出</label>
-        <div class="mb-2 flex items-center justify-between gap-3"><div class="flex rounded-lg border border-slate-700 bg-slate-900 p-0.5 text-[10px]"><button class="rounded px-2 py-1" :class="!workshopStore.commitChanges?'bg-cyan-800 text-white':'text-slate-500'" @click="workshopStore.commitChanges=false">先讨论方案</button><button class="rounded px-2 py-1" :class="workshopStore.commitChanges?'bg-emerald-800 text-white':'text-slate-500'" @click="workshopStore.commitChanges=true">允许 AI 修改草稿</button></div><span class="text-[10px] text-slate-500">{{ workshopStore.commitChanges?'低风险修改可进入草稿':'AI 只提出方案' }}</span></div>
-        <div v-if="workshopStore.suggestions.length" class="mb-2 flex flex-wrap gap-1"><button v-for="item in workshopStore.suggestions" :key="item" class="rounded-full border border-cyan-800 px-2 py-1 text-[10px] text-cyan-300" @click="workshopStore.input=item">{{ item }}</button></div>
-        <div class="flex gap-2"><ExpandableTextarea v-model="workshopStore.input" label="工坊消息" wrapper-class="flex-1" textarea-class="h-20 rounded-lg border border-slate-700 bg-slate-900 p-3 text-sm text-slate-200" :placeholder="`${workshopStore.activeMode.description} Ctrl+Enter 发送`" @keydown.ctrl.enter.prevent="workshopStore.send()" /><button v-if="workshopStore.context.activity === 'chat'" data-testid="workshop-stop" aria-label="停止生成" title="停止生成" class="w-20 rounded-lg bg-slate-700 text-white disabled:opacity-40" :disabled="workshopStore.context.stopping" @click="workshopStore.stop">{{ workshopStore.context.stopping ? '正在停止' : '■ 停止' }}</button><button v-else class="w-20 rounded-lg bg-cyan-700 text-sm font-bold text-white disabled:opacity-40" :disabled="workshopStore.busy" @click="workshopStore.send()">{{ workshopStore.busy?'处理中':'发送' }}</button></div>
+      <footer class="border-t border-slate-800 bg-slate-950/80 px-3 py-2 shrink-0">
+        <div class="mb-2 flex flex-wrap items-center justify-between gap-2"><button data-testid="workshop-settings-toggle" class="rounded px-2 py-1 text-xs text-cyan-300 hover:bg-slate-800" @click="settingsOpen=true">创作设置 · {{ workshopStore.activeMode.label }}</button><div class="flex rounded-lg border border-slate-700 bg-slate-900 p-0.5 text-[10px]"><button class="rounded px-2 py-1" :class="!workshopStore.commitChanges?'bg-cyan-800 text-white':'text-slate-500'" @click="workshopStore.commitChanges=false">先讨论方案</button><button class="rounded px-2 py-1" :class="workshopStore.commitChanges?'bg-emerald-800 text-white':'text-slate-500'" @click="workshopStore.commitChanges=true">允许 AI 修改草稿</button></div></div>
+        <div class="flex gap-2"><ExpandableTextarea v-model="workshopStore.input" label="工坊消息" wrapper-class="min-w-0 flex-1" textarea-class="h-16 rounded-lg border border-slate-700 bg-slate-900 p-3 text-sm text-slate-200" :placeholder="`${workshopStore.activeMode.description} Ctrl+Enter 发送`" @keydown.ctrl.enter.prevent="workshopStore.send()" /><button v-if="workshopStore.context.activity === 'chat'" data-testid="workshop-stop" aria-label="停止生成" title="停止生成" class="w-16 shrink-0 rounded-lg bg-slate-700 text-white disabled:opacity-40" :disabled="workshopStore.context.stopping" @click="workshopStore.stop">{{ workshopStore.context.stopping ? '正在停止' : '■ 停止' }}</button><button v-else class="w-20 rounded-lg bg-cyan-700 text-sm font-bold text-white disabled:opacity-40" :disabled="workshopStore.busy" @click="workshopStore.send()">{{ workshopStore.busy?'处理中':'发送' }}</button></div>
       </footer>
     </template>
     <div v-else class="flex flex-1 items-center justify-center p-8 text-center"><div><div class="text-5xl">🧰</div><h2 class="mt-4 text-lg font-bold text-cyan-200">选择一个创作对象</h2><p class="mt-2 max-w-md text-xs leading-relaxed text-slate-500">从右侧选择世界书、角色、文风或实体；偏好卡可以直接进入。工坊会复用当前主界面，但不会载入或推进故事。</p></div></div>
