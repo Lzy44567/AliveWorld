@@ -1,5 +1,9 @@
 # 52 工坊阅读优先布局
 
+已交付：2026-10-24 dev.35，代码/标签58b2732c41d5390dd50e383721508cf201270a2e。非草稿预发布及ZIP/SHA256附件核验通过。
+
+完成审计：低频配置→WorkshopSettingsDialog；紧凑头尾/阅读流建议→WorkshopConversation；普通/专注/窄屏→WorkshopWorkspace与layout测试；草稿/引用/历史/末尾审阅→五类工坊与reauthoring回归；嵌套展开→ExpandableTextarea及layout测试；版本/包/发布→VERSION、CHANGELOG、构建日志及GitHub标签附件。全部限定要求已有当前证据，不含新增模型能力或字数范围功能。
+
 2026-10-24，用户P1反馈，51已发布后按排期实施，不插队其他主线。
 
 2026-10-24恢复：53热修复占用dev.34，本轮交付dev.35，不覆盖已发布附件。实现独立WorkshopSettingsDialog，原有子组件保留挂载；通用展开编辑器可进入父dialog顶层，并隔离Esc。

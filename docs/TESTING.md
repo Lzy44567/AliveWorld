@@ -2,6 +2,9 @@
 
 ## dev.35工坊阅读布局（2026-10-24）
 
+- 实际EXE/更新助手及ZIP结构、隐私排除、覆盖保留验收通过（build/dev35-package.txt）。GitHub tag=58b2732c41d5390dd50e383721508cf201270a2e，非草稿预发布，两附件uploaded。
+- ZIP 38502802 bytes，SHA256 `4d1b5c6e75319b16eaa5fe38fb878d5f7ecbfdeaca28b34ae649910746d98200`；摘要文件107 bytes，SHA256 `77abdcc1e0c282ebd941c087dc25f039f1d59e53541d8fbf33d3f13514e7d817`。本地与远端digest一致。
+
 - `build/dev35-node.txt`：155前端通过；`build/dev35-ui.txt`：生产构建通过。后端未改，本轮不冒称重新执行Python全量。
 - `build/dev35-browser-final.txt`：11 Edge全部通过（48.0s），覆盖五类工坊审阅/重载/发布、跨书再创作、提取打包、停止及残稿回归。
 - 1440×900普通/专注阅读区80.9%；1280×720均75.7%；900×720普通74.8%、专注75.7%。配置展开不改变高度，窄侧栏可达，未发送输入及未保存目标保留。
