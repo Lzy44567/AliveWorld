@@ -2,6 +2,9 @@
 
 ## dev.34输出截断热修复（2026-10-24）
 
+- 实际构建EXE及更新助手、便携包结构/隐私排除/覆盖保留检查通过。GitHub非草稿预发布与两个附件uploaded已核对；tag=9c76ea538031277ebad5eef77311c0f9ec36ec11。
+- ZIP 38499204 bytes，SHA256 `1e9ab6f9e159d86fb4a34cc3724f756296595ea55c0f975b63758f3751b93e1e`，与GitHub digest一致。两张残稿页面截图已查看。
+
 - Python全量1000通过（56.118s）；前端155通过；前端生产构建通过。
 - Edge `output-recovery.spec.js story-stop.spec.js workshop-stop.spec.js` 4项通过（16.5s）：故事残稿不入档、工坊失败恢复输入、主动停止丢弃预览及重试。
 - 截图build/dev34-story-recovery.png、dev34-workshop-recovery.png；不使用真实玩家内容或付费模型。

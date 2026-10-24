@@ -1,5 +1,7 @@
 # Active development goal
 
+2026-10-24 dev.34热修复已实际发布：https://github.com/Lzy44567/AliveWorld/releases/tag/v1.6.0-dev.34 。构建/标签9c76ea538031277ebad5eef77311c0f9ec36ec11，两附件uploaded，ZIP摘要匹配。53限定目标完成；下一步恢复52布局（尚未实施），原52目的不可标完成。截图缺失问题仍待补充。
+
 2026-10-24临时紧急主线：[53输出截断热修复](features/53_output_truncation_hotfix.md)。用户明确要求优先修复并发布，52布局暂缓；dev.34改为输出预算、length一致性与可见残稿保留，验证并实际发布后恢复52。不能将52标记为完成。
 
 2026-10-24当前主线：[52工坊阅读优先布局](features/52_workshop_reading_layout.md)。51已发布，按用户P1优化上下占位：配置浮层、紧凑头尾、正文面积与草稿/审阅多尺寸验收，统一dev.34实际发布，不改生成/存储契约。
