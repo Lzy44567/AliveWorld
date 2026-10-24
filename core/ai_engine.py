@@ -8,6 +8,7 @@ from core.llm_trace import begin_llm_trace, finish_llm_trace
 from core.json_stream import JSONTextPreview, STORY_FIELDS
 from core.generation_control import GenerationCancelled, check_generation
 from core.provider_retry import request_with_retry
+from core.generation_recovery import capture_response
 
 log = get_logger()
 STREAM_MAX_BYTES = 128 * 1024
@@ -90,6 +91,7 @@ class AIEngine:
             check_generation()
             content = res.choices[0].message.content or ""
             metadata = _completion_metadata(res)
+            capture_response(content, visible_fields or STORY_FIELDS, metadata['finish_reason'])
             metadata.update(budget=report, elapsedMs=round((time.monotonic() - started) * 1000))
             if metadata["finish_reason"] not in ("", "stop"):
                 error = _empty_response_error(metadata)
@@ -170,6 +172,7 @@ class AIEngine:
             finish_llm_trace(label, trace_id, response=raw, metadata=metadata)
             return raw, None
         finally:
+            capture_response(''.join(parts), fields, finish_reason or 'incomplete_stream')
             if stream is not None:
                 stream.close()
 

@@ -98,7 +98,7 @@ class PreferenceWorkshopAgent:
         )
         raw, error = self.ai_engine.chat_json(
             SYSTEM_PROMPT, prompt, temp=0.45, trace_label="用户偏好工坊",
-            **({"on_text_delta": on_text_delta, "visible_fields": PREFERENCE_FIELDS} if on_text_delta is not None else {}),
+            visible_fields=PREFERENCE_FIELDS, **({"on_text_delta": on_text_delta} if on_text_delta is not None else {}),
         )
         if error or not raw:
             raise PreferenceWorkshopError(f"偏好工坊 AI 请求失败：{error or '空返回'}")

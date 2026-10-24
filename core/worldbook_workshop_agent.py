@@ -85,7 +85,7 @@ class WorldbookWorkshopAgent:
             f"【玩家本轮要求】\n{user_message}"
         )
         raw, error = self.ai_engine.chat_json(SYSTEM_PROMPT, prompt, temp=0.6, trace_label="世界书工坊",
-                                             **({"on_text_delta": on_text_delta, "visible_fields": WORKSHOP_FIELDS} if on_text_delta is not None else {}))
+                                             visible_fields=WORKSHOP_FIELDS, **({"on_text_delta": on_text_delta} if on_text_delta is not None else {}))
         if error or not raw:
             raise WorkshopError(f"世界书工坊 AI 请求失败：{error or '空返回'}")
         payload = robust_json_parse(raw)

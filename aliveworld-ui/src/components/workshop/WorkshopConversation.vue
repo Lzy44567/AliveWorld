@@ -1,6 +1,9 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue';
 import GenerationRetryStatus from '../common/GenerationRetryStatus.vue';
+import GenerationRecovery from '../common/GenerationRecovery.vue';
+import { canRestoreRequest } from '../../utils/recoveryPresentation';
+import { uiStore } from '../../store/uiStore';
 import { workshopStore } from '../../store/workshopStore';
 import CopyTextButton from '../common/CopyTextButton.vue';
 import WorkshopReviewList from './WorkshopReviewList.vue';
@@ -11,6 +14,11 @@ defineProps({ focused: Boolean });
 defineEmits(['toggle-focus']);
 
 const settingsOpen = ref(false);
+function restoreRecovery(text) {
+  if (!canRestoreRequest(workshopStore.input, text)) { uiStore.showToast('输入框已有新草稿，请先保留或清空。'); return; }
+  workshopStore.input = text;
+  uiStore.showToast('原请求已放回输入框，请修改后明确发送；将按当前草稿生成。');
+}
 const focusEntry = computed(() => workshopStore.draft?.entries?.find(e => e.id === workshopStore.context.focusEntryId));
 const { container, positioned, updateFollowState, jumpToBottom, prepareAtBottom } = useBottomAnchoredScroll();
 onMounted(prepareAtBottom);
@@ -65,6 +73,7 @@ const historyTime = value => {
           <div class="flex items-center justify-between text-xs text-slate-400"><span>未完成 · 未保存</span><button title="编辑这条请求" aria-label="编辑未完成请求" @click="workshopStore.editFailedMessage">✎</button></div>
           <p class="mt-2 whitespace-pre-wrap">{{ workshopStore.context.failedMessage }}</p>
         </div>
+        <GenerationRecovery kind="workshop" :identity="workshopStore.workshopId" :busy="workshopStore.busy" @restore="restoreRecovery" />
         <WorkshopReviewList v-for="source in ['proposed', 'pending']" :key="source" :source="source" :operations="workshopStore[source]" :workshop-id="workshopStore.workshopId" :busy="workshopStore.busy || workshopStore.published" @review="(list, ids, accept) => workshopStore.reviewSelection(list, ids, accept)" />
         <div v-if="workshopStore.suggestions.length" class="mb-2 flex flex-wrap gap-1"><button v-for="item in workshopStore.suggestions" :key="item" class="rounded-full border border-cyan-800 px-2 py-1 text-[10px] text-cyan-300" @click="workshopStore.input=item">{{ item }}</button></div>
       </section>

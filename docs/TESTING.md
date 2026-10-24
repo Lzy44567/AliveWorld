@@ -1,5 +1,9 @@
 # AliveWorld 测试流程
 
+## 55生成失败恢复功能组（开发中）
+- 首轮`build/recovery55-python.txt` 1006 Python、`build/recovery55-browser.txt` 7 Edge通过；模型服务实际返回截断/格式错误，并非只mock前端失败。截图story-false和workshop已查看。
+- 后补过滤清理、非流式坏JSON错误映射、并发捕获/重启身份/目标隔离及存储失败专项；10项专项通过。浏览器扩展轮两项失败来自把“格式错误”断言误放到“额度不足”场景，已纠正测试，需完整重跑后再交付。
+
 ## dev.36阅读篇幅与预算（2026-10-24）
 
 - `build/dev36-package.txt`：主EXE及更新助手真实构建成功，ZIP结构/隐私/覆盖保留验证通过。GitHub非草稿预发布，tag=4764d715bc6cb6f6886b8275b50b321c0e84395c。

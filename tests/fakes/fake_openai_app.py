@@ -344,6 +344,13 @@ def chat(payload: ChatRequest):
     content = _response_for(kind, system, user)
     if not isinstance(content, str):
         content = json.dumps(content, ensure_ascii=False)
+    finish_reason = 'stop'
+    if kind in {'settlement', 'workshop'} and 'AW_RECOVERY_' in user:
+        field = 'story_text' if kind == 'settlement' else 'message'
+        content = '{"' + field + '":"Recovered neutral text about a quiet garden.'
+        finish_reason = 'content_filter' if 'AW_RECOVERY_FILTER' in user else 'length'
+        if 'AW_RECOVERY_FORMAT' in user:
+            finish_reason = 'stop'
     if payload.stream:
         response_id = f"chatcmpl-{uuid.uuid4().hex[:12]}"
 
@@ -376,7 +383,7 @@ def chat(payload: ChatRequest):
             yield "data: " + json.dumps({
                 "id": response_id, "object": "chat.completion.chunk",
                 "created": int(time.time()), "model": payload.model,
-                "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+                "choices": [{"index": 0, "delta": {}, "finish_reason": finish_reason}],
             }) + "\n\n"
             yield "data: [DONE]\n\n"
 
@@ -386,7 +393,7 @@ def chat(payload: ChatRequest):
         "created": int(time.time()), "model": payload.model,
         "choices": [{
             "index": 0, "message": {"role": "assistant", "content": content},
-            "finish_reason": "stop",
+            "finish_reason": finish_reason,
         }],
         "usage": {"prompt_tokens": 100, "completion_tokens": 40, "total_tokens": 140},
     }

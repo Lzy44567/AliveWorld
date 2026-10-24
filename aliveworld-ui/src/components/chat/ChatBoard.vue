@@ -8,11 +8,18 @@ import { gameApi } from '../../api/gameApi';
 import MessageBubble from './MessageBubble.vue';
 import ChatInput from './ChatInput.vue';
 import WorldbookActivityNotice from '../worldbook/WorldbookActivityNotice.vue';
+import GenerationRecovery from '../common/GenerationRecovery.vue';
+import { canRestoreRequest } from '../../utils/recoveryPresentation';
 import { imageStore } from '../../store/imageStore';
 import { useBottomAnchoredScroll } from '../../composables/useBottomAnchoredScroll';
 
 const { container, positioned, updateFollowState, jumpToBottom, prepareAtBottom } = useBottomAnchoredScroll();
 const content = ref(null);
+function restoreRecovery(text) {
+  if (!canRestoreRequest(gameStore.draftInput, text)) { uiStore.showToast('输入框已有新草稿，请先保留或清空。'); return; }
+  gameStore.draftInput = text;
+  uiStore.showToast('原请求已放回输入框，请修改后明确发送；将按当前故事状态生成。');
+}
 let contentObserver = null;
 
 onMounted(async () => {
@@ -87,6 +94,7 @@ const initWorldState = async () => {
         <div v-if="gameStore.currentContext.preview" data-testid="story-stream-preview" class="max-w-[85%] select-text rounded-xl border border-slate-600 bg-slate-900/90 p-5"><div class="mb-2 text-[10px] text-amber-400">{{ gameStore.isProcessing ? '生成中 / 未保存' : '未完成残稿 · 可选择复制，未写入故事或结算状态；重试前请保存需要的文字' }}</div><div class="whitespace-pre-wrap leading-relaxed text-slate-200">{{ gameStore.currentContext.preview }}</div></div>
         <div v-else-if="gameStore.isProcessing" class="text-emerald-400 text-sm font-bold italic animate-pulse">🧠 主引擎双轨推演中...</div>
         <p v-if="gameStore.currentContext.task.status==='failed'" class="text-xs text-rose-300">{{ gameStore.currentContext.task.error }}</p>
+        <GenerationRecovery kind="story" :identity="gameStore.sessionId" :busy="gameStore.isProcessing" @restore="restoreRecovery" />
       </template>
       </div>
     </div>
