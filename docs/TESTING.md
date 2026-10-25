@@ -1,6 +1,8 @@
 # AliveWorld 测试流程
 
 ## 56故事方向与偏好协同
+- 实际发布dev.38（非草稿预发布），标签f1eb7660b5c121f33f8002ac410f48773ef87d8e。`build/dev38-package.txt`主EXE/更新助手真实构建及结构/隐私排除/覆盖保留验证通过。
+- 远端两附件均uploaded；ZIP38514252字节，SHA256 `72de7141f25603de92b679489f8a495f9f6233d2af52e5e8d1111df10263e31e`；摘要文件107字节，其SHA256 `4e16395a01fc8444345a2328eddcec5a210ef97512223b9d7d3c81be1c2e139a`，均与GitHub digest一致。未宣称在用户游玩区执行自动更新。
 - 最终dev.38前端构建通过；`build/dev38-browser.txt` 4 Edge通过（28.1秒），暗色输入框断言通过；story56-direction/controls截图已核对。Windows真实构建正在执行，尚未宣称发布。
 - `build/story56-python.txt`：1014 Python通过（66.727秒）；`build/story56-node.txt`：159前端通过；生产构建通过。
 - `build/story56-browser-final.txt`：4 Edge通过（25.7秒），含真实双请求、方向改写、偏好禁用、分类隔离、两个故事、重载、全局默认不变及字数/停止回归。首轮测试错误使用PATCH及不存在的start字段，改为实际POST story_config后通过。
