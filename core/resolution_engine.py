@@ -31,6 +31,8 @@ class DualTrackResolver(BaseResolutionStrategy):
         
         # 1. 变数发散
         rule_command_prompt = resolution_instruction(player_action)
+        preference_context = getattr(session, "get_user_preference_context", lambda: "")()
+        plot_compass = getattr(session, "plot_compass", "")
         future_request = build_future_request(FutureRequestSnapshot(
             baseline_prompt=pts.get("reaction_prompt", ""),
             context_text=ctx,
@@ -41,6 +43,8 @@ class DualTrackResolver(BaseResolutionStrategy):
             causal_context=session.undercurrent.get_ledger_context(),
             rule_command_prompt=rule_command_prompt,
             story_settings=session.story_settings,
+            plot_compass=plot_compass,
+            preference_context=preference_context,
         ))
         
         log.info(f"发送推演请求: {player_action[:15]}...")
@@ -119,7 +123,8 @@ class DualTrackResolver(BaseResolutionStrategy):
             word_limit=session.word_limit,
             story_settings=session.story_settings,
             rule_command_prompt=rule_command_prompt,
-            preference_context=getattr(session, "get_user_preference_context", lambda: "")(),
+            preference_context=preference_context,
+            plot_compass=plot_compass,
             action_adjudication=action_adjudication,
             chosen_description=chosen["description"],
             triggered_influences=triggered_influences,

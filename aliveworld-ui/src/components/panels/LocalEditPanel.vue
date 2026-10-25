@@ -23,9 +23,9 @@ const restoreDefaults = () => {
       </section>
 
       <section class="bg-indigo-950/20 border border-indigo-800/50 p-4 rounded-xl">
-        <h3 class="text-xs font-bold text-indigo-300 mb-2">🧭 主线剧情导向（Plot Compass）</h3>
-        <p class="text-[10px] text-slate-400 mb-3">用于描述整个故事的剧情风格与发展风格。当前版本仅保存草案，具体推演逻辑将在后续版本单独设计。</p>
-        <ExpandableTextarea v-model="configStore.story.plotCompass" label="主线剧情导向" textarea-class="story-textarea" placeholder="例如：整体采用缓慢揭密、人物关系逐步反转的发展风格……" />
+        <h3 class="text-xs font-bold text-indigo-300 mb-2">🧭 剧情发展方向</h3>
+        <p class="text-[10px] text-slate-400 mb-3">希望故事逐步走向哪里？保存后从下一次推进或重写生效，供未来与正文参考；不会改写既成事实或替你作出选择。留空则自由发展。</p>
+        <ExpandableTextarea v-model="configStore.story.plotCompass" label="剧情发展方向" textarea-class="story-textarea" placeholder="例如：从陌生城市的求生逐步发展到建立自己的伙伴团队。" />
       </section>
 
       <StoryExperienceSettings />
@@ -41,6 +41,6 @@ const restoreDefaults = () => {
 </template>
 
 <style scoped>
-.story-textarea { width: 100%; height: 6rem; resize: none; border: 1px solid rgb(51 65 85); border-radius: .5rem; background: rgb(15 23 42); padding: .75rem; font-size: .75rem; color: rgb(203 213 225); outline: none; }
-.story-textarea:focus { border-color: rgb(99 102 241); }
+:deep(.story-textarea) { width: 100%; height: 6rem; resize: none; border: 1px solid rgb(51 65 85); border-radius: .5rem; background: rgb(15 23 42); padding: .75rem; font-size: .75rem; color: rgb(203 213 225); outline: none; }
+:deep(.story-textarea:focus) { border-color: rgb(99 102 241); }
 </style>

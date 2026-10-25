@@ -35,6 +35,7 @@ from core.effect_progress import (
 )
 from core.npc_identity import NPC_IDENTITY_INSTRUCTION
 from core.worldbook_collaboration_prompt import CONFLICT_INSTRUCTION
+from core.story_direction import direction_context, preference_emphasis_instruction
 
 
 SettlementMode = Literal["normal", "reroll"]
@@ -76,6 +77,7 @@ class SettlementRequestSnapshot:
     effect_report: Mapping[str, Any] | None = None
     npc_identities: Sequence[Mapping[str, Any]] = ()
     worldbook_collaboration: bool = False
+    plot_compass: str = ""
 
 
 @dataclass(frozen=True)
@@ -89,6 +91,8 @@ class FutureRequestSnapshot:
     causal_context: str
     rule_command_prompt: str
     story_settings: Mapping[str, Any]
+    plot_compass: str = ""
+    preference_context: str = ""
 
 
 def _experience_slice(base: set[str], slice_id: str, settings: Mapping[str, Any]) -> set[str]:
@@ -118,6 +122,11 @@ def build_future_request(
             FUTURE_SLICES, FUTURE_EXPERIENCE_SLICE, snapshot.story_settings,
         ),
         runtime_parts=[RuntimePromptPart(
+            "story.future.preference_guidance",
+            preference_context_guidance(snapshot.preference_context)
+            + preference_emphasis_instruction(snapshot.preference_context, snapshot.story_settings, future=True),
+            layer="feature", cache_class="configuration",
+        ), RuntimePromptPart(
             "story.future.world_rule_command",
             snapshot.rule_command_prompt,
             layer="feature",
@@ -131,10 +140,21 @@ def build_future_request(
         store=store,
     )
     user_parts: list[RequestMessagePart] = []
+    if snapshot.preference_context:
+        user_parts.append(RequestMessagePart(
+            "player.preferences.confirmed", preference_context_data(snapshot.preference_context),
+            cache_class="session",
+        ))
+    if snapshot.plot_compass.strip():
+        user_parts.append(RequestMessagePart(
+            "story.direction", direction_context(snapshot.plot_compass),
+            "\n" if user_parts else "", "session",
+        ))
     if "context.player_character" not in embedded and snapshot.character_info:
         user_parts.append(RequestMessagePart(
             "context.player_character",
             f"【玩家角色设定】：\n{snapshot.character_info}",
+            "\n" if user_parts else "",
             cache_class="asset",
         ))
     user_parts.append(RequestMessagePart(
@@ -208,7 +228,8 @@ def _runtime_parts(snapshot: SettlementRequestSnapshot) -> list[RuntimePromptPar
         ),
         RuntimePromptPart(
             "story.settlement.preference_guidance",
-            preference_context_guidance(snapshot.preference_context),
+            preference_context_guidance(snapshot.preference_context)
+            + preference_emphasis_instruction(snapshot.preference_context, snapshot.story_settings),
             layer="feature",
             cache_class="configuration",
         ),
@@ -266,6 +287,10 @@ def build_settlement_request(
     adjudication = adjudication_context(normalize_action_adjudication(snapshot.action_adjudication))
     influence = _influence_instruction(snapshot.triggered_influences)
     user_parts: list[RequestMessagePart] = []
+    if snapshot.plot_compass.strip():
+        user_parts.append(RequestMessagePart(
+            "story.direction", direction_context(snapshot.plot_compass), cache_class="session",
+        ))
     for variable_id, value, label, cache_class in (
         ("context.style", snapshot.style_info, "文风指导", "asset"),
         ("context.player_character", snapshot.character_info, "玩家角色设定", "asset"),

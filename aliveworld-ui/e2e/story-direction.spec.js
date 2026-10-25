@@ -1,0 +1,70 @@
+import { test, expect } from '@playwright/test';
+
+test('故事方向与偏好：默认继承、实际双请求、改向重写、关闭、重载和隔离', async ({ page, request }) => {
+  await page.addInitScript(() => localStorage.setItem('aw_onboarding_v1', JSON.stringify({ completed: true })));
+  await page.goto('/');
+  await page.getByRole('button', { name: '⚙️ 设置', exact: true }).click();
+  await page.getByTestId('story-setting-preferenceEmphasis-prominent').click();
+  await page.getByRole('button', { name: '✕', exact: true }).click();
+  await page.getByTestId('tab-saves').click();
+  await page.getByRole('button', { name: '+ 新局' }).click();
+  await page.getByTestId('new-game-name').fill('故事方向验收');
+  const started = page.waitForResponse(r => r.url().endsWith('/game/start') && r.request().method() === 'POST');
+  await page.getByTestId('new-game-submit').click();
+  const created = await (await started).json();
+  const id = created.session_id;
+  expect(created.story_settings.preferenceEmphasis).toBe('prominent');
+  await page.getByTestId('tab-local_edit').click();
+  const saved = page.waitForResponse(r => r.url().endsWith('/story_config') && r.request().postDataJSON()?.plot_compass === '逐步建立探险团队');
+  await page.getByRole('textbox', { name: '剧情发展方向', exact: true }).fill('逐步建立探险团队');
+  await saved;
+  const pref = await request.post('/api/v1/preferences/declare', { data: { text: '喜欢安静的团队探索', category: 'story' } });
+  expect(pref.ok()).toBeTruthy();
+  await request.delete('http://127.0.0.1:18765/__test__/requests');
+  await page.getByTestId('story-action-input').fill('观察测试房间');
+  await page.getByTestId('story-action-submit').click();
+  await expect(page.getByTestId('story-action-submit')).toBeEnabled();
+  const calls = (await (await request.get('http://127.0.0.1:18765/__test__/requests')).json()).requests.filter(c => ['reaction', 'settlement'].includes(c.kind));
+  expect(calls).toHaveLength(2);
+  for (const call of calls) {
+    expect(call.user).toContain('逐步建立探险团队');
+    expect(call.user).toContain('喜欢安静的团队探索');
+    expect(call.system).toContain('突出融入');
+    expect(call.system).not.toContain('逐步建立探险团队');
+  }
+  const nextSettings = { ...created.story_settings, preferenceEmphasis: 'light', useUserPreferences: false };
+  expect((await request.post(`/api/v1/game/${id}/story_config`, { data: { plot_compass: '改为研究海洋生态', story_settings: nextSettings } })).ok()).toBeTruthy();
+  await request.delete('http://127.0.0.1:18765/__test__/requests');
+  expect((await request.post(`/api/v1/game/${id}/reroll`, { data: { entities_enabled: false } })).ok()).toBeTruthy();
+  const rewritten = (await (await request.get('http://127.0.0.1:18765/__test__/requests')).json()).requests.find(c => c.kind === 'settlement');
+  expect(rewritten.user).toContain('改为研究海洋生态');
+  expect(rewritten.user).not.toContain('喜欢安静的团队探索');
+  expect(rewritten.system).not.toContain('本局偏好融入程度');
+  await page.reload();
+  await page.getByTestId('tab-saves').click();
+  await page.locator('[data-save-name="故事方向验收"]').getByTestId('save-load').click();
+  await page.getByTestId('tab-local_edit').click();
+  await expect(page.getByRole('textbox', { name: '剧情发展方向', exact: true })).toHaveValue('改为研究海洋生态');
+  await expect(page.getByTestId('story-setting-preferenceEmphasis-light')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('story-setting-preferenceEmphasis-light')).toBeDisabled();
+  await page.screenshot({ path: '../build/story56-direction.png' });
+  expect(await page.getByRole('textbox', { name: '剧情发展方向', exact: true }).evaluate(el => getComputedStyle(el).backgroundColor)).toBe('rgb(15, 23, 42)');
+  await page.getByTestId('story-setting-preferenceEmphasis-light').scrollIntoViewIfNeeded();
+  await page.screenshot({ path: '../build/story56-controls.png' });
+  await page.getByRole('button', { name: '⚙️ 设置', exact: true }).click();
+  await expect(page.getByTestId('story-setting-preferenceEmphasis-prominent').last()).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: '✕', exact: true }).click();
+  const other = await request.post('/api/v1/game/start', { data: { save_name: '方向隔离故事', world_premise: '另一座城市', plot_compass: '研究天文', story_settings: { preferenceStoryEnabled: false, entitiesEnabled: false } } });
+  expect(other.ok()).toBeTruthy();
+  const otherId = (await other.json()).session_id;
+  expect((await request.post(`/api/v1/game/${otherId}/story_config`, { data: { world_premise: '另一座城市', plot_compass: '研究天文', story_settings: { preferenceStoryEnabled: false, entitiesEnabled: false } } })).ok()).toBeTruthy();
+  await request.delete('http://127.0.0.1:18765/__test__/requests');
+  expect((await request.post(`/api/v1/game/${otherId}/action`, { data: { action: '观察星空' } })).ok()).toBeTruthy();
+  const isolated = (await (await request.get('http://127.0.0.1:18765/__test__/requests')).json()).requests.filter(c => ['reaction', 'settlement'].includes(c.kind));
+  expect(isolated).toHaveLength(2);
+  for (const call of isolated) {
+    expect(call.user).toContain('研究天文');
+    expect(call.user).not.toContain('改为研究海洋生态');
+    expect(call.user).not.toContain('喜欢安静的团队探索');
+  }
+});

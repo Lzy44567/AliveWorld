@@ -9,6 +9,9 @@ export const STORY_SETTING_GROUPS = [
       ['allowReroll', '允许重掷未来', '允许保留玩家行动并重新抽取另一个未来；会回溯本回合状态和偏好证据。'],
       ['aiSuggestions', '快捷行动按钮', '正文完成后提供 2–4 个可直接点击的下一步行动；关闭后不拼接相关提示词。'],
       ['entitiesEnabled', '启用暗流实体推演', '让活跃暗流实体在正文结束后异步行动；没有活跃实体时自动跳过。'],
+      { key: 'preferenceEmphasis', label: '偏好融入程度', type: 'segments',
+        help: '轻度偏向细节，适中自然展开，突出允许成为适合场景的重心。仅在启用用户偏好卡时生效；不是固定出现频率，不改变世界规则或行动成功率。',
+        options: [{ value: 'light', label: '轻度' }, { value: 'balanced', label: '适中' }, { value: 'prominent', label: '突出' }] },
     ]
   },
   {
@@ -38,7 +41,7 @@ export const STORY_SETTING_GROUPS = [
     id: 'preferences', title: '🪞 用户偏好（高级）', advanced: true, open: false,
     description: '偏好影响内容倾向，不是强制清单。候选与行为证据不会直接控制正文。',
     items: [
-      ['useUserPreferences', '启用用户偏好卡', '让正文参考已经生效且当前分类已开启的偏好；会要求保持多样性，不能机械重复满足。'],
+      ['useUserPreferences', '启用用户偏好卡', '让未来候选与正文参考已生效且当前分类已开启的偏好。关闭后不注入偏好，不会删除已有角色设定或故事内容。'],
       ['learnUserPreferences', '自动收集偏好证据', '复用正文结算记录中性的行为证据，不额外调用一次模型。'],
       ['deepPreferenceAnalysis', '自动深度分析偏好', '累积足够有效证据后，低频异步调用偏好分析模型并用 Python 更新后验。'],
       ['analyzeSensitivePreferences', '分析敏感内容偏好', '允许深度模型分析性、裸体等私密内容证据。默认关闭；开启后证据会发送给所配置的偏好模型。'],

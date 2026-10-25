@@ -75,6 +75,15 @@ class StorySettingsTests(unittest.TestCase):
         })
         self.assertEqual(session.action_suggestions, [])
 
+    def test_preference_emphasis_defaults_and_roundtrip(self):
+        self.assertEqual(normalize_story_settings()['preferenceEmphasis'], 'balanced')
+        self.assertEqual(normalize_story_settings({'preferenceEmphasis': 'invalid'})['preferenceEmphasis'], 'balanced')
+        session = GameSession(None)
+        session.story_settings = normalize_story_settings({'preferenceEmphasis': 'light'})
+        restored = GameSession(None)
+        restored.load_save_data(session.export_save_data())
+        self.assertEqual(restored.story_settings['preferenceEmphasis'], 'light')
+
     def test_legacy_description_migrates_to_world_premise(self):
         session = GameSession(None)
         session.load_save_data({"description": "旧版宇宙简述"})

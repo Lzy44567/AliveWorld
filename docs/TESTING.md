@@ -1,5 +1,11 @@
 # AliveWorld 测试流程
 
+## 56故事方向与偏好协同
+- 最终dev.38前端构建通过；`build/dev38-browser.txt` 4 Edge通过（28.1秒），暗色输入框断言通过；story56-direction/controls截图已核对。Windows真实构建正在执行，尚未宣称发布。
+- `build/story56-python.txt`：1014 Python通过（66.727秒）；`build/story56-node.txt`：159前端通过；生产构建通过。
+- `build/story56-browser-final.txt`：4 Edge通过（25.7秒），含真实双请求、方向改写、偏好禁用、分类隔离、两个故事、重载、全局默认不变及字数/停止回归。首轮测试错误使用PATCH及不存在的start字段，改为实际POST story_config后通过。
+- 截图发现原本局文本框scoped样式失效，已改局部deep选择器，新增暗色计算样式断言；最终版本复验待补。测试使用独立合成数据/假模型，不访问游玩数据或收费模型。
+
 ## 55生成失败恢复功能组（开发中）
 - 最终已交付dev.37；构建/标签bc36183633ad4d94d4ebb12016659e04580f7a79，主EXE与更新助手构建成功，便携包结构/隐私排除/覆盖保留验收通过（build/dev37-package.txt）。非草稿预发布，两附件uploaded。
 - ZIP 38506737 bytes，SHA256 `f739cbe90d2870c3c8b0c801cef7669398697b7b68fc4f4c3ceff8be7e5145de`；摘要文件107 bytes，SHA256 `1b9bdeb71b37b53690d40d062f532d36cc7794e6358994b3850fbd1de2d52ad3`，均与远端digest匹配。

@@ -12,6 +12,7 @@ export const STORY_SETTING_DEFAULTS = Object.freeze({
   worldbookNoticeContent: false,
   learnUserPreferences: true,
   useUserPreferences: true,
+  preferenceEmphasis: 'balanced',
   deepPreferenceAnalysis: true,
   analyzeSensitivePreferences: false,
   preferenceStoryEnabled: true,
@@ -33,6 +34,7 @@ export function normalizeStorySettings(settings = {}, defaults = STORY_SETTING_D
       return [key, Math.max(200, Math.min(3000, Number.isFinite(parsed) ? parsed : 500))];
     }
     if (key === 'minimumStoryLength') return [key, Math.max(0, Number.parseInt(value, 10) || 0)];
+    if (key === 'preferenceEmphasis') return [key, ['light', 'balanced', 'prominent'].includes(value) ? value : 'balanced'];
     if (key === 'storyExperiencePreset') {
       return [key, ['aliveworld_default', 'engine_only'].includes(value) ? value : 'aliveworld_default'];
     }

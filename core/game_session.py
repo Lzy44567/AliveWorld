@@ -316,7 +316,13 @@ class GameSession:
         
         if not action or not reactions: return {"error": True}
         
+        # Rewriting restores world state, not the player's current narrative controls.
+        plot_compass = self.plot_compass
+        preference_settings = {key: value for key, value in self.story_settings.items()
+                               if key.startswith("preference") or key == "useUserPreferences"}
         self.rollback(remove_preference_evidence=False)
+        self.plot_compass = plot_compass
+        self.story_settings.update(preference_settings)
         interpreted_action = resolve_action_reference(action, self.action_suggestions)
         self._take_snapshot()
         self.undercurrent.causal_ledger.advance_turn()
@@ -351,6 +357,7 @@ class GameSession:
         action_adjudication = normalize_action_adjudication(action_adjudication)
         request = build_settlement_request(SettlementRequestSnapshot(
             mode="reroll",
+            plot_compass=self.plot_compass,
             baseline_prompt=pts.get("settlement_prompt", ""),
             context_text=self.get_context_text(),
             dynamic_state=settlement_state,

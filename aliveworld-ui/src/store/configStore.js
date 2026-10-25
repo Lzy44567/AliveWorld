@@ -68,6 +68,7 @@ export const configStore = reactive({
     worldbookNoticeContent: savedConfig.settings?.worldbookNoticeContent ?? false,
     learnUserPreferences: savedConfig.settings?.learnUserPreferences ?? true,
     useUserPreferences: savedConfig.settings?.useUserPreferences ?? true,
+    preferenceEmphasis: savedConfig.settings?.preferenceEmphasis ?? 'balanced',
     deepPreferenceAnalysis: savedConfig.settings?.deepPreferenceAnalysis ?? true,
     analyzeSensitivePreferences: savedConfig.settings?.analyzeSensitivePreferences ?? false,
     preferenceStoryEnabled: savedConfig.settings?.preferenceStoryEnabled ?? true,

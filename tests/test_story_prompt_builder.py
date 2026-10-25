@@ -18,6 +18,40 @@ BASELINE = "{style_info}\n{world_info}\n{character_info}\n结算"
 
 
 class StoryPromptBuilderTests(unittest.TestCase):
+    def test_direction_reaches_future_normal_and_rewrite_as_data(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            store = PromptOverrideStore(Path(temporary) / 'overrides.json')
+            for direction in ('逐步组建探险团队', '先调查钟楼而不急于揭谜'):
+                requests = [build_future_request(self.future_snapshot(plot_compass=direction), store=store)]
+                requests += [self.build(self.snapshot(mode, plot_compass=direction)) for mode in ('normal', 'reroll')]
+                for request in requests:
+                    self.assertIn(direction, request.user_prompt)
+                    self.assertNotIn(direction, request.system_prompt)
+                    self.assertEqual(request.user_prompt.count(direction), 1)
+                    self.assertIn('不是已经发生的事实', request.user_prompt)
+                    self.assertIn('story.direction', str(request.prompt_manifest))
+                    self.assertLess(request.user_prompt.index(direction), request.user_prompt.index('【行动】'))
+            empty = build_future_request(self.future_snapshot(), store=store)
+            self.assertNotIn('剧情发展方向', empty.user_prompt)
+            self.assertNotIn('story.direction', str(empty.prompt_manifest))
+
+    def test_preference_strength_is_soft_and_shared_without_extra_budget(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            store = PromptOverrideStore(Path(temporary) / 'overrides.json')
+            for level, text in [('light', '轻度融入'), ('balanced', '适中融入'), ('prominent', '突出融入')]:
+                settings = {'preferenceEmphasis': level}
+                future = build_future_request(self.future_snapshot(story_settings=settings, preference_context='喜欢探险'), store=store)
+                self.assertIn('喜欢探险', future.user_prompt)
+                self.assertIn(text, future.system_prompt)
+                self.assertIn('不改硬条件', future.system_prompt)
+                for mode in ('normal', 'reroll'):
+                    result = self.build(self.snapshot(mode, story_settings=settings, preference_context='喜欢探险'))
+                    self.assertIn(text, result.system_prompt)
+                    self.assertIn('不重新选择未来', result.system_prompt)
+                    self.assertIsNone(result.max_tokens)
+                empty = build_future_request(self.future_snapshot(story_settings=settings), store=store)
+                self.assertNotIn('本局偏好融入程度', empty.system_prompt)
+
     def future_snapshot(self, **changes):
         values = {
             "baseline_prompt": load_system_prompts()["reaction_prompt"],

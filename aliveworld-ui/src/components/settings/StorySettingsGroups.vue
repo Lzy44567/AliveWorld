@@ -35,6 +35,9 @@ function normalizeNumber(item) {
               <input type="number" v-model.number="settings[item.key]" :aria-label="item.label" :data-testid="`story-setting-${item.key}`" :min="item.min" :max="item.max" :step="item.step" class="w-20 rounded border border-slate-600 bg-slate-950 px-2 py-1 text-right text-xs text-slate-200" @change="normalizeNumber(item)">
               {{ item.suffix }}
             </span>
+            <span v-else-if="item.type==='segments'" role="group" :aria-label="item.label" class="flex shrink-0 gap-1">
+              <button v-for="option in item.options" :key="option.value" type="button" :aria-pressed="settings[item.key] === option.value" :disabled="!settings.useUserPreferences" :data-testid="`story-setting-${item.key}-${option.value}`" class="rounded px-2 py-1 text-xs disabled:opacity-40" :class="settings[item.key] === option.value ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-300'" @click.prevent="settings[item.key] = option.value">{{ option.label }}</button>
+            </span>
             <select v-else-if="item.type==='select'" v-model="settings[item.key]" :data-testid="`story-setting-${item.key}`" class="max-w-56 shrink-0 rounded border border-slate-600 bg-slate-950 px-2 py-1 text-xs text-slate-200">
               <option v-for="option in item.options" :key="option.value" :value="option.value">{{ option.label }}</option>
             </select>

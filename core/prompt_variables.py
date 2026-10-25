@@ -100,6 +100,12 @@ VARIABLES: tuple[PromptVariable, ...] = (
         "story_private", "json", "turn", (),
     ),
     PromptVariable(
+        "story.direction", "剧情发展方向",
+        "本局创作期望；影响可行的发展与叙事重心，不是已经发生的事实，不会赋予人物额外知识。留空时省略。",
+        "text", "game_session", ("story.future", "story.settlement"), "omit",
+        "story_private", "plain_text", "session", (),
+    ),
+    PromptVariable(
         "story.player_action", "玩家本回合行动",
         "玩家当前提交并已展开快捷选项引用的行动。它靠近消息末尾，作为本回合推演的直接输入。",
         "text", "game_session", ("story.future", "story.settlement"), "error",
@@ -132,7 +138,7 @@ VARIABLES: tuple[PromptVariable, ...] = (
     PromptVariable(
         "player.preferences.confirmed", "已确认玩家偏好",
         "玩家已经确认或达到展示门槛的偏好数据；只影响呈现和关注重点，关闭偏好卡后为空。",
-        "text", "user_preferences", ("story.settlement",), "omit",
+        "text", "user_preferences", ("story.future", "story.settlement"), "omit",
         "story_private", "plain_text", "session", (),
     ),
     PromptVariable("character.presentation_mode", "角色会话表现模式", "本轮即时聊天或情景扮演模式，不改变身份。",
