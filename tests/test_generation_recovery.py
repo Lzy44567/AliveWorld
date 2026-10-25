@@ -16,6 +16,19 @@ from core.json_stream import STORY_FIELDS, WORKSHOP_FIELDS
 
 
 class RecoveryTests(unittest.TestCase):
+    def test_provider_disconnect_retains_received_public_prefix(self):
+        from tests.test_streaming import stream_engine, chunk
+        def interrupted():
+            yield chunk('{"story_text":"断线前正文')
+            raise ConnectionError('private provider endpoint')
+        engine, _, _, _ = stream_engine(interrupted())
+        with capture_generation() as captured:
+            raw, error = engine.chat_json('test', 'test', on_text_delta=lambda text: None)
+        self.assertEqual(raw, '')
+        self.assertTrue(error)
+        self.assertEqual(captured['text'], '断线前正文')
+        self.assertEqual(captured['reason'], 'incomplete_stream')
+
     def test_provider_stream_and_nonstream_preserve_only_public_text(self):
         from tests.test_streaming import stream_engine, chunk
         from core.ai_engine import AIEngine

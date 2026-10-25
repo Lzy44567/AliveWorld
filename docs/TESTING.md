@@ -1,6 +1,9 @@
 # AliveWorld 测试流程
 
 ## 55生成失败恢复功能组（开发中）
+- 最终已交付dev.37；构建/标签bc36183633ad4d94d4ebb12016659e04580f7a79，主EXE与更新助手构建成功，便携包结构/隐私排除/覆盖保留验收通过（build/dev37-package.txt）。非草稿预发布，两附件uploaded。
+- ZIP 38506737 bytes，SHA256 `f739cbe90d2870c3c8b0c801cef7669398697b7b68fc4f4c3ceff8be7e5145de`；摘要文件107 bytes，SHA256 `1b9bdeb71b37b53690d40d062f532d36cc7794e6358994b3850fbd1de2d52ad3`，均与远端digest匹配。
+- 交付审计补充模型流真实迭代异常后的公共前缀保留测试，11项恢复/路由专项通过；该补充仅测试文件，不改变已构建生产代码。全量记录仍为1010项，不冒称执行过1011全量。
 - 最终`build/recovery55-python-final.txt`：1010 Python通过（61.649秒）；`recovery55-node.txt`：157前端通过；`dev37-ui.txt`生产构建通过。文案修正后10项专项再次通过（dev37-recovery.txt）。
 - `build/dev37-browser.txt`：18 Edge全部通过，最终dev.37产物；故事流/非流截断，五工坊各流/非流格式错误、持久重载、复制/导出/删除、原请求恢复与新草稿保护、成功不清理旧残稿、过滤不留、旧停止与布局回归。合成服务真实HTTP返回，不调用收费模型。
 - 领域/API测试含线程隔离、重启会话身份、目标资产隔离、存储失败、取消/成功不存残稿、原始私有错误不落盘。截图recovery55-story-false.png和recovery55-workshop.png已查看。
