@@ -332,6 +332,27 @@ def undo_turn(session_id: str):
         return _persisted_story_mutation(game, mutate)
     return _run_story_mutation(game, operation)
 
+
+@router.get("/{session_id}/attempts")
+def list_story_attempts(session_id: str):
+    game = active_sessions.get(session_id)
+    if not game:
+        raise HTTPException(status_code=404, detail="会话失效")
+    return _run_story_mutation(game, lambda: {"attempts": copy.deepcopy(game.story_attempts)})
+
+
+@router.delete("/{session_id}/attempts/{attempt_id}")
+def delete_story_attempt(session_id: str, attempt_id: str):
+    game = active_sessions.get(session_id)
+    if not game:
+        raise HTTPException(status_code=404, detail="会话失效")
+    def mutate():
+        if not any(item["id"] == attempt_id for item in game.story_attempts):
+            raise HTTPException(status_code=404, detail="旧尝试不存在")
+        game.story_attempts = [item for item in game.story_attempts if item["id"] != attempt_id]
+        return {"deleted": attempt_id}
+    return _run_story_mutation(game, lambda: _persisted_story_mutation(game, mutate))
+
 @router.post("/{session_id}/retry")
 def retry_turn(session_id: str, payload: ActionRequest):
     return _retry_turn(session_id, payload)

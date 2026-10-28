@@ -1,5 +1,11 @@
 # AliveWorld 测试流程
 
+## 57-B档案界面（2026-10-28）
+
+- `python -m unittest tests.test_story_attempt_routes tests.test_replay_restore tests.test_capture_lifecycle -q`：26项通过，含删除持久化、保存失败恢复、锁冲突及未知ID隔离。
+- UI目录直接运行Vite生产构建成功；首次从仓库根运行导致Tailwind配置未发现，改回UI工作目录后通过，没有因此修改样式代码。
+- `playwright test e2e/story-attempts.spec.js --reporter=line`：1项Edge通过（9.7秒），真实请求假模型生成→撤回→查看→删除→重载，确认正式聊天不恢复旧结果。`build/story-attempts.png`已视觉检查。无付费API调用。选择参考重演未验收。
+
 ## 57-B租赁机恢复与旧尝试存取（2026-10-28）
 
 重建Python3.14.10环境，requirements-build安装及pip check通过。`python -m unittest tests.test_replay_restore tests.test_story_settings tests.test_streaming tests.test_capture_lifecycle tests.test_story_memory tests.test_game_action_suggestions -q`：73项通过，4.048秒。包含连续撤回/存取隔离、同起点多尝试、事务恢复及内部回滚不留档。使用临时合成数据，无收费模型请求；未做完整重演UI或新EXE验收。

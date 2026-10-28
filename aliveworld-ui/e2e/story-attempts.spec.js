@@ -1,0 +1,34 @@
+import { test, expect } from '@playwright/test';
+
+test('撤回后查看旧尝试，删除并重载不恢复废弃历史', async ({ page, request }) => {
+  await page.addInitScript(() => localStorage.setItem('aw_onboarding_v1', JSON.stringify({ completed: true })));
+  await page.goto('/');
+  await page.getByTestId('tab-saves').click();
+  await page.getByRole('button', { name: '+ 新局' }).click();
+  await page.getByTestId('new-game-name').fill('旧尝试验收');
+  await page.getByTestId('new-game-premise').fill('隔离测试房间');
+  const created = page.waitForResponse(r => r.url().endsWith('/game/start') && r.request().method() === 'POST');
+  await page.getByTestId('new-game-submit').click();
+  const initial = await (await created).json();
+  await page.getByTestId('story-action-input').fill('查看门外的脚印');
+  await page.getByTestId('story-action-submit').click();
+  await expect(page.getByTestId('story-action-submit')).toBeEnabled();
+  await page.getByTestId('story-undo').click();
+  await expect(page.getByTestId('story-action-submit')).toBeEnabled();
+  await page.getByTestId('story-attempts').click();
+  const dialog = page.getByRole('dialog', { name: '旧尝试', exact: true });
+  await expect(dialog.locator('details')).toHaveCount(1);
+  await dialog.locator('summary').click();
+  await expect(dialog).toContainText('查看门外的脚印');
+  await page.screenshot({ path: '../build/story-attempts.png' });
+  page.once('dialog', d => d.accept());
+  await dialog.getByRole('button', { name: '删除这条旧尝试' }).click();
+  await expect(dialog).toContainText('暂无旧尝试');
+  const loaded = await request.post('/api/v1/game/load', { data: { save_name: '旧尝试验收' } });
+  expect(loaded.ok()).toBeTruthy();
+  const result = await loaded.json();
+  expect(result.chat_messages).toEqual(initial.chat_messages);
+  const archive = await request.get(`/api/v1/game/${result.session_id}/attempts`);
+  expect(archive.ok()).toBeTruthy();
+  expect((await archive.json()).attempts).toEqual([]);
+});
