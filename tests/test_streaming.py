@@ -315,7 +315,7 @@ class _StreamingGame:
         self.history['chat_messages'] = [{'role': 'ai', 'content': '重掷正文'}]
         return {'chat_messages': self.history['chat_messages'], 'state': self.state, 'action_suggestions': []}
 
-    def rollback(self):
+    def rollback(self, *, preserve_attempt=False):
         self.history['chat_messages'] = []
         return True
 

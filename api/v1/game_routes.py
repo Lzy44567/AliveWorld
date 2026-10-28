@@ -323,7 +323,7 @@ def undo_turn(session_id: str):
     def operation():
         def mutate():
             previous_turn = _latest_player_turn(game)
-            if not game.rollback(): raise HTTPException(status_code=400, detail="无法撤回")
+            if not game.rollback(preserve_attempt=True): raise HTTPException(status_code=400, detail="无法撤回")
             game.record_preference_interaction(
                 "undo", "玩家撤回了刚完成的故事回合；仅能确定玩家不接受这次整体结果，具体原因未知。",
                 _interaction_context(previous_turn), related_turn_id=previous_turn.get("turn_id") if previous_turn else None,
@@ -349,7 +349,7 @@ def _retry_turn(session_id, payload, *, on_text_delta=None):
     def operation():
         def mutate():
             previous_turn = _latest_player_turn(game)
-            if not game.rollback(): raise HTTPException(status_code=400, detail="无历史")
+            if not game.rollback(preserve_attempt=True): raise HTTPException(status_code=400, detail="无历史")
             if payload.plot_compass is not None: game.plot_compass = payload.plot_compass
             result = game.process_turn(payload.action, **({"on_text_delta": on_text_delta} if on_text_delta is not None else {}))
             if result and result.get('error'): raise HTTPException(status_code=502, detail=result.get("message", "推演失败，本回合未保存。"))

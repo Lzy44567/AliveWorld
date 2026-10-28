@@ -1,6 +1,7 @@
 # core/game_session.py
 import copy
 import json
+from core.story_attempts import archive_attempt
 from datetime import datetime
 from core.undercurrent import UndercurrentEngine
 from core.resolution_engine import DualTrackResolver
@@ -70,6 +71,7 @@ class GameSession:
         self.history = {"chat_messages": [], "context_history": [], "story_turns": []}
         self.action_suggestions = []
         self.snapshots = [] 
+        self.story_attempts = []
 
     @property
     def state(self): return self.state_mgr.state
@@ -503,6 +505,7 @@ class GameSession:
     def _capture_runtime(self):
         payload = self._snapshot_payload()
         payload["snapshots"] = copy.deepcopy(self.snapshots)
+        payload["story_attempts"] = copy.deepcopy(self.story_attempts)
         payload["preferences"] = self.user_preferences.export_state()
         payload["plot_compass"] = self.plot_compass
         payload["story_settings"] = copy.deepcopy(self.story_settings)
@@ -525,6 +528,8 @@ class GameSession:
         self.action_suggestions = copy.deepcopy(snap.get("action_suggestions", []))
         if "snapshots" in snap:
             self.snapshots = copy.deepcopy(snap["snapshots"])
+        if "story_attempts" in snap:
+            self.story_attempts = copy.deepcopy(snap["story_attempts"])
         if "preferences" in snap:
             self.user_preferences.restore_state(copy.deepcopy(snap["preferences"]))
         if "plot_compass" in snap:
@@ -543,9 +548,13 @@ class GameSession:
     def restore_transaction_state(self, snapshot):
         self._restore_runtime(snapshot)
 
-    def rollback(self, *, remove_preference_evidence=True):
+    def rollback(self, *, remove_preference_evidence=True, preserve_attempt=False):
         if not self.snapshots: return False
         snap = self.snapshots.pop()
+        if preserve_attempt:
+            attempt = archive_attempt(snap, self.history.get("story_turns", []))
+            if attempt:
+                self.story_attempts.append(attempt)
         snapshot_turn_ids = {int(turn.get("turn_id", -1)) for turn in snap.get("story_turns", [])}
         removed_turn_ids = {
             int(turn.get("turn_id", -1)) for turn in self.history.get("story_turns", [])
@@ -569,12 +578,14 @@ class GameSession:
             "state": self.state, "history": self.history, "undercurrent": self.undercurrent.export_state(), "snapshots": self.snapshots,
             "action_suggestions": self.action_suggestions,
             "story_memory": self.story_memory.export_state(),
+            "story_attempts": copy.deepcopy(self.story_attempts),
             "worldbook_collaboration": self.worldbook_collaboration,
             "state_meta": self.state_mgr.export_metadata(),
             "is_game_over": self.is_game_over,
         }
 
     def load_save_data(self, data, *, save_dir_path=None):
+        self.story_attempts = copy.deepcopy(data.get("story_attempts", []))
         self.is_game_over = bool(data.get("is_game_over", False))
         # The current runtime directory is authoritative. Persisted absolute
         # paths become stale after migration, ZIP extraction, cloning or moves.

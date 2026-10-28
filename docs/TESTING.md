@@ -1,5 +1,9 @@
 # AliveWorld 测试流程
 
+## 57-B租赁机恢复与旧尝试存取（2026-10-28）
+
+重建Python3.14.10环境，requirements-build安装及pip check通过。`python -m unittest tests.test_replay_restore tests.test_story_settings tests.test_streaming tests.test_capture_lifecycle tests.test_story_memory tests.test_game_action_suggestions -q`：73项通过，4.048秒。包含连续撤回/存取隔离、同起点多尝试、事务恢复及内部回滚不留档。使用临时合成数据，无收费模型请求；未做完整重演UI或新EXE验收。
+
 ## 57-A恢复边界（2026-10-28）
 
 `python -m unittest tests.test_replay_restore tests.test_story_settings -q`：13项通过，包括终局撤回、存取后撤回、旧快照、空撤回及失败事务恢复。仅临时合成数据；尚未验证完整重演流程，无新包。
