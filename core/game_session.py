@@ -488,6 +488,7 @@ class GameSession:
 
     def _snapshot_payload(self):
         return {
+            "is_game_over": self.is_game_over,
             "state": copy.deepcopy(self.state), "chat_messages": copy.deepcopy(self.history["chat_messages"]), 
             "context_history": copy.deepcopy(self.history["context_history"]), "undercurrent": self.undercurrent.export_state(),
             "story_turns": copy.deepcopy(self.history.get("story_turns", [])),
@@ -555,6 +556,8 @@ class GameSession:
         if not snap.get("story_turns"):
             snap["story_turns"] = normalize_story_turns(snap.get("context_history", []))
         self._restore_runtime(snap)
+        if "is_game_over" not in snap:
+            self.is_game_over = False  # Legacy snapshots precede a playable turn.
         return True
 
     def export_save_data(self):
@@ -568,9 +571,11 @@ class GameSession:
             "story_memory": self.story_memory.export_state(),
             "worldbook_collaboration": self.worldbook_collaboration,
             "state_meta": self.state_mgr.export_metadata(),
+            "is_game_over": self.is_game_over,
         }
 
     def load_save_data(self, data, *, save_dir_path=None):
+        self.is_game_over = bool(data.get("is_game_over", False))
         # The current runtime directory is authoritative. Persisted absolute
         # paths become stale after migration, ZIP extraction, cloning or moves.
         runtime_save_dir = str(save_dir_path or self.save_dir_path or data.get('save_dir_path', ''))

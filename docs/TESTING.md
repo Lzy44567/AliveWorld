@@ -1,5 +1,9 @@
 # AliveWorld 测试流程
 
+## 57-A恢复边界（2026-10-28）
+
+`python -m unittest tests.test_replay_restore tests.test_story_settings -q`：13项通过，包括终局撤回、存取后撤回、旧快照、空撤回及失败事务恢复。仅临时合成数据；尚未验证完整重演流程，无新包。
+
 ## 56故事方向与偏好协同
 - 实际发布dev.38（非草稿预发布），标签f1eb7660b5c121f33f8002ac410f48773ef87d8e。`build/dev38-package.txt`主EXE/更新助手真实构建及结构/隐私排除/覆盖保留验证通过。
 - 远端两附件均uploaded；ZIP38514252字节，SHA256 `72de7141f25603de92b679489f8a495f9f6233d2af52e5e8d1111df10263e31e`；摘要文件107字节，其SHA256 `4e16395a01fc8444345a2328eddcec5a210ef97512223b9d7d3c81be1c2e139a`，均与GitHub digest一致。未宣称在用户游玩区执行自动更新。
