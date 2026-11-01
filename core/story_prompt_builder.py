@@ -78,6 +78,7 @@ class SettlementRequestSnapshot:
     npc_identities: Sequence[Mapping[str, Any]] = ()
     worldbook_collaboration: bool = False
     plot_compass: str = ""
+    replay_context: str = ""
 
 
 @dataclass(frozen=True)
@@ -93,6 +94,7 @@ class FutureRequestSnapshot:
     story_settings: Mapping[str, Any]
     plot_compass: str = ""
     preference_context: str = ""
+    replay_context: str = ""
 
 
 def _experience_slice(base: set[str], slice_id: str, settings: Mapping[str, Any]) -> set[str]:
@@ -175,6 +177,8 @@ def build_future_request(
                 f"【待判断的隐藏暗流因果】：\n{snapshot.causal_context}",
                 "\n",
             ))
+    if snapshot.replay_context:
+        user_parts.append(RequestMessagePart("story.replay_reference", snapshot.replay_context, "\n", "turn"))
     user_parts.extend((
         RequestMessagePart(
             "runtime.state",
@@ -341,6 +345,8 @@ def build_settlement_request(
             'runtime.npc_identities', '【本局已知人物身份】：' + json.dumps(snapshot.npc_identities, ensure_ascii=False), '\n',
         ))
     normal = snapshot.mode == "normal"
+    if snapshot.replay_context:
+        user_parts.append(RequestMessagePart("story.replay_reference", snapshot.replay_context, "\n", "turn"))
     return plan_model_request(
         system,
         user_parts,

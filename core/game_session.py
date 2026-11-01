@@ -207,7 +207,7 @@ class GameSession:
                 break
         return [found[role] for role in ("user", "ai") if found.get(role)]
 
-    def process_turn(self, user_action: str, *, on_text_delta=None):
+    def process_turn(self, user_action: str, *, on_text_delta=None, replay_context=""):
         self._take_snapshot()
         self.story_memory.schedule(
             self.history.get("story_turns", []),
@@ -220,7 +220,7 @@ class GameSession:
             log.info("玩家行动引用已展开: input=%s resolved=%s", user_action, interpreted_action)
         self._refresh_local_context()
         
-        result = self.resolver.resolve(self, interpreted_action, **({"on_text_delta": on_text_delta} if on_text_delta is not None else {}))
+        result = self.resolver.resolve(self, interpreted_action, **({"on_text_delta": on_text_delta} if on_text_delta is not None else {}), **({"replay_context": replay_context} if replay_context else {}))
         if not result or result.get("error") or not result.get('settlement'):
             self.rollback()
             return result or {"error": True, "message": "推演未完成，本回合未保存。"}

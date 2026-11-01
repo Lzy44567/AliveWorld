@@ -2,9 +2,19 @@ import tempfile
 import unittest
 
 from core.game_session import GameSession
+from core.story_attempts import reference_context
 
 
 class ReplayRestoreTests(unittest.TestCase):
+    def test_reference_is_explicit_and_rejects_unknown_or_oversized_selection(self):
+        attempts = [{"id": "a", "turns": [{"player": "old", "story": "result"}]}]
+        self.assertEqual("", reference_context(attempts, []))
+        self.assertIn("非正式参考", reference_context(attempts, ["a"]))
+        with self.assertRaises(ValueError):
+            reference_context(attempts, ["other-story"])
+        attempts[0]["turns"][0]["story"] = "x" * 20001
+        with self.assertRaises(ValueError):
+            reference_context(attempts, ["a"])
     def test_attempts_survive_repeated_undo_and_reload_without_entering_history(self):
         with tempfile.TemporaryDirectory() as folder:
             game = GameSession(None, save_dir_path=folder)

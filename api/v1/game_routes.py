@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any
 
 from core.game_session import GameSession
+from core.story_attempts import reference_context
 from core.ai_engine import AIEngine
 from core.model_connections.repository import ConnectionRepository
 from core.model_connections.runtime import model_runtime
@@ -85,6 +86,7 @@ class StartRequest(BaseModel):
 class ActionRequest(GenerationPayload):
     action: str
     plot_compass: Optional[str] = None
+    attempt_ids: list[str] = Field(default_factory=list, max_length=20)
 
 class EntityRuntimeRequest(GenerationPayload):
     entities_enabled: Optional[bool] = None
@@ -297,7 +299,11 @@ def _process_turn(session_id, payload, *, on_text_delta=None):
         def mutate():
             if payload.plot_compass is not None: game.plot_compass = payload.plot_compass
             history_len = len(game.history["chat_messages"])
-            result = game.process_turn(payload.action, **({"on_text_delta": on_text_delta} if on_text_delta is not None else {}))
+            try:
+                reference = reference_context(game.story_attempts, payload.attempt_ids) if payload.attempt_ids else ""
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+            result = game.process_turn(payload.action, **({"on_text_delta": on_text_delta} if on_text_delta is not None else {}), **({"replay_context": reference} if reference else {}))
             if result and result.get('error'): raise HTTPException(status_code=502, detail=result.get("message", "推演失败，本回合未保存。"))
             return {"chat_messages": game.history["chat_messages"][history_len:], "state": game.state, "is_game_over": game.is_game_over, "action_suggestions": game.action_suggestions}
         return _persisted_story_mutation(game, mutate)

@@ -1,7 +1,8 @@
 <!-- src/components/chat/ChatInput.vue -->
 <script setup>
-import { watch } from 'vue';
+import { ref, watch } from 'vue';
 import StoryAttempts from './StoryAttempts.vue';
+const selectedAttempts = ref([]);
 import GenerationRetryStatus from '../common/GenerationRetryStatus.vue';
 import { gameStore } from '../../store/gameStore';
 import { configStore, effectiveStorySettings } from '../../store/configStore';
@@ -11,6 +12,7 @@ import { uiStore } from '../../store/uiStore';
 import { preferenceApi } from '../../api/preferenceApi';
 import { preferenceStore } from '../../store/preferenceStore';
 import { parsePreferenceMeta } from '../../utils/preferenceMeta';
+watch(() => gameStore.sessionId, () => { selectedAttempts.value = []; });
 
 watch(() => effectiveStorySettings.value.aiSuggestions, (enabled) => {
   if (!enabled) gameStore.setActionSuggestions([]);
@@ -47,11 +49,13 @@ const submitAction = async (text = null) => {
   try {
     const res = await (gameStore.streamingEnabled ? gameApi.processActionStream : gameApi.processAction)(sessionId, {
       action: finalAction,
+      attempt_ids: [...selectedAttempts.value],
       generation_id: context.generationId,
       plot_compass: plotCompass
     }, text => { context.preview += text; });
     
     const newMsgs = res.chat_messages;
+    if (gameStore.sessionId === sessionId) selectedAttempts.value = [];
     gameStore.finishTask(sessionId, target => {
       target.chatLog.push(...newMsgs);
       gameStore.syncState(res.state, sessionId);
@@ -138,7 +142,7 @@ const editFailed = () => {
   <div class="w-full p-4 md:p-6 bg-aw_bg border-t border-slate-700 z-20 shrink-0 shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
     <div class="max-w-4xl mx-auto flex flex-col gap-2">
       <GenerationRetryStatus kind="story" :identity="gameStore.sessionId" :request-id="gameStore.currentContext.generationId" />
-      <div class="self-end"><StoryAttempts :session-id="gameStore.sessionId" :busy="gameStore.isProcessing" /></div>
+      <div class="self-end flex gap-3 text-xs"><span v-if="selectedAttempts.length">本次参考 {{ selectedAttempts.length }} 条旧尝试 <button @click="selectedAttempts = []" :disabled="gameStore.isProcessing">清除</button></span><StoryAttempts v-model:selected="selectedAttempts" :session-id="gameStore.sessionId" :busy="gameStore.isProcessing" /></div>
       <div v-if="gameStore.currentContext.failedAction" class="text-xs text-slate-400 rounded-lg border border-slate-700 p-2">
         <span class="whitespace-pre-wrap">{{ gameStore.currentContext.failedAction }}</span>
         <button @click="editFailed" aria-label="编辑未完成行动" class="ml-2 text-cyan-300" title="未完成，未写入故事；编辑原请求">✎</button>

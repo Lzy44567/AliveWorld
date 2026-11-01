@@ -1,7 +1,11 @@
 <script setup>
 import { ref, watch } from 'vue';
 import { listStoryAttempts, deleteStoryAttempt } from '../../api/storyAttemptsApi';
-const props = defineProps({ sessionId: String, busy: Boolean });
+const props = defineProps({ sessionId: String, busy: Boolean, selected: { type: Array, default: () => [] } });
+const emit = defineEmits(['update:selected']);
+function toggle(id) {
+  emit('update:selected', props.selected.includes(id) ? props.selected.filter(value => value !== id) : [...props.selected, id]);
+}
 const open = ref(false), attempts = ref([]), error = ref(''), loading = ref(false);
 let revision = 0;
 watch(() => props.sessionId, () => { revision++; open.value = false; attempts.value = []; error.value = ''; loading.value = false; });
@@ -23,7 +27,10 @@ async function remove(id) {
   error.value = '';
   try {
     await deleteStoryAttempt(props.sessionId, id);
-    if (current === revision) attempts.value = attempts.value.filter(item => item.id !== id);
+    if (current === revision) {
+      attempts.value = attempts.value.filter(item => item.id !== id);
+      emit('update:selected', props.selected.filter(value => value !== id));
+    }
   } catch (e) { if (current === revision) error.value = e.message; }
   finally { if (current === revision) loading.value = false; }
 }
@@ -36,12 +43,13 @@ async function remove(id) {
       <section role="dialog" aria-modal="true" aria-label="旧尝试" class="w-full max-w-4xl max-h-[85vh] flex flex-col rounded-xl border border-slate-600 bg-slate-900 text-slate-200">
         <header class="p-4 border-b border-slate-700 flex justify-between items-center"><h2>旧尝试</h2><button aria-label="关闭旧尝试" @click="open = false">✕</button></header>
         <div class="p-4 overflow-auto select-text">
-          <p class="text-sm text-slate-400 mb-4">撤回和重试前的结果，不属于当前历史，也不会自动发送给模型。删除后无法恢复。</p>
+          <p class="text-sm text-slate-400 mb-4">旧结果不是当前历史。勾选后仅随下一次“发送”作为参考，可能增加输入费用；不会锁定旧结局。可选择多条，最多20条、合计20000字符。删除后无法恢复。</p>
           <p v-if="error" role="alert" class="text-red-300">{{ error }}</p>
           <p v-if="loading">正在读取或保存…</p>
           <p v-else-if="!attempts.length && !error">暂无旧尝试。</p>
           <details v-for="item in [...attempts].reverse()" :key="item.id" class="border border-slate-700 rounded-lg p-3 mb-3">
             <summary class="cursor-pointer">回合 {{ item.turns.map(turn => turn.turn_id).join('、') }} · {{ new Date(item.created_at).toLocaleString() }}</summary>
+            <label class="block my-3 text-cyan-200"><input type="checkbox" :checked="selected.includes(item.id)" :disabled="busy" @change="toggle(item.id)" /> 下一次行动参考此尝试</label>
             <div v-for="(turn, index) in item.turns" :key="index" class="whitespace-pre-wrap leading-relaxed mt-4">
               <p class="text-cyan-200">行动：{{ turn.player }}</p><p class="mt-3">{{ turn.story }}</p>
             </div>

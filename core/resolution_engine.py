@@ -23,7 +23,7 @@ class BaseResolutionStrategy:
     def resolve(self, session, player_action): raise NotImplementedError
 
 class DualTrackResolver(BaseResolutionStrategy):
-    def resolve(self, session, player_action, *, on_text_delta=None):
+    def resolve(self, session, player_action, *, on_text_delta=None, replay_context=""):
         pts = load_system_prompts()
         ctx = session.get_context_text()
         dyn_state = session.get_dynamic_state_for_ai()
@@ -34,6 +34,7 @@ class DualTrackResolver(BaseResolutionStrategy):
         preference_context = getattr(session, "get_user_preference_context", lambda: "")()
         plot_compass = getattr(session, "plot_compass", "")
         future_request = build_future_request(FutureRequestSnapshot(
+            replay_context=replay_context,
             baseline_prompt=pts.get("reaction_prompt", ""),
             context_text=ctx,
             dynamic_state=dyn_state,
@@ -112,6 +113,7 @@ class DualTrackResolver(BaseResolutionStrategy):
         # 2. 剧情结算
         visible_world, _ = session.build_visible_world_info(player_action)
         request = build_settlement_request(SettlementRequestSnapshot(
+            replay_context=replay_context,
             mode="normal",
             baseline_prompt=pts.get("settlement_prompt", ""),
             context_text=ctx,

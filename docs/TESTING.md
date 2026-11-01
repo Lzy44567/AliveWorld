@@ -1,5 +1,7 @@
 # AliveWorld 测试流程
 
+2026-11-02：prompt_builder/replay_restore/story_attempt_routes共32项通过；streaming另24项通过。生产构建成功，story-attempts浏览器1项9.4秒通过（选择→改行动→请求携带ID→成功清除→撤回→删除→重载）。首次流式测试被旧简化会话夹具缺少档案属性拖入重试，已让未选择路径不读取档案后重跑通过。独立文件恢复和分享仍待验收。
+
 ## 57-B档案界面（2026-10-28）
 
 - `python -m unittest tests.test_story_attempt_routes tests.test_replay_restore tests.test_capture_lifecycle -q`：26项通过，含删除持久化、保存失败恢复、锁冲突及未知ID隔离。

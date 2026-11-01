@@ -18,6 +18,15 @@ BASELINE = "{style_info}\n{world_info}\n{character_info}\n结算"
 
 
 class StoryPromptBuilderTests(unittest.TestCase):
+    def test_replay_reference_is_separate_turn_data_in_both_requests(self):
+        reference = '【非正式参考】旧结果不代表当前历史XYZ'
+        future = build_future_request(self.future_snapshot(replay_context=reference))
+        settlement = self.build(self.snapshot('normal', replay_context=reference))
+        for request in (future, settlement):
+            self.assertEqual(1, request.user_prompt.count(reference))
+            self.assertNotIn(reference, request.system_prompt)
+            self.assertIn('story.replay_reference', str(request.prompt_manifest))
+
     def test_direction_reaches_future_normal_and_rewrite_as_data(self):
         with tempfile.TemporaryDirectory() as temporary:
             store = PromptOverrideStore(Path(temporary) / 'overrides.json')
