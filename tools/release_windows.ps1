@@ -9,7 +9,7 @@ $ErrorActionPreference = 'Stop'
 $Project = Split-Path -Parent $PSScriptRoot
 $Python = Join-Path $Project '.venv\Scripts\python.exe'
 $VersionFile = Join-Path $Project 'VERSION'
-$Changelog = Join-Path $Project 'CHANGELOG.md'
+$Changelog = Join-Path $Project 'docs\CHANGELOG.md'
 
 function Assert-LastExit([string]$Message) {
     if ($LASTEXITCODE -ne 0) { throw "$Message (exit $LASTEXITCODE)" }
