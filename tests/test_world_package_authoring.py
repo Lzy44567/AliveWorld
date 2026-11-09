@@ -14,6 +14,18 @@ from main import create_app
 
 
 class WorldPackageAuthoringTests(unittest.TestCase):
+    def test_story_attempt_archive_is_not_implicitly_exported(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            service = self._service(root)
+            save = root / 'data' / 'saves' / 'private'
+            save.mkdir(parents=True)
+            (save / 'session_state.json').write_text(json.dumps({'story_attempts': [{'turns': ['PRIVATE_REPLAY_SENTINEL']}]}), encoding='utf-8')
+            target, _ = service.export(metadata=self._payload(), selections=[AssetSelection('worldbooks', '测试世界书')])
+            with zipfile.ZipFile(target) as archive:
+                self.assertFalse(any('session_state' in name for name in archive.namelist()))
+                self.assertFalse(any(b'PRIVATE_REPLAY_SENTINEL' in archive.read(name) for name in archive.namelist()))
+
     def _service(self, root: Path) -> WorldPackageAuthoringService:
         data = root / "data"
         for folder in ("worldbooks", "characters", "styles", "entities"):

@@ -490,6 +490,7 @@ class GameSession:
 
     def _snapshot_payload(self):
         return {
+            "story_memory": self.story_memory.export_state(),
             "is_game_over": self.is_game_over,
             "state": copy.deepcopy(self.state), "chat_messages": copy.deepcopy(self.history["chat_messages"]), 
             "context_history": copy.deepcopy(self.history["context_history"]), "undercurrent": self.undercurrent.export_state(),
@@ -516,6 +517,7 @@ class GameSession:
         return payload
 
     def _restore_runtime(self, snap):
+        self.story_memory.restore_state(snap.get("story_memory"))
         if "worldbook_collaboration" in snap:
             self.worldbook_collaboration = copy.deepcopy(snap["worldbook_collaboration"])
         self._pending_worldbook_captures = copy.deepcopy(snap.get("pending_worldbook_captures", []))

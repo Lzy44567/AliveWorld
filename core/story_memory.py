@@ -184,6 +184,7 @@ class StoryMemoryManager:
         self.budget = MemoryBudget.from_context_limit(context_limit)
         self._lock = threading.RLock()
         self._running = False
+        self._generation = 0
         self._last_error = ""
         self.index = self._load_index()
 
@@ -254,6 +255,15 @@ class StoryMemoryManager:
     def export_state(self) -> dict[str, Any]:
         with self._lock:
             return copy.deepcopy(self.index)
+
+    def restore_state(self, data):
+        """Rollback invalidates any outstanding compaction before restoring its index."""
+        with self._lock:
+            self._generation += 1
+            restored = copy.deepcopy(data) if data is not None else self._empty_index()
+            if self.index_path:
+                _atomic_write_json(self.index_path, restored)
+            self.index = restored
 
     @staticmethod
     def append_turn(turns: list[dict[str, Any]], player: str, story: str, *, source_message_ids: Iterable[str] = ()) -> dict[str, Any]:
@@ -357,6 +367,7 @@ class StoryMemoryManager:
                 return False
             self._running = True
             snapshot = copy.deepcopy(self.index)
+            snapshot['_generation'] = self._generation
         thread = threading.Thread(
             target=self._compact_worker,
             args=(plan, snapshot),
@@ -377,9 +388,11 @@ class StoryMemoryManager:
                 return {"started": False, "reason": "尚未达到水位，或没有可安全归档的完整回合"}
             self._running = True
             snapshot = copy.deepcopy(self.index)
+            snapshot['_generation'] = self._generation
         return self._compact_worker(plan, snapshot)
 
     def _compact_worker(self, plan: dict[str, Any], snapshot: dict[str, Any]) -> dict[str, Any]:
+        generation = snapshot.pop('_generation', self._generation)
         archive = plan["archive"]
         start_turn, end_turn = archive[0]["turn_id"], archive[-1]["turn_id"]
         try:
@@ -456,9 +469,11 @@ class StoryMemoryManager:
             new_index["last_compacted_at"] = datetime.now().isoformat(timespec="seconds")
             if not self.memory_dir or not self.index_path:
                 raise RuntimeError("存档目录不可用")
-            _atomic_write_json(self.memory_dir / "segments" / segment_name, segment_payload)
-            _atomic_write_json(self.index_path, new_index)
             with self._lock:
+                if generation != self._generation:
+                    return {"started": True, "completed": False, "reason": "故事已回溯，旧压缩结果不再适用"}
+                _atomic_write_json(self.memory_dir / "segments" / segment_name, segment_payload)
+                _atomic_write_json(self.index_path, new_index)
                 current_archived = self.index.get("archived_until_turn", -1)
                 snapshot_archived = snapshot.get("archived_until_turn", -1)
                 if int(-1 if current_archived is None else current_archived) <= int(-1 if snapshot_archived is None else snapshot_archived):

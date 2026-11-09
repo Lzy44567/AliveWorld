@@ -1,5 +1,9 @@
 # AliveWorld 测试流程
 
+2026-11-09续：全量build/replay57-python.txt确认1027项通过54.782秒。新增实体文件撤回与世界包排除旧尝试测试后，replay_restore/world_package_authoring/capture_lifecycle/story_memory共45项通过。浏览器复验首次因FFmpeg文件缺失未执行断言，补装后重跑，结果待核对。
+
+2026-11-09：记忆新增回归验证撤回索引持久化/重启及压缩返回前回溯的迟到提交拒绝，story_memory共11项通过。前一组合37项通过；全量输出build/replay57-python.txt尚待核对，不提前报告通过。
+
 2026-11-02：prompt_builder/replay_restore/story_attempt_routes共32项通过；streaming另24项通过。生产构建成功，story-attempts浏览器1项9.4秒通过（选择→改行动→请求携带ID→成功清除→撤回→删除→重载）。首次流式测试被旧简化会话夹具缺少档案属性拖入重试，已让未选择路径不读取档案后重跑通过。独立文件恢复和分享仍待验收。
 
 ## 57-B档案界面（2026-10-28）

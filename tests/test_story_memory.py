@@ -47,6 +47,26 @@ def turns(count=8, size=120):
 
 
 class StoryMemoryTests(unittest.TestCase):
+    def test_rollback_restores_persisted_memory_and_rejects_late_compaction(self):
+        with tempfile.TemporaryDirectory() as folder:
+            game = GameSession(None, save_dir_path=folder)
+            game.story_memory.index['core_memories'] = ['原来记忆']
+            game._take_snapshot()
+            game.story_memory.index['core_memories'] = ['被撤回事件']
+            game.rollback()
+            restarted = StoryMemoryManager(folder)
+            self.assertEqual(['原来记忆'], restarted.index['core_memories'])
+            manager = game.story_memory
+            class LateAI(FakeMemoryAI):
+                def chat_json(self, *args, **kwargs):
+                    manager.restore_state(restarted.export_state())
+                    return super().chat_json(*args, **kwargs)
+            manager.ai_engine = LateAI()
+            result = manager.compact_now(turns(12, 800), force=True)
+            self.assertFalse(result['completed'])
+            self.assertEqual(['原来记忆'], StoryMemoryManager(folder).index['core_memories'])
+            self.assertEqual([], list((Path(folder) / 'memory').glob('segments/*.json')))
+
     def test_budget_is_derived_from_context_limit(self):
         budget = MemoryBudget.from_context_limit(32768)
         self.assertEqual(32768, budget.context_limit)

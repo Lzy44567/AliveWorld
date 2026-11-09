@@ -2,10 +2,22 @@ import tempfile
 import unittest
 
 from core.game_session import GameSession
+from core.entities import Entity
 from core.story_attempts import reference_context
 
 
 class ReplayRestoreTests(unittest.TestCase):
+    def test_undo_removes_new_entity_file_and_preserves_starting_entities(self):
+        with tempfile.TemporaryDirectory() as folder:
+            game = GameSession(None, save_dir_path=folder)
+            game.undercurrent.entities = [Entity.from_dict({'name': '原角色'})]
+            game._sync_entities_to_local()
+            game._take_snapshot()
+            game.undercurrent.entities.append(Entity.from_dict({'name': '旧未来角色'}))
+            game._sync_entities_to_local()
+            game.rollback()
+            self.assertEqual(['原角色'], [item.name for item in game.entity_repository.load()])
+
     def test_reference_is_explicit_and_rejects_unknown_or_oversized_selection(self):
         attempts = [{"id": "a", "turns": [{"player": "old", "story": "result"}]}]
         self.assertEqual("", reference_context(attempts, []))
