@@ -1,5 +1,7 @@
 # AliveWorld 测试流程
 
+2026-11-09 dev39实际构建：build/dev39-package.txt确认主EXE与更新助手构建完成，ZIP结构、隐私排除和覆盖升级UserData保留通过。ZIP摘要d8b8e2f1c3dcc12e70491f60a85d41cd260e93f7f6e2e2e56f144083056a941f；尚未上传GitHub，不代表已在用户游玩区验证升级。
+
 2026-11-09 dev39升版：生产前端构建成功；story-attempts/story-direction/story-stop三项Edge通过17.8秒，包含参考ID发送/清除、方向设置与停止回归。实际便携包构建日志build/dev39-package.txt仍在生成，不提前报告EXE验收成功。
 
 2026-11-09续：全量build/replay57-python.txt确认1027项通过54.782秒。新增实体文件撤回与世界包排除旧尝试测试后，replay_restore/world_package_authoring/capture_lifecycle/story_memory共45项通过。浏览器复验首次因FFmpeg文件缺失未执行断言，补装后重跑，结果待核对。

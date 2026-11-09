@@ -1,5 +1,7 @@
 # Active development goal
 
+2026-11-09实际交付进度：dev39本地主EXE/更新助手及ZIP已完成，便携结构/隐私排除/覆盖保留测试通过，ZIP SHA256=d8b8e2f1c3dcc12e70491f60a85d41cd260e93f7f6e2e2e56f144083056a941f，构建源码提交d874b75。官方便携gh已放build/gh-portable/bin/gh.exe，auth status确认新机未登录，需要用户登录后继续推送和发布；不能标记目标完成。原winget安装进程仍在运行，未擅自结束系统安装服务。
+
 2026-11-09发布门：已升dev39并分类整理更新说明，前端构建及升版后3项Edge通过17.8秒；实际打包进程83081运行中，日志build/dev39-package.txt。GitHub CLI安装9769仍未结束；不重启活进程，不声称已有包或发布。下一核对主EXE/助手/ZIP验收、源码提交推送及Release附件。
 
 2026-11-09续：1027后端全量已通过；新增实体回溯及世界包隐私测试后45专项通过。FFmpeg缺失已补装，浏览器整组复验中；winget GitHub.cli安装句柄9769仍live（msiexec）。后续核对验收、升dev39、构建主EXE/助手/ZIP、Git推送发布；尚未升版或发布。
