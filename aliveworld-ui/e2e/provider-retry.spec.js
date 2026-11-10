@@ -9,7 +9,8 @@ test('真实503退避显示次数，停止后不发第二次，成功重试只�
   const name='重试验收文风';
   await request.post(`/api/v1/lobby/assets/styles/${encodeURIComponent(name)}`,{data:{parsed_data:{name,content:'原有文风'}}});
   try {
-    await page.goto('/');await page.getByRole('button',{name:'稍后再说'}).click();
+    await page.addInitScript(() => localStorage.setItem('aw_onboarding_v1', JSON.stringify({ completed: true })));
+    await page.goto('/');
     await page.getByRole('button',{name:'🧰 工坊'}).click();
     await page.getByRole('button',{name:/文风卡/}).last().click();
     await page.locator(`[data-workshop-asset-name="${name}"]`).click();

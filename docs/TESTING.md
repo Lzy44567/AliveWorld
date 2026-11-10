@@ -2,6 +2,8 @@
 
 ## 2026-11-11 正式版收口进行中
 
+- 最新：rc58-browser-full.txt首轮88通过/5失败（12.9分钟），均为工坊/重试测试无条件等待新手弹窗；修正准备流程及遗漏的reload旧引用后，rc58-browser-repaired-final.txt的5项全部通过（21.7秒）。已升rc.1，下一验收构建后的版本展示与实际便携包。不将分次通过写成首轮全绿。
+
 - build/rc58-player-paths.txt：首轮41项，40通过、角色长聊1失败（PERSISTENCE_FAILED）。build/rc58-python.txt：首轮1030项，1项保存错误；不隐去失败记录。
 - 独立临时文件连续保存确认os.replace发生Windows错误5，50毫秒后相同操作成功；新增有界原子替换重试，不放宽数据校验、不重发模型。
 - build/rc58-focused.txt：51专项通过；build/rc58-python-final.txt：1033全量通过（54.584秒）；build/rc58-node.txt：159前端逻辑通过；build/rc58-long-chat.txt：长聊流程重复3次通过（39秒）。另500次真实合成文件保存及最终revision读取通过。

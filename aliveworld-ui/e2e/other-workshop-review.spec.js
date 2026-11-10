@@ -9,9 +9,10 @@ for (const [type, label] of [['characters', '角色卡'], ['styles', '文风卡'
       } });
       expect(created.ok(), await created.text()).toBeTruthy();
     }
+    // This scenario tests review, not onboarding. Earlier tests may already
+    // configure the server, so a first-run prompt is not guaranteed to appear.
+    await page.addInitScript(() => localStorage.setItem('aw_onboarding_v1', JSON.stringify({ completed: true })));
     await page.goto('/');
-    const later = page.getByRole('button', { name: '稍后再说' });
-    await later.click();
     await page.getByRole('button', { name: '🧰 工坊' }).click();
     await page.getByRole('button', { name: new RegExp(label) }).last().click();
     if (type === 'preferences') await page.getByRole('button', { name: /我的用户偏好卡/ }).click();
@@ -34,7 +35,6 @@ for (const [type, label] of [['characters', '角色卡'], ['styles', '文风卡'
     await review.locator('article').first().getByRole('button', { name: '拒绝', exact: true }).click();
     await expect(review.locator('article')).toHaveCount(1);
     await page.reload();
-    await later.click();
     await page.getByRole('button', { name: '🧰 工坊' }).click();
     await page.getByRole('button', { name: new RegExp(label) }).last().click();
     if (type === 'preferences') await page.getByRole('button', { name: /我的用户偏好卡/ }).click();
