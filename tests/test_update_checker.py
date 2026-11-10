@@ -11,6 +11,17 @@ from main import create_app
 
 
 class UpdateVersionTests(unittest.TestCase):
+    def test_dev39_can_upgrade_through_rc_to_stable_without_downgrade(self):
+        versions = ['1.6.0-dev.39', '1.6.0-rc.1', '1.6.0-rc.2', '1.6.0']
+        for old, new in zip(versions, versions[1:]):
+            self.assertTrue(is_newer(new, old))
+            self.assertFalse(is_newer(old, new))
+        releases = [dict(tag_name='v' + version, draft=False, prerelease='-' in version) for version in versions]
+        self.assertEqual('v1.6.0', select_release(releases, current_version=versions[0])['tag_name'])
+        self.assertEqual('v1.6.0', select_release(releases, include_prerelease=False)['tag_name'])
+        self.assertIsNone(select_release(releases[:-1], include_prerelease=False))
+        self.assertEqual('v1.6.0-rc.2', select_release(releases[:-1])['tag_name'])
+
     def test_orders_development_beta_release_candidate_and_stable(self):
         self.assertTrue(is_newer("1.5.0-beta.1", "1.5.0-dev.12"))
         self.assertTrue(is_newer("1.5.0-rc.1", "1.5.0-beta.2"))

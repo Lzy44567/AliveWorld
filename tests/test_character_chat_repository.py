@@ -84,8 +84,14 @@ class CharacterStorageTests(unittest.TestCase):
         original = path.read_bytes()
         changed = copy.deepcopy(self.value)
         changed.update(title="不能保存", revision=1)
-        with patch("core.character_chat.repository.os.replace", side_effect=OSError("private path")):
+        error = OSError(13, "private path")
+        error.winerror = 32
+        with self.assertLogs("core.character_chat.repository", level="ERROR") as logs, patch(
+                "core.character_chat.repository.os.replace", side_effect=error):
             self.assert_code("PERSISTENCE_FAILED", lambda: self.repo.save(changed, expected_revision=0))
+        self.assertIn("errno=13 winerror=32", logs.output[0])
+        self.assertNotIn("private path", logs.output[0])
+        self.assertNotIn(self.sid, logs.output[0])
         self.assertEqual(original, path.read_bytes())
         self.assertEqual([], list(self.repo.directory.glob("*.tmp")))
 

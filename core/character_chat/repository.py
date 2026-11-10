@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import json
+import logging
 import os
 import tempfile
 from contextlib import suppress
@@ -11,6 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from core.session_manager import mutation_guard
+from core.atomic_replace import replace_file
 from .models import (CharacterSessionError, MAX_FILE_BYTES, canonical_id,
                      json_bytes, validate_session)
 
@@ -101,8 +103,12 @@ class CharacterSessionRepository:
                 handle.write(raw)
                 handle.flush()
                 os.fsync(handle.fileno())
-            os.replace(temporary, path)
-        except OSError:
+            replace_file(temporary, path)
+        except OSError as exc:
+            # Keep OS diagnostics without logging paths, messages or session content.
+            logging.getLogger(__name__).error(
+                'Character persistence failed: errno=%s winerror=%s',
+                exc.errno, getattr(exc, 'winerror', None))
             raise CharacterSessionError("PERSISTENCE_FAILED") from None
         finally:
             if temporary is not None:

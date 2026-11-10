@@ -1,5 +1,12 @@
 # AliveWorld 测试流程
 
+## 2026-11-11 正式版收口进行中
+
+- build/rc58-player-paths.txt：首轮41项，40通过、角色长聊1失败（PERSISTENCE_FAILED）。build/rc58-python.txt：首轮1030项，1项保存错误；不隐去失败记录。
+- 独立临时文件连续保存确认os.replace发生Windows错误5，50毫秒后相同操作成功；新增有界原子替换重试，不放宽数据校验、不重发模型。
+- build/rc58-focused.txt：51专项通过；build/rc58-python-final.txt：1033全量通过（54.584秒）；build/rc58-node.txt：159前端逻辑通过；build/rc58-long-chat.txt：长聊流程重复3次通过（39秒）。另500次真实合成文件保存及最终revision读取通过。
+- build/rc58-browser-full.txt：93项全量浏览器验收运行中。版本仍dev39，尚无RC包或发布；不以单测/假模型代表文学质量。测试不碰真实玩家数据。
+
 2026-11-09最终交付：57限定回溯/参考重演组已随[dev.39](https://github.com/Lzy44567/AliveWorld/releases/tag/v1.6.0-dev.39)实际发布（非草稿、预发布）。构建与远端标签d874b75ba933005020cc6eb1978872b80741caf0一致；源码main和开发分支已推送。ZIP41101892字节，SHA256 d8b8e2f1c3dcc12e70491f60a85d41cd260e93f7f6e2e2e56f144083056a941f；摘要附件107字节，SHA256 74f24af88429cbbe6dd1f3635c9b03ceaa6392c0f63dea4ddfe5fb01df51d68b。远端两附件uploaded且digest逐一匹配。1027后端全量、后补45专项、升版后3项Edge及主EXE/更新助手/ZIP隐私与覆盖保留验收通过。不承诺模型逐字重现，不包含任意节点分支树，也未在用户游玩区实际执行升级。以下未完成/安装等待为过程历史。
 
 2026-11-09 dev39实际构建：build/dev39-package.txt确认主EXE与更新助手构建完成，ZIP结构、隐私排除和覆盖升级UserData保留通过。ZIP摘要d8b8e2f1c3dcc12e70491f60a85d41cd260e93f7f6e2e2e56f144083056a941f；尚未上传GitHub，不代表已在用户游玩区验证升级。
