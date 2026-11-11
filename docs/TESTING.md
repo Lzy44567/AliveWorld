@@ -1,5 +1,7 @@
 # AliveWorld 测试流程
 
+2026-11-11 RC最终交付：build/rc1-player-final.txt升版后22项完整流程通过1.7分钟。先前按grep截取的测试因缺少同文件前置故事/配置而失败，改跑完整文件通过，不改业务代码。build/rc1-package.txt确认EXE、助手及结构/隐私/覆盖保留验收通过。GitHub v1.6.0-rc.1非草稿预发布，构建be81e337ed3823eea33079361341487eed27ee3b；ZIP41104472字节，SHA256 112ee7aecb120a9434eb7b17bf9a28db63d1ba09a5cae4792d9e482ac43011dd；摘要附件105字节，其SHA256 b7de1499f4428efbb87a2fb09b6a928c37c3c0092505160a3c575987e4a6ae29。两远端附件uploaded且digest与本地一致。未操作真实游玩区升级。
+
 ## 2026-11-11 正式版收口进行中
 
 - 最新：rc58-browser-full.txt首轮88通过/5失败（12.9分钟），均为工坊/重试测试无条件等待新手弹窗；修正准备流程及遗漏的reload旧引用后，rc58-browser-repaired-final.txt的5项全部通过（21.7秒）。已升rc.1，下一验收构建后的版本展示与实际便携包。不将分次通过写成首轮全绿。
