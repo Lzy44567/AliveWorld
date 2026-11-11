@@ -1,5 +1,7 @@
 # AliveWorld 测试流程
 
+2026-11-11 59续：character_experiences/extraction/routes共8项通过，含默认不带记忆、显式携带且源卡不变、假模型输出人设与经历分离。没有真实API费用或完整UI验收，不代表59交付完成。
+
 2026-11-11目的模式续推：character_extraction及routes共6项通过，新增稳定身份候选、已离场人物和显式公开回合投影/撤回失效测试。尚未接通NPC整理UI或模型请求，不能视作59完成。
 
 2026-11-11 59局内卡提取：test_character_extraction及test_character_extraction_routes共4项通过（含审阅、重名、来源变化与原卡不变）；Vite生产构建通过；build/character59-browser.txt记录1项Edge通过，实际API创建/载入局内卡→UI审阅→保存→全局列表可见。合成数据，无收费请求。尚未验证NPC模型提炼与经历跨模式语义。

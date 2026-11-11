@@ -6,6 +6,7 @@ from core.session_manager import active_sessions, mutation_guard, save_identity,
 from core.asset_lifecycle import find_yaml_asset, filename_for_asset
 from core.character_asset_write import read_character, character_revision, write_character, CharacterWriteError
 from core.character_extraction import prepare_character_card
+from core.character_experiences import with_experiences
 from utils.runtime_paths import PATHS
 
 router = APIRouter()
@@ -16,6 +17,8 @@ class ExtractionPayload(BaseModel):
     expected_revision: str
     profile: dict
     reviewed: bool = False
+    include_experiences: bool = False
+    experiences: str = ''
 
 
 def source(session_id, name):
@@ -52,6 +55,8 @@ def save(session_id: str, name: str, payload: ExtractionPayload):
             if character_revision(read_character(path)) != payload.expected_revision:
                 raise HTTPException(409, '来源角色已修改，请重新打开提取预览')
             card = prepare_character_card(payload.profile, payload.name)
+            if payload.include_experiences:
+                card = with_experiences(card, payload.experiences, Path(game.save_dir_path).name)
             directory = PATHS.data_dir / 'characters'
             if find_yaml_asset(directory, card['name']):
                 raise HTTPException(409, '已有同名角色，请修改新卡名称；不会覆盖原卡')
