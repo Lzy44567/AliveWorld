@@ -11,6 +11,9 @@ PROFILE_FIELDS = ('description', 'appearance', 'personality', 'starting_scene',
 def prepare_character_card(profile, name):
     """Project an explicitly selected profile, not its source story aggregate."""
     fields = {key: deepcopy(profile[key]) for key in PROFILE_FIELDS if key in profile}
+    for key, value in fields.items():
+        if key != 'role_fields' and not isinstance(value, str):
+            raise ValueError(f'{key} 必须是文本')
     card = coordinate_character_write({}, fields)
     card.update(name=normalize_asset_name(name), is_player=False, is_active=True, tags=[])
     assign_new_asset_id(card)

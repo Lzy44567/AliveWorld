@@ -16,6 +16,7 @@ import { useDeleteConfirmation } from '../../composables/useDeleteConfirmation';
 import { imageStore } from '../../store/imageStore';
 import { imageApi } from '../../api/imageApi';
 import CharacterAssetCard from '../assets/CharacterAssetCard.vue';
+import CharacterExtractionModal from '../character/CharacterExtractionModal.vue';
 import CharacterDeleteConfirmModal from '../modals/CharacterDeleteConfirmModal.vue';
 import { buildCharacterImageContext } from '../../utils/characterImageContext';
 import { workshopStore } from '../../store/workshopStore';
@@ -25,6 +26,7 @@ import WorldbookActivityPanel from '../worldbook/WorldbookActivityPanel.vue';
 const props = defineProps({ layout: { type: String, default: 'list' } });
 
 const searchKeyword = ref("");
+const extraction = ref(null);
 const { confirmDeleteId, requestDelete, cancelDelete } = useDeleteConfirmation();
 const embeddingStatus = ref({ state: 'disabled', downloaded: false, enabled: false });
 const selectedPortraitUrl = ref('');
@@ -295,6 +297,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
+  <CharacterExtractionModal v-if="extraction" :key="extraction.sessionId + extraction.sourceName" v-bind="extraction" @close="extraction=null" />
   <div class="flex flex-col flex-1 min-h-0 animate-[fadeIn_0.2s]">
     <div class="flex bg-slate-900 rounded-lg p-1 border border-slate-700 shadow-inner mb-4 shrink-0">
       <button @click="uiStore.assetScope = 'local'" :class="uiStore.assetScope==='local'?'bg-slate-700 text-white shadow':'text-slate-400 hover:text-slate-200'" class="flex-1 py-1.5 rounded text-xs font-bold transition">🛡️ 本局专属</button>
@@ -321,6 +324,7 @@ onBeforeUnmount(() => {
       <div class="pb-8" :class="props.layout === 'grid' ? 'grid grid-cols-1 gap-4 xl:grid-cols-2' : 'space-y-3'">
        <template v-for="item in currentList" :key="item.name">
        <div v-if="uiStore.rightTab==='character'" class="min-w-0">
+       <button v-if="uiStore.assetScope==='local' && gameStore.sessionId" class="mb-2 text-xs text-indigo-300 hover:text-indigo-100" @click="extraction={sessionId:gameStore.sessionId,sourceName:item.name}">提取为独立角色卡</button>
        <CharacterAssetCard :item="item" :scope="uiStore.assetScope" :portrait-url="portraitUrl(item)" :delete-confirm="confirmDeleteId===item.name" @toggle="toggleActive(item)" @edit="openEditAsset(item.name)" @portrait="openPortraitGenerator(item)" @pull="pullAssetToLocal(item.name)" @push="pushToGlobal(item)" @request-delete="requestAssetDelete(item)" @confirm-delete="executeDelete(item.name)" @cancel-delete="cancelDelete" @zoom="selectedPortraitUrl=$event" @details="toggleAssetDetails(item)" />
        <div v-if="expandedAssetName===item.name" class="mt-2 rounded-xl border border-indigo-800/60 bg-slate-950/80 p-3 text-[11px]"><p v-if="detailLoading" class="text-slate-500">正在读取详情……</p><dl v-else class="space-y-2"><div v-for="line in detailLines" :key="line[0]"><dt class="font-bold text-indigo-300">{{ line[0] }}</dt><dd class="mt-0.5 whitespace-pre-wrap leading-5 text-slate-400">{{ line[1] }}</dd></div></dl></div>
        </div>

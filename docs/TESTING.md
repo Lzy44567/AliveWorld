@@ -1,5 +1,7 @@
 # AliveWorld 测试流程
 
+2026-11-11 59局内卡提取：test_character_extraction及test_character_extraction_routes共4项通过（含审阅、重名、来源变化与原卡不变）；Vite生产构建通过；build/character59-browser.txt记录1项Edge通过，实际API创建/载入局内卡→UI审阅→保存→全局列表可见。合成数据，无收费请求。尚未验证NPC模型提炼与经历跨模式语义。
+
 2026-11-11 59内部切片：tests.test_character_extraction共3项通过，验证源数据不变、结构化字段复用和私有状态排除。尚无API/UI与经历载入验收，不升版发布。
 
 2026-11-11 RC最终交付：build/rc1-player-final.txt升版后22项完整流程通过1.7分钟。先前按grep截取的测试因缺少同文件前置故事/配置而失败，改跑完整文件通过，不改业务代码。build/rc1-package.txt确认EXE、助手及结构/隐私/覆盖保留验收通过。GitHub v1.6.0-rc.1非草稿预发布，构建be81e337ed3823eea33079361341487eed27ee3b；ZIP41104472字节，SHA256 112ee7aecb120a9434eb7b17bf9a28db63d1ba09a5cae4792d9e482ac43011dd；摘要附件105字节，其SHA256 b7de1499f4428efbb87a2fb09b6a928c37c3c0092505160a3c575987e4a6ae29。两远端附件uploaded且digest与本地一致。未操作真实游玩区升级。
