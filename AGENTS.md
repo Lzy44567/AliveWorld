@@ -20,6 +20,8 @@ Implement one independently verifiable slice at a time. Keep domain logic, API m
 
 ## Delivery speed and validation scope (user instruction, 2026-10-09)
 
+2026-11-11 clarification: continue feature development without waiting for manual play after each release; the user plans consolidated playtesting when the planned core features are substantially complete. Keep automated correctness checks per delivery. Any new defensive branch needs an observed failure, an explicit external-input contract, or a concrete data/privacy invariant and a corresponding test. Do not invent hypothetical future compatibility or speculative fallback frameworks.
+
 Design the smallest complete player workflow and its module ownership, then implement it directly. Do not add speculative compatibility, generic frameworks, layers of internal type checks, or exhaustive defensive handling for hypothetical states. Validate external API/model/file inputs once at their owning boundary; internal functions rely on that contract. Keep necessary business rules for concurrency, save integrity, privacy and duplicate-charge prevention. Existing isolated validators/parsers/storage guards may remain; do not expand or relocate them into story orchestration merely to satisfy an audit.
 
 Run focused tests during implementation and one risk-appropriate integration gate at delivery, not every broad suite after every helper. Record concise current evidence and categorized changes, not another copy of the historical progress ledger in every document. New standalone foundations are not a finished player feature. If a design choice really needs the user, explain it in plain language; otherwise make reversible choices and continue without micro-approvals.
