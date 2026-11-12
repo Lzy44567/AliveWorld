@@ -17,6 +17,7 @@ import { imageStore } from '../../store/imageStore';
 import { imageApi } from '../../api/imageApi';
 import CharacterAssetCard from '../assets/CharacterAssetCard.vue';
 import CharacterExtractionModal from '../character/CharacterExtractionModal.vue';
+import StoryCharacterPicker from '../character/StoryCharacterPicker.vue';
 import CharacterDeleteConfirmModal from '../modals/CharacterDeleteConfirmModal.vue';
 import { buildCharacterImageContext } from '../../utils/characterImageContext';
 import { workshopStore } from '../../store/workshopStore';
@@ -27,6 +28,7 @@ const props = defineProps({ layout: { type: String, default: 'list' } });
 
 const searchKeyword = ref("");
 const extraction = ref(null);
+const pickStoryCharacter = ref(false);
 const carryExperiences = ref(false);
 const { confirmDeleteId, requestDelete, cancelDelete } = useDeleteConfirmation();
 const embeddingStatus = ref({ state: 'disabled', downloaded: false, enabled: false });
@@ -300,6 +302,8 @@ onBeforeUnmount(() => {
 <template>
   <label v-if="uiStore.rightTab==='character' && uiStore.assetScope==='global'" class="mb-2 block text-xs text-slate-300"><input v-model="carryExperiences" type="checkbox" /> 载入时携带旧世界经历（默认仅人设）</label>
   <CharacterExtractionModal v-if="extraction" :key="extraction.sessionId + extraction.sourceName" v-bind="extraction" @close="extraction=null" />
+  <StoryCharacterPicker v-if="pickStoryCharacter" :session-id="gameStore.sessionId" @close="pickStoryCharacter=false" @select="extraction={sessionId:gameStore.sessionId,sourceName:$event}; pickStoryCharacter=false" />
+  <button v-if="uiStore.rightTab==='character' && uiStore.assetScope==='local' && gameStore.sessionId" class="mb-3 rounded border border-indigo-800 px-3 py-2 text-sm text-indigo-300" @click="pickStoryCharacter=true">从故事人物提取角色卡</button>
   <div class="flex flex-col flex-1 min-h-0 animate-[fadeIn_0.2s]">
     <div class="flex bg-slate-900 rounded-lg p-1 border border-slate-700 shadow-inner mb-4 shrink-0">
       <button @click="uiStore.assetScope = 'local'" :class="uiStore.assetScope==='local'?'bg-slate-700 text-white shadow':'text-slate-400 hover:text-slate-200'" class="flex-1 py-1.5 rounded text-xs font-bold transition">🛡️ 本局专属</button>

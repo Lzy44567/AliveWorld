@@ -1,7 +1,7 @@
 """Explicit local-card extraction; never overwrites the source or global cards."""
 from pathlib import Path
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from core.session_manager import active_sessions, mutation_guard, save_identity, MutationBusyError
 from core.asset_lifecycle import find_yaml_asset, filename_for_asset
 from core.character_asset_write import read_character, character_revision, write_character, CharacterWriteError
@@ -22,6 +22,8 @@ class ExtractionPayload(BaseModel):
     reviewed: bool = False
     include_experiences: bool = False
     experiences: str = ''
+    evidence_turn_ids: list[int] = Field(default_factory=list)
+    evidence_revision: str = ''
 
 
 class OrganizePayload(BaseModel):
@@ -72,7 +74,8 @@ def organize(session_id: str, name: str, payload: OrganizePayload):
             revision = character_revision(card)
         result = extract_character(get_task_engine('workshop'), subject=subject,
                                    profile=profile, evidence=evidence, instruction=payload.instruction)
-        return {**result, 'revision': revision}
+        return {**result, 'revision': revision, 'evidence_turn_ids': payload.turn_ids,
+                'evidence_revision': character_revision({'turns': evidence})}
     except MutationBusyError as exc:
         raise HTTPException(409, str(exc)) from None
     except ValueError as exc:
@@ -102,6 +105,10 @@ def save(session_id: str, name: str, payload: ExtractionPayload):
         with mutation_guard('story', save_identity(game.save_dir_path)):
             if character_revision(read_source(path)) != payload.expected_revision:
                 raise HTTPException(409, '来源角色已修改，请重新打开提取预览')
+            if payload.evidence_revision:
+                evidence = selected_evidence(game.history['story_turns'], payload.evidence_turn_ids)
+                if character_revision({'turns': evidence}) != payload.evidence_revision:
+                    raise HTTPException(409, '取材回合已修改，请重新整理人物')
             card = prepare_character_card(payload.profile, payload.name)
             if payload.include_experiences:
                 card = with_experiences(card, payload.experiences, Path(game.save_dir_path).name)

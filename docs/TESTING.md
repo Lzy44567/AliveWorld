@@ -1,5 +1,9 @@
 # AliveWorld 测试流程
 
+2026-11-12发布门：1043后端全量通过56.191秒、159前端逻辑通过；2项人物提取浏览器通过10.8秒，覆盖无卡NPC改名取材、AI整理、审阅保存、故事/聊天带与不带经历。截图复核发现标题暴露内部ID，已改人物名称并重建复验。39项既有故事/聊天回归运行中。尚未实际构建rc.2或发布。
+
+2026-11-12人物提取：extraction/experiences/extraction_routes/character_chat_routes共19项通过，覆盖费用未确认不调用、公开资料投影、取材改写/撤回失效、聊天显式经历选择且原卡不变；Vite构建通过。浏览器扩展测试首轮因空开局没有可选回合而超时，补合成开场后1项通过10.3秒（真实HTTP假模型整理→审阅保存→聊天带/不带经历）。无卡NPC测试仍在执行，不记为通过。
+
 2026-11-12：character_experiences/character_chat_routes/character_extraction_routes共12项通过。首次Vite从仓库根运行缺index.html，改UI目录构建；NPC整理接口和携带开关需后续真实HTTP浏览器验证，不将此专项当整组验收。
 
 2026-11-11 59续：character_experiences/extraction/routes共8项通过，含默认不带记忆、显式携带且源卡不变、假模型输出人设与经历分离。没有真实API费用或完整UI验收，不代表59交付完成。

@@ -41,6 +41,18 @@ class CharacterRouteTests(unittest.TestCase):
         self.assertEqual(201, response.status_code, response.text)
         self.sid = response.json()['session_id']
 
+    def test_explicit_experience_choice_is_frozen_in_new_chat(self):
+        self.asset.return_value = {'name': '旅人', 'description': '稳定人设',
+            'portable_experiences': {'source_world': '旧世界', 'summary': '见过蓝色灯塔'}}
+        for carry in (False, True):
+            response = self.client.post(self.prefix, json={**self.create_payload,
+                'client_creation_id': str(uuid4()), 'include_experiences': carry})
+            self.assertEqual(201, response.status_code, response.text)
+            loaded = self.client.get(self.prefix + '/' + response.json()['session_id'])
+            self.assertEqual(carry, '见过蓝色灯塔' in loaded.text)
+            self.assertIn('稳定人设', loaded.text)
+        self.assertEqual('稳定人设', self.asset.return_value['description'])
+
     def test_memory_mark_and_sources_strict_safe_revision_and_reload(self):
         self.transport.with_ledger = True
         url = self.prefix + '/' + self.sid

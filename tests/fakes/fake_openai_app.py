@@ -42,6 +42,8 @@ def _message_text(message: dict[str, Any]) -> str:
 
 
 def _classify(system: str) -> str:
+    if '你是人物整理工坊' in system:
+        return 'character.extraction'
     if '你负责整理双方已送达的角色聊天' in system:
         return 'character.compaction'
     if '工坊 Agent' in system:
@@ -70,6 +72,12 @@ def _classify(system: str) -> str:
 
 
 def _response_for(kind: str, system: str, user: str) -> dict[str, Any] | str:
+    if kind == 'character.extraction':
+        source = json.loads(user)
+        return {'profile': {'description': '认真负责的测试角色', 'personality': '谨慎',
+                'appearance': '', 'starting_scene': '', 'dialogue_examples': '我会先确认事实。'},
+                'experiences': '记得旧世界的蓝色灯塔' if source['evidence'] else '',
+                'notes': '仅依据所选公开回合，请核对人物知情范围。'}
     from tests.fakes.entity_reply import response as entity_response
     entity_reply = entity_response(kind, user)
     if entity_reply is not None:
