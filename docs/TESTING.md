@@ -1,5 +1,7 @@
 # AliveWorld 测试流程
 
+2026-11-12最终交付：1.6.0-rc.2真实Release，构建/标签34bd0a75c0bff0346007520c8f0546acaaa9ab14。build/character59-python.txt为1043通过，character59-node.txt为159通过；character59-regression.txt首轮39项36通过、3失败（运行中升版导致页面/反馈仍旧版本，首项中断又影响依赖的重载测试）；统一重建后character59-final-browser.txt为24通过1.6分钟，未改业务逻辑掩盖失败。rc2-package.txt主EXE/助手构建与ZIP结构、隐私排除、覆盖保留通过。远端非草稿预发布，ZIP41119401字节摘要168cbd22626e58cdcbfe175052aad010acd57a9a5797ccce5aa290e868dba253；sha256附件105字节摘要cb7e109a60ea177cc004ba2ee5a617ca3b19c09401e7ca597d03385eaa06013d；两附件uploaded且摘要与本地一致。不等于实际游玩自然度验收，未修改用户游玩区。
+
 2026-11-12发布门：1043后端全量通过56.191秒、159前端逻辑通过；2项人物提取浏览器通过10.8秒，覆盖无卡NPC改名取材、AI整理、审阅保存、故事/聊天带与不带经历。截图复核发现标题暴露内部ID，已改人物名称并重建复验。39项既有故事/聊天回归运行中。尚未实际构建rc.2或发布。
 
 2026-11-12人物提取：extraction/experiences/extraction_routes/character_chat_routes共19项通过，覆盖费用未确认不调用、公开资料投影、取材改写/撤回失效、聊天显式经历选择且原卡不变；Vite构建通过。浏览器扩展测试首轮因空开局没有可选回合而超时，补合成开场后1项通过10.3秒（真实HTTP假模型整理→审阅保存→聊天带/不带经历）。无卡NPC测试仍在执行，不记为通过。
