@@ -7,6 +7,7 @@ import yaml
 from core.asset_lifecycle import AssetLifecycleError, filename_for_asset
 from core.world_packages.provenance import refresh_local_instance_id
 from core.worldbook import save_worldbook_atomic
+from core.character_experiences import for_destination
 from utils.asset_catalog import resolve_asset_path
 
 
@@ -26,6 +27,7 @@ def prepare_start_assets(selections: dict[str, str]) -> list[tuple[str, str, dic
             raise AssetLifecycleError(f"资产格式无效：{name}")
         data["is_active"] = True
         if kind == "characters":
+            data = for_destination(data)
             data["is_player"] = True
         refresh_local_instance_id(data)
         prepared.append((kind, filename_for_asset(name), data))

@@ -7,6 +7,7 @@ import time
 from uuid import uuid5
 
 import yaml
+from core.character_experiences import for_destination
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 from core.character_chat.models import (CharacterSessionError, CREATION_NAMESPACE, MAX_SNAPSHOT_BYTES,
@@ -205,7 +206,7 @@ def load_asset(ref, *, world=False):
 async def create(request: Request):
     try:
         repository = request_repository(request)
-        payload = await body(request, {'client_creation_id', 'title', 'ai_asset_ref', 'user_asset_ref', 'world_asset_ref', 'presentation_mode', 'opening_text', 'schema_version'},
+        payload = await body(request, {'client_creation_id', 'title', 'ai_asset_ref', 'user_asset_ref', 'world_asset_ref', 'presentation_mode', 'opening_text', 'schema_version', 'include_experiences'},
                              {'client_creation_id', 'ai_asset_ref', 'presentation_mode'})
         version = payload.get('schema_version', 1)
         if type(version) is not int or version not in (1, 2):
@@ -219,6 +220,11 @@ async def create(request: Request):
         except ValueError:
             raise CharacterSessionError('INVALID_REQUEST') from None
         identity = {k: payload.get(k) for k in ('title', 'ai_asset_ref', 'user_asset_ref', 'world_asset_ref', 'presentation_mode')}
+        carry = payload.get('include_experiences', False)
+        if type(carry) is not bool:
+            raise CharacterSessionError('INVALID_REQUEST')
+        if carry:
+            identity['include_experiences'] = True
         if version == 2:
             identity['schema_version'] = 2
         if opening:
@@ -236,7 +242,7 @@ async def create(request: Request):
             if existing['schema_version'] != version or existing['creation_fingerprint'] != fingerprint:
                 raise CharacterSessionError('IDEMPOTENCY_MISMATCH')
             return JSONResponse(session_view(existing), status_code=201)
-        ai = load_asset(payload['ai_asset_ref'])
+        ai = for_destination(load_asset(payload['ai_asset_ref']), include_experiences=carry)
         user = load_asset(payload['user_asset_ref']) if payload.get('user_asset_ref') else None
         constructor = create_group_session if version == 2 else create_session
         value = constructor(creation, ai, payload['ai_asset_ref'], user_profile=user,

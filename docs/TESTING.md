@@ -1,5 +1,7 @@
 # AliveWorld 测试流程
 
+2026-11-12：character_experiences/character_chat_routes/character_extraction_routes共12项通过。首次Vite从仓库根运行缺index.html，改UI目录构建；NPC整理接口和携带开关需后续真实HTTP浏览器验证，不将此专项当整组验收。
+
 2026-11-11 59续：character_experiences/extraction/routes共8项通过，含默认不带记忆、显式携带且源卡不变、假模型输出人设与经历分离。没有真实API费用或完整UI验收，不代表59交付完成。
 
 2026-11-11目的模式续推：character_extraction及routes共6项通过，新增稳定身份候选、已离场人物和显式公开回合投影/撤回失效测试。尚未接通NPC整理UI或模型请求，不能视作59完成。

@@ -30,6 +30,8 @@ import { shouldSendCharacterKey } from '../../utils/characterInteraction.js';
 const creating = ref(false), aiCard = ref(''), userCard = ref(''), worldCard = ref(''), title = ref(''), mode = ref('messenger'), createBusy = ref(false), createError = ref('');
 const creationId = ref(globalThis.crypto.randomUUID());
 const openingText = ref('');
+const includeExperiences = ref(false);
+watch(aiCard, () => { includeExperiences.value = false; });
 const details = ref(false), listOpen = ref(false), messagePane = ref(null);
 const detailsTab = ref('profile');
 const listToggle = ref(null), detailsToggle = ref(null);
@@ -62,6 +64,7 @@ async function create() {
   createBusy.value = true; createError.value = '';
   try {
     await store.create(store.creationPending ? undefined : { client_creation_id: creationId.value, schema_version: 2, title: title.value || undefined, ai_asset_ref: { kind: 'character', key: aiCard.value }, opening_text: openingText.value,
+      include_experiences: includeExperiences.value,
       ...(userCard.value ? { user_asset_ref: { kind: 'character', key: userCard.value } } : {}),
       ...(worldCard.value ? { world_asset_ref: { kind: 'worldbook', key: worldCard.value } } : {}), presentation_mode: mode.value });
     creating.value = false; listOpen.value = false; creationId.value = globalThis.crypto.randomUUID(); openingText.value = '';
@@ -133,6 +136,7 @@ onUnmounted(() => { mounted = false; document.removeEventListener('visibilitycha
         <p v-if="!assetStore.characters.global.length" class="text-sm text-amber-200">暂无角色卡。<button type="button" class="underline" @click="uiStore.appMode='workshop'">前往工坊制卡</button>，或在资源库导入。</p>
         <label class="block text-sm">对话名称（可选）<input v-model="title" data-testid="character-title" class="field" maxlength="80" placeholder="默认使用角色名字"></label>
         <CharacterPresentationPicker v-model="mode" test-id="character-create-mode" :disabled="createBusy" />
+        <label class="block text-sm"><input v-model="includeExperiences" type="checkbox" /> 携带角色卡附带的旧世界经历（默认仅人设）</label>
         <label class="block text-sm">世界书（可选）<button type="button" data-testid="character-world-card" class="field text-left" :disabled="createBusy" @click="picker='world'">{{ worldCard || '＋ 载入世界书' }}</button></label>
         <p class="text-xs text-slate-400">世界书作为本会话的独立快照；公开常驻规则及相关条目提供给角色，不改写原世界书。</p>
         <label class="block text-sm">我的身份（可选）<button type="button" data-testid="character-user-card" class="field text-left" :disabled="createBusy" @click="picker='user'">{{ userCard || '我（不加载玩家卡）' }}</button></label>

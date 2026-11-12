@@ -27,6 +27,7 @@ const props = defineProps({ layout: { type: String, default: 'list' } });
 
 const searchKeyword = ref("");
 const extraction = ref(null);
+const carryExperiences = ref(false);
 const { confirmDeleteId, requestDelete, cancelDelete } = useDeleteConfirmation();
 const embeddingStatus = ref({ state: 'disabled', downloaded: false, enabled: false });
 const selectedPortraitUrl = ref('');
@@ -187,7 +188,7 @@ const executeDelete = async (name) => {
 const pullAssetToLocal = async (name) => {
   if (!gameStore.sessionId) return uiStore.showToast("⚠️ 请先开启或载入一个命运时间线！", "error");
   try {
-    await gameApi.pullAsset(gameStore.sessionId, { asset_type: getApiType(), asset_name: name });
+    await gameApi.pullAsset(gameStore.sessionId, { asset_type: getApiType(), asset_name: name, include_experiences: getApiType() === 'characters' && carryExperiences.value });
     await assetStore.fetchLocalAssets(gameStore.sessionId);
     const hiddenNotice = getApiType() === 'entities' && entitiesHiddenByDisclosure.value
       ? '；实体名称当前隐藏，可在设置中开启显示名称或允许编辑'
@@ -297,6 +298,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
+  <label v-if="uiStore.rightTab==='character' && uiStore.assetScope==='global'" class="mb-2 block text-xs text-slate-300"><input v-model="carryExperiences" type="checkbox" /> 载入时携带旧世界经历（默认仅人设）</label>
   <CharacterExtractionModal v-if="extraction" :key="extraction.sessionId + extraction.sourceName" v-bind="extraction" @close="extraction=null" />
   <div class="flex flex-col flex-1 min-h-0 animate-[fadeIn_0.2s]">
     <div class="flex bg-slate-900 rounded-lg p-1 border border-slate-700 shadow-inner mb-4 shrink-0">

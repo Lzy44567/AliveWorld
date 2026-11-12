@@ -13,6 +13,7 @@ from utils.file_io import DATA_DIR, save_game_data
 from utils.asset_catalog import resolve_asset_path
 from core.worldbook import normalize_worldbook, save_worldbook_atomic, worldbook_write_guard, read_worldbook_bytes
 from core.character_asset_write import CharacterWriteError, character_revision, write_character
+from core.character_experiences import for_destination
 from core.image_generation.runtime import get_image_runtime
 from core.image_generation.portrait import task_is_local_portrait
 from core.image_generation.service import ImageTaskError
@@ -38,6 +39,7 @@ DIR_MAP = {
 class PullAssetRequest(BaseModel):
     asset_type: str
     asset_name: str
+    include_experiences: StrictBool = False
 
 class LocalAssetUpdatePayload(BaseModel):
     parsed_data: Dict[str, Any]
@@ -133,7 +135,11 @@ def pull_asset(session_id: str, payload: PullAssetRequest):
     
     try:
         data = yaml.safe_load(global_file.read_text(encoding='utf-8')) or {}
-        if payload.asset_type == "worldbooks":
+        if payload.asset_type == 'characters':
+            data = for_destination(data, include_experiences=payload.include_experiences)
+            refresh_local_instance_id(data)
+            write_character(local_file, data)
+        elif payload.asset_type == "worldbooks":
             if isinstance(data, dict):
                 refresh_local_instance_id(data)
             save_worldbook_atomic(local_file, data)
