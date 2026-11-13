@@ -9,6 +9,34 @@ from utils.atomic_yaml import save_yaml_atomic
 
 KINDS = {'worldbooks', 'characters', 'styles', 'entities', 'starter', 'future_notes'}
 ORIGINS = {'original', 'suggested', 'missing'}
+TEXT_FIELDS = {
+    'worldbooks': {'overview'}, 'characters': {'description', 'starting_scene'},
+    'styles': {'content'}, 'entities': {'description', 'motive'},
+    'starter': {'world_premise', 'opening'}, 'future_notes': {'text'},
+}
+LIST_FIELDS = {'worldbooks': {'axioms'}, 'entities': {'mechanisms', 'plans'}}
+
+
+def validate_content(kind, content):
+    """Model/editor fields must be renderable and cannot inject asset metadata."""
+    texts, lists = TEXT_FIELDS[kind], LIST_FIELDS.get(kind, set())
+    allowed = texts | lists | ({'entries'} if kind == 'worldbooks' else set())
+    if set(content) - allowed:
+        raise ValueError('候选含不支持的字段，请按对应资产格式整理')
+    for key, value in content.items():
+        if key in texts and not isinstance(value, str):
+            raise ValueError(f'{key}必须是文本')
+        if key in lists and (not isinstance(value, list) or not all(isinstance(v, str) for v in value)):
+            raise ValueError(f'{key}必须是文本列表')
+        if key == 'entries':
+            if not isinstance(value, list):
+                raise ValueError('世界书条目必须是列表')
+            for entry in value:
+                if (not isinstance(entry, dict) or set(entry) - {'name', 'content', 'keywords'}
+                    or not all(isinstance(entry.get(k), str) for k in ('name', 'content'))
+                    or not isinstance(entry.get('keywords', []), list)
+                    or not all(isinstance(k, str) for k in entry.get('keywords', []))):
+                    raise ValueError('世界书条目需要名称、内容和文本关键词列表')
 
 
 def normalize_candidates(items, source_text):
@@ -25,6 +53,7 @@ def normalize_candidates(items, source_text):
             raise ValueError('候选名称不能为空')
         if not isinstance(item.get('content'), dict):
             raise ValueError('候选内容需要是对象')
+        validate_content(item['kind'], item['content'])
         quote = item.get('source_quote', '')
         if not isinstance(quote, str) or (quote and quote not in source_text):
             raise ValueError('来源片段不在选取的原稿中，请重新核对')

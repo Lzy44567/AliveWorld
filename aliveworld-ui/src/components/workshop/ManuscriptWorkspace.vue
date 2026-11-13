@@ -4,6 +4,7 @@ import ExpandableTextarea from '../common/ExpandableTextarea.vue';
 import ManuscriptFields from './ManuscriptFields.vue';
 import { assetStore } from '../../store/assetStore';
 import { uiStore } from '../../store/uiStore';
+import { workshopStore } from '../../store/workshopStore';
 const emit = defineEmits(['close']);
 const projects = ref([]), project = ref(null), title = ref(''), source = ref(''), selectedText = ref('');
 const busy = ref(false), error = ref(''), consent = ref(false), instruction = ref(''), checked = ref([]), results = ref([]);
@@ -48,6 +49,12 @@ function exportPackage() {
   localStorage.setItem('aliveworld.world-package-builder.v1',JSON.stringify({form:{name:project.value.title,version:'1.0.0',world_premise:starter.world_premise||'',opening:starter.opening||''},selected:assets.map(c=>`${c.kind}\u0000${c.name}`)}));
   uiStore.modals.worldPackageBuilder=true;
 }
+function continueWorkshop(item) { run(async () => {
+  await workshopStore.selectType(item.kind);
+  await workshopStore.setScope('global');
+  await workshopStore.start(item.name, 'global');
+  if (workshopStore.assetName === item.name && workshopStore.workshopId) emit('close');
+}); }
 </script>
 <template>
   <section class="absolute inset-0 z-40 flex flex-col bg-slate-950 text-slate-200" aria-label="手稿创作">
@@ -73,6 +80,7 @@ function exportPackage() {
       <div class="flex flex-wrap gap-3 text-sm"><button :disabled="busy" @click="checked=project.candidates.filter(c=>c.status!=='published').map(c=>c.id)">选择全部未发布</button><button @click="checked=[]">清空选择</button><button :disabled="busy || !checked.length" @click="review('accepted')">接受所选</button><button :disabled="busy || !checked.length" @click="review('rejected')">拒绝所选</button><button :disabled="busy || !checked.length" @click="publish">发布所选资产</button><button :disabled="busy || !project.candidates.some(c=>c.status==='published')" @click="exportPackage">制作世界包</button></div>
       <p class="text-xs text-slate-400">发布前请核对跨卡依赖；未接受的相关设定不会自动补齐。开局与未来剧情留在项目，只有已接受开局进入打包预填；未来剧情不会执行。</p>
       <article v-for="item in project.candidates" :key="item.id" class="rounded-xl border border-slate-700 p-4">
+        <button v-if="item.status==='published'" :disabled="busy" class="float-right text-sm text-cyan-300" @click="continueWorkshop(item)">进入工坊继续创作</button>
         <div class="flex items-center gap-3"><input v-model="checked" type="checkbox" :value="item.id" :aria-label="`选择${item.name}`" /><strong>{{ kinds[item.kind] }} · {{ item.name }}</strong><span class="text-xs text-slate-400">{{ origins[item.origin] }} · {{ statuses[item.status] }}</span></div>
         <details class="mt-3"><summary class="cursor-pointer text-cyan-300">查看、编辑与审阅</summary>
           <fieldset :disabled="busy || item.status==='published'" class="space-y-3 mt-3">
