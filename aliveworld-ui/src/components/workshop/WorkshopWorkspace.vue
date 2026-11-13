@@ -5,6 +5,8 @@ import { uiStore } from '../../store/uiStore';
 import WorkshopAssetBrowser from './WorkshopAssetBrowser.vue';
 import WorkshopConversation from './WorkshopConversation.vue';
 import WorkshopDraftSidebar from './WorkshopDraftSidebar.vue';
+import ManuscriptWorkspace from './ManuscriptWorkspace.vue';
+const manuscript = ref(false);
 const focused = ref(false);
 const query = window.matchMedia('(max-width: 1100px)');
 const narrow = ref(query.matches), panel = ref('');
@@ -24,6 +26,8 @@ onBeforeUnmount(() => query.removeEventListener('change', resize));
 
 <template>
   <div class="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+    <ManuscriptWorkspace v-if="manuscript" @close="manuscript=false" />
+    <button v-if="!focused" class="shrink-0 border-b border-slate-800 px-3 py-1 text-left text-xs text-cyan-300" @click="manuscript=true">导入手稿 · 多资产创作</button>
     <div v-if="narrow && !focused" class="flex shrink-0 gap-3 border-b border-slate-800 bg-slate-950 px-3 py-1 text-xs text-cyan-300"><button @click="openPanel('draft')">{{ panel === 'draft' ? '收起草稿' : '查看草稿' }}</button><button @click="openPanel('assets')">{{ panel === 'assets' ? '收起资产' : '选择资产' }}</button></div>
     <div class="relative flex min-h-0 flex-1 overflow-hidden">
     <WorkshopDraftSidebar v-show="!focused && (!narrow || panel === 'draft')" :class="narrow ? '!absolute inset-y-0 left-0 z-30 max-w-full' : ''" />
