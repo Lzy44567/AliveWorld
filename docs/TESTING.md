@@ -1,5 +1,7 @@
 # AliveWorld 测试流程
 
+2026-11-13发布门：build/manuscript60-python.txt全量1048通过54.841秒。扩展手稿浏览器已完成实际下载及续编跳转，但末断言误查空聊天记录中的名称失败；改核对工坊标题，不改业务逻辑。rc.3重建后23项完整故事/手稿回归运行中（manuscript60-browser-final.txt），不提前报通过。
+
 2026-11-13：手稿5专项通过，新增实际world-package ZIP排除原稿/未来剧情标记且包含显式开局；Vite198模块构建及手稿浏览器1项复验6.4秒通过。全量Python已启动，输出build/manuscript60-python.txt，结果待核对；不提前记录通过。
 
 2026-11-13：4手稿后端专项通过；e2e/manuscript.spec.js真实HTTP假模型1项通过6.6秒，覆盖TXT本地文件导入、六类整理、角色编辑、批审发布、重载与打开既有打包界面。build/manuscript-review.png已视觉检查，发现字段缺少可见标签后补标题，最终视觉重验尚待。尚不能证明导出内容正确或完整隐私验收。

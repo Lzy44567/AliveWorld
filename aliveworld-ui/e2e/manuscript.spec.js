@@ -27,4 +27,15 @@ test('手稿文件导入、整理、审阅、发布与重载',async({page})=>{
   await expect(workspace.locator('article')).toHaveCount(6);
   await workspace.getByRole('button',{name:'制作世界包'}).click();
   await expect(page.getByRole('dialog',{name:'创建世界包'})).toBeVisible();
+  const builder=page.getByRole('dialog',{name:'创建世界包'});
+  await builder.getByRole('textbox',{name:'作者',exact:true}).fill('自动验收');
+  const downloaded=page.waitForEvent('download');
+  await builder.getByTestId('package-builder-export').click();
+  const download=await downloaded;
+  expect(download.suggestedFilename()).toMatch(/\.aliveworld$/);
+  expect(await download.failure()).toBeNull();
+  await builder.getByRole('button',{name:'取消',exact:true}).click();
+  await character.getByRole('button',{name:'进入工坊继续创作'}).click();
+  await expect(workspace).toBeHidden();
+  await expect(page.getByRole('heading',{name:/角色卡工坊.*手稿人物/})).toBeVisible();
 });
