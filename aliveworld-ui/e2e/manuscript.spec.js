@@ -1,0 +1,30 @@
+import {test,expect} from '@playwright/test';
+
+test('手稿文件导入、整理、审阅、发布与重载',async({page})=>{
+  await page.addInitScript(()=>localStorage.setItem('aw_onboarding_v1',JSON.stringify({completed:true})));
+  await page.goto('/');
+  await page.getByRole('button',{name:/工坊/}).first().click();
+  await page.getByRole('button',{name:'导入手稿 · 多资产创作'}).click();
+  const workspace=page.getByRole('region',{name:'手稿创作'});
+  await workspace.locator('input[type=file]').setInputFiles({name:'校园手稿.txt',mimeType:'text/plain',buffer:Buffer.from('校园学生在海边生活，将来可能觉醒。')});
+  await workspace.getByRole('button',{name:'创建手稿项目'}).click();
+  await workspace.getByRole('checkbox',{name:/确认发送/}).check();
+  await workspace.getByRole('button',{name:'AI 整理手稿'}).click();
+  await expect(workspace.locator('article')).toHaveCount(6);
+  const character=workspace.locator('article').filter({hasText:'手稿人物'});
+  await character.locator('summary').click();
+  await character.getByRole('textbox',{name:'设定描述'}).fill('谨慎的普通学生');
+  await character.getByRole('button',{name:'保存编辑'}).click();
+  await workspace.getByRole('button',{name:'选择全部未发布'}).click();
+  await workspace.getByRole('button',{name:'接受所选',exact:true}).click();
+  await workspace.getByRole('button',{name:'发布所选资产'}).click();
+  await expect(workspace.getByText('保留为项目资料，不写入全局资产',{exact:false})).toHaveCount(2);
+  await page.screenshot({path:'../build/manuscript-review.png'});
+  await page.reload();
+  await page.getByRole('button',{name:/工坊/}).first().click();
+  await page.getByRole('button',{name:'导入手稿 · 多资产创作'}).click();
+  await workspace.getByRole('button',{name:'校园手稿',exact:true}).click();
+  await expect(workspace.locator('article')).toHaveCount(6);
+  await workspace.getByRole('button',{name:'制作世界包'}).click();
+  await expect(page.getByRole('dialog',{name:'创建世界包'})).toBeVisible();
+});

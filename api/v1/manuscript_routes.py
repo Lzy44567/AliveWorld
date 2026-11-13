@@ -25,9 +25,16 @@ class AnalyzePayload(BaseModel):
     acknowledged: StrictBool = False
 
 
+class CandidateChange(BaseModel):
+    id: str
+    name: str | None = None
+    content: dict | None = None
+    status: str | None = None
+
+
 class ReviewPayload(BaseModel):
     expected_revision: int
-    changes: list[dict]
+    changes: list[CandidateChange]
 
 
 class PublishPayload(BaseModel):
@@ -70,7 +77,8 @@ def get_project(project_id: str):
 @router.post('/{project_id}/review')
 def review(project_id: str, payload: ReviewPayload):
     with errors(), mutation_guard('manuscript', project_id):
-        return projects.review(project_id, payload.expected_revision, payload.changes)
+        return projects.review(project_id, payload.expected_revision,
+                               [change.model_dump(exclude_none=True) for change in payload.changes])
 
 
 @router.post('/{project_id}/publish')

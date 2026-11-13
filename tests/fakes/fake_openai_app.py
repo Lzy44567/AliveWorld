@@ -42,6 +42,8 @@ def _message_text(message: dict[str, Any]) -> str:
 
 
 def _classify(system: str) -> str:
+    if '你是AliveWorld手稿整理工坊' in system:
+        return 'manuscript'
     if '你是人物整理工坊' in system:
         return 'character.extraction'
     if '你负责整理双方已送达的角色聊天' in system:
@@ -72,6 +74,16 @@ def _classify(system: str) -> str:
 
 
 def _response_for(kind: str, system: str, user: str) -> dict[str, Any] | str:
+    if kind == 'manuscript':
+        manuscript = json.loads(user)['manuscript']
+        assets = [('worldbooks','手稿世界',{'overview':'校园世界','axioms':['世界有昼夜'],'entries':[{'name':'校园','content':'校园位于海边','keywords':['校园']}]}),
+                  ('characters','手稿人物',{'description':'普通学生','starting_scene':''}),
+                  ('styles','手稿文风',{'content':'简洁自然'}),
+                  ('entities','手稿组织',{'description':'研究会','motive':'探索','plans':['寻找资料'],'mechanisms':['合作']}),
+                  ('starter','手稿开场',{'world_premise':'海边校园','opening':'你来到校门口。'}),
+                  ('future_notes','手稿未来',{'text':'将来可能获得能力，不是现有能力'})]
+        return {'candidates':[{'kind':k,'name':n,'origin':'original','source_quote':manuscript,'content':c} for k,n,c in assets],
+                'notes':'请审阅人物与组织关系；未来事件尚未发生。'}
     if kind == 'character.extraction':
         source = json.loads(user)
         return {'profile': {'description': '认真负责的测试角色', 'personality': '谨慎',

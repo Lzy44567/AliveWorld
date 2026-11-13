@@ -1,6 +1,7 @@
 <script setup>
 import { onMounted, ref } from 'vue';
 import ExpandableTextarea from '../common/ExpandableTextarea.vue';
+import ManuscriptFields from './ManuscriptFields.vue';
 import { assetStore } from '../../store/assetStore';
 import { uiStore } from '../../store/uiStore';
 const emit = defineEmits(['close']);
@@ -47,9 +48,6 @@ function exportPackage() {
   localStorage.setItem('aliveworld.world-package-builder.v1',JSON.stringify({form:{name:project.value.title,version:'1.0.0',world_premise:starter.world_premise||'',opening:starter.opening||''},selected:assets.map(c=>`${c.kind}\u0000${c.name}`)}));
   uiStore.modals.worldPackageBuilder=true;
 }
-function editStructured(item,key,event) {
-  try { item.content[key]=JSON.parse(event.target.value); error.value=''; } catch { error.value='结构化字段需要有效 JSON，修改尚未应用'; }
-}
 </script>
 <template>
   <section class="absolute inset-0 z-40 flex flex-col bg-slate-950 text-slate-200" aria-label="手稿创作">
@@ -79,7 +77,7 @@ function editStructured(item,key,event) {
         <details class="mt-3"><summary class="cursor-pointer text-cyan-300">查看、编辑与审阅</summary>
           <fieldset :disabled="busy || item.status==='published'" class="space-y-3 mt-3">
             <label class="block">名称<input v-model="item.name" class="ml-3 rounded bg-slate-800 p-2" /></label>
-            <div v-for="(value,key) in item.content" :key="key"><ExpandableTextarea v-if="typeof value==='string'" v-model="item.content[key]" :label="key" :rows="3" textarea-class="bg-slate-900 p-3 rounded" /><label v-else class="block">{{ key }}（结构化内容）<textarea :value="JSON.stringify(value,null,2)" rows="5" class="block w-full rounded bg-slate-900 p-3" @change="editStructured(item,key,$event)" /></label></div>
+            <ManuscriptFields v-model="item.content" />
             <p class="whitespace-pre-wrap text-xs text-slate-500">原文依据：{{ item.source_quote || '无直接引用，请核对' }}</p>
             <div class="flex gap-4"><button @click="review(null,[item.id])">保存编辑</button><button @click="review('accepted',[item.id])">接受</button><button @click="review('rejected',[item.id])">拒绝</button></div>
           </fieldset>
