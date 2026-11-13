@@ -1,5 +1,7 @@
 # AliveWorld 测试流程
 
+2026-11-13：manuscript_project及manuscript_routes共3项通过，API测试覆盖费用确认、选取文本隐私、过期修订不重发模型、模型错误保留已存草稿及重新读取。使用假模型，无真实收费；没有UI或正式资产发布验收。
+
 2026-11-13：tests.test_manuscript_project共2项通过，验证独立项目重载、初始人物与未来节点分离、旧修订拒绝、引用不匹配不改原文件及项目ID路径边界。仅数据层测试，不代表模型分类或UI已完成。
 
 2026-11-12最终交付：1.6.0-rc.2真实Release，构建/标签34bd0a75c0bff0346007520c8f0546acaaa9ab14。build/character59-python.txt为1043通过，character59-node.txt为159通过；character59-regression.txt首轮39项36通过、3失败（运行中升版导致页面/反馈仍旧版本，首项中断又影响依赖的重载测试）；统一重建后character59-final-browser.txt为24通过1.6分钟，未改业务逻辑掩盖失败。rc2-package.txt主EXE/助手构建与ZIP结构、隐私排除、覆盖保留通过。远端非草稿预发布，ZIP41119401字节摘要168cbd22626e58cdcbfe175052aad010acd57a9a5797ccce5aa290e868dba253；sha256附件105字节摘要cb7e109a60ea177cc004ba2ee5a617ca3b19c09401e7ca597d03385eaa06013d；两附件uploaded且摘要与本地一致。不等于实际游玩自然度验收，未修改用户游玩区。

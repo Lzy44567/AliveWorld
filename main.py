@@ -22,6 +22,7 @@ from api.v1.image_generation_routes import router as image_generation_router
 from api.v1.lobby_routes import router as lobby_router
 from api.v1.local_asset_routes import router as local_asset_router
 from api.v1.character_extraction_routes import router as character_extraction_router
+from api.v1.manuscript_routes import router as manuscript_router
 from api.v1.model_connection_routes import router as model_connection_router
 from api.v1.preference_workshop_routes import router as preference_workshop_router
 from api.v1.story_memory_routes import router as story_memory_router
@@ -65,6 +66,7 @@ def create_app(
     application.include_router(generation_router, prefix="/api/v1/generations", tags=["生成请求控制"])
     application.include_router(local_asset_router, prefix="/api/v1/game", tags=["Game 局内专属资产"])
     application.include_router(character_extraction_router, prefix="/api/v1/game", tags=["人物提取"])
+    application.include_router(manuscript_router, prefix="/api/v1/manuscripts", tags=["手稿创作"])
     application.include_router(worldbook_collaboration_router, prefix="/api/v1/game", tags=["世界书协作"])
     application.include_router(worldbook_activity_router, prefix="/api/v1/game", tags=["世界书修订记录"])
     application.include_router(causal_ledger_router, prefix="/api/v1/game", tags=["Game 暗流因果账本"])
