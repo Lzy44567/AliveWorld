@@ -76,3 +76,22 @@ class ManuscriptProjects:
         project['candidates'].extend(normalized)
         project.update(selected_text=selected_text, notes=notes, revision=expected_revision + 1)
         return self.save(project)
+
+    def review(self, project_id, expected_revision, changes):
+        project = self.load(project_id)
+        if project['revision'] != expected_revision:
+            raise ValueError('项目已修改，请刷新后再审阅')
+        by_id = {item['id']: item for item in project['candidates']}
+        for change in changes:
+            item = by_id.get(change['id'])
+            if item is None or item['status'] == 'published':
+                raise ValueError('候选不存在或已发布，请在资产工坊编辑已发布内容')
+            status = change.get('status', item['status'])
+            if status not in {'pending', 'accepted', 'rejected'}:
+                raise ValueError('审阅状态无效')
+            edited = {**item, 'name': change.get('name', item['name']),
+                      'content': change.get('content', item['content'])}
+            validated = normalize_candidates([edited], project['source_text'])[0]
+            item.update(name=validated['name'], content=validated['content'], status=status)
+        project['revision'] += 1
+        return self.save(project)

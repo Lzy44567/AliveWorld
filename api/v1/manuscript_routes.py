@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, StrictBool
 from core.manuscript_project import ManuscriptProjects
 from core.manuscript_agent import analyze_manuscript
+from core.manuscript_publish import publish_candidates
 from core.model_connections.runtime import get_task_engine
 from core.session_manager import mutation_guard, MutationBusyError
 from utils.runtime_paths import PATHS
@@ -22,6 +23,16 @@ class AnalyzePayload(BaseModel):
     selected_text: str
     instruction: str = ''
     acknowledged: StrictBool = False
+
+
+class ReviewPayload(BaseModel):
+    expected_revision: int
+    changes: list[dict]
+
+
+class PublishPayload(BaseModel):
+    expected_revision: int
+    candidate_ids: list[str]
 
 
 @contextmanager
@@ -54,6 +65,19 @@ def create_project(payload: CreatePayload):
 def get_project(project_id: str):
     with errors():
         return projects.load(project_id)
+
+
+@router.post('/{project_id}/review')
+def review(project_id: str, payload: ReviewPayload):
+    with errors(), mutation_guard('manuscript', project_id):
+        return projects.review(project_id, payload.expected_revision, payload.changes)
+
+
+@router.post('/{project_id}/publish')
+def publish(project_id: str, payload: PublishPayload):
+    with errors(), mutation_guard('manuscript', project_id):
+        return publish_candidates(projects, PATHS.data_dir, project_id,
+                                  payload.expected_revision, payload.candidate_ids)
 
 
 @router.post('/{project_id}/analyze')
